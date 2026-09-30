@@ -136,6 +136,11 @@ async def subscription_quote_route(request: web.Request) -> web.Response:
                 base_amount=quote.price,
                 base_stars=quote.stars_price,
             )
+            await session.commit()
+            if promo_error is not None and promo_error.status == 429:
+                from .rate_limits import rate_error
+
+                return rate_error(promo_error.retry_after or 60)
             if promo_error is not None or promo_result is None:
                 return _json_error(
                     promo_error.status if promo_error else 400,

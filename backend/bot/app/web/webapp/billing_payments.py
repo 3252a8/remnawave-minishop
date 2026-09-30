@@ -826,6 +826,11 @@ async def _create_subscription_payment(
                 lock_for_checkout=True,
             )
             if promo_error is not None:
+                await session.commit()
+                if promo_error.status == 429:
+                    from .rate_limits import rate_error
+
+                    return rate_error(promo_error.retry_after or 60)
                 return _json_error(promo_error.status, promo_error.code, promo_error.message)
         if promo_result is not None:
             if fixed_days is not None:

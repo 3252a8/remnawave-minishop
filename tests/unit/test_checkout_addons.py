@@ -494,6 +494,14 @@ class CheckoutAddonConfigTests(TestCase):
 
 
 class CheckoutAddonPromoTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        attempt = patch(
+            "bot.services.checkout_promos.check_code_attempt",
+            AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+        )
+        self.attempt = attempt.start()
+        self.addCleanup(attempt.stop)
+
     async def test_percentage_discount_applies_to_entire_fiat_cart(self) -> None:
         config = _checkout_config()
         quote, _bundle = build_checkout_bundle(

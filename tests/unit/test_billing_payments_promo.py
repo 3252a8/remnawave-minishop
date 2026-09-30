@@ -6,6 +6,14 @@ from bot.app.web.webapp.billing_checkout_adjustments import _resolve_checkout_pr
 
 
 class BillingPaymentsPromoTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        attempt = patch(
+            "bot.services.checkout_promos.check_code_attempt",
+            AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+        )
+        self.attempt = attempt.start()
+        self.addCleanup(attempt.stop)
+
     async def test_checkout_rejects_instant_bonus_code(self):
         settings = SimpleNamespace(
             MIGRATION_REMNASHOP_PROMO_CODE_COMPAT_ENABLED=False,

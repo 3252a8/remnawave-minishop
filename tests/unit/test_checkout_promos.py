@@ -34,6 +34,35 @@ def _quote(
 
 
 class CheckoutPromoTests(IsolatedAsyncioTestCase):
+    async def test_shared_attempt_lock_stops_checkout_before_code_lookup(self):
+        self.attempt.return_value = SimpleNamespace(locked=True, retry_after=1800)
+        with patch("bot.services.checkout_promos._promo_model", AsyncMock()) as lookup:
+            result, error = await resolve_checkout_promo(
+                session=AsyncMock(),
+                settings=SimpleNamespace(),
+                user_id=42,
+                sale_mode="subscription",
+                payment_units=1,
+                traffic_gb=None,
+                method="yookassa",
+                base_amount=100,
+                base_stars=None,
+                code_input="UNKNOWN",
+            )
+        lookup.assert_not_awaited()
+        self.assertIsNone(result)
+        assert error is not None
+        self.assertEqual(error.status, 429)
+        self.assertEqual(error.retry_after, 1800)
+
+    async def asyncSetUp(self):
+        attempt = patch(
+            "bot.services.checkout_promos.check_code_attempt",
+            AsyncMock(return_value=SimpleNamespace(locked=False, retry_after=None)),
+        )
+        self.attempt = attempt.start()
+        self.addCleanup(attempt.stop)
+
     async def test_premium_fixed_grant_rejects_tariff_without_premium_squads(self):
         promo = SimpleNamespace(
             promo_code_id=9,

@@ -13,6 +13,7 @@ from bot.infra.promo_policies import (
     evaluate_promo_access,
     evaluate_promo_redemption,
 )
+from bot.services.code_attempts import check_code_attempt
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
 from config.subscription_periods import checkout_duration_days
@@ -42,6 +43,7 @@ class CheckoutPromoError:
     status: int
     code: str
     message: str
+    retry_after: int | None = None
 
 
 def _sale_mode_base(sale_mode: str) -> str:
@@ -112,6 +114,9 @@ async def resolve_checkout_promo(
     code = str(code_input or "").strip()
     if not code and promo_code_id is None:
         return None, None
+    throttle = await check_code_attempt(session, settings, user_id)
+    if throttle.locked:
+        return None, CheckoutPromoError(429, "rate_limited", "rate_limited", throttle.retry_after)
     promo = await _promo_model(
         session,
         settings,
@@ -120,6 +125,11 @@ async def resolve_checkout_promo(
         lock_for_checkout=lock_for_checkout,
     )
     if promo is None:
+        throttle = await check_code_attempt(session, settings, user_id, failed=True)
+        if throttle.locked:
+            return None, CheckoutPromoError(
+                429, "rate_limited", "rate_limited", throttle.retry_after
+            )
         return None, CheckoutPromoError(400, "promo_code_not_found", "Code is not available")
 
     effects = PromoEffects.from_model(promo)
@@ -136,6 +146,11 @@ async def resolve_checkout_promo(
         include_policies=False,
     )
     if not access.allowed:
+        throttle = await check_code_attempt(session, settings, user_id, failed=True)
+        if throttle.locked:
+            return None, CheckoutPromoError(
+                429, "rate_limited", "rate_limited", throttle.retry_after
+            )
         return None, CheckoutPromoError(400, "promo_code_not_found", "Code is not available")
     try:
         validate_effects(

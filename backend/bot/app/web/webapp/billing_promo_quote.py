@@ -104,6 +104,11 @@ async def quote_promo_route(request: web.Request) -> web.Response:
             base_amount=base_quote.price,
             base_stars=base_quote.stars_price,
         )
+        await session.commit()
+        if promo_error is not None and promo_error.status == 429:
+            from .rate_limits import rate_error
+
+            return rate_error(promo_error.retry_after or 60)
         if promo_error is not None or promo_result is None:
             reason = promo_error.message if promo_error is not None else "Code does not apply"
             reason_key = (
