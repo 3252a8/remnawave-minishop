@@ -70,6 +70,10 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
+                "bot.services.payment_promo.promo_code_dal.get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
                 "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
                 AsyncMock(return_value=None),
             ),
@@ -107,6 +111,10 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
+                "bot.services.payment_promo.promo_code_dal.get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
                 "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
                 AsyncMock(return_value=SimpleNamespace(payment_id=76)),
             ),
@@ -142,6 +150,10 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
 
         with (
             patch(
+                "bot.services.payment_promo.promo_code_dal.get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
                 "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
                 AsyncMock(return_value=SimpleNamespace(payment_id=76)),
             ),
@@ -171,6 +183,10 @@ class PaymentPromoTests(IsolatedAsyncioTestCase):
         effects = PromoEffects(bonus_days=7, applies_to="all")
 
         with (
+            patch(
+                "bot.services.payment_promo.promo_code_dal.get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
             patch(
                 "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
                 AsyncMock(return_value=None),

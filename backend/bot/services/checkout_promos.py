@@ -8,7 +8,11 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.pricing import PriceContext, resolve_effective_price
-from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_redemption
+from bot.infra.promo_policies import (
+    PromoRedemptionContext,
+    evaluate_promo_access,
+    evaluate_promo_redemption,
+)
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
 from config.subscription_periods import checkout_duration_days
@@ -119,6 +123,20 @@ async def resolve_checkout_promo(
         return None, CheckoutPromoError(400, "promo_code_not_found", "Code is not available")
 
     effects = PromoEffects.from_model(promo)
+    access = await evaluate_promo_access(
+        PromoRedemptionContext(
+            session=session,
+            user_id=user_id,
+            promo_model=promo,
+            effects=effects,
+            sale_mode_base=_sale_mode_base(sale_mode),
+            months=int(payment_units) if _sale_mode_base(sale_mode) == "subscription" else None,
+            traffic_gb=traffic_gb,
+        ),
+        include_policies=False,
+    )
+    if not access.allowed:
+        return None, CheckoutPromoError(400, "promo_code_not_found", "Code is not available")
     try:
         validate_effects(
             effects,

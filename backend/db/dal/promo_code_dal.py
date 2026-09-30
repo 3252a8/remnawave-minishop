@@ -700,7 +700,10 @@ async def consume_promo_activation(
             )
             return None
 
-    update_conditions = [PromoCode.promo_code_id == promo_code_id]
+    update_conditions = [
+        PromoCode.promo_code_id == promo_code_id,
+        or_(PromoCode.user_id.is_(None), PromoCode.user_id == user_id),
+    ]
     if enforce_limit:
         update_conditions.append(PromoCode.current_activations < PromoCode.max_activations)
     stmt = (

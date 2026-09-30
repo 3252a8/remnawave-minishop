@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_access
 from bot.services.promo_effects import PromoEffects, summarize_effects
 from db.dal import promo_code_dal
 
@@ -63,6 +64,25 @@ async def consume_payment_promo(
     granted_premium_traffic_gb: float | None = None,
 ) -> bool:
     promo_code_id = int(promo_model.promo_code_id)
+    locked_promo = await promo_code_dal.get_promo_code_by_id(
+        session, promo_code_id, for_update=True
+    )
+    if locked_promo is None:
+        raise PaymentPromoRedemptionError("Attached code is unavailable")
+    access = await evaluate_promo_access(
+        PromoRedemptionContext(
+            session=session,
+            user_id=user_id,
+            promo_model=locked_promo,
+            effects=effects,
+            sale_mode_base=sale_mode_base,
+            months=months,
+            traffic_gb=traffic_gb,
+            payment_id=payment_id,
+        )
+    )
+    if not access.allowed:
+        raise PaymentPromoRedemptionError("Attached code is unavailable")
     existing = await promo_code_dal.get_user_activation_for_promo(
         session,
         promo_code_id,

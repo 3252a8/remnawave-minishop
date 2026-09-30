@@ -178,19 +178,36 @@ def iter_promo_redemption_policies() -> tuple[PromoRedemptionPolicy, ...]:
     return (*_CORE_PROMO_REDEMPTION_POLICIES, *_extra_promo_redemption_policies)
 
 
-async def evaluate_promo_redemption(
+async def evaluate_promo_access(
     ctx: PromoRedemptionContext,
+    *,
+    include_policies: bool = True,
 ) -> PromoRedemptionDecision:
+    recipient = getattr(ctx.promo_model, "user_id", None)
+    if recipient is not None and int(recipient) != int(ctx.user_id):
+        return PromoRedemptionDecision.deny("promo_code_not_found")
     owner = getattr(ctx.promo_model, "owner_plugin_id", None)
     if owner:
         # This policy is part of Core's persisted resource boundary. It works
         # even when the owner failed to import or the process is in safe mode.
         if owner not in _owner_policy_plugins:
-            return PromoRedemptionDecision.deny("promo_code_not_applicable")
-        recipient = getattr(ctx.promo_model, "user_id", None)
-        if recipient is None or int(recipient) != int(ctx.user_id):
-            return PromoRedemptionDecision.deny("promo_code_not_applicable")
-    for policy in iter_promo_redemption_policies():
+            return PromoRedemptionDecision.deny("promo_code_not_found")
+        if recipient is None:
+            return PromoRedemptionDecision.deny("promo_code_not_found")
+    for policy in tuple(_extra_promo_redemption_policies) if include_policies else ():
+        result = policy(ctx)
+        if inspect_module.isawaitable(result):
+            result = await result
+        if not result.allowed:
+            return result
+    return PromoRedemptionDecision.allow()
+
+
+async def evaluate_promo_redemption(ctx: PromoRedemptionContext) -> PromoRedemptionDecision:
+    access = await evaluate_promo_access(ctx)
+    if not access.allowed:
+        return access
+    for policy in _CORE_PROMO_REDEMPTION_POLICIES:
         result = policy(ctx)
         if inspect_module.isawaitable(result):
             result = await result

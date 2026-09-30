@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
 from bot.infra.event_payloads import PromoCodeAppliedPayload
+from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_access
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import PromoEffects, summarize_effects, validate_effects
 from config.settings import Settings
@@ -255,6 +256,18 @@ class PromoCodeService:
         promo_data = await promo_code_dal.get_active_promo_code_by_code_str(
             session, lookup_code, preserve_case=preserve_case
         )
+        if promo_data is not None:
+            access = await evaluate_promo_access(
+                PromoRedemptionContext(
+                    session=session,
+                    user_id=user_id,
+                    promo_model=promo_data,
+                    effects=PromoEffects.from_model(promo_data),
+                    sale_mode_base="standalone",
+                )
+            )
+            if not access.allowed:
+                promo_data = None
         if not promo_data:
             throttle_result = await security_dal.record_throttle_failure(
                 session,
@@ -358,8 +371,20 @@ class PromoCodeService:
             )
 
         promo_data = await promo_code_dal.get_active_promo_code_by_code_str(
-            session, lookup_code, preserve_case=preserve_case
+            session, lookup_code, preserve_case=preserve_case, for_update=True
         )
+        if promo_data is not None:
+            access = await evaluate_promo_access(
+                PromoRedemptionContext(
+                    session=session,
+                    user_id=user_id,
+                    promo_model=promo_data,
+                    effects=PromoEffects.from_model(promo_data),
+                    sale_mode_base="standalone",
+                )
+            )
+            if not access.allowed:
+                promo_data = None
 
         if not promo_data:
             throttle_result = await security_dal.record_throttle_failure(

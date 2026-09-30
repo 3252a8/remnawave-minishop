@@ -23,6 +23,7 @@ from bot.infra.promo_policies import (
     PromoCheckoutSuggestionContext,
     PromoRedemptionContext,
     PromoRedemptionDecision,
+    evaluate_promo_access,
     evaluate_promo_redemption,
     register_promo_checkout_suggestion_provider,
     register_promo_redemption_policy,
@@ -75,6 +76,46 @@ def test_price_chain_applies_core_discount_and_registered_modifier():
     assert result.amount == 0
     assert result.stars == 1
     assert [adjustment.source for adjustment in result.adjustments] == ["promo", "plugin"]
+
+
+@pytest.mark.parametrize("owner", [None, "missing-plugin"])
+def test_personal_code_never_authorizes_another_recipient(owner):
+    decision = asyncio.run(
+        evaluate_promo_access(
+            PromoRedemptionContext(
+                session=object(),
+                user_id=77,
+                promo_model=SimpleNamespace(user_id=42, owner_plugin_id=owner),
+                effects=PromoEffects(bonus_days=7),
+                sale_mode_base="standalone",
+            )
+        )
+    )
+    assert decision.allowed is False
+    assert decision.reason_key == "promo_code_not_found"
+
+
+def test_standalone_code_invokes_owner_policy():
+    seen = []
+
+    def owner_policy(ctx):
+        seen.append(ctx.user_id)
+        return PromoRedemptionDecision.deny("plugin_denied")
+
+    register_promo_redemption_policy(owner_policy, owner_plugin_id="owner-plugin")
+    decision = asyncio.run(
+        evaluate_promo_access(
+            PromoRedemptionContext(
+                session=object(),
+                user_id=42,
+                promo_model=SimpleNamespace(user_id=42, owner_plugin_id="owner-plugin"),
+                effects=PromoEffects(bonus_days=7),
+                sale_mode_base="standalone",
+            )
+        )
+    )
+    assert seen == [42]
+    assert decision.allowed is False
 
 
 def test_grant_chain_applies_core_bonus_and_registered_modifier():
