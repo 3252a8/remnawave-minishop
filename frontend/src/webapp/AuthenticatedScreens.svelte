@@ -574,6 +574,7 @@
           {subscription}
           {loadDevices}
           openDeviceDisconnectDialog={devicesStore.openDeviceDisconnectDialog}
+          openDeviceRenameDialog={devicesStore.openDeviceRenameDialog}
           {openDeviceTopupModal}
           {openPaymentModal}
           {t}

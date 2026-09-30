@@ -10,6 +10,7 @@
   import type { DevicesStore } from "../lib/webapp/stores/devicesStore.js";
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
+  import DeviceRenameDialog from "./payment-dialogs/DeviceRenameDialog.svelte";
   import TelegramMergeDialog from "./security/TelegramMergeDialog.svelte";
   import TributeCreatorCancelDialog from "./payment-dialogs/TributeCreatorCancelDialog.svelte";
   import QaPaymentDialog from "./payment-dialogs/QaPaymentDialog.svelte";
@@ -232,6 +233,18 @@
   {subscriptionReissueBusy}
   {confirmSubscriptionReissue}
   {closeSubscriptionReissueDialog}
+  {t}
+/>
+
+<DeviceRenameDialog
+  open={devicesStore.deviceRenameOpen}
+  busy={devicesStore.deviceRenameBusy}
+  device={devicesStore.deviceToRename}
+  bind:value={devicesStore.deviceRenameValue}
+  error={devicesStore.deviceRenameError}
+  onsave={() => devicesStore.renameDevice()}
+  onreset={() => devicesStore.renameDevice("")}
+  onclose={devicesStore.closeDeviceRenameDialog}
   {t}
 />
 

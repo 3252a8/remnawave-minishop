@@ -89,6 +89,7 @@ from .contracts import register_webapp_route_contracts
 from .devices import (
     devices_route,
     disconnect_device_route,
+    rename_device_route,
 )
 from .documents import document_content_route, documents_list_route
 from .email_addresses import account_notification_email_route
@@ -406,6 +407,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     )
     app.router.add_post("/api/partner/balance/renew", partner_balance_renew_route)
     app.router.add_post("/api/devices/disconnect", disconnect_device_route)
+    app.router.add_post("/api/devices/rename", rename_device_route)
     app.router.add_get("/api/devices/topup-options", device_topup_options_route)
     app.router.add_get("/api/support/tickets", support_tickets_route)
     app.router.add_post("/api/support/tickets", support_create_ticket_route)

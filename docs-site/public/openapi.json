@@ -14202,6 +14202,23 @@
             "title": "Created At Text",
             "type": "string"
           },
+          "custom_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Custom Name"
+          },
+          "default_name": {
+            "default": "",
+            "title": "Default Name",
+            "type": "string"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -14265,6 +14282,27 @@
           "can_disconnect"
         ],
         "title": "WebAppDeviceOut",
+        "type": "object"
+      },
+      "WebAppDeviceRenamePayload": {
+        "properties": {
+          "name": {
+            "default": "",
+            "maxLength": 256,
+            "title": "Name",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "WebAppDeviceRenamePayload",
         "type": "object"
       },
       "WebAppEmailChangeConfirmPayload": {
@@ -28046,6 +28084,59 @@
           }
         ],
         "summary": "Disconnect Device",
+        "tags": [
+          "devices"
+        ]
+      }
+    },
+    "/api/devices/rename": {
+      "post": {
+        "operationId": "post_rename_device_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppDeviceRenamePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "device": {
+                      "$ref": "#/components/schemas/WebAppDeviceOut"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "device"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Rename Device",
         "tags": [
           "devices"
         ]

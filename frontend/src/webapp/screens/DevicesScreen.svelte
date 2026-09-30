@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { ArrowRight, CircleX, Plus, RefreshCw, Smartphone } from "$components/ui/icons.js";
+  import {
+    ArrowRight,
+    CircleX,
+    Pencil,
+    Plus,
+    RefreshCw,
+    Smartphone,
+  } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
@@ -35,6 +42,7 @@
     subscription?: SubscriptionView;
     loadDevices?: (force?: boolean) => void;
     openDeviceDisconnectDialog?: (device: DeviceView) => void;
+    openDeviceRenameDialog?: (device: DeviceView) => void;
     openDeviceTopupModal?: VoidAction;
     openPaymentModal?: VoidAction;
     t?: Translate;
@@ -50,6 +58,7 @@
     subscription = {},
     loadDevices = () => {},
     openDeviceDisconnectDialog = () => {},
+    openDeviceRenameDialog = () => {},
     openDeviceTopupModal = () => {},
     openPaymentModal = () => {},
     t = (key: string) => key,
@@ -84,6 +93,13 @@
   const showTrialTariffAction = $derived(
     showDeviceTopupUnavailable && deviceTopupUnavailableReason === "trial_subscription"
   );
+
+  // A renamed device keeps its model visible next to the platform.
+  function deviceSubtitle(device: DeviceView): string {
+    const platform = String(device.platform_label || "");
+    if (device.custom_name) return [device.default_name, platform].filter(Boolean).join(" · ");
+    return platform || t("wa_devices_platform_unknown");
+  }
 </script>
 
 <main class="content with-nav">
@@ -186,8 +202,20 @@
                     class="device-client-label">{clientLabel}</span
                   >{/if}</strong
               >
-              <small>{device.platform_label || t("wa_devices_platform_unknown")}</small>
+              <small>{deviceSubtitle(device)}</small>
             </span>
+            {#if device.token}
+              <Button
+                variant="icon"
+                size="icon"
+                data-webapp-action="open-device-rename"
+                onclick={() => openDeviceRenameDialog(device)}
+                aria-label={t("wa_devices_rename")}
+                title={t("wa_devices_rename")}
+              >
+                <Pencil size={16} />
+              </Button>
+            {/if}
           </div>
           <div class="device-meta">
             {#if device.last_connected_at_text || device.created_at_text}

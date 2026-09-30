@@ -947,6 +947,7 @@ from db import activity_models as activity_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
 from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
+from db import device_models as device_models  # noqa: E402
 from db import extension_models as extension_models  # noqa: E402
 from db import gift_models as gift_models  # noqa: E402
 from db import legacy_import_models as legacy_import_models  # noqa: E402

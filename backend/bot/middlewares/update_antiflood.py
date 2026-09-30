@@ -37,6 +37,7 @@ EXPENSIVE_CALLBACK_PREFIXES = (
     "tariff_change:pay:",
     "autorenew:confirm:",
     "disconnect_device:",
+    "rename_device:",
 )
 
 TRIAL_CALLBACK_PREFIXES = (

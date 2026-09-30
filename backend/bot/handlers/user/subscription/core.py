@@ -11,6 +11,13 @@ from .core_common import (
     _with_subscription_purchase_description,
     router,
 )
+from .core_device_names import (
+    rename_device_cancel_callback,
+    rename_device_list_callback,
+    rename_device_name_message,
+    rename_device_pick_callback,
+    rename_device_reset_callback,
+)
 from .core_purchase import (
     display_subscription_options,
     reshow_subscription_options_callback,
@@ -45,6 +52,11 @@ __all__ = [
     "hwid_devices_package_callback",
     "my_devices_command_handler",
     "my_subscription_command_handler",
+    "rename_device_cancel_callback",
+    "rename_device_list_callback",
+    "rename_device_name_message",
+    "rename_device_pick_callback",
+    "rename_device_reset_callback",
     "reshow_subscription_options_callback",
     "router",
     "select_tariff_callback",

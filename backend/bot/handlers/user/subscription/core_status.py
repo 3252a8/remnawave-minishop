@@ -1,6 +1,7 @@
 import contextlib
 import html
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -27,7 +28,7 @@ from bot.utils.install_links import (
     ensure_user_install_guide_links,
 )
 from config.settings import Settings
-from db.dal import subscription_dal
+from db.dal import device_name_dal, subscription_dal
 
 from .core_common import (
     _auto_renew_control_visible,
@@ -39,6 +40,15 @@ from .core_common import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _device_title(device_names: Mapping[str, str], hwid: Any, device_model: Any) -> str:
+    """HTML-safe title: the user's name first, the panel model after it."""
+    model = html.escape(str(device_model))
+    name = device_names.get(_hwid_callback_token(str(hwid))) if hwid else None
+    if not name:
+        return model
+    return f"{html.escape(name)} · {model}" if device_model else html.escape(name)
 
 
 def _devices_list_from_panel_response(devices: Any) -> list[dict[str, Any]]:
@@ -511,9 +521,8 @@ async def my_devices_command_handler(
             await target.answer(get_text("my_devices_feature_disabled"))
         return
 
-    active = await subscription_service.get_active_subscription_details(
-        session, await _event_user_id(session, event)
-    )
+    account_user_id = await _event_user_id(session, event)
+    active = await subscription_service.get_active_subscription_details(session, account_user_id)
     if not active or not active.get("user_id"):
         message = get_text("subscription_not_active")
         if isinstance(event, types.CallbackQuery):
@@ -533,6 +542,7 @@ async def my_devices_command_handler(
         return
 
     devices_list_raw = _devices_list_from_panel_response(devices)
+    device_names = await device_name_dal.get_device_names(session, account_user_id)
 
     max_devices_value = active.get("max_devices")
     max_devices_display = get_text("devices_unlimited_label")
@@ -565,15 +575,16 @@ async def my_devices_command_handler(
             except Exception:
                 created_at_str = str(created_at)
 
+            # Panel fields come from client headers and names from users: escape both.
             device_details = get_text(
                 "device_details",
                 index=index,
-                device_model=device_model,
-                platform=platform,
-                os_version=os_version,
+                device_model=_device_title(device_names, hwid, device_model),
+                platform=html.escape(str(platform)),
+                os_version=html.escape(str(os_version)),
                 created_at_str=created_at_str,
-                user_agent=user_agent,
-                hwid=hwid,
+                user_agent=html.escape(str(user_agent)),
+                hwid=html.escape(str(hwid)),
             )
             devices_list.append(device_details)
 
@@ -615,6 +626,15 @@ async def my_devices_command_handler(
                 InlineKeyboardButton(
                     text=get_text("device_topup_unavailable_menu_button"),
                     callback_data="hwid_devices:list",
+                )
+            ]
+        )
+    if any(device.get("hwid") for device in devices_list_raw):
+        devices_kb.append(
+            [
+                InlineKeyboardButton(
+                    text=get_text("rename_device_menu_button"),
+                    callback_data="rename_device:list",
                 )
             ]
         )

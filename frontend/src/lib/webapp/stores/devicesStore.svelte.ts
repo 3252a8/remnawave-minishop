@@ -1,5 +1,10 @@
 import type { ApiClient, DevicesResponse, PostPayload } from "../publicApi";
-import { buildDevicesDisconnectPath, buildDevicesPath, unwrap } from "../publicApi";
+import {
+  buildDevicesDisconnectPath,
+  buildDevicesPath,
+  buildDevicesRenamePath,
+  unwrap,
+} from "../publicApi";
 import type { DeviceView } from "../types";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -13,13 +18,24 @@ export type DevicesState = {
   deviceConfirmOpen: boolean;
   deviceToDisconnect: DeviceView | null;
   deviceDisconnectBusy: boolean;
+  deviceRenameOpen: boolean;
+  deviceToRename: DeviceView | null;
+  deviceRenameValue: string;
+  deviceRenameBusy: boolean;
+  deviceRenameError: string;
 };
 export type DevicesStore = DevicesState & {
   loadDevices(devicesEnabled: boolean, force?: boolean): Promise<void>;
   openDeviceDisconnectDialog(device: DeviceView): void;
   closeDeviceDisconnectDialog(): void;
   disconnectDevice(devicesEnabled: boolean): Promise<void>;
+  openDeviceRenameDialog(device: DeviceView): void;
+  closeDeviceRenameDialog(): void;
+  renameDevice(name?: string): Promise<void>;
 };
+
+// Mirrors the backend limit; the server stays authoritative.
+export const DEVICE_NAME_MAX_LENGTH = 32;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -27,6 +43,18 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function stringField(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function isNameBreakingCharacter(char: string): boolean {
+  const code = char.codePointAt(0) ?? 0;
+  return code < 0x20 || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029;
+}
+
+function normalizeDeviceName(value: string): string {
+  return Array.from(value.normalize("NFC"), (char) => (isNameBreakingCharacter(char) ? " " : char))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function createDevicesStore({
@@ -48,6 +76,11 @@ export function createDevicesStore({
     deviceConfirmOpen: false,
     deviceToDisconnect: null,
     deviceDisconnectBusy: false,
+    deviceRenameOpen: false,
+    deviceToRename: null,
+    deviceRenameValue: "",
+    deviceRenameBusy: false,
+    deviceRenameError: "",
     async loadDevices(devicesEnabled: boolean, force = false) {
       if (!devicesEnabled || store.devicesBusy || (store.devicesLoaded && !force)) return;
       store.devicesBusy = true;
@@ -100,6 +133,57 @@ export function createDevicesStore({
         showToast(stringField(asRecord(error).message) || t("wa_device_disconnect_failed"));
       } finally {
         store.deviceDisconnectBusy = false;
+      }
+    },
+    openDeviceRenameDialog(device: DeviceView) {
+      store.deviceToRename = device;
+      store.deviceRenameValue = String(device.custom_name || "");
+      store.deviceRenameError = "";
+      store.deviceRenameOpen = true;
+    },
+    closeDeviceRenameDialog() {
+      if (store.deviceRenameBusy) return;
+      store.deviceRenameOpen = false;
+      store.deviceToRename = null;
+      store.deviceRenameError = "";
+    },
+    async renameDevice(name?: string) {
+      const token = String(store.deviceToRename?.token || "").trim();
+      if (!token || store.deviceRenameBusy) return;
+      const value = normalizeDeviceName(name ?? store.deviceRenameValue);
+      if (Array.from(value).length > DEVICE_NAME_MAX_LENGTH) {
+        store.deviceRenameError = t("wa_device_name_too_long", { max: DEVICE_NAME_MAX_LENGTH });
+        return;
+      }
+      store.deviceRenameBusy = true;
+      store.deviceRenameError = "";
+      try {
+        const response = await api(buildDevicesRenamePath(), {
+          method: "POST",
+          body: JSON.stringify({
+            token,
+            name: value,
+          } satisfies PostPayload<"/api/devices/rename">),
+        });
+        if (!response?.ok) throw response;
+        const updated = unwrap(response).device;
+        const devices = store.devicesData?.devices;
+        if (store.devicesData && Array.isArray(devices)) {
+          store.devicesData = {
+            ...store.devicesData,
+            devices: devices.map((device) => (device.token === token ? updated : device)),
+          };
+        }
+        showToast(value ? t("wa_device_renamed") : t("wa_device_name_restored"));
+        store.deviceRenameOpen = false;
+        store.deviceToRename = null;
+      } catch (error: unknown) {
+        store.deviceRenameError =
+          String(asRecord(error).error || "") === "device_name_too_long"
+            ? t("wa_device_name_too_long", { max: DEVICE_NAME_MAX_LENGTH })
+            : t("wa_device_rename_failed");
+      } finally {
+        store.deviceRenameBusy = false;
       }
     },
   });

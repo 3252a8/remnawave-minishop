@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql import Select
 
+from db.dal.device_name_dal import merge_owner as merge_device_names
 from db.models import (
     AutoRenewCycle,
     FlexibleTrafficLimit,
@@ -340,7 +341,7 @@ async def transfer_entitlement_ownership(
     target_user_id: int,
     panel_user_uuid: str | None,
 ) -> None:
-    """Move entitlement, balance, and provider records off the deleted user."""
+    """Move entitlement, balance, provider, and device-label records off the deleted user."""
 
     target_override_keys = select(
         UserPanelSquadOverride.kind,
@@ -363,6 +364,7 @@ async def transfer_entitlement_ownership(
         .where(UserPanelSquadOverride.user_id == source_user_id)
         .values(**override_values)
     )
+    await merge_device_names(session, source_user_id, target_user_id)
 
     for model in (
         AutoRenewCycle,
