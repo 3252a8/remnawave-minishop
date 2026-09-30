@@ -19,6 +19,7 @@ from .chain_0090_extensions import CHAIN_0090_EXTENSIONS
 from .chain_0091_account_identity import CHAIN_0091_ACCOUNT_IDENTITY
 from .chain_0092_user_id_sequence import CHAIN_0092_USER_ID_SEQUENCE
 from .chain_0093_panel_origin import CHAIN_0093_PANEL_ORIGIN
+from .chain_0094_referral_accruals import CHAIN_0094_REFERRAL_ACCRUALS
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -41,4 +42,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0091_ACCOUNT_IDENTITY,
     *CHAIN_0092_USER_ID_SEQUENCE,
     *CHAIN_0093_PANEL_ORIGIN,
+    *CHAIN_0094_REFERRAL_ACCRUALS,
 ]

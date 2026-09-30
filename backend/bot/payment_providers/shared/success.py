@@ -606,7 +606,12 @@ async def finalize_successful_payment(
             await _mark_activation_failed(req, payment_id)
             return None
         referral_bonus = None
-        if is_subscription and not req.skip_referral_bonus:
+        locked_payment.referral_accrual_processed = bool(
+            req.skip_referral_bonus
+            or not is_subscription
+            or float(getattr(locked_payment, "amount", req.amount)) <= 0
+        )
+        if is_subscription and not locked_payment.referral_accrual_processed:
             try:
                 referral_savepoint = await req.session.begin_nested()
                 try:
@@ -620,12 +625,14 @@ async def finalize_successful_payment(
                         duration_days=getattr(locked_payment, "subscription_duration_days", None)
                         if getattr(locked_payment, "period_semantics", None) == "fixed_days"
                         else None,
+                        defer=True,
                     )
                 except Exception:
                     await referral_savepoint.rollback()
                     raise
                 else:
                     await referral_savepoint.commit()
+                    locked_payment.referral_accrual_processed = True
             except Exception:
                 referral_bonus = None
                 logger.exception(

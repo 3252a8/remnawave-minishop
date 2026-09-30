@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.partner_program_service import PartnerProgramService
+from bot.services.referral_accruals import enqueue_period_accrual
 from bot.services.registration_invite_gate import referral_program_enabled
 from bot.services.subscription_order_terms import read_subscription_terms
 from bot.utils.referral_links import build_bot_referral_link
@@ -54,6 +55,8 @@ class ReferralService:
         skip_if_active_before_payment: bool = True,
         tariff_key: str | None = None,
         duration_days: int | None = None,
+        defer: bool = False,
+        recover: bool = False,
     ) -> dict[str, Any]:
 
         referee_final_end_date: datetime | None = None
@@ -105,6 +108,7 @@ class ReferralService:
                         referee_user_id,
                         exclude_payment_id=current_payment_db_id,
                         qualifying_subscription_only=True,
+                        **({"before_payment_id": current_payment_db_id} if recover else {}),
                     )
                     if succeeded_count and succeeded_count > 0:
                         logger.info(
@@ -115,6 +119,8 @@ class ReferralService:
                         )
                         return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
                 except Exception as e_cnt:
+                    if defer:
+                        raise
                     logger.error(
                         "Failed counting succeeded payments for user %s: %s", referee_user_id, e_cnt
                     )
@@ -157,7 +163,7 @@ class ReferralService:
                 read_subscription_terms(
                     await payment_dal.get_payment_by_db_id(session, current_payment_db_id)
                 )
-                if current_payment_db_id is not None and duration_days is not None
+                if current_payment_db_id is not None and (defer or duration_days is not None)
                 else None
             )
             if payment_terms is not None:
@@ -173,6 +179,31 @@ class ReferralService:
                 )
             if partner_client_bonus:
                 inviter_bonus_days = None
+            if defer:
+                if current_payment_db_id is None:
+                    raise ValueError("A durable accrual requires a payment")
+                participants = (
+                    ("inviter", inviter_user_id, inviter_bonus_days),
+                    ("referee", referee_user_id, referee_bonus_days),
+                )
+                for role, beneficiary, days in participants:
+                    if (
+                        beneficiary is not None
+                        and days
+                        and days > 0
+                        and (role != "inviter" or inviter_user_model is not None)
+                    ):
+                        await enqueue_period_accrual(
+                            session,
+                            payment_id=current_payment_db_id,
+                            referee_user_id=referee_user_id,
+                            user_id=beneficiary,
+                            role=role,
+                            days=days,
+                            tariff_key=tariff_key,
+                            one_time=one_bonus_per_client,
+                        )
+                return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
             logger.info(
                 "Referral bonus payment check: referee_user_id=%s inviter_user_id=%s "
                 "payment_db_id=%s months=%s tariff_key=%s inviter_bonus_days=%s "

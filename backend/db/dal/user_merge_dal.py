@@ -60,6 +60,7 @@ from .user_merge_entitlements import (
     merge_user_billing_state,
     transfer_entitlement_ownership,
 )
+from .user_merge_invites import preserve_native_invitation, reassign_invitation_relations
 from .user_reads_dal import get_user_by_id
 
 logger = logging.getLogger(__name__)
@@ -445,20 +446,7 @@ async def merge_users(
     referral_code_to_move = (
         source.referral_code if source.referral_code and not target.referral_code else None
     )
-    if (
-        source.referral_code
-        and target.referral_code
-        and source.referral_code != target.referral_code
-    ):
-        # Native invitation aliases remain valid independently of import settings.
-        session.add(
-            LegacyReferralCode(
-                source="core-account-merge",
-                code=source.referral_code,
-                user_id=target_user_id,
-                is_active=True,
-            )
-        )
+    preserve_native_invitation(session, source, target)
     source_notification_email = (
         str(getattr(source, "notification_email", None) or source.email or "").strip().lower()
     )
@@ -628,15 +616,7 @@ async def merge_users(
     from .extension_accounts_dal import merge as merge_extension_accounts
 
     await merge_extension_accounts(session, source_user_id, target_user_id)
-    for model in (Payment, PromoCodeActivation):
-        await session.execute(
-            update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
-        )
-    await session.execute(
-        update(LegacyReferralCode)
-        .where(LegacyReferralCode.user_id == source_user_id)
-        .values(user_id=target_user_id)
-    )
+    await reassign_invitation_relations(session, source_user_id, target_user_id)
     await session.execute(
         update(LegacyImportMapping)
         .where(

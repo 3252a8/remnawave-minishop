@@ -148,6 +148,16 @@ async def lock_user_by_id(session: AsyncSession, user_id: int) -> User | None:
     return result.scalar_one_or_none()
 
 
+async def lock_user_entitlement(session: AsyncSession, user_id: int) -> None:
+    """Lock and refresh the buffered user row before reading entitlement state."""
+    await session.execute(
+        select(User)
+        .where(User.user_id == user_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+
+
 ## Removed unused generic get_user helper to keep DAL explicit and simple
 
 

@@ -435,6 +435,7 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         self.assertEqual(activation_kwargs["tariff_key"], "premium")
         referral_kwargs = referral_service.apply_referral_bonuses_for_payment.await_args.kwargs
         self.assertEqual(referral_kwargs["tariff_key"], "premium")
+        self.assertTrue(referral_kwargs["defer"])
         update_status_mock.assert_awaited_once_with(session, 12, "succeeded")
         self.assertEqual(order[0], ("status", "succeeded"))
         self.assertEqual(order[1], "commit")

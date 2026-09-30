@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.referral_accruals import utc_date
 from bot.services.subscription_order_terms import gift_tariff
 from config.tariffs_config import default_currency_key_for_settings
 from db.dal import subscription_dal, tariff_dal, user_dal
@@ -26,12 +27,14 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
         extend_hwid_devices: bool = True,
         tariff_key: str | None = None,
         apply_tariff_hwid_limit: bool = False,
+        target_end_date: datetime | None = None,
     ) -> datetime | None:
         reason_lower = (reason or "").lower()
         apply_main_traffic_limit = any(
             keyword in reason_lower for keyword in ("admin", "promo code", "referral", "bonus")
         )
 
+        await user_dal.lock_user_entitlement(session, user_id)
         user = await user_dal.get_user_by_id(session, user_id)
         if not user:
             logger.warning("Cannot extend subscription for user %s: user not found.", user_id)
@@ -111,6 +114,16 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                     )
 
         initial_premium_baseline = initial_tariff.premium_monthly_bytes if initial_tariff else 0
+        reserved_until = utc_date(getattr(user, "period_accrual_reserved_until", None))
+        if target_end_date is not None:
+            # Replay an absolute expiry, never add days after an ambiguous panel response.
+            new_end_date_obj = max(
+                utc_date(target_end_date) or now_utc,
+                utc_date(getattr(active_sub, "end_date", None)) or now_utc,
+                reserved_until or now_utc,
+            )
+        elif reserved_until is not None:
+            new_end_date_obj = max(new_end_date_obj, reserved_until + timedelta(days=bonus_days))
         initial_premium_limit = self._premium_effective_limit_bytes(
             initial_premium_baseline,
             int(getattr(active_sub, "premium_topup_balance_bytes", 0) or 0),
@@ -493,6 +506,9 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
                 source="subscription_bonus",
             )
             if confirmed_panel_user is None:
+                if target_end_date is not None:
+                    # Keep the committed reservation and stable panel identity for recovery.
+                    return None
                 logger.warning(
                     "Panel expiry update failed for user %s panel_uuid=%s after %s bonus. "
                     "requested_expire_at=%s panel_response=%s. Reverting local bonus update.",

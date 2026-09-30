@@ -72,6 +72,7 @@ async def _merge(
 ) -> tuple[object, SimpleNamespace]:
     session = SimpleNamespace(
         execute=AsyncMock(return_value=_Result()),
+        scalar=AsyncMock(return_value=None),
         add=Mock(),
         delete=AsyncMock(),
         flush=AsyncMock(),
@@ -280,6 +281,7 @@ async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None
         flush=AsyncMock(),
         refresh=AsyncMock(),
     )
+    session.scalar = AsyncMock(return_value=None)
     cancel_source_recurring = AsyncMock(return_value=True)
 
     with (

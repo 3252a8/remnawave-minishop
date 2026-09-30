@@ -368,6 +368,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             current_billing_model,
             current_active_is_trial,
             checkout_grants.trial_days_strategy,
+            getattr(db_user, "period_accrual_reserved_until", None),
         )
         if fixed_duration_days is not None:
             period_start_date = period_start_date.astimezone(UTC)

@@ -58,6 +58,7 @@ from bot.services.hwid_device_webhook import HWID_DEVICE_EVENTS
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
+from bot.services.referral_accrual_worker import ReferralAccrualWorker
 from bot.services.rollypay_reconciliation_worker import RollyPayReconciliationWorker
 from bot.services.settings_override_service import refresh_overrides_from_db
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
@@ -414,6 +415,14 @@ async def _auto_renew_retry_task(ctx: PluginContext) -> None:
     ).run()
 
 
+async def _referral_accrual_task(ctx: PluginContext) -> None:
+    await ReferralAccrualWorker(
+        ctx.require_session_factory(),
+        ctx.require_referral_service(),
+        ctx.require_subscription_service(),
+    ).run()
+
+
 async def _wata_reconciliation_task(ctx: PluginContext) -> None:
     wata_service = ctx.get_service("wata_service", WataService)
     if wata_service is None:
@@ -495,6 +504,7 @@ async def _gift_activation_task(ctx: PluginContext) -> None:
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
         WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
+        WorkerTaskSpec(name="ReferralAccrualWorker", factory=_referral_accrual_task),
         WorkerTaskSpec(
             name="GiftDeliveryWorker",
             factory=_gift_delivery_task,

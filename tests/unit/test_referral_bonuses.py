@@ -26,6 +26,98 @@ from bot.services.referral_service import ReferralService
 from config.tariffs_config import TariffsConfig
 
 
+class DurableAccrualTests(unittest.IsolatedAsyncioTestCase):
+    async def test_partial_delivery_and_ambiguous_result_retry_the_same_target(self):
+        from datetime import timedelta
+
+        from sqlalchemy import select, update
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+        from bot.services.referral_accrual_worker import ReferralAccrualWorker
+        from bot.services.referral_accruals import utc_date
+        from db.base import Base
+        from db.models import Payment, User
+        from db.referral_accrual_models import ReferralPeriodAccrual
+
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(Base.metadata.create_all)
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+            async with factory() as session:
+                session.add_all([User(user_id=42, referred_by_id=7), User(user_id=7)])
+                session.add(
+                    Payment(
+                        payment_id=91,
+                        user_id=42,
+                        amount=100,
+                        currency="RUB",
+                        status="succeeded",
+                        sale_mode="subscription",
+                        referral_accrual_processed=True,
+                    )
+                )
+                await session.commit()
+                service, _bot = _make_service(
+                    settings=_make_settings(), subscription_service=AsyncMock()
+                )
+                await service.apply_referral_bonuses_for_payment(
+                    session,
+                    42,
+                    1,
+                    current_payment_db_id=91,
+                    duration_days=30,
+                    defer=True,
+                    skip_if_active_before_payment=False,
+                )
+                service.subscription_service.extend_active_subscription_days.assert_not_called()
+                await session.commit()
+            targets = {}
+            calls = []
+
+            async def extend(_session, **kwargs):
+                user_id = kwargs["user_id"]
+                target = kwargs["target_end_date"]
+                calls.append(user_id)
+                if user_id in targets:
+                    self.assertEqual(target, targets[user_id])
+                targets[user_id] = target
+                # The panel applied the inviter expiry but its response was lost.
+                return None if user_id == 7 and calls.count(7) == 1 else target
+
+            worker = ReferralAccrualWorker(
+                factory, AsyncMock(), SimpleNamespace(extend_active_subscription_days=extend)
+            )
+            with patch("bot.services.referral_accrual_worker.events.emit_model", AsyncMock()):
+                await worker.tick()
+                async with factory() as session:
+                    rows = (
+                        await session.scalars(
+                            select(ReferralPeriodAccrual).order_by(ReferralPeriodAccrual.accrual_id)
+                        )
+                    ).all()
+                    self.assertEqual([row.state for row in rows], ["pending", "applied"])
+                    self.assertEqual(
+                        utc_date((await session.get(User, 7)).period_accrual_reserved_until),
+                        targets[7],
+                    )
+                    await session.execute(
+                        update(ReferralPeriodAccrual)
+                        .where(ReferralPeriodAccrual.state == "pending")
+                        .values(next_attempt_at=datetime.now(UTC) - timedelta(seconds=1))
+                    )
+                    await session.commit()
+                await worker.tick()
+                await worker.tick()
+            self.assertEqual(calls, [7, 42, 7])
+            async with factory() as session:
+                self.assertEqual((await session.get(Payment, 91)).status, "succeeded")
+                rows = (await session.scalars(select(ReferralPeriodAccrual))).all()
+                self.assertTrue(all(row.state == "applied" for row in rows))
+        finally:
+            await engine.dispose()
+
+
 def _make_settings(**overrides: Any) -> SimpleNamespace:
     base = {
         "DEFAULT_LANGUAGE": "en",

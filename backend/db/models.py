@@ -52,6 +52,7 @@ class User(UserAccountIdentityColumns, UserNotificationPreferenceColumns, Base):
     lifetime_used_traffic_synced_at = Column(DateTime(timezone=True), nullable=True)
     trial_eligibility_reset_at = Column(DateTime(timezone=True), nullable=True)
     referral_welcome_bonus_claimed_at = Column(DateTime(timezone=True), nullable=True)
+    period_accrual_reserved_until = Column(DateTime(timezone=True), nullable=True)
     channel_subscription_verified = Column(Boolean, nullable=True)
     channel_subscription_checked_at = Column(DateTime(timezone=True), nullable=True)
     channel_subscription_verified_for = Column(BigInteger, nullable=True)
@@ -356,6 +357,9 @@ class Payment(Base):
     subscription_duration_months = Column(Integer, nullable=True)
     subscription_duration_days = Column(Integer, nullable=True)
     subscription_terms_snapshot = Column(Text, nullable=True)
+    referral_accrual_processed = Column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     period_semantics = Column(String(32), nullable=True)
     # Persistent attribution for merchant-initiated recurring charges. These
     # fields stay nullable for historic and ordinary one-off payments.
@@ -939,43 +943,16 @@ class PromoCodeActivation(Base):
     )
 
 
-class LegacyReferralCode(Base):
-    __tablename__ = "legacy_referral_codes"
-
-    legacy_code_id = Column(Integer, primary_key=True, autoincrement=True)
-    source = Column(String(64), nullable=False, default="remnashop", index=True)
-    code = Column(String(128), nullable=False, index=True)
-    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=False, index=True)
-    is_active = Column(Boolean, nullable=False, default=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-
-    user = relationship("User")
-
-    __table_args__ = (UniqueConstraint("source", "code", name="uq_legacy_referral_source_code"),)
-
-
-class LegacyImportMapping(Base):
-    __tablename__ = "legacy_import_mappings"
-
-    source = Column(String(64), primary_key=True)
-    entity_type = Column(String(64), primary_key=True)
-    source_id = Column(String(128), primary_key=True)
-    target_table = Column(String(128), nullable=False)
-    target_id = Column(String(128), nullable=False)
-    metadata_json = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-
-
 from db import activity_models as activity_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
 from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402
 from db import extension_models as extension_models  # noqa: E402
 from db import gift_models as gift_models  # noqa: E402
+from db import legacy_import_models as legacy_import_models  # noqa: E402
 from db import message_image_models as message_image_models  # noqa: E402
 from db import partner_models as partner_models  # noqa: E402
+from db import referral_accrual_models as referral_accrual_models  # noqa: E402
 from db import wata_models as wata_models  # noqa: E402
 
 AdAttribution = activity_models.AdAttribution
@@ -996,5 +973,7 @@ WebAuthnChallenge = auth_models.WebAuthnChallenge
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
+LegacyReferralCode = legacy_import_models.LegacyReferralCode
+LegacyImportMapping = legacy_import_models.LegacyImportMapping
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
 WataSubscription = wata_models.WataSubscription

@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Any, Literal
 
+from bot.services.referral_accruals import utc_date
+
 TrialDaysStrategy = Literal["add_remaining", "start_from_payment"]
 
 TRIAL_DAYS_ADD_REMAINING: TrialDaysStrategy = "add_remaining"
@@ -19,6 +21,7 @@ def paid_subscription_period_start(
     active_billing_model: str | None,
     active_is_trial: bool,
     strategy: TrialDaysStrategy,
+    reserved_until: object = None,
 ) -> datetime:
     active_end_at = getattr(active_subscription, "end_date", None)
     if (
@@ -28,5 +31,5 @@ def paid_subscription_period_start(
         and active_end_at > now
         and not (active_is_trial and strategy == TRIAL_DAYS_START_FROM_PAYMENT)
     ):
-        return active_end_at
-    return now
+        now = active_end_at
+    return max(now, utc_date(reserved_until) or now)
