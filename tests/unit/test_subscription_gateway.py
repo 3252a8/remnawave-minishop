@@ -152,7 +152,7 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
                     "resolve_subscription_access",
                     AsyncMock(return_value=SimpleNamespace(panel_short_uuid="short-id")),
                 ),
-                patch.object(subscription_gateway, "_rate_limited", AsyncMock(return_value=False)),
+                patch.object(subscription_gateway, "_rate_limited", AsyncMock(return_value=None)),
             ):
                 async with (
                     TestServer(shop_app) as shop_server,

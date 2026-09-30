@@ -32,6 +32,7 @@ from .guides_public import (  # noqa: F401
     SUBSCRIPTION_GUIDES_PUBLIC_CACHE_TTL_SECONDS,
     _public_subscription_payload_cached,
 )
+from .public_limits import public_subscription_limit
 from .response_helpers import json_response
 from .subscription_access import PanelLookupUnavailable
 
@@ -94,6 +95,9 @@ async def public_subscription_guides_route(request: web.Request) -> web.Response
     )
     if not share_token:
         return json_response({"ok": False, "error": "invalid_share_token"}, status=404)
+    limited = await public_subscription_limit(request, share_token)
+    if limited is not None:
+        return limited
 
     try:
         subscription = await _public_subscription_payload_cached(request, share_token)

@@ -1,5 +1,6 @@
 """Fresh public-token authorization shared by the page and raw gateway."""
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -11,6 +12,8 @@ from bot.app.web.context import get_session_factory
 from db.dal import subscription_dal
 
 from .guides_panel_config import _panel_service_from_app, _panel_short_uuid_from_user
+
+_ACCESS_SEMAPHORE = web.AppKey("public_subscription_access_semaphore", asyncio.Semaphore)
 
 
 def _local_subscription_is_publicly_active(subscription: Any) -> bool:
@@ -36,6 +39,20 @@ class SubscriptionAccess:
 
 
 async def resolve_subscription_access(
+    request: web.Request, share_token: str
+) -> SubscriptionAccess | None:
+    semaphore = request.app.setdefault(_ACCESS_SEMAPHORE, asyncio.Semaphore(32))
+    try:
+        await asyncio.wait_for(semaphore.acquire(), timeout=1)
+    except TimeoutError as exc:
+        raise PanelLookupUnavailable from exc
+    try:
+        return await _resolve_subscription_access(request, share_token)
+    finally:
+        semaphore.release()
+
+
+async def _resolve_subscription_access(
     request: web.Request, share_token: str
 ) -> SubscriptionAccess | None:
     token = subscription_dal.normalize_install_share_token(share_token)
@@ -80,6 +97,16 @@ async def resolve_subscription_access(
     panel_url = str(panel_user.get("subscriptionUrl") or "").strip()
     if not panel_url:
         return None
+    # A concurrent revoke may have committed while the panel was being queried.
+    async with factory() as session:
+        current = await subscription_dal.get_subscription_by_install_share_token(session, token)
+        if (
+            current is None
+            or not _local_subscription_is_publicly_active(current)
+            or current.panel_user_uuid != panel_user_uuid
+            or current.install_share_panel_short_uuid != short_uuid
+        ):
+            return None
     return SubscriptionAccess(
         token=token,
         panel_user_uuid=panel_user_uuid,

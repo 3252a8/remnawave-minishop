@@ -25,12 +25,15 @@ class _AsyncSessionFactory:
 class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
     def _request(self, settings, panel_service, match_info=None):
         return SimpleNamespace(
+            remote="192.0.2.42",
             app={
                 "settings": settings,
                 "async_session_factory": _AsyncSessionFactory(),
                 "panel_service": panel_service,
                 "subscription_guides_config_cache": {"fingerprint": None, "status": None},
                 "subscription_guides_config_lock": asyncio.Lock(),
+                "webapp_rate_limit_buckets": {},
+                "webapp_rate_limit_lock": asyncio.Lock(),
             },
             match_info=match_info or {},
             headers={"User-Agent": "Mozilla/5.0", "Host": "app.example.test"},
@@ -40,6 +43,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
 
     def _settings(self, **overrides):
         values = {
+            "REDIS_URL": "",
             "SUBSCRIPTION_GUIDES_ENABLED": True,
             "SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED": True,
             "SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED": False,
@@ -684,7 +688,7 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(body["enabled"])
         self.assertTrue(second_body["enabled"])
         self.assertEqual(body["subscription"], second_body["subscription"])
-        self.assertEqual(get_sub.await_count, 2)
+        self.assertEqual(get_sub.await_count, 4)
         self.assertEqual(panel_service.get_user_by_uuid.await_count, 2)
         panel_service.get_subscription_page_config_by_short_uuid.assert_awaited_once()
         panel_service.get_subscription_page_config_by_uuid.assert_awaited_once_with(custom_uuid)

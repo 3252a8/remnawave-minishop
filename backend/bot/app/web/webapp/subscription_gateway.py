@@ -1,14 +1,11 @@
 """Public HTML and raw-subscription representations of a single /s/ URL."""
 
 import asyncio
-import hashlib
-import time
 from collections import deque
 
 from aiohttp import web
 
 from bot.app.web.context import get_settings
-from bot.infra.redis import get_redis, redis_key
 from bot.services.remnawave_subscription_source import (
     RemnawaveSubscriptionSource,
     SubscriptionTransportError,
@@ -115,39 +112,10 @@ def _error(status: int) -> web.Response:
     return _protect(response)
 
 
-async def _rate_limited(request: web.Request, token: str, client_ip: str) -> bool:
-    settings: Settings = get_settings(request)
-    token_key = hashlib.sha256(token.encode("ascii")).hexdigest()[:24]
-    limits = ((f"ip:{client_ip}", 240), (f"token:{token_key}", 60))
-    try:
-        redis = await get_redis(settings)
-        if redis is not None:
-            for key, maximum in limits:
-                item = redis_key(settings, "rate-limit", "subscription-gateway", key)
-                count = await redis.incr(item)
-                if count == 1:
-                    await redis.expire(item, 60)
-                if count > maximum:
-                    return True
-            return False
-    except Exception:
-        pass
-    buckets = request.app.setdefault(_LOCAL_BUCKETS_KEY, {})
-    lock = request.app.setdefault(_LOCAL_LOCK_KEY, asyncio.Lock())
-    now = time.monotonic()
-    async with lock:
-        for key, maximum in limits:
-            bucket = buckets.setdefault(key, deque())
-            while bucket and now - bucket[0] >= 60:
-                bucket.popleft()
-            if len(bucket) >= maximum:
-                return True
-            bucket.append(now)
-        if len(buckets) > 10000:
-            for key in list(buckets)[:1000]:
-                if not buckets[key] or now - buckets[key][-1] >= 60:
-                    buckets.pop(key, None)
-    return False
+async def _rate_limited(request: web.Request, token: str, client_ip: str) -> web.Response | None:
+    from .public_limits import public_subscription_limit
+
+    return await public_subscription_limit(request, token)
 
 
 async def subscription_gateway_route(request: web.Request) -> web.Response:
@@ -164,8 +132,11 @@ async def subscription_gateway_route(request: web.Request) -> web.Response:
         or request.remote
         or "127.0.0.1"
     )
-    if await _rate_limited(request, token, client_ip):
-        return _error(429)
+    limited = await _rate_limited(request, token, client_ip)
+    if limited is not None:
+        limited.headers["Cache-Control"] = "no-store"
+        limited.headers["Vary"] = _VARY
+        return limited
     if representation == "subscription" and not settings.SUBSCRIPTION_GATEWAY_ENABLED:
         return _error(503)
     try:
