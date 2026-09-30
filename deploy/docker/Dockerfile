@@ -7,7 +7,7 @@
 # > .build-version file > live git > "dev+unknown") so the admin sidebar always
 # shows a tag / sha even though the runtime images have no git tooling and no
 # .git tree.
-FROM alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc AS version-builder
+FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0 AS version-builder
 RUN apk add --no-cache git
 WORKDIR /repo
 ARG REMNAWAVE_MINISHOP_BRANCH=""
@@ -203,7 +203,7 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
 CMD ["python", "backend/plugin_launcher.py", "worker"]
 
 
-FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS nginx-brotli-builder
+FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS nginx-brotli-builder
 
 RUN set -eu; \
     apk upgrade --no-cache; \
@@ -224,14 +224,14 @@ RUN set -eu; \
     cd "nginx-${nginx_version}"; \
     ./configure \
         --with-compat \
-        --with-cc-opt='-Wno-error=vla-parameter' \
+        --with-cc-opt='-Wno-error=vla-parameter -Wno-error=unterminated-string-initialization' \
         --add-dynamic-module=../ngx_brotli; \
     make modules; \
     mkdir -p /brotli-modules; \
     cp objs/ngx_http_brotli_static_module.so /brotli-modules/
 
 
-FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS frontend
+FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS frontend
 
 # GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
 LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \

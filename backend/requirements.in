@@ -5,8 +5,8 @@ aiogram==3.31.0
 # Keep aiohttp below 3.15 until aiogram relaxes its runtime coupling; the
 # checked latest https://pypi.org/pypi/aiohttp/json release is 3.14.3.
 aiohttp>=3.14.3,<3.15
-# aiogram's proxy extra requires aiohttp-socks<1.12; keep the compatible 0.11 series.
-aiohttp-socks==0.11.0
+# aiogram's proxy extra requires aiohttp-socks<1.12; keep the compatible 0.12 series.
+aiohttp-socks==0.12.0
 python-dotenv==1.2.3
 pydantic==2.13.5
 yookassa==3.12.1
@@ -16,7 +16,7 @@ email-validator==2.3.0
 sqlalchemy[asyncio]==2.0.54
 asyncpg==0.31.0
 certifi>=2024.7.4
-PyJWT[crypto]==2.15.0
+PyJWT[crypto]==2.15.1
 webauthn==3.0.1
 cryptography>=50.0.0
 Pillow==12.3.0
