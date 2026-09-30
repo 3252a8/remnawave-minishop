@@ -423,3 +423,21 @@ async def _telegram_link_rejects_existing_identity_without_merging() -> None:
 
 def test_telegram_link_rejects_existing_identity_without_merging() -> None:
     asyncio.run(_telegram_link_rejects_existing_identity_without_merging())
+
+
+def test_merge_preserves_both_native_invitation_codes():
+    from db.models import LegacyReferralCode
+
+    source = _user(-10, referral_code="SOURCE7")
+    target = _user(42, referral_code="TARGET42")
+    merged, session = asyncio.run(_merge(source, target))
+    assert merged.referral_code == "TARGET42"
+    aliases = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], LegacyReferralCode)
+    ]
+    assert len(aliases) == 1
+    assert aliases[0].source == "core-account-merge"
+    assert aliases[0].code == "SOURCE7"
+    assert aliases[0].user_id == 42

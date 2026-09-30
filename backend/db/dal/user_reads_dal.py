@@ -7,7 +7,7 @@ compatibility); keep this module free of mutations.
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import func, literal, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.sql.elements import ColumnElement
@@ -157,13 +157,14 @@ async def get_user_by_referral_code(
         if user:
             return user
 
-    if not include_legacy:
-        return None
-
     stmt = (
         select(User)
         .join(LegacyReferralCode, LegacyReferralCode.user_id == User.user_id)
-        .where(LegacyReferralCode.code == normalized, LegacyReferralCode.is_active == True)
+        .where(
+            LegacyReferralCode.code == normalized,
+            LegacyReferralCode.is_active == True,
+            or_(LegacyReferralCode.source == "core-account-merge", literal(include_legacy)),
+        )
         .limit(1)
     )
     result = await session.execute(stmt)
@@ -178,6 +179,7 @@ async def get_user_by_referral_code(
             .where(
                 LegacyReferralCode.code == upper_normalized,
                 LegacyReferralCode.is_active == True,
+                or_(LegacyReferralCode.source == "core-account-merge", literal(include_legacy)),
             )
             .limit(1)
         )

@@ -445,6 +445,20 @@ async def merge_users(
     referral_code_to_move = (
         source.referral_code if source.referral_code and not target.referral_code else None
     )
+    if (
+        source.referral_code
+        and target.referral_code
+        and source.referral_code != target.referral_code
+    ):
+        # Native invitation aliases remain valid independently of import settings.
+        session.add(
+            LegacyReferralCode(
+                source="core-account-merge",
+                code=source.referral_code,
+                user_id=target_user_id,
+                is_active=True,
+            )
+        )
     source_notification_email = (
         str(getattr(source, "notification_email", None) or source.email or "").strip().lower()
     )
