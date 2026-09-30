@@ -19,8 +19,20 @@ they exercise production entry-point discovery explicitly.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture
+def symlink_support(tmp_path: Path) -> None:
+    link = tmp_path / "symlink-probe"
+    try:
+        link.symlink_to(tmp_path / "symlink-target")
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlink creation is unavailable: {exc}")
+    else:
+        link.unlink()
 
 
 @pytest.fixture(scope="session", autouse=True)

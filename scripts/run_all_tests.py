@@ -177,7 +177,6 @@ class FullTestRun:
                 "MINISHOP_RUN_DOCKER_INTEGRATION": "1",
             },
             "volumes": [
-                {"type": "bind", "source": str(ROOT), "target": "/workspace", "read_only": True},
                 {"type": "bind", "source": str(self.output), "target": "/reports"},
                 {
                     "type": "bind",

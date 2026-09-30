@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -33,6 +35,38 @@ def _metadata(slug: str, *, role: str = "none") -> DocumentMetadata:
         group_title="Legal",
         sort_order=10,
     )
+
+
+def test_document_storage_lock_serializes_processes(tmp_path: Path) -> None:
+    backend_dir = Path(__file__).resolve().parents[2] / "backend"
+    script = (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from config.documents import _locked_storage\n"
+        "print('ready', flush=True)\n"
+        "with _locked_storage(Path(sys.argv[1])):\n"
+        "    print('acquired', flush=True)\n"
+    )
+    with documents._locked_storage(tmp_path):
+        process = subprocess.Popen(
+            [sys.executable, "-c", script, str(tmp_path)],
+            cwd=backend_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert process.stdout is not None
+            assert process.stdout.readline() == "ready\n"
+            with pytest.raises(subprocess.TimeoutExpired):
+                process.communicate(timeout=0.25)
+        except BaseException:
+            process.kill()
+            process.communicate()
+            raise
+    output, errors = process.communicate(timeout=10)
+    assert process.returncode == 0, errors
+    assert output == "acquired\n"
 
 
 def test_document_storage_uses_versioned_index_and_content_addressed_bodies(tmp_path: Path) -> None:
@@ -190,7 +224,7 @@ def test_document_public_path_uses_the_legacy_prefix_for_reserved_roots() -> Non
 
 @pytest.mark.parametrize("unsafe_target", ["index", "bodies", "body"])
 def test_document_storage_refuses_symlinked_index_and_bodies(
-    tmp_path: Path, unsafe_target: str
+    tmp_path: Path, unsafe_target: str, symlink_support: None
 ) -> None:
     metadata = _metadata("terms", role="user_agreement")
     create_document(tmp_path, metadata, "# Terms")
@@ -217,7 +251,9 @@ def test_document_storage_refuses_symlinked_index_and_bodies(
         get_document(tmp_path, "terms", bootstrap_legacy=False)
 
 
-def test_legacy_bootstrap_does_not_follow_a_symlinked_legal_document(tmp_path: Path) -> None:
+def test_legacy_bootstrap_does_not_follow_a_symlinked_legal_document(
+    tmp_path: Path, symlink_support: None
+) -> None:
     legal = tmp_path / "data" / "legal"
     legal.mkdir(parents=True)
     outside = tmp_path / "outside.md"

@@ -24,8 +24,11 @@ services:
       start_interval: 1s
 
   test-runner:
-    image: python:3.12
-    working_dir: /app
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: qa
+    working_dir: /workspace
     depends_on:
       test-postgres:
         condition: service_healthy
@@ -46,11 +49,5 @@ services:
       PANEL_API_KEY: "test-panel-api-key"
       PANEL_WEBHOOK_SECRET: "test-panel-webhook-secret"
       SUBSCRIPTION_MINI_APP_URL: "https://miniapp.example.test"
-      PIP_DISABLE_PIP_VERSION_CHECK: "1"
       PYTHONDONTWRITEBYTECODE: "1"
-    volumes:
-      - .:/app
-    command:
-      - bash
-      - -c
-      - "pip install -q -r backend/requirements.txt pytest && python -m pytest -q"
+    command: ["python", "-m", "pytest", "-q"]

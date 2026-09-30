@@ -54,7 +54,9 @@ def test_information_page_paths_reject_application_collisions_and_traversal(path
         normalize_information_page_path(path)
 
 
-def test_information_page_loader_rejects_symlinks_outside_data_root(tmp_path: Path) -> None:
+def test_information_page_loader_rejects_symlinks_outside_data_root(
+    tmp_path: Path, symlink_support: None
+) -> None:
     page_dir = tmp_path / "data" / "pages"
     page_dir.mkdir(parents=True)
     outside = tmp_path / "outside.md"

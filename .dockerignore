@@ -154,3 +154,11 @@ venv/
 
 # VS Code
 .vscode/
+
+# The QA stage copies the repository into /workspace; its contract tests
+# inspect these source files even though application images do not use them.
+!.github/
+!docker-compose.yml
+!deploy/compose/*.yml
+!.dockerignore
+!.env.example

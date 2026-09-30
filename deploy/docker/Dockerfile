@@ -189,6 +189,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-dev.txt
 COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
 WORKDIR /workspace
+COPY . /workspace
 CMD ["python", "-m", "pytest"]
 
 
