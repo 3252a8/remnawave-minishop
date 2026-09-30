@@ -824,7 +824,11 @@ async def get_all_succeeded_payments_with_user(session: AsyncSession) -> list[Pa
 
 
 async def count_user_succeeded_payments(
-    session: AsyncSession, user_id: int, exclude_payment_id: int | None = None
+    session: AsyncSession,
+    user_id: int,
+    exclude_payment_id: int | None = None,
+    *,
+    qualifying_subscription_only: bool = False,
 ) -> int:
     """Count succeeded payments for a specific user.
 
@@ -833,6 +837,17 @@ async def count_user_succeeded_payments(
     current payment in the same transaction.
     """
     conditions = [Payment.user_id == user_id, Payment.status == "succeeded"]
+    if qualifying_subscription_only:
+        conditions.extend(
+            [
+                or_(
+                    Payment.sale_mode == "subscription",
+                    Payment.sale_mode.like("subscription@%"),
+                    Payment.sale_mode.like("subscription|%"),
+                ),
+                Payment.amount > 0,
+            ]
+        )
     if exclude_payment_id is not None:
         conditions.append(Payment.payment_id != exclude_payment_id)
     stmt = select(func.count(Payment.payment_id)).where(and_(*conditions))

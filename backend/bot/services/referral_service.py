@@ -101,7 +101,10 @@ class ReferralService:
             if one_bonus_per_client:
                 try:
                     succeeded_count = await payment_dal.count_user_succeeded_payments(
-                        session, referee_user_id, exclude_payment_id=current_payment_db_id
+                        session,
+                        referee_user_id,
+                        exclude_payment_id=current_payment_db_id,
+                        qualifying_subscription_only=True,
                     )
                     if succeeded_count and succeeded_count > 0:
                         logger.info(

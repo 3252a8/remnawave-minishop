@@ -10,6 +10,68 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.dal import payment_reporting_dal
 
 
+def test_first_subscription_count_excludes_other_purchase_kinds():
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from db.dal.payment_dal import count_user_succeeded_payments
+    from db.models import Payment, User
+
+    async def scenario():
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(
+                    lambda c: User.metadata.create_all(
+                        c, tables=[User.__table__, Payment.__table__]
+                    )
+                )
+            async with async_sessionmaker(engine, expire_on_commit=False)() as session:
+                session.add(User(user_id=42))
+                for index, mode in enumerate(
+                    ["balance_topup", "gift@standard", "traffic", "subscription"]
+                ):
+                    session.add(
+                        Payment(
+                            payment_id=index + 1,
+                            user_id=42,
+                            sale_mode=mode,
+                            status="succeeded",
+                            amount=0 if mode == "subscription" else 100,
+                            currency="RUB",
+                            provider="test",
+                        )
+                    )
+                await session.flush()
+                assert (
+                    await count_user_succeeded_payments(
+                        session, 42, qualifying_subscription_only=True
+                    )
+                    == 0
+                )
+                session.add(
+                    Payment(
+                        payment_id=5,
+                        user_id=42,
+                        sale_mode="subscription@standard",
+                        status="succeeded",
+                        amount=100,
+                        currency="RUB",
+                        provider="user_balance",
+                    )
+                )
+                await session.flush()
+                assert (
+                    await count_user_succeeded_payments(
+                        session, 42, qualifying_subscription_only=True
+                    )
+                    == 1
+                )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_complimentary_gifts_are_separate_from_cash_revenue(monkeypatch):
     session = AsyncMock(spec=AsyncSession)
     revenue = MagicMock()
