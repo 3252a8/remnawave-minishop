@@ -379,6 +379,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/ads/{campaign_id}/assign": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Assign */
+    post: operations["post_admin_ad_assign_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/purchases": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Ad Purchases */
+    get: operations["get_admin_ad_purchases_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/reset-stats": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Reset Stats */
+    post: operations["post_admin_ad_reset_stats_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/ads/{campaign_id}/toggle": {
     parameters: {
       query?: never;
@@ -3826,8 +3877,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AdAssignBody */
+    AdAssignBody: {
+      /**
+       * Advertiser Id
+       * @default null
+       */
+      advertiser_id: number | null;
+    };
     /** AdCreateBody */
     AdCreateBody: {
+      /**
+       * Advertiser Id
+       * @default null
+       */
+      advertiser_id: number | null;
       /**
        * Cost
        * @default 0
@@ -3840,6 +3904,11 @@ export interface components {
     };
     /** AdOut */
     AdOut: {
+      /**
+       * Advertiser Id
+       * @default null
+       */
+      advertiser_id: number | null;
       /** Cost */
       cost: number;
       /**
@@ -3862,6 +3931,42 @@ export interface components {
        */
       start_param: string | null;
       stats?: components["schemas"]["AdStatsOut"];
+      /**
+       * Stats Reset At
+       * @default null
+       */
+      stats_reset_at: string | null;
+    };
+    /** AdPurchaseItem */
+    AdPurchaseItem: {
+      /** Amount */
+      amount: number;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /** Currency */
+      currency: string;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /** Payment Id */
+      payment_id: number;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
+    /** AdPurchasesListOut */
+    AdPurchasesListOut: {
+      /** Purchases */
+      purchases: components["schemas"]["AdPurchaseItem"][];
     };
     /** AdStatsOut */
     AdStatsOut: {
@@ -11522,6 +11627,85 @@ export interface operations {
     };
   };
   delete_admin_ad_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_assign_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdAssignBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_ad_purchases_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdPurchasesListOut"];
+        };
+      };
+    };
+  };
+  post_admin_ad_reset_stats_route: {
     parameters: {
       query?: never;
       header?: never;

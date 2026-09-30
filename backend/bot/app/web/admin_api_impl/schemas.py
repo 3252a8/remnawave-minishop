@@ -37,6 +37,9 @@ from config.settings import Settings
 from config.tariffs_config import PackageSet, Tariff, TariffsConfig
 
 from .activity_schemas import (
+    AdAssignBody as AdAssignBody,
+)
+from .activity_schemas import (
     AdCreateBody as AdCreateBody,
 )
 from .activity_schemas import (
@@ -47,6 +50,12 @@ from .activity_schemas import (
 )
 from .activity_schemas import (
     AdOut as AdOut,
+)
+from .activity_schemas import (
+    AdPurchaseItem as AdPurchaseItem,
+)
+from .activity_schemas import (
+    AdPurchasesListOut as AdPurchasesListOut,
 )
 from .activity_schemas import (
     AdStatsOut as AdStatsOut,

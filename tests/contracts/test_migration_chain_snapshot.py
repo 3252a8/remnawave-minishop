@@ -111,6 +111,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0093_panel_origin",
     "0094_referral_accruals",
     "0095_access_rotations",
+    "0096_advertiser_campaign_fields",
 ]
 
 

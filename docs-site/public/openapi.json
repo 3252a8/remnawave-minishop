@@ -1,8 +1,38 @@
 {
   "components": {
     "schemas": {
+      "AdAssignBody": {
+        "properties": {
+          "advertiser_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Advertiser Id"
+          }
+        },
+        "title": "AdAssignBody",
+        "type": "object"
+      },
       "AdCreateBody": {
         "properties": {
+          "advertiser_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Advertiser Id"
+          },
           "cost": {
             "default": 0.0,
             "title": "Cost",
@@ -26,6 +56,18 @@
       },
       "AdOut": {
         "properties": {
+          "advertiser_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Advertiser Id"
+          },
           "cost": {
             "title": "Cost",
             "type": "number"
@@ -77,6 +119,19 @@
           },
           "stats": {
             "$ref": "#/components/schemas/AdStatsOut"
+          },
+          "stats_reset_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stats Reset At"
           }
         },
         "required": [
@@ -85,6 +140,87 @@
           "is_active"
         ],
         "title": "AdOut",
+        "type": "object"
+      },
+      "AdPurchaseItem": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "payment_id",
+          "user_id",
+          "amount",
+          "currency"
+        ],
+        "title": "AdPurchaseItem",
+        "type": "object"
+      },
+      "AdPurchasesListOut": {
+        "properties": {
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/AdPurchaseItem"
+            },
+            "title": "Purchases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "purchases"
+        ],
+        "title": "AdPurchasesListOut",
         "type": "object"
       },
       "AdStatsOut": {
@@ -17339,6 +17475,170 @@
           }
         ],
         "summary": "Admin Ad Delete",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/assign": {
+      "post": {
+        "operationId": "post_admin_ad_assign_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdAssignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Assign",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/purchases": {
+      "get": {
+        "operationId": "get_admin_ad_purchases_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdPurchasesListOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Purchases",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/reset-stats": {
+      "post": {
+        "operationId": "post_admin_ad_reset_stats_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Reset Stats",
         "tags": [
           "admin"
         ]

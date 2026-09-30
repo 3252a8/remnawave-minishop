@@ -56,6 +56,7 @@ from .auth_panel import (
     _sync_panel_identity_for_user,
 )
 from .auth_referral import (
+    _apply_ad_attribution_if_needed,
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
     _ensure_user_from_telegram,
@@ -79,6 +80,7 @@ from .common import (
 )
 
 __all__ = [
+    "_apply_ad_attribution_if_needed",
     "_apply_referral_to_existing_user",
     "_apply_referral_welcome_bonus_if_needed",
     "_apply_telegram_profile_to_user",

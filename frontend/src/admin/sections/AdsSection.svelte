@@ -42,6 +42,9 @@
   const adDraft = $derived(
     (adsStore.adDraft || { source: "", start_param: "", cost: 0 }) as AdDraft
   );
+  const adPurchasesOpen = $derived(Boolean(adsStore.adPurchasesOpen));
+  const adPurchasesLoading = $derived(Boolean(adsStore.adPurchasesLoading));
+  const adPurchasesList = $derived(adsStore.adPurchasesList || []);
   const adRows = $derived(adsTable.rows as Ad[]);
 
   const adSortColumns = [
@@ -52,6 +55,12 @@
       desc: "param_desc",
       defaultDirection: "asc",
       value: (ad) => ad.start_param,
+    },
+    {
+      asc: "advertiser_asc",
+      desc: "advertiser_desc",
+      defaultDirection: "asc",
+      value: (ad) => ad.advertiser_id ?? 0,
     },
     { asc: "cost_asc", desc: "cost_desc", defaultDirection: "desc", value: (ad) => ad.cost },
     {
@@ -82,6 +91,7 @@
     at("id", {}, "ID"),
     at("ads_col_source", {}, "Source"),
     at("ads_col_param", {}, "Parameter"),
+    at("ads_col_advertiser", {}, "Advertiser"),
     at("ads_col_cost", {}, "Cost"),
     at("ads_col_registrations", {}, "Registrations"),
     at("ads_col_conversions", {}, "Conversions"),
@@ -106,7 +116,7 @@
       rows={6}
       rowHeight={58}
       actionColumn
-      widths={["44px", "96px", "110px", "70px", "54px", "54px", "72px", "92px"]}
+      widths={["44px", "96px", "110px", "96px", "70px", "54px", "54px", "72px", "160px"]}
     />
   {:else if !ads.length}
     <AdminEmptyState tone="card"
@@ -138,29 +148,36 @@
             onSort={setAdsSort}
           />
           <AdminSortableHeader
-            label={at("ads_col_cost", {}, "Cost")}
+            label={at("ads_col_advertiser", {}, "Advertiser")}
             column={adSortColumns[3]}
             currentSort={adsSort}
             {at}
             onSort={setAdsSort}
           />
           <AdminSortableHeader
-            label={at("ads_col_registrations", {}, "Registrations")}
+            label={at("ads_col_cost", {}, "Cost")}
             column={adSortColumns[4]}
             currentSort={adsSort}
             {at}
             onSort={setAdsSort}
           />
           <AdminSortableHeader
-            label={at("ads_col_conversions", {}, "Conversions")}
+            label={at("ads_col_registrations", {}, "Registrations")}
             column={adSortColumns[5]}
             currentSort={adsSort}
             {at}
             onSort={setAdsSort}
           />
           <AdminSortableHeader
-            label={at("ads_col_status", {}, "Status")}
+            label={at("ads_col_conversions", {}, "Conversions")}
             column={adSortColumns[6]}
+            currentSort={adsSort}
+            {at}
+            onSort={setAdsSort}
+          />
+          <AdminSortableHeader
+            label={at("ads_col_status", {}, "Status")}
+            column={adSortColumns[7]}
             currentSort={adsSort}
             {at}
             onSort={setAdsSort}
@@ -175,6 +192,9 @@
             <td data-label={at("ads_col_source", {}, "Source")}>{ad.source}</td>
             <td class="admin-cell-mono" data-label={at("ads_col_param", {}, "Parameter")}
               >{ad.start_param}</td
+            >
+            <td class="admin-cell-mono" data-label={at("ads_col_advertiser", {}, "Advertiser")}
+              >{ad.advertiser_id || "—"}</td
             >
             <td data-label={at("ads_col_cost", {}, "Cost")}>{fmtMoney(ad.cost)}</td>
             <td data-label={at("ads_col_registrations", {}, "Registrations")}
@@ -191,6 +211,38 @@
               {/if}
             </td>
             <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
+              <AdminButton size="sm" onclick={() => adsStore.loadAdPurchases(ad)}>
+                {at("btn_purchases", {}, "Purchases")}
+              </AdminButton>
+              <AdminButton
+                size="sm"
+                onclick={() => {
+                  const newId = prompt(
+                    at(
+                      "prompt_advertiser",
+                      {},
+                      "Enter advertiser Telegram ID (or empty to clear):"
+                    ),
+                    ad.advertiser_id ? String(ad.advertiser_id) : ""
+                  );
+                  if (newId !== null) {
+                    const parsed = newId.trim() ? Number(newId.trim()) : null;
+                    adsStore.assignAdvertiser(ad, parsed && !Number.isNaN(parsed) ? parsed : null);
+                  }
+                }}
+              >
+                {at("btn_assign", {}, "Advertiser")}
+              </AdminButton>
+              <AdminButton
+                size="sm"
+                onclick={() => {
+                  if (confirm(at("confirm_reset_stats", {}, "Reset campaign statistics?"))) {
+                    adsStore.resetAdStats(ad);
+                  }
+                }}
+              >
+                {at("btn_reset", {}, "Reset")}
+              </AdminButton>
               <AdminButton size="sm" onclick={() => adsStore.toggleAd(ad)}>
                 {ad.is_active ? at("btn_disable", {}, "Off") : at("btn_enable", {}, "On")}
               </AdminButton>
@@ -256,6 +308,23 @@
             adsStore.updateDraft({ start_param: (e.currentTarget as HTMLInputElement).value })}
         />
       </AdminField>
+      <AdminField
+        label={at("ad_label_advertiser", {}, "Advertiser ID")}
+        hint={at("ad_hint_advertiser", {}, "Telegram ID (optional)")}
+      >
+        <Input
+          class="input"
+          type="number"
+          placeholder="123456789"
+          value={adDraft.advertiser_id ? String(adDraft.advertiser_id) : ""}
+          oninput={(e) =>
+            adsStore.updateDraft({
+              advertiser_id: (e.currentTarget as HTMLInputElement).value
+                ? Number((e.currentTarget as HTMLInputElement).value)
+                : null,
+            })}
+        />
+      </AdminField>
     </div>
     <div class="admin-dialog-form-section">
       <AdminField label={at("ad_label_cost", {}, "Cost, RUB")}>
@@ -282,5 +351,48 @@
         {at("btn_create", {}, "Create")}
       </AdminButton>
     </div>
+  </div>
+</Dialog>
+
+<Dialog
+  open={adPurchasesOpen}
+  title={at("ad_purchases_title", {}, "Campaign Purchases")}
+  closeLabel={at("close", {}, "Close")}
+  onclose={() => adsStore.setPurchasesOpen(false)}
+  class="admin-dialog"
+>
+  <div class="admin-dialog-content" data-dialog-content>
+    {#if adPurchasesLoading}
+      <div style="padding: 24px; text-align: center; color: var(--admin-muted-fg);">
+        {at("loading", {}, "Loading...")}
+      </div>
+    {:else if !adPurchasesList.length}
+      <AdminEmptyState tone="card">
+        <span class="admin-muted">{at("ad_purchases_empty", {}, "No purchases yet")}</span>
+      </AdminEmptyState>
+    {:else}
+      <AdminTable>
+        <thead>
+          <tr>
+            <th>{at("id", {}, "ID")}</th>
+            <th>{at("user", {}, "User")}</th>
+            <th>{at("amount", {}, "Amount")}</th>
+            <th>{at("description", {}, "Description")}</th>
+            <th>{at("date", {}, "Date")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each adPurchasesList as p (p.payment_id)}
+            <tr>
+              <td class="admin-cell-id">#{p.payment_id}</td>
+              <td>{p.username || p.user_id}</td>
+              <td>{fmtMoney(p.amount)}</td>
+              <td>{p.description || "—"}</td>
+              <td>{p.created_at ? new Date(p.created_at).toLocaleString() : "—"}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </AdminTable>
+    {/if}
   </div>
 </Dialog>

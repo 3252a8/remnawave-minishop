@@ -6,6 +6,9 @@ import {
   buildAdminAdsPath,
   buildAdminAdPath,
   buildAdminAdTogglePath,
+  buildAdminAdAssignPath,
+  buildAdminAdResetStatsPath,
+  buildAdminAdPurchasesPath,
 } from "../../webapp/publicApi";
 import type { components } from "../../api/openapi.generated";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
@@ -18,12 +21,17 @@ type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: st
 type Ad = components["schemas"]["AdOut"];
 type AdDraft = components["schemas"]["AdCreateBody"];
 type AdToggleBody = components["schemas"]["AdToggleBody"];
+type AdPurchaseItem = components["schemas"]["AdPurchaseItem"];
 type AdsState = {
   ads: Ad[];
   adsTotals: Record<string, number> | null;
   adsLoading: boolean;
   adCreateOpen: boolean;
   adDraft: AdDraft;
+  adPurchasesOpen: boolean;
+  adPurchasesLoading: boolean;
+  adPurchasesList: AdPurchaseItem[];
+  adPurchasesAd: Ad | null;
 };
 type AdsStoreOptions = {
   api: AdminApi;
@@ -34,6 +42,10 @@ export type AdsStore = AdsState & {
   loadAds: () => Promise<void>;
   createAd: () => Promise<void>;
   toggleAd: (ad: Ad) => Promise<void>;
+  assignAdvertiser: (ad: Ad, advertiserId: number | null) => Promise<void>;
+  resetAdStats: (ad: Ad) => Promise<void>;
+  loadAdPurchases: (ad: Ad) => Promise<void>;
+  setPurchasesOpen: (open: boolean) => void;
   deleteAd: (ad: Ad) => Promise<void>;
   setCreateOpen: (open: boolean) => void;
   updateDraft: (fields: Partial<AdDraft>) => void;
@@ -43,7 +55,12 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
   return response.ok === true;
 }
 
-const defaultAdDraft = (): AdDraft => ({ source: "", start_param: "", cost: 0 });
+const defaultAdDraft = (): AdDraft => ({
+  source: "",
+  start_param: "",
+  cost: 0,
+  advertiser_id: null,
+});
 
 export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore {
   let ads = $state.raw<Ad[]>([]);
@@ -52,6 +69,10 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     adsLoading: false,
     adCreateOpen: false,
     adDraft: defaultAdDraft(),
+    adPurchasesOpen: false,
+    adPurchasesLoading: false,
+    adPurchasesList: [],
+    adPurchasesAd: null,
   });
   const store = Object.create(state) as AdsStore;
   defineRawStateProperty(store, "ads", {
@@ -109,6 +130,60 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     }
   }
 
+  async function assignAdvertiser(ad: Ad, advertiserId: number | null): Promise<void> {
+    const path = buildAdminAdAssignPath(ad.id);
+    const body: PostPayload<"/api/admin/ads/{campaign_id}/assign"> = {
+      advertiser_id: advertiserId,
+    };
+    const res = await api(path, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (isOkResponse(res)) {
+      ads = ads.map((c) => (c.id === ad.id ? { ...c, advertiser_id: advertiserId } : c));
+      onToast(at("ad_assigned", {}, "Advertiser updated"));
+    } else {
+      onToast(adminErrorMessage(res, at));
+    }
+  }
+
+  async function resetAdStats(ad: Ad): Promise<void> {
+    const path = buildAdminAdResetStatsPath(ad.id);
+    const res = await api(path, {
+      method: "POST",
+    });
+    if (isOkResponse(res)) {
+      onToast(at("ad_stats_reset", {}, "Statistics reset"));
+      await loadAds();
+    } else {
+      onToast(adminErrorMessage(res, at));
+    }
+  }
+
+  async function loadAdPurchases(ad: Ad): Promise<void> {
+    state.adPurchasesOpen = true;
+    state.adPurchasesLoading = true;
+    state.adPurchasesList = [];
+    state.adPurchasesAd = ad;
+    try {
+      const params = new URLSearchParams({ page: "0", page_size: "50" });
+      const path = buildAdminAdPurchasesPath(ad.id, params);
+      const res = await api(path);
+      if (isOkResponse(res)) {
+        const payload = unwrap(res);
+        state.adPurchasesList = payload.purchases || [];
+      } else {
+        onToast(adminErrorMessage(res, at));
+      }
+    } finally {
+      state.adPurchasesLoading = false;
+    }
+  }
+
+  function setPurchasesOpen(open: boolean): void {
+    state.adPurchasesOpen = open;
+  }
+
   async function deleteAd(ad: Ad): Promise<void> {
     const path = buildAdminAdPath(ad.id);
     const res = await api(path, { method: "DELETE" });
@@ -132,6 +207,10 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     loadAds,
     createAd,
     toggleAd,
+    assignAdvertiser,
+    resetAdStats,
+    loadAdPurchases,
+    setPurchasesOpen,
     deleteAd,
     setCreateOpen,
     updateDraft,

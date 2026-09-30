@@ -129,7 +129,10 @@ class AdCampaign(Base):
     cost = Column(Float, nullable=False, default=0.0)
     is_active = Column(Boolean, default=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    stats_reset_at = Column(DateTime(timezone=True), nullable=True)
+    advertiser_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
 
+    advertiser = relationship("User", foreign_keys=[advertiser_id])
     attributions = relationship(
         "AdAttribution",
         back_populates="campaign",

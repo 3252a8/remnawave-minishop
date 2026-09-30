@@ -118,6 +118,25 @@ async def _apply_referral_welcome_bonus_if_needed(
     return await _grant_referral_welcome_bonus_if_eligible(request, session, user)
 
 
+async def _apply_ad_attribution_if_needed(
+    session: AsyncSession,
+    user_id: int,
+    raw_start_param: str | None,
+) -> None:
+    if not raw_start_param:
+        return
+    try:
+        from db.dal import ad_dal
+
+        campaign = await ad_dal.get_campaign_by_start_param(session, str(raw_start_param))
+        if campaign and campaign.is_active:
+            await ad_dal.ensure_attribution(
+                session, user_id=user_id, campaign_id=campaign.ad_campaign_id
+            )
+    except Exception:
+        logger.exception("Failed to apply ad attribution in webapp auth")
+
+
 async def _grant_referral_welcome_bonus_if_eligible(
     request: web.Request,
     session: AsyncSession,

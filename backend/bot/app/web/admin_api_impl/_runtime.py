@@ -82,8 +82,11 @@ from bot.app.web.route_contracts import (
 
 from bot.app.web.request_parsing import parse_body, parse_body_or_400
 from .schemas import (
+    AdAssignBody,
     AdCreateBody,
     AdOut,
+    AdPurchaseItem,
+    AdPurchasesListOut,
     AdToggleBody,
     AdminBackupRestoreBody,
     AdminAdsListOut,
