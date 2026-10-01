@@ -164,6 +164,46 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_user_detail_includes_last_vpn_connection_from_panel(self):
+        await self._assert_user_detail_from_panel()
+
+    async def test_user_detail_uses_public_url_with_internal_api(self):
+        await self._assert_user_detail_from_panel(
+            api_url="http://remnawave:3000/api",
+            public_url="https://browser.example.com/prefix/api",
+            expected_url="https://browser.example.com/prefix/dashboard/open/user/77",
+        )
+
+    async def test_user_detail_uses_public_url_for_stored_id_when_live_id_is_missing(self):
+        await self._assert_user_detail_from_panel(
+            api_url="http://remnawave:3000/api",
+            public_url="https://browser.example.com",
+            panel_reference="158",
+            live_id=None,
+            expected_url="https://browser.example.com/dashboard/open/user/158",
+        )
+
+    async def test_user_detail_hides_link_for_legacy_reference_or_invalid_public_url(self):
+        for public_url, live_id in (
+            ("https://browser.example.com", None),
+            ("javascript:alert(1)", 77),
+        ):
+            with self.subTest(public_url=public_url):
+                await self._assert_user_detail_from_panel(
+                    api_url="http://remnawave:3000/api",
+                    public_url=public_url,
+                    live_id=live_id,
+                    expected_url=None,
+                )
+
+    async def _assert_user_detail_from_panel(
+        self,
+        *,
+        api_url: str = "https://panel.example.test/api",
+        public_url: str | None = None,
+        panel_reference: str = "panel-from-sub",
+        live_id: int | None = 77,
+        expected_url: str | None = "https://panel.example.test/dashboard/open/user/77",
+    ) -> None:
         session = FakeSession()
         user = SimpleNamespace(
             user_id=42,
@@ -181,12 +221,12 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             referred_by_id=None,
             trial_eligibility_reset_at=None,
         )
-        active_sub = _active_subscription("panel-from-sub")
+        active_sub = _active_subscription(panel_reference)
         session.objects[active_sub.subscription_id] = active_sub
         panel_service = SimpleNamespace(
             get_user_by_uuid=AsyncMock(
                 return_value={
-                    "id": 77,
+                    "id": live_id,
                     "subscriptionUrl": "https://panel.example/sub/short",
                     "userTraffic": {"onlineAt": "2026-06-05T12:00:00Z"},
                 }
@@ -195,7 +235,11 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         install_links = AsyncMock(return_value="https://app.example/s/share")
         request = SimpleNamespace(
             app={
-                "settings": settings_stub(SUBSCRIPTION_MINI_APP_URL=None),
+                "settings": settings_stub(
+                    SUBSCRIPTION_MINI_APP_URL=None,
+                    PANEL_API_URL=api_url,
+                    PANEL_PUBLIC_URL=public_url,
+                ),
                 "async_session_factory": lambda: session,
                 "subscription_service": SimpleNamespace(panel_service=panel_service),
             },
@@ -284,10 +328,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
         payload = json.loads(response.text)
         self.assertEqual(response.status, 200)
         self.assertEqual(payload["subscription_url"], "https://panel.example/sub/short")
-        self.assertEqual(
-            payload["panel_user_url"],
-            "https://panel.example.test/dashboard/open/user/77",
-        )
+        self.assertEqual(payload["panel_user_url"], expected_url)
         self.assertEqual(payload["install_share_url"], "https://app.example/s/share")
         self.assertEqual(payload["vpn_connection_status"], "connected")
         self.assertEqual(payload["last_vpn_connected_at"], "2026-06-05T12:00:00+00:00")
@@ -303,8 +344,9 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             },
         )
         self.assertEqual(active_sub.last_connected_at, datetime(2026, 6, 5, 12, tzinfo=UTC))
-        panel_service.get_user_by_uuid.assert_awaited_once_with("panel-from-sub")
+        panel_service.get_user_by_uuid.assert_awaited_once_with(panel_reference)
         install_links.assert_awaited_once()
+        assert install_links.await_args is not None
         self.assertIs(install_links.await_args.kwargs["local_subscription"], active_sub)
 
 

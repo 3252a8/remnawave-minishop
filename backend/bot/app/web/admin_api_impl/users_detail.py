@@ -785,7 +785,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         "panel_user_uuid",
         None,
     )
-    panel_user_url = build_panel_user_admin_url(settings.PANEL_API_URL, panel_uuid)
+    panel_user_url = build_panel_user_admin_url(
+        settings.PANEL_API_URL, panel_uuid, settings.PANEL_PUBLIC_URL
+    )
     subscription_service = get_optional_subscription_service(request)
     panel_service = get_panel_service(request) or getattr(
         subscription_service, "panel_service", None
@@ -795,7 +797,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             panel_data = await panel_service.get_user_by_uuid(panel_uuid)
             if panel_data:
                 panel_user_url = (
-                    build_panel_user_admin_url(settings.PANEL_API_URL, panel_data.get("id"))
+                    build_panel_user_admin_url(
+                        settings.PANEL_API_URL, panel_data.get("id"), settings.PANEL_PUBLIC_URL
+                    )
                     or panel_user_url
                 )
                 subscription_url = panel_data.get("subscriptionUrl") or None
