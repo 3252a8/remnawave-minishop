@@ -1,6 +1,7 @@
-// `TicketComposer` is deliberately absent: it pulls in the rich text editor,
-// and re-exporting it here would tie that weight to every screen that reaches
-// for any other pattern. Import it from its own file where it is used.
+// `TicketComposer` and `LinkQrDialog` are deliberately absent: they pull in the
+// rich text editor and the QR encoder, and re-exporting them here would tie that
+// weight to every screen that reaches for any other pattern. Import them from
+// their own files where they are used.
 export { default as DeviceGlyph } from "./DeviceGlyph.svelte";
 export { default as DialogOptionsSkeleton } from "./DialogOptionsSkeleton.svelte";
 export { default as EmptyCard } from "./EmptyCard.svelte";

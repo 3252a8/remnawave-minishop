@@ -34,7 +34,7 @@ async function copyFullLink(page: Page, field: Locator) {
   expect(
     await input.evaluate((node: HTMLInputElement) => node.selectionEnd! - node.selectionStart!)
   ).toBe(value.length);
-  await field.locator("button").click();
+  await field.locator("button").first().click();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(value);
   await noOverflow(field);
   const heights = await field
@@ -397,6 +397,11 @@ for (const [device, viewport] of [
     await page.goto("/demo/runtime/app/?mock=checkout-addons&path=/invite&theme_preview=dark");
     await expect(page.locator(".gift-entry .copy-link-field").first()).toBeVisible();
     await copyFullLink(page, page.locator(".gift-entry .copy-link-field").first());
-    await copyFullLink(page, page.locator(".bonus-card .copy-link-field").first());
+    const referralField = page.locator(".bonus-card .copy-link-field").first();
+    await copyFullLink(page, referralField);
+    await referralField.getByRole("button", { name: /QR/ }).click();
+    await expect(page.locator(".link-qr-tile img")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".link-qr-tile")).toHaveCount(0);
   });
 }

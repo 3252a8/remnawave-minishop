@@ -5,9 +5,10 @@
   import { slide } from "svelte/transition";
 
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
+  import LinkQrDialog from "$components/patterns/webapp/LinkQrDialog.svelte";
   import Card from "$components/ui/card.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
-  import { visibleReferralLinks } from "$lib/webapp/referralLinks.js";
+  import { visibleReferralLinks, type ReferralLinkEntry } from "$lib/webapp/referralLinks.js";
   import { formatReceivedSince, referralStats } from "$lib/webapp/referralStats.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import type {
@@ -73,6 +74,7 @@
   const PERIOD_BONUS_LIST_ID = "referral-bonus-period-list";
   const PERIOD_BONUS_LIST_TRANSITION = { duration: 220 };
   let periodBonusListOpen = $state(false);
+  let qrLink = $state<ReferralLinkEntry | null>(null);
 
   $effect(() => {
     periodBonusListOpen = referralBonusListMode === "expanded";
@@ -205,7 +207,9 @@
                         value={link.url}
                         inputLabel={t(link.labelKey)}
                         copyLabel={t("wa_copy")}
+                        qrLabel={t("wa_referral_qr_show")}
                         oncopy={(value) => copyText(value, t("wa_link_copied"))}
+                        onqr={() => (qrLink = link)}
                       />
                     </div>
                   {/each}
@@ -283,3 +287,14 @@
       </section>{/if}
   </UserExtensionPoint>
 </main>
+
+<LinkQrDialog
+  open={qrLink !== null}
+  link={qrLink?.url ?? ""}
+  title={t("wa_referral_qr_title")}
+  description={t("wa_referral_qr_description")}
+  caption={qrLink ? t(qrLink.labelKey) : ""}
+  alt={t("wa_referral_qr_alt")}
+  closeLabel={t("wa_close")}
+  onclose={() => (qrLink = null)}
+/>
