@@ -196,6 +196,9 @@
   flex-direction: column;
   padding: 16px;
 }
+.appearance-library .theme-card-content > .admin-btn {
+  margin-bottom: 7px;
+}
 .appearance-library .theme-card-title {
   display: flex;
   align-items: center;
