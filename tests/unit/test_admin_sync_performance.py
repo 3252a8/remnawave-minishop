@@ -909,7 +909,7 @@ def test_absorb_duplicate_panel_identity_extends_kept_user_and_deletes_duplicate
         update_user_details_on_panel=AsyncMock(return_value={"uuid": "panel-keep"}),
         delete_user_from_panel=AsyncMock(return_value=True),
     )
-    session = SimpleNamespace(execute=AsyncMock())
+    session = SimpleNamespace(execute=AsyncMock(), refresh=AsyncMock(), commit=AsyncMock())
     settings = SimpleNamespace(user_traffic_limit_bytes=0)
     user = SimpleNamespace(
         user_id=42,

@@ -230,18 +230,25 @@ async def _perform_sync_impl(
                 if not telegram_id_from_panel:
                     users_without_telegram_id += 1
 
-                # A persisted native panel link is authoritative. Telegram metadata
-                # can locate an unlinked account only through its explicit identity.
+                # Keep the persisted native panel link. Panel records sharing its
+                # Telegram ID are duplicates whose remaining periods are absorbed.
                 # Panel email and a coincidentally equal internal ID prove nothing.
                 existing_user = users_by_panel_uuid.get(panel_uuid)
+                is_panel_telegram_duplicate = False
                 if existing_user is None and telegram_id_from_panel:
                     existing_user = users_by_telegram_id.get(telegram_id_from_panel)
                     if existing_user and existing_user.panel_user_uuid:
-                        sync_errors.append(
-                            f"Panel user {panel_uuid} claims Telegram identity already "
-                            "linked to another panel user; manual review required"
+                        is_panel_telegram_duplicate = bool(
+                            existing_user.telegram_id == telegram_id_from_panel
+                            and existing_user.panel_user_uuid
+                            in panel_uuids_by_telegram_id.get(telegram_id_from_panel, set())
                         )
-                        continue
+                        if not is_panel_telegram_duplicate:
+                            sync_errors.append(
+                                f"Panel user {panel_uuid} claims Telegram identity already "
+                                "linked to another panel user; manual review required"
+                            )
+                            continue
                 if existing_user and telegram_id_from_panel:
                     telegram_owner = users_by_telegram_id.get(telegram_id_from_panel)
                     if telegram_owner and telegram_owner.user_id != existing_user.user_id:
@@ -312,6 +319,7 @@ async def _perform_sync_impl(
                         existing_user.panel_user_uuid != panel_uuid
                         or not getattr(existing_user, "panel_origin", None)
                     )
+                    and not is_panel_telegram_duplicate
                     and not panel_candidate_matches_account(existing_user, panel_user_dict)
                 ):
                     sync_errors.append(
@@ -321,7 +329,7 @@ async def _perform_sync_impl(
                     continue
                 existing_user.panel_origin = current_panel_origin
                 actual_panel_username = str(panel_user_dict.get("username") or "").strip()
-                if actual_panel_username:
+                if actual_panel_username and not is_panel_telegram_duplicate:
                     existing_user.panel_username = actual_panel_username
                     existing_user.panel_username_state = (
                         "current"
@@ -482,6 +490,11 @@ async def _perform_sync_impl(
                                 existing_user.telegram_id,
                                 linked_uuid,
                                 "duplicate_panel_identity_resolved",
+                            )
+                        else:
+                            sync_errors.append(
+                                f"Panel duplicate {panel_uuid} could not be reconciled with "
+                                f"{linked_uuid}; synchronization will retry"
                             )
                         logger.warning(
                             "Sync: duplicate panel users share telegramId %s; kept local panel UUID %s and processed duplicate panel UUID %s.",  # noqa: E501

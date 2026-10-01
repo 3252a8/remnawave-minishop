@@ -2,11 +2,12 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
+from db.advisory_locks import commit_subscription_background_sync_batch
 from db.dal import subscription_dal, user_dal
 from db.models import Subscription, User
 
@@ -238,9 +239,18 @@ async def _absorb_duplicate_panel_identity(
     active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
 ) -> dict[str, int | bool]:
     duplicate_panel_uuid = str(duplicate_panel_user.get("uuid") or "")
-    if not duplicate_panel_uuid:
+    keep_subscription_uuid = _panel_subscription_uuid(keep_panel_user or {})
+    duplicate_subscription_uuid = _panel_subscription_uuid(duplicate_panel_user)
+    if (
+        not duplicate_panel_uuid
+        or not keep_subscription_uuid
+        or not duplicate_subscription_uuid
+        or duplicate_panel_uuid == keep_panel_uuid
+        or duplicate_subscription_uuid == keep_subscription_uuid
+    ):
         return {"resolved": False, "subscriptions_created": 0, "subscriptions_updated": 0}
 
+    await user_dal.lock_user_entitlement(session, int(existing_user.user_id))
     subscriptions_created = 0
     subscriptions_updated = 0
     panel_patches = 0
@@ -251,7 +261,6 @@ async def _absorb_duplicate_panel_identity(
         duplicate_expire_at and duplicate_status == "ACTIVE" and duplicate_expire_at > now
     )
 
-    keep_subscription_uuid = _panel_subscription_uuid(keep_panel_user or {})
     target_sub = (
         subscriptions_by_panel_uuid.get(keep_subscription_uuid) if keep_subscription_uuid else None
     )
@@ -259,14 +268,32 @@ async def _absorb_duplicate_panel_identity(
         target_sub = active_subscriptions_by_user_panel.get(
             (int(existing_user.user_id), keep_panel_uuid)
         )
+    duplicate_sub = subscriptions_by_panel_uuid.get(duplicate_subscription_uuid)
+    if target_sub is not None and target_sub is duplicate_sub:
+        return {"resolved": False, "subscriptions_created": 0, "subscriptions_updated": 0}
+    for subscription in (target_sub, duplicate_sub):
+        if subscription is not None:
+            await session.refresh(subscription)
+            if int(subscription.user_id) != int(existing_user.user_id):
+                return {"resolved": False, "subscriptions_created": 0, "subscriptions_updated": 0}
 
     final_end_date: datetime | None = None
-    if duplicate_is_active and duplicate_expire_at:
-        source_remaining = max(timedelta(0), duplicate_expire_at - now)
+    already_transferred = bool(
+        duplicate_sub and duplicate_sub.status_from_panel == "MERGED_PANEL_DUPLICATE"
+    )
+    has_transferred_period = bool(
+        already_transferred and duplicate_sub and _as_utc(duplicate_sub.end_date) > now
+    )
+    if has_transferred_period or (
+        not already_transferred and duplicate_is_active and duplicate_expire_at
+    ):
+        keep_end = _panel_expire_at(keep_panel_user or {}) or now
+        base_end = max(now, keep_end, _as_utc(target_sub.end_date) if target_sub else now)
+        if already_transferred and duplicate_sub:
+            final_end_date = max(base_end, _as_utc(duplicate_sub.end_date))
+        elif duplicate_expire_at:
+            final_end_date = base_end + max(timedelta(0), duplicate_expire_at - now)
         if target_sub:
-            target_end = _as_utc(target_sub.end_date)
-            base_end = target_end if target_end > now else now
-            final_end_date = base_end + source_remaining
             update_payload: dict[str, Any] = {
                 "user_id": int(existing_user.user_id),
                 "panel_user_uuid": keep_panel_uuid,
@@ -286,8 +313,7 @@ async def _absorb_duplicate_panel_identity(
                 for key, value in update_delta.items():
                     setattr(target_sub, key, value)
                 subscriptions_updated += 1
-        elif keep_subscription_uuid:
-            final_end_date = now + (duplicate_expire_at - now)
+        else:
             created_sub = await subscription_dal.upsert_subscription(
                 session,
                 {
@@ -308,40 +334,48 @@ async def _absorb_duplicate_panel_identity(
                 (int(created_sub.user_id), created_sub.panel_user_uuid)
             ] = created_sub
             subscriptions_created += 1
+            target_sub = created_sub
 
-    duplicate_subscription_uuid = _panel_subscription_uuid(duplicate_panel_user)
-    duplicate_sub = (
-        subscriptions_by_panel_uuid.get(duplicate_subscription_uuid)
-        if duplicate_subscription_uuid
-        else None
-    )
+    # The inactive source row is the durable transfer receipt. Its end date
+    # records the resulting expiry, so retries cannot add the same period twice,
+    # even if a subsequent panel snapshot temporarily restores an older expiry.
+    transfer_end_date = final_end_date or now
+    source_payload = {
+        "user_id": int(existing_user.user_id),
+        "is_active": False,
+        "skip_notifications": True,
+        "status_from_panel": "MERGED_PANEL_DUPLICATE",
+        "end_date": transfer_end_date,
+    }
     if duplicate_sub and duplicate_sub is not target_sub:
         await subscription_dal.update_subscription(
             session,
             duplicate_sub.subscription_id,
-            {
-                "user_id": int(existing_user.user_id),
-                "is_active": False,
-                "skip_notifications": True,
-                "status_from_panel": "MERGED_PANEL_DUPLICATE",
-            },
+            source_payload,
         )
-        duplicate_sub.user_id = int(existing_user.user_id)
-        duplicate_sub.is_active = False
-        duplicate_sub.skip_notifications = True
-        duplicate_sub.status_from_panel = "MERGED_PANEL_DUPLICATE"
+        for key, value in source_payload.items():
+            setattr(duplicate_sub, key, value)
         subscriptions_updated += 1
     elif not duplicate_sub:
-        await session.execute(
-            update(Subscription)
-            .where(Subscription.panel_user_uuid == duplicate_panel_uuid)
-            .values(
-                user_id=int(existing_user.user_id),
-                is_active=False,
-                skip_notifications=True,
-                status_from_panel="MERGED_PANEL_DUPLICATE",
-            )
+        duplicate_sub = await subscription_dal.upsert_subscription(
+            session,
+            {
+                **source_payload,
+                "panel_user_uuid": duplicate_panel_uuid,
+                "panel_subscription_uuid": duplicate_subscription_uuid,
+                "auto_renew_enabled": False,
+            },
         )
+        subscriptions_by_panel_uuid[duplicate_subscription_uuid] = duplicate_sub
+        subscriptions_created += 1
+
+    # Persist the receipt before any external mutation. Reacquire the same
+    # locks and reread the target so a concurrent payment is never overwritten.
+    await commit_subscription_background_sync_batch(session)
+    await user_dal.lock_user_entitlement(session, int(existing_user.user_id))
+    if final_end_date and target_sub:
+        await session.refresh(target_sub)
+        final_end_date = max(final_end_date, _as_utc(target_sub.end_date))
 
     if final_end_date:
         panel_payload = _panel_identity_payload_with_expiry(existing_user, expire_at=final_end_date)
@@ -355,11 +389,20 @@ async def _absorb_duplicate_panel_identity(
             panel_view="list",
         )
         panel_patches += 1
-        await panel_service.update_user_details_on_panel(
+        updated = await panel_service.update_user_details_on_panel(
             keep_panel_uuid,
             panel_payload,
             log_response=False,
         )
+        if not updated:
+            return {
+                "resolved": False,
+                "subscriptions_created": subscriptions_created,
+                "subscriptions_updated": subscriptions_updated,
+                "panel_patches": panel_patches,
+            }
+        if keep_panel_user is not None:
+            keep_panel_user.update(panel_payload)
 
     deleted = await panel_service.delete_user_from_panel(
         duplicate_panel_uuid,
