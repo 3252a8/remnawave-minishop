@@ -457,7 +457,9 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
 
     nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
     style_tag = (
-        f'<style id="webapp-initial-theme" nonce="{nonce}">' + "".join(css_rules) + "</style>"
+        f'<style id="webapp-initial-theme" nonce="{nonce}">'
+        + _inline_style_text("".join(css_rules))
+        + "</style>"
     )
     href = _theme_css_href_for_html(theme)
     if not href:
@@ -467,6 +469,12 @@ def _initial_theme_head_markup(request: web.Request, theme: Any, primary_color: 
         f'data-initial-theme-css="{html.escape(str(theme.key), quote=True)}">'
     )
     return stylesheet + "\n" + style_tag
+
+
+def _inline_style_text(css: str) -> str:
+    # HTML consumes a closing style tag even inside a CSS quoted string/comment.
+    # CSS escapes keep the token's meaning without exposing literal HTML delimiters.
+    return css.replace("<", "\\3c ").replace(">", "\\3e ")
 
 
 def _app_deeplink_theme_head_markup(
@@ -494,9 +502,8 @@ def _app_deeplink_theme_head_markup(
     nonce = html.escape(str(request.get("csp_nonce", "")), quote=True)
     return (
         f'<style id="webapp-initial-theme" nonce="{nonce}">'
-        f"html{{color-scheme:{scheme};}}"
-        f":root{{{';'.join(declarations)}}}"
-        "</style>"
+        + _inline_style_text(f"html{{color-scheme:{scheme};}}:root{{{';'.join(declarations)}}}")
+        + "</style>"
     )
 
 
