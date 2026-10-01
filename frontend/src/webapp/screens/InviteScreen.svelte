@@ -5,9 +5,11 @@
   import { slide } from "svelte/transition";
 
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
+  import LinkQrDialog from "$components/patterns/webapp/LinkQrDialog.svelte";
   import Card from "$components/ui/card.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
-  import { visibleReferralLinks } from "$lib/webapp/referralLinks.js";
+  import { visibleReferralLinks, type ReferralLinkEntry } from "$lib/webapp/referralLinks.js";
+  import { formatReceivedSince, referralStats } from "$lib/webapp/referralStats.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import type {
     CopyTextAction,
@@ -65,12 +67,14 @@
   );
   const usesTariffBonusSummaries = $derived(tariffBonusSummaries.length > 0);
   const referralLinks = $derived(visibleReferralLinks(referral));
+  const stats = $derived(referralStats(referral));
   const periodBonusListCollapsible = $derived(referralBonusListMode !== "plain");
   // Mirrors the traffic reset disclosure in HomeScreen.svelte: the theme picks
   // the default state, the reader can still expand and collapse it by hand.
   const PERIOD_BONUS_LIST_ID = "referral-bonus-period-list";
   const PERIOD_BONUS_LIST_TRANSITION = { duration: 220 };
   let periodBonusListOpen = $state(false);
+  let qrLink = $state<ReferralLinkEntry | null>(null);
 
   $effect(() => {
     periodBonusListOpen = referralBonusListMode === "expanded";
@@ -170,6 +174,28 @@
                 {/if}
               </div>
             </div>
+            <dl class="referral-stats">
+              <div class="referral-stat">
+                <dt>{t("wa_referral_stats_invited")}</dt>
+                <dd>{stats.invited}</dd>
+              </div>
+              <div class="referral-stat">
+                <dt>{t("wa_referral_stats_paid")}</dt>
+                <dd>{stats.paid}</dd>
+              </div>
+              {#if stats.received}
+                <div class="referral-stat">
+                  <dt>
+                    {stats.received.since
+                      ? t("wa_referral_stats_received_since", {
+                          date: formatReceivedSince(stats.received.since),
+                        })
+                      : t("wa_referral_stats_received")}
+                  </dt>
+                  <dd>{t("wa_referral_stats_received_days", { days: stats.received.days })}</dd>
+                </div>
+              {/if}
+            </dl>
             <div>
               <h3 class="card-heading">{t("wa_referral_link_title")}</h3>
               {#if referralLinks.length}
@@ -181,7 +207,9 @@
                         value={link.url}
                         inputLabel={t(link.labelKey)}
                         copyLabel={t("wa_copy")}
+                        qrLabel={t("wa_referral_qr_show")}
                         oncopy={(value) => copyText(value, t("wa_link_copied"))}
+                        onqr={() => (qrLink = link)}
                       />
                     </div>
                   {/each}
@@ -259,3 +287,14 @@
       </section>{/if}
   </UserExtensionPoint>
 </main>
+
+<LinkQrDialog
+  open={qrLink !== null}
+  link={qrLink?.url ?? ""}
+  title={t("wa_referral_qr_title")}
+  description={t("wa_referral_qr_description")}
+  caption={qrLink ? t(qrLink.labelKey) : ""}
+  alt={t("wa_referral_qr_alt")}
+  closeLabel={t("wa_close")}
+  onclose={() => (qrLink = null)}
+/>

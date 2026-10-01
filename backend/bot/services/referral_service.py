@@ -15,7 +15,7 @@ from bot.services.subscription_order_terms import read_subscription_terms
 from bot.utils.referral_links import build_bot_referral_link
 from config.settings import Settings
 from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
-from db.dal import payment_dal, subscription_dal, user_dal
+from db.dal import payment_dal, referral_stats_dal, subscription_dal, user_dal
 
 logger = logging.getLogger(__name__)
 
@@ -419,7 +419,29 @@ class ReferralService:
             )
             purchased_count = purchased_count_result.scalar() or 0
 
-            return {"invited_count": invited_count, "purchased_count": purchased_count}
+            received = await self._received_bonus(session, user_id)
+            return {
+                "invited_count": invited_count,
+                "purchased_count": purchased_count,
+                "received_bonus_days": received.days if received else None,
+                "received_bonus_since": received.since if received else None,
+            }
         except Exception as e:
             logger.error("Error getting referral stats for user %s: %s", user_id, e)
-            return {"invited_count": 0, "purchased_count": 0}
+            return {
+                "invited_count": 0,
+                "purchased_count": 0,
+                "received_bonus_days": None,
+                "received_bonus_since": None,
+            }
+
+    async def _received_bonus(
+        self, session: AsyncSession, user_id: int
+    ) -> referral_stats_dal.ReceivedInviterBonus | None:
+        """Invitation bonus days already credited; ``None`` when the lookup fails."""
+        try:
+            async with session.begin_nested():
+                return await referral_stats_dal.get_received_inviter_bonus(session, user_id)
+        except Exception:
+            logger.exception("Failed to total received referral bonus days for user %s", user_id)
+            return None

@@ -229,8 +229,14 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
         referral_stats = (
             await referral_service.get_referral_stats(session, user_id)
             if referral_service
-            else {"invited_count": 0, "purchased_count": 0}
+            else {
+                "invited_count": 0,
+                "purchased_count": 0,
+                "received_bonus_days": None,
+                "received_bonus_since": None,
+            }
         )
+        received_bonus_since = referral_stats.get("received_bonus_since")
         support_unread_count = (
             await support_dal.count_user_unread(session, user_id)
             if support_settings.tickets_enabled
@@ -452,6 +458,10 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "webapp_link": webapp_referral_link,
             "invited_count": referral_stats.get("invited_count", 0),
             "purchased_count": referral_stats.get("purchased_count", 0),
+            "received_bonus_days": referral_stats.get("received_bonus_days"),
+            "received_bonus_since": received_bonus_since.isoformat()
+            if isinstance(received_bonus_since, datetime)
+            else None,
             "welcome_bonus_days": referral_welcome_days,
             "welcome_bonus_without_telegram_enabled": bool(
                 referral_settings.welcome_bonus_without_telegram_enabled
