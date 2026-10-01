@@ -93,6 +93,15 @@ button:disabled {
   padding: 0;
 }
 
+/* Compact icon action that sits inline with a line of text. */
+.btn-square-sm {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+
 .btn-sm {
   min-height: 36px;
   padding: 0 12px;

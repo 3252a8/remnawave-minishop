@@ -1,3 +1,4 @@
+import { DEVICE_NAME_MAX_LENGTH, normalizeDeviceName } from "../deviceNames";
 import { DEV_MOCK } from "../previewMock.js";
 import { jsonBody } from "../demoMockRuntime.js";
 import {
@@ -373,6 +374,26 @@ export function webappFallbackResponse(
     devicesHost.devices = devicesHost.devices.filter((device) => device.token !== payload.token);
     devicesHost.current_devices = devicesHost.devices.length;
     return { ok: true };
+  }
+  if (path === "/devices/rename" && String(options.method || "").toUpperCase() === "POST") {
+    let payload: DemoRecord = {};
+    try {
+      payload = options?.body ? (JSON.parse(String(options.body)) as DemoRecord) : {};
+    } catch (_error) {
+      void _error;
+    }
+    const devicesHost = DEV_MOCK.data.devices as DemoRecord & {
+      devices: (DemoRecord & { token?: unknown })[];
+    };
+    const target = devicesHost.devices.find((device) => device.token === payload.token);
+    if (!target) return { ok: false, error: "device_not_found" };
+    const name = normalizeDeviceName(String(payload.name || ""));
+    if (Array.from(name).length > DEVICE_NAME_MAX_LENGTH)
+      return { ok: false, error: "device_name_too_long" };
+    target.default_name = String(target.default_name || target.display_name || "");
+    target.custom_name = name || null;
+    target.display_name = name || target.default_name;
+    return { ok: true, device: clone(target) };
   }
   if (path === "/trial/activate" && String(options.method || "").toUpperCase() === "POST") {
     if (DEV_MOCK.data.settings?.trial_requires_oauth && !DEV_MOCK.data.user?.telegram_linked) {

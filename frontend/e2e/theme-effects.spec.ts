@@ -23,6 +23,101 @@ async function bundle(file: string, globalName: string) {
   return result.outputFiles[0].text;
 }
 
+for (const viewer of [
+  { label: "visitor", isAdmin: false, enabled: false, allowed: true },
+  { label: "administrator without consent", isAdmin: true, enabled: false, allowed: false },
+  { label: "administrator with consent", isAdmin: true, enabled: true, allowed: true },
+]) {
+  test(`the app starts theme effects for ${viewer.label} with the real account shape`, async ({
+    page,
+  }) => {
+    const digest = "b".repeat(64);
+    let requests = 0;
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.route("**/demo/runtime/**", async (route) => {
+      if (route.request().resourceType() !== "document") return route.continue();
+      const response = await route.fetch();
+      const config = { title: "Theme effects fixture", adminThemeEffectsEnabled: viewer.enabled };
+      const body = (await response.text()).replace(
+        "</head>",
+        `<script id="webapp-config" type="application/json">${JSON.stringify(config)}</script></head>`
+      );
+      await route.fulfill({ response, body });
+    });
+    await page.route("**/api/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.startsWith("/api/theme-effects/assets/")) {
+        if (path.endsWith("/tilt.js"))
+          return route.fulfill({
+            contentType: "text/javascript",
+            body: readFileSync("../examples/theme-effects/tilt/effects/main.js", "utf8"),
+          });
+        return route.fulfill({
+          contentType: "text/javascript",
+          body: `import { mount as mountTilt } from './tilt.js';
+          export async function mount(host, context) {
+            const instance = await mountTilt(host, context);
+            document.documentElement.dataset.themeViewerEffect = 'mounted';
+            return instance;
+          }`,
+        });
+      }
+      let response: Record<string, unknown> = { ok: true };
+      if (path === "/api/auth/session")
+        response = { ok: true, authenticated: true, csrf_token: "fixture-csrf" };
+      if (path.startsWith("/api/i18n")) response = { ok: true, i18n: { ru: {}, en: {} } };
+      if (path === "/api/me")
+        response = {
+          ok: true,
+          user: { id: 42, language_code: "ru", is_admin: viewer.isAdmin },
+          settings: {},
+          subscription: { active: false },
+          plans: [],
+          payment_methods: [],
+          referral: {},
+        };
+      if (path === "/api/extensions/runtime") response = { ok: true, generation: 1, plugins: [] };
+      if (path === "/api/gifts") response = { ok: true, enabled: false, gifts: [] };
+      if (path === "/api/support/tickets")
+        response = { ok: true, tickets: [], total: 0, page: 0, pages: 1 };
+      if (path === "/api/theme-effects") {
+        requests++;
+        response = {
+          ok: true,
+          effect: {
+            key: "dark",
+            digest,
+            effects_digest: digest,
+            lease_seconds: 60,
+            entry: `/api/theme-effects/assets/dark/${digest}/main.js`,
+            styles: [],
+            assets: {},
+            manifest: {
+              api_version: 1,
+              runtime: "trusted-dom",
+              entry: "main.js",
+              description: {},
+              targets: ["home.header.surface"],
+            },
+          },
+        };
+      }
+      await route.fulfill({ json: response });
+    });
+    await page.goto("/demo/runtime/app/");
+    await expect(page.locator(".bottom-nav")).toBeVisible();
+    if (viewer.allowed) {
+      await expect(page.locator("html")).toHaveAttribute("data-theme-viewer-effect", "mounted");
+      expect(requests).toBeGreaterThan(0);
+    } else {
+      await expect(page.locator("html")).not.toHaveAttribute("data-theme-viewer-effect", "mounted");
+      expect(requests).toBe(0);
+    }
+    expect(errors).toEqual([]);
+  });
+}
+
 test("runtime disposes listeners, RAF, nodes, styles and late mounts", async ({ page }) => {
   await page.goto("/demo/runtime/app/?theme_effects=off");
   await page.setContent('<div data-theme-effect-target="home.header.surface"></div>');

@@ -3,7 +3,7 @@ import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.webapp.devices import (
@@ -66,6 +66,8 @@ def test_serialize_device_matches_contract():
         "hwid_short": "ABC123XYZ",
         "token": hashlib.sha256(b"ABC123XYZ").hexdigest()[:32],
         "can_disconnect": True,
+        "default_name": "iPhone 15",
+        "custom_name": None,
     }
     assert result == expected
     assert list(result.keys()) == list(expected.keys())
@@ -107,7 +109,63 @@ def test_normalize_devices_response_accepts_panel_response_object():
     assert _normalize_devices_response(payload) == [{"hwid": "abcdef123456"}]
 
 
+def test_serialize_device_prefers_saved_name_and_keeps_default():
+    token = _device_hwid_token("ABC123XYZ")
+    result = _serialize_device(
+        {"hwid": "ABC123XYZ", "deviceModel": "iPhone 15", "platform": "iOS"},
+        2,
+        {token: "Mom's phone", "other-token": "Unrelated"},
+    )
+
+    assert result["display_name"] == "Mom's phone"
+    assert result["custom_name"] == "Mom's phone"
+    assert result["default_name"] == "iPhone 15"
+
+
+def test_serialize_device_without_hwid_ignores_saved_names():
+    result = _serialize_device({"platform": "Android"}, 1, {"": "Ghost"})
+
+    assert result["display_name"] == "Android"
+    assert result["custom_name"] is None
+
+
 class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):
+    def setUp(self):
+        from bot.app.web.webapp import devices as devices_module
+
+        names_patch = patch.object(
+            devices_module.device_name_dal, "get_device_names", AsyncMock(return_value={})
+        )
+        self.get_device_names = names_patch.start()
+        self.addCleanup(names_patch.stop)
+
+    async def test_load_devices_payload_applies_saved_device_names(self):
+        panel_service = SimpleNamespace(
+            get_user_devices=AsyncMock(
+                return_value=[
+                    {"hwid": "abcdef123456", "deviceModel": "Laptop"},
+                    {"hwid": "zyx987654321", "deviceModel": "Pixel 9"},
+                ]
+            )
+        )
+        subscription_service = SimpleNamespace(
+            get_active_subscription_details=AsyncMock(
+                return_value={"user_id": "panel-user", "end_date": datetime(2099, 1, 2, tzinfo=UTC)}
+            ),
+            panel_service=panel_service,
+        )
+        self.get_device_names.return_value = {_device_hwid_token("abcdef123456"): "Work laptop"}
+        session = AsyncMock()
+
+        payload = await _load_devices_payload(subscription_service, session, 42)
+
+        devices = payload["payload"]["devices"]
+        self.assertEqual(devices[0]["display_name"], "Work laptop")
+        self.assertEqual(devices[0]["default_name"], "Laptop")
+        self.assertEqual(devices[1]["display_name"], "Pixel 9")
+        self.assertIsNone(devices[1]["custom_name"])
+        self.get_device_names.assert_awaited_once_with(session, 42)
+
     async def test_load_devices_payload_returns_empty_payload_without_subscription(self):
         panel_service = SimpleNamespace(get_user_devices=AsyncMock())
         subscription_service = SimpleNamespace(
@@ -240,3 +298,135 @@ class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):
             include_me=False,
         )
         session.commit.assert_awaited_once()
+
+
+class WebAppDeviceRenameRouteTests(IsolatedAsyncioTestCase):
+    def _request(self, payload, *, active=None, db_user=None, devices=None):
+        self.session = SimpleNamespace(commit=AsyncMock())
+        self.settings = SimpleNamespace(MY_DEVICES_SECTION_ENABLED=True, DEFAULT_LANGUAGE="en")
+        self.panel_service = SimpleNamespace(
+            get_user_devices=AsyncMock(
+                return_value=devices
+                if devices is not None
+                else [{"hwid": "OTHER-HWID"}, {"hwid": "ABC123XYZ", "deviceModel": "Laptop"}]
+            ),
+        )
+        subscription_service = SimpleNamespace(
+            get_active_subscription_details=AsyncMock(
+                return_value={"user_id": "panel-user"} if active is None else active
+            ),
+            panel_service=self.panel_service,
+        )
+        self.db_user = db_user or SimpleNamespace(is_banned=False, panel_user_uuid=None)
+        return _JsonRequest(
+            payload,
+            {
+                "settings": self.settings,
+                "async_session_factory": _SessionFactory(self.session),
+                "subscription_service": subscription_service,
+            },
+        )
+
+    async def _call(self, request):
+        from bot.app.web.webapp import devices as devices_module
+
+        with (
+            patch.object(devices_module, "_require_user_id", return_value=42),
+            patch.object(
+                devices_module, "_enforce_webapp_rate_limit", AsyncMock(return_value=None)
+            ),
+            patch.object(
+                devices_module.user_dal, "get_user_by_id", AsyncMock(return_value=self.db_user)
+            ),
+            patch.object(devices_module.device_name_dal, "set_device_name", AsyncMock()) as save,
+            patch.object(
+                devices_module, "invalidate_webapp_user_caches", AsyncMock()
+            ) as invalidate_caches,
+        ):
+            response = await devices_module.rename_device_route(request)
+        return response, json.loads(response.body), save, invalidate_caches
+
+    async def test_rename_saves_normalized_name_and_returns_updated_device(self):
+        token = _device_hwid_token("ABC123XYZ")
+        request = self._request({"token": token, "name": "  Work\n\tlaptop  "})
+
+        response, body, save, invalidate_caches = await self._call(request)
+
+        self.assertEqual(response.status, 200)
+        save.assert_awaited_once_with(self.session, 42, token, "Work laptop")
+        self.session.commit.assert_awaited_once()
+        invalidate_caches.assert_awaited_once_with(
+            self.settings, 42, include_devices=True, include_me=False
+        )
+        self.assertEqual(body["device"]["index"], 2)
+        self.assertEqual(body["device"]["display_name"], "Work laptop")
+        self.assertEqual(body["device"]["default_name"], "Laptop")
+
+    async def test_empty_name_restores_the_default(self):
+        token = _device_hwid_token("ABC123XYZ")
+        response, body, save, _ = await self._call(self._request({"token": token, "name": " "}))
+
+        self.assertEqual(response.status, 200)
+        save.assert_awaited_once_with(self.session, 42, token, "")
+        self.assertIsNone(body["device"]["custom_name"])
+        self.assertEqual(body["device"]["display_name"], "Laptop")
+
+    async def test_too_long_name_is_rejected_before_touching_the_panel(self):
+        request = self._request({"token": _device_hwid_token("ABC123XYZ"), "name": "x" * 33})
+
+        response, body, save, invalidate_caches = await self._call(request)
+
+        self.assertEqual(response.status, 400)
+        self.assertEqual(body["error"], "device_name_too_long")
+        save.assert_not_awaited()
+        self.panel_service.get_user_devices.assert_not_awaited()
+        invalidate_caches.assert_not_awaited()
+
+    async def test_unknown_token_is_not_found_and_saves_nothing(self):
+        request = self._request({"token": _device_hwid_token("NOT-MINE"), "name": "Mine now"})
+
+        response, body, save, _ = await self._call(request)
+
+        self.assertEqual(response.status, 404)
+        self.assertEqual(body["error"], "device_not_found")
+        save.assert_not_awaited()
+        self.session.commit.assert_not_awaited()
+
+    async def test_non_ascii_token_is_not_found_instead_of_crashing(self):
+        request = self._request({"token": "ключ-устройства", "name": "Name"})
+
+        response, body, save, _ = await self._call(request)
+
+        self.assertEqual(response.status, 404)
+        self.assertEqual(body["error"], "device_not_found")
+        save.assert_not_awaited()
+
+    async def test_inactive_subscription_uses_the_linked_panel_user(self):
+        token = _device_hwid_token("ABC123XYZ")
+        request = self._request(
+            {"token": token, "name": "Old phone"},
+            active={},
+            db_user=SimpleNamespace(is_banned=False, panel_user_uuid="linked-panel-user"),
+        )
+
+        response, _, save, _ = await self._call(request)
+
+        self.assertEqual(response.status, 200)
+        self.panel_service.get_user_devices.assert_awaited_once_with("linked-panel-user")
+        save.assert_awaited_once_with(self.session, 42, token, "Old phone")
+
+
+class DeviceNameMergeWiringTests(IsolatedAsyncioTestCase):
+    async def test_transfer_entitlement_ownership_moves_device_names(self):
+        from db.dal import user_merge_entitlements
+
+        session = MagicMock()
+        session.execute = AsyncMock(return_value=MagicMock())
+        for method in ("flush", "scalar", "get", "refresh", "delete"):
+            setattr(session, method, AsyncMock(return_value=None))
+        with patch.object(user_merge_entitlements, "merge_device_names", AsyncMock()) as merge:
+            await user_merge_entitlements.transfer_entitlement_ownership(
+                session, source_user_id=1, target_user_id=2, panel_user_uuid="panel-user"
+            )
+
+        merge.assert_awaited_once_with(session, 1, 2)

@@ -10,7 +10,7 @@ export function themeEffectsIdentity(user: EffectsViewer): string {
 /**
  * Whether the Mini App may run the active theme's JavaScript for this viewer.
  * Signed-in visitors always may; administrators only with an explicit theme
- * preview or the «JavaScript темы для администраторов» appearance setting.
+ * preview or the administrator theme effects appearance setting.
  */
 export function themeEffectsEnabled({
   mode,

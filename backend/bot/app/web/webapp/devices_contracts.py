@@ -12,7 +12,7 @@ from bot.app.web.route_contracts import (
 
 from .contract_schemas import user_contract
 from .devices import WebAppDeviceOut
-from .payloads import WebAppDeviceDisconnectPayload
+from .payloads import WebAppDeviceDisconnectPayload, WebAppDeviceRenamePayload
 
 DEVICES_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "devices_route": user_contract(
@@ -32,5 +32,10 @@ DEVICES_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "disconnect_device_route": user_contract(
         request_model=WebAppDeviceDisconnectPayload,
         response_schema=ok_envelope_with(),
+    ),
+    "rename_device_route": user_contract(
+        request_model=WebAppDeviceRenamePayload,
+        models=(WebAppDeviceOut,),
+        response_schema=ok_envelope_with({"device": schema_ref(WebAppDeviceOut)}),
     ),
 }

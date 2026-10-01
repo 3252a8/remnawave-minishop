@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -18,9 +19,10 @@ from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches,
     webapp_cached_user_payload,
 )
+from bot.services.device_names import DEVICE_NAME_MAX_LENGTH, normalize_device_name
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
-from db.dal import user_dal
+from db.dal import device_name_dal, user_dal
 
 from .assets import (
     _enforce_webapp_rate_limit,
@@ -33,6 +35,7 @@ from .common import (
 )
 from .payloads import (
     WebAppDeviceDisconnectPayload,
+    WebAppDeviceRenamePayload,
 )
 from .response_helpers import json_response
 
@@ -121,6 +124,7 @@ async def _load_devices_payload(
         }
 
     devices = _normalize_devices_response(devices_response)
+    device_names = await device_name_dal.get_device_names(session, user_id)
     max_devices = _coerce_int_or_none(active.get("max_devices")) if active else None
     return {
         "ok": True,
@@ -131,7 +135,8 @@ async def _load_devices_payload(
             "max_devices": max_devices,
             "max_devices_label": _format_devices_limit(max_devices),
             "devices": [
-                _serialize_device(device, index) for index, device in enumerate(devices, start=1)
+                _serialize_device(device, index, device_names)
+                for index, device in enumerate(devices, start=1)
             ],
         },
     }
@@ -225,6 +230,83 @@ async def disconnect_device_route(request: web.Request) -> web.Response:
     return json_response({"ok": True})
 
 
+async def rename_device_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    rate_limit_response = await _enforce_webapp_rate_limit(
+        request,
+        user_id=user_id,
+        action="devices_rename",
+    )
+    if rate_limit_response:
+        return rate_limit_response
+
+    settings: Settings = get_settings(request)
+    if not settings.MY_DEVICES_SECTION_ENABLED:
+        return _json_error(404, "devices_disabled", "Devices section is disabled")
+
+    rename_payload = await _parse_model_payload(request, WebAppDeviceRenamePayload)
+    token = str(rename_payload.token or "").strip()
+    name = normalize_device_name(rename_payload.name)
+    if len(name) > DEVICE_NAME_MAX_LENGTH:
+        return _json_error(400, "device_name_too_long", "Device name is too long")
+
+    async_session_factory: sessionmaker = get_session_factory(request)
+    subscription_service: SubscriptionService = get_subscription_service(request)
+    async with async_session_factory() as session:
+        db_user = await user_dal.get_user_by_id(session, user_id)
+        if not db_user or db_user.is_banned:
+            return _json_error(403, "access_denied", "Access denied")
+
+        # Same owner resolution as the device list, so every listed device can be named.
+        active = await subscription_service.get_active_subscription_details(session, user_id)
+        panel_user_uuid = str(
+            (active or {}).get("user_id") or getattr(db_user, "panel_user_uuid", "") or ""
+        ).strip()
+        panel_service = getattr(subscription_service, "panel_service", None)
+        if not panel_user_uuid:
+            return _json_error(404, "device_not_found", "Device not found")
+        if not panel_service:
+            return _json_error(503, "panel_unavailable", "Panel service unavailable")
+
+        try:
+            devices_response = await panel_service.get_user_devices(panel_user_uuid)
+        except Exception:
+            logger.exception("Failed to load WebApp devices before rename for user %s", user_id)
+            return _json_error(502, "devices_load_failed", "Failed to load devices")
+
+        match = _find_device_by_token(_normalize_devices_response(devices_response), token)
+        if match is None:
+            return _json_error(404, "device_not_found", "Device not found")
+        index, device, device_token = match
+
+        await device_name_dal.set_device_name(session, user_id, device_token, name)
+        await session.commit()
+
+    await invalidate_webapp_user_caches(
+        settings,
+        user_id,
+        include_devices=True,
+        include_me=False,
+    )
+    return json_response(
+        {"ok": True, "device": _serialize_device(device, index, {device_token: name})}
+    )
+
+
+def _find_device_by_token(
+    devices: list[dict[str, Any]], token: str
+) -> tuple[int, dict[str, Any], str] | None:
+    expected = token.encode()
+    for index, device in enumerate(devices, start=1):
+        hwid = str(device.get("hwid") or "").strip()
+        if not hwid:
+            continue
+        device_token = _device_hwid_token(hwid)
+        if hmac.compare_digest(device_token.encode(), expected):
+            return index, device, device_token
+    return None
+
+
 def _device_hwid_token(hwid: str) -> str:
     return hashlib.sha256(str(hwid or "").encode()).hexdigest()[:32]
 
@@ -281,6 +363,7 @@ def _serialize_device_datetime(value: Any) -> str | None:
 class WebAppDeviceOut(HttpResponseModel):
     # Field order mirrors the legacy ``_serialize_device`` dict.
     index: int
+    # The user's label when set, otherwise ``default_name``.
     display_name: str
     platform: str
     os_version: str
@@ -293,20 +376,24 @@ class WebAppDeviceOut(HttpResponseModel):
     hwid_short: str
     token: str
     can_disconnect: bool
+    default_name: str = ""
+    custom_name: str | None = None
 
     @classmethod
-    def from_panel_device(cls, device: dict[str, Any], index: int) -> "WebAppDeviceOut":
+    def from_panel_device(
+        cls, device: dict[str, Any], index: int, custom_name: str | None = None
+    ) -> "WebAppDeviceOut":
         hwid = str(device.get("hwid") or "").strip()
         model = str(device.get("deviceModel") or "").strip()
         platform = str(device.get("platform") or "").strip()
         os_version = str(device.get("osVersion") or "").strip()
         user_agent = str(device.get("userAgent") or "").strip()
-        display_name = model or platform or f"Device {index}"
+        default_name = model or platform or f"Device {index}"
         platform_label = " ".join(part for part in (platform, os_version) if part).strip()
         last_connected_at = device.get("updatedAt") or device.get("createdAt")
         return cls(
             index=index,
-            display_name=display_name,
+            display_name=custom_name or default_name,
             platform=platform,
             os_version=os_version,
             platform_label=platform_label,
@@ -318,8 +405,16 @@ class WebAppDeviceOut(HttpResponseModel):
             hwid_short=_shorten_hwid_for_display(hwid),
             token=_device_hwid_token(hwid) if hwid else "",
             can_disconnect=bool(hwid),
+            default_name=default_name,
+            custom_name=custom_name or None,
         )
 
 
-def _serialize_device(device: dict[str, Any], index: int) -> dict[str, Any]:
-    return WebAppDeviceOut.from_panel_device(device, index).model_dump(mode="json")
+def _serialize_device(
+    device: dict[str, Any],
+    index: int,
+    device_names: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    hwid = str(device.get("hwid") or "").strip()
+    custom_name = (device_names or {}).get(_device_hwid_token(hwid)) if hwid else None
+    return WebAppDeviceOut.from_panel_device(device, index, custom_name).model_dump(mode="json")

@@ -17,6 +17,7 @@ PayerPhoneString = Annotated[str, StringConstraints(max_length=32)]
 ChangeModeString = Annotated[str, StringConstraints(min_length=1, max_length=64)]
 LanguageString = Annotated[str, StringConstraints(min_length=2, max_length=16)]
 DeviceTokenString = Annotated[str, StringConstraints(min_length=8, max_length=128)]
+DeviceNameTransportString = Annotated[str, StringConstraints(max_length=256)]
 TicketSubjectString = Annotated[str, StringConstraints(min_length=1, max_length=160)]
 # The transport cap, not the message cap: markup costs characters the reader
 # never sees, so the real limit is applied to the visible text after
@@ -220,6 +221,14 @@ class WebAppDeviceDisconnectPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     token: DeviceTokenString
+
+
+class WebAppDeviceRenamePayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    token: DeviceTokenString
+    # Transport cap only: the real limit applies to the normalized name.
+    name: DeviceNameTransportString = ""
 
 
 SupportCategory = Literal["billing", "technical", "account", "other"]

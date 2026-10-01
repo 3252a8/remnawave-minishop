@@ -2900,6 +2900,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/devices/rename": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Rename Device */
+    post: operations["post_rename_device_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/devices/topup-options": {
     parameters: {
       query?: never;
@@ -10088,6 +10105,16 @@ export interface components {
       created_at: string | null;
       /** Created At Text */
       created_at_text: string;
+      /**
+       * Custom Name
+       * @default null
+       */
+      custom_name: string | null;
+      /**
+       * Default Name
+       * @default
+       */
+      default_name: string;
       /** Display Name */
       display_name: string;
       /** Hwid Short */
@@ -10111,6 +10138,16 @@ export interface components {
       token: string;
       /** User Agent */
       user_agent: string;
+    };
+    /** WebAppDeviceRenamePayload */
+    WebAppDeviceRenamePayload: {
+      /**
+       * Name
+       * @default
+       */
+      name: string;
+      /** Token */
+      token: string;
     };
     /** WebAppEmailChangeConfirmPayload */
     WebAppEmailChangeConfirmPayload: {
@@ -16461,6 +16498,34 @@ export interface operations {
         };
         content: {
           "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_rename_device_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppDeviceRenamePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            device: components["schemas"]["WebAppDeviceOut"];
             /** @constant */
             ok: true;
           };

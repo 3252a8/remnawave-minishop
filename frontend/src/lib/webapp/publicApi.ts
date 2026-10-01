@@ -33,6 +33,7 @@ export type AuthTokenPath = "/auth/token";
 export type ServerStatusPath = "/status";
 export type DeviceTopupOptionsPath = "/devices/topup-options";
 export type DevicesDisconnectPath = "/devices/disconnect";
+export type DevicesRenamePath = "/devices/rename";
 export type TariffChangeOptionsPath = "/tariffs/change-options";
 export type PlansViewedPath = "/plans/viewed";
 export type TariffChangePath = "/tariffs/change";
@@ -201,6 +202,10 @@ export function buildServerStatusPath(): ServerStatusPath {
 
 export function buildDevicesDisconnectPath(): DevicesDisconnectPath {
   return "/devices/disconnect";
+}
+
+export function buildDevicesRenamePath(): DevicesRenamePath {
+  return "/devices/rename";
 }
 
 export function buildDeviceTopupOptionsPath(): DeviceTopupOptionsPath {
