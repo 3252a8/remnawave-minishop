@@ -48,7 +48,10 @@ class Settings(
         self._trusted_subscription_config_path = (
             path if path.is_absolute() else root / path
         ).resolve()
-        self._trusted_outbound_urls = (str(self.SERVER_STATUS_XRAY_CHECKER_URL or ""),)
+        self._trusted_outbound_urls = (
+            str(self.SERVER_STATUS_XRAY_CHECKER_URL or ""),
+            str(self.SERVER_STATUS_KUMA_URL or ""),
+        )
 
     ADMIN_IDS_STR: str = Field(
         default="", alias="ADMIN_IDS", description="Comma-separated list of admin Telegram User IDs"

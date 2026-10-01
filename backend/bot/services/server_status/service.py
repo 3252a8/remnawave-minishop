@@ -221,8 +221,7 @@ class ServerStatusService:
         response: aiohttp.ClientResponse | None = None
         body: bytes | None = None
         try:
-            if provider == "xray-checker":
-                self._outbound_policy.check_url(url)
+            self._outbound_policy.check_url(url)
             async with self._session.get(url, timeout=timeout) as response:
                 body_buffer = bytearray()
                 while len(body_buffer) <= MAX_PROVIDER_RESPONSE_BYTES:
