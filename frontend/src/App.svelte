@@ -609,6 +609,7 @@
     dataClientLoadData: (options) => dataClient.loadData(options),
     ensureWebappLanguage,
     getModalState: () => ({
+      paymentModalOpen: billingStore.paymentModalOpen,
       changeModalOpen,
       deviceTopupModalOpen,
       topupKind,

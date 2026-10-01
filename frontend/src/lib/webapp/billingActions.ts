@@ -42,6 +42,28 @@ type BillingApi = ApiClient["api"];
 type BillingPlan = WebappBillingPlan;
 type BillingAction = WebappBillingAction;
 type BillingTarget = WebappBillingTarget;
+
+export function billingErrorMessage(
+  error: unknown,
+  t: (key: string) => string,
+  fallbackKey = "wa_payment_create_failed"
+): string {
+  const failure = error && typeof error === "object" ? (error as WebappRecord) : {};
+  if (failure.error === "tariff_switch_required") return t("wa_tariff_switch_required");
+  if (
+    ["balance_insufficient", "insufficient_user_balance", "insufficient_partner_balance"].includes(
+      String(failure.error || "")
+    )
+  ) {
+    return t("wa_balance_quote_changed");
+  }
+  return fallbackKey === "wa_payment_create_failed" &&
+    typeof failure.message === "string" &&
+    failure.message
+    ? failure.message
+    : t(fallbackKey);
+}
+
 export type PartnerBalancePaymentOptions = {
   balanceOnly?: boolean;
   balanceSource?: "user" | "partner" | null;

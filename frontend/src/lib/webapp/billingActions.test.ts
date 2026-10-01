@@ -1,6 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createBillingActions } from "./billingActions.js";
+import { billingErrorMessage, createBillingActions } from "./billingActions.js";
+
+describe("billing error translation", () => {
+  it("uses the tariff error code for both quote and payment failures", () => {
+    const error = {
+      error: "tariff_switch_required",
+      message: "Switch the active tariff before purchasing its renewal",
+    };
+    const t = (key: string) => `translated:${key}`;
+    expect(billingErrorMessage(error, t)).toBe("translated:wa_tariff_switch_required");
+    expect(billingErrorMessage(error, t, "wa_checkout_quote_failed")).toBe(
+      "translated:wa_tariff_switch_required"
+    );
+    expect(billingErrorMessage(null, t, "wa_checkout_quote_failed")).toBe(
+      "translated:wa_checkout_quote_failed"
+    );
+  });
+});
 
 describe("billingActions partner balance funding", () => {
   it("includes the selection in every supported checkout payload", () => {

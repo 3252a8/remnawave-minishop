@@ -1,6 +1,24 @@
 import { expect, test } from "@playwright/test";
 
 for (const width of [390, 1280]) {
+  test(`renewal opens current tariff directly at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/demo/runtime/home?mock=tariffs&theme_preview=dark");
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await page.locator('[data-webapp-action="open-payment"]:visible').first().click();
+      const dialog = page.locator(".dialog-card.webapp-payment-dialog");
+      await expect(dialog).toHaveCount(1);
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator(".period-card").first()).toBeVisible();
+      await expect(dialog.locator(".tariff-row")).toHaveCount(0);
+      await dialog.locator(".dialog-close-button").click();
+      await expect(dialog).toHaveCount(0);
+    }
+    expect(errors).toEqual([]);
+  });
+
   for (const funding of ["partial", "full"]) {
     test(`${funding} balance checkout at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });

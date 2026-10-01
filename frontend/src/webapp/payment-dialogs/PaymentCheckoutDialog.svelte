@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { billingErrorMessage } from "$lib/webapp/billingActions.js";
   import CheckoutHeader from "./CheckoutHeader.svelte";
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
   import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
@@ -297,7 +298,7 @@
     } catch (error: unknown) {
       if (requestId !== checkoutQuoteRequestId) return;
       checkoutQuote = null;
-      checkoutQuoteError = String((error as { message?: unknown })?.message || "quote_failed");
+      checkoutQuoteError = billingErrorMessage(error, t, "wa_checkout_quote_failed");
     } finally {
       if (requestId === checkoutQuoteRequestId) checkoutQuoteBusy = false;
     }

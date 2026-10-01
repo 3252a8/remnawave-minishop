@@ -1298,6 +1298,7 @@
   "wa_pending_payment_cancel_unavailable": "This payment method cannot cancel the link immediately. Continue the payment or wait for it to expire.",
   "wa_pending_payment_cancel_failed": "Could not cancel the payment. The promo code remains reserved.",
   "wa_payment_create_failed": "Failed to create payment",
+  "wa_tariff_switch_required": "Switch to this plan before purchasing its renewal. To renew your current plan, reopen checkout from the home screen.",
   "wa_payment_stars_telegram_required": "Open Minishop from the bot in Telegram to pay with Stars",
   "wa_connect_link_unavailable": "Connection link is not available yet",
   "wa_copied": "Copied",

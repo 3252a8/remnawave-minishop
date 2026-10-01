@@ -43,6 +43,73 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it("opens the current tariff directly on the first and subsequent renewal clicks", () => {
+    const { store } = makeBillingStore();
+    const catalog = [{ key: "basic" }, { key: "current" }] as unknown as Parameters<
+      typeof store.openPaymentModal
+    >[2];
+    const plans = [
+      { id: "basic-month", tariff_key: "basic" },
+      { id: "current-month", tariff_key: "current" },
+    ];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      store.openPaymentModal(
+        true,
+        false,
+        catalog,
+        { active: true, tariff_key: "current" },
+        plans,
+        "card"
+      );
+      expect(store).toMatchObject({
+        paymentModalOpen: true,
+        paymentStep: "checkout",
+        selectedTariffKey: "current",
+        selectedPlan: plans[1],
+      });
+      store.closePaymentModal();
+    }
+  });
+
+  it("uses the current tariff instead of the default for a generic checkout entry", () => {
+    const { store, billing } = makeBillingStore();
+    store.openPaymentModal(
+      true,
+      false,
+      [{ key: "basic", is_default: true }, { key: "current" }] as unknown as Parameters<
+        typeof store.openPaymentModal
+      >[2],
+      { active: true, tariff_key: "current" },
+      [
+        { id: "basic-month", tariff_key: "basic" },
+        { id: "current-month", tariff_key: "current" },
+      ],
+      "card",
+      { selectDefaultTariff: true, preferCheckout: true }
+    );
+    expect(store.paymentStep).toBe("checkout");
+    expect(store.selectedTariffKey).toBe("current");
+    expect(store.selectedPlan?.id).toBe("current-month");
+    expect(billing.notifyPlansViewed).toHaveBeenCalledWith({
+      plans_count: 1,
+      tariff_key: "current",
+    });
+  });
+
+  it("localizes the required tariff switch when a payment is rejected", async () => {
+    const { store, deps } = makeBillingStore({
+      billing: {
+        postPayment: vi.fn().mockRejectedValue({
+          error: "tariff_switch_required",
+          message: "Switch the active tariff before purchasing its renewal",
+        }),
+      },
+    });
+    store.update((state) => ({ ...state, selectedPlan: { id: "other" }, selectedMethod: "card" }));
+    await store.createPayment();
+    expect(deps.showToast).toHaveBeenCalledWith("wa_tariff_switch_required");
+  });
+
   it("localizes a changed balance without opening an external payment", async () => {
     const { store, deps } = makeBillingStore({
       billing: {

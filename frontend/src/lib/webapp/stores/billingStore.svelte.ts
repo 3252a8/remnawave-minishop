@@ -13,6 +13,7 @@ import {
 } from "./billingStoreSupport";
 export type { BillingState, BillingStore } from "./billingStoreSupport";
 import type { BillingActions, PartnerBalancePaymentOptions } from "../billingActions";
+import { billingErrorMessage } from "../billingActions";
 import type { CheckoutAddonSelection } from "../tariffs";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
@@ -489,16 +490,16 @@ export function createBillingStore({
     if (tariffMode) {
       if (preferredTariff?.key) {
         tariffKey = String(preferredTariff.key);
-      } else if (options?.selectDefaultTariff && fallbackTariff?.key) {
-        tariffKey = String(fallbackTariff.key);
-      } else if (singleTariffMode && catalog[0]?.key) {
-        tariffKey = String(catalog[0].key);
       } else if (
         subscription?.active &&
         subscription?.tariff_key &&
         catalog.some((tariff) => tariff.key === subscription.tariff_key)
       ) {
         tariffKey = String(subscription.tariff_key);
+      } else if (options?.selectDefaultTariff && fallbackTariff?.key) {
+        tariffKey = String(fallbackTariff.key);
+      } else if (singleTariffMode && catalog[0]?.key) {
+        tariffKey = String(catalog[0].key);
       }
     }
 
@@ -567,6 +568,15 @@ export function createBillingStore({
         if (preferredPlan) {
           tariffKey = String(preferredPlan.tariff_key || preferredTariffKey);
           plan = preferredPlan;
+          step = "checkout";
+        } else if (
+          !preferredTariffKey &&
+          subscription?.active &&
+          subscription?.tariff_key &&
+          catalog.some((t) => t.key === subscription.tariff_key)
+        ) {
+          tariffKey = String(subscription.tariff_key);
+          plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = "checkout";
         } else if (deeplinkTariff?.key) {
           tariffKey = String(deeplinkTariff.key);
@@ -785,17 +795,7 @@ export function createBillingStore({
         updateState((s) => ({ ...s, paymentModalOpen: false }));
       });
     } catch (error: unknown) {
-      const failure = asRecord(error);
-      const balanceChanged = [
-        "balance_insufficient",
-        "insufficient_user_balance",
-        "insufficient_partner_balance",
-      ].includes(stringField(failure.error));
-      showToast(
-        balanceChanged
-          ? t("wa_balance_quote_changed")
-          : stringField(failure.message) || t("wa_payment_create_failed")
-      );
+      showToast(billingErrorMessage(error, t));
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }

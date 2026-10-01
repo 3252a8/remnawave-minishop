@@ -26,6 +26,7 @@ function createDeps(overrides: TestOverrides = {}) {
     activeTab: "home",
     adminActiveSection: "stats",
     modal: {
+      paymentModalOpen: false,
       changeModalOpen: false,
       deviceTopupModalOpen: false,
       topupKind: "regular",
@@ -189,6 +190,23 @@ describe("createAppLoadExecutor", () => {
     expect(deps.syncLoadedRoute).toHaveBeenCalledWith(
       expect.objectContaining({ section: "settings" })
     );
+  });
+
+  it("preserves renewal selection when a profile request finishes after checkout opens", async () => {
+    let resolvePayload!: (payload: ReturnType<typeof createPayload>) => void;
+    const pendingPayload = new Promise<ReturnType<typeof createPayload>>((resolve) => {
+      resolvePayload = resolve;
+    });
+    const { billingState, deps, executor, state } = createDeps({
+      deps: { dataClientLoadData: vi.fn(() => pendingPayload) },
+    });
+    const before = { ...billingState() };
+    const loading = executor.loadData({ fresh: true, preserveView: true });
+    state.modal.paymentModalOpen = true;
+    resolvePayload(createPayload());
+    await loading;
+    expect(deps.resetBillingSelection).not.toHaveBeenCalled();
+    expect(billingState()).toEqual(before);
   });
 
   it("loads the admin bundle for admin routes", async () => {

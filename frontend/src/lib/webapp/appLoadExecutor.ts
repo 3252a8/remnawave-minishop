@@ -30,6 +30,7 @@ type ModalState = {
   deviceTopupModalOpen: boolean;
   topupKind: string;
   topupModalOpen: boolean;
+  paymentModalOpen?: boolean;
 };
 
 type AppLoadExecutorDeps = {
@@ -135,7 +136,9 @@ export function createAppLoadExecutor({
       rememberLanguage(userLanguage);
     }
     shellState.data = payload;
-    resetBillingSelection(defaultPaymentMethodId(payload));
+    if (!getModalState().paymentModalOpen) {
+      resetBillingSelection(defaultPaymentMethodId(payload));
+    }
 
     // A user can switch sections while the initial request is in flight. Resolve the
     // route again from the live URL and shell state so completing that request does

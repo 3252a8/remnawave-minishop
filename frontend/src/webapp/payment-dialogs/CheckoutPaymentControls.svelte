@@ -138,7 +138,7 @@
 {/if}
 {#if checkoutQuoteError}
   <small class="checkout-quote-error">
-    {t("wa_checkout_quote_failed", {}, "Could not confirm the price. Try again.")}
+    {checkoutQuoteError}
   </small>
 {/if}
 {#if showCheckoutPromo}
