@@ -37,6 +37,25 @@ afterEach(() => {
 });
 
 describe("authStore", () => {
+  it("submits a pending gift as the Telegram registration invite", async () => {
+    installBrowser();
+    const token = "G".repeat(43);
+    window.location.search = `?gift=${token}`;
+    const { store, deps } = makeAuthStore({
+      publicApi: vi.fn().mockResolvedValue({
+        ok: true,
+        token: "session-token",
+        csrf_token: "csrf-token",
+      }),
+    });
+    expect(await store.finalizeTelegramAuth("telegram-init-data", "init_data")).toBe(true);
+    expect(deps.publicApi).toHaveBeenCalledWith(
+      "/auth/token",
+      { init_data: "telegram-init-data", referral_code: `gift_${token}` },
+      { signal: undefined }
+    );
+  });
+
   it("stores the returned session token before loading data after Telegram auth", async () => {
     installBrowser();
     const { store, deps } = makeAuthStore({

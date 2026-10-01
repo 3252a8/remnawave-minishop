@@ -1,4 +1,4 @@
-import { rememberReferral, readReferral } from "./session.js";
+import { GIFT_STORAGE_KEY, rememberReferral, readReferral } from "./session.js";
 import { referralStartParam } from "./launchParams.js";
 
 type TelegramWebAppLike = {
@@ -46,8 +46,31 @@ export function hasReferralParam(tg: unknown = null): boolean {
   return Boolean(readReferralParam(tg));
 }
 
+export function readRegistrationInviteParam(tg: unknown = null): string {
+  const referral = readReferralParam(tg);
+  if (typeof window === "undefined") return referral;
+  const params = new URLSearchParams(window.location.search);
+  const startParams = [
+    asTelegramWebApp(tg)?.initDataUnsafe?.start_param,
+    ...["start", "start_param", "startapp", "tgWebAppStartParam"].map((key) => params.get(key)),
+  ];
+  const incomingGift = [
+    params.get("gift"),
+    ...startParams.map((value) => String(value || "").match(/^gift_([A-Za-z0-9_-]{43})$/)?.[1]),
+  ].find((value) => typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value));
+  if (incomingGift) return `gift_${incomingGift}`;
+  if (referral) return referral;
+  let storedGift = "";
+  try {
+    storedGift = localStorage.getItem(GIFT_STORAGE_KEY) || "";
+  } catch {
+    // A gift link also works when browser storage is unavailable.
+  }
+  return /^[A-Za-z0-9_-]{43}$/.test(storedGift) ? `gift_${storedGift}` : "";
+}
+
 export function shouldShowInviteOnlyHint(config: InviteOnlyConfig, tg: unknown = null): boolean {
-  return Boolean(config?.registrationInviteOnlyEnabled) && !hasReferralParam(tg);
+  return Boolean(config?.registrationInviteOnlyEnabled) && !readRegistrationInviteParam(tg);
 }
 
 export function readTelegramAuthStatus(): string | null {
@@ -108,7 +131,7 @@ export function clearAuthQuery(): void {
 export function buildTelegramOAuthStartUrl(purpose = "login", tg: unknown = null): string {
   const url = new URL("/auth/telegram/start", window.location.origin);
   url.searchParams.set("purpose", purpose);
-  const referralParam = readReferralParam(tg);
+  const referralParam = readRegistrationInviteParam(tg);
   if (referralParam) url.searchParams.set("referral_code", referralParam);
   const tariffAccessCode = String(window.location.pathname || "")
     .match(/\/checkout\/([a-f0-9]{32})\/?$/i)?.[1]
@@ -121,7 +144,7 @@ export function buildExternalOAuthStartUrl(
   provider: "discord" | "google" | "yandex",
   purpose: "login" | "link",
   language: string,
-  referral = purpose === "login" ? readReferralParam() : "",
+  referral = purpose === "login" ? readRegistrationInviteParam() : "",
   tariffAccessCode = ""
 ): string {
   const params = new URLSearchParams({ purpose, lang: language });

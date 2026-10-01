@@ -1,5 +1,5 @@
 import {
-  readReferralParam,
+  readRegistrationInviteParam,
   clearAuthQuery,
   buildTelegramOAuthStartUrl,
   emailError,
@@ -384,7 +384,7 @@ export function createAuthStore({
     setAuthStatus(t("wa_auth_checking_login"));
     try {
       const payload: Record<string, unknown> = { token: loginToken };
-      const referralParam = readReferralParam(getTg());
+      const referralParam = readRegistrationInviteParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi(
         buildAuthEmailMagicPath(),
@@ -433,7 +433,7 @@ export function createAuthStore({
           : source === "id_token"
             ? { id_token: authRecord.id_token, nonce: authRecord.nonce }
             : { auth_data: authData };
-      const referralParam = readReferralParam(getTg());
+      const referralParam = readRegistrationInviteParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi(
         buildAuthTokenPath(),
@@ -534,7 +534,7 @@ export function createAuthStore({
     setAuthStatus(t("wa_auth_sending_code"));
     try {
       const payload: Record<string, unknown> = { email: normalized, language: currentLang() };
-      const referralParam = readReferralParam(getTg());
+      const referralParam = readRegistrationInviteParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi(
         buildAuthEmailRequestPath(),
@@ -639,7 +639,7 @@ export function createAuthStore({
         return;
       }
       const payload: Record<string, unknown> = { email: s.pendingEmail, code };
-      const referralParam = readReferralParam(getTg());
+      const referralParam = readRegistrationInviteParam(getTg());
       if (referralParam) payload.referral_code = referralParam;
       const response = await publicApi(
         buildAuthEmailVerifyPath(),

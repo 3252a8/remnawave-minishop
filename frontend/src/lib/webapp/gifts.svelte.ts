@@ -1,8 +1,8 @@
 import type { components } from "$lib/api/openapi.generated.js";
 import type { PendingPaymentView } from "$lib/webapp/types.js";
+import { GIFT_STORAGE_KEY as STORAGE_KEY } from "./session.js";
 
 export type GiftView = components["schemas"]["GiftView"];
-const STORAGE_KEY = "minishop.pendingGift";
 const QUEUE_KEY = "minishop.savedGifts";
 function savedTokens(): string[] {
   const raw: unknown = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");

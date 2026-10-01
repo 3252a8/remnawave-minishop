@@ -8,7 +8,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.settings import Settings
-from db.dal import partner_dal, user_dal
+from db.dal import gift_dal, partner_dal, payment_dal, user_dal
 from db.models import User
 
 ReferralLookupSource = Literal["webapp", "telegram_start"]
@@ -245,6 +245,8 @@ async def _lookup_referrer(
     value = str(raw_referral_param or "").strip()
     if not value:
         return _ReferralLookupResult(RegistrationInviteStatus.MISSING)
+    if value.startswith("gift_"):
+        return _ReferralLookupResult(RegistrationInviteStatus.INVALID)
     if not referral_program_enabled(settings):
         return _ReferralLookupResult(RegistrationInviteStatus.INVALID)
 
@@ -363,6 +365,27 @@ async def evaluate_registration_invite(
         return RegistrationInviteCheck(
             enabled=True,
             status=RegistrationInviteStatus.INVALID,
+        )
+    if raw_value.startswith("gift_"):
+        token = raw_value[5:]
+        gift = (
+            await gift_dal.by_token(session, token)
+            if re.fullmatch(r"[A-Za-z0-9_-]{43}", token)
+            else None
+        )
+        payment = None
+        if (
+            gift is not None
+            and gift.status == "ready"
+            and gift.recipient_id is None
+            and gift.purchaser_id != current_user_id
+        ):
+            payment = await payment_dal.get_payment_by_db_id(session, int(gift.payment_id))
+        return RegistrationInviteCheck(
+            enabled=registration_invite_only_enabled(settings),
+            status=RegistrationInviteStatus.VALID
+            if payment is not None and payment.status == "succeeded"
+            else RegistrationInviteStatus.INVALID,
         )
     if raw_value.lower().startswith("p_"):
         code = raw_value[2:]

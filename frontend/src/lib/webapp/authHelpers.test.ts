@@ -5,9 +5,10 @@ import {
   buildTelegramOAuthStartUrl,
   emailError,
   readReferralParam,
+  readRegistrationInviteParam,
   shouldShowInviteOnlyHint,
 } from "./authHelpers.js";
-import { REFERRAL_STORAGE_KEY } from "./session.js";
+import { GIFT_STORAGE_KEY, REFERRAL_STORAGE_KEY } from "./session.js";
 
 function installBrowser(search = "", pathname = "/") {
   const storage = new Map();
@@ -34,6 +35,48 @@ afterEach(() => {
 });
 
 describe("auth referral helpers", () => {
+  it("carries a gift through registration and OAuth without replacing referral storage", () => {
+    const token = "G".repeat(43);
+    const { storage } = installBrowser(`?gift=${token}&ref=FRIEND`);
+
+    expect(readRegistrationInviteParam()).toBe(`gift_${token}`);
+    expect(readReferralParam()).toBe("FRIEND");
+    expect(storage.get(REFERRAL_STORAGE_KEY)).toBe("FRIEND");
+    expect(shouldShowInviteOnlyHint({ registrationInviteOnlyEnabled: true })).toBe(false);
+    expect(new URL(buildTelegramOAuthStartUrl()).searchParams.get("referral_code")).toBe(
+      `gift_${token}`
+    );
+    expect(buildExternalOAuthStartUrl("google", "login", "ru")).toBe(
+      `/auth/google/start?purpose=login&lang=ru&ref=gift_${token}`
+    );
+    expect(buildExternalOAuthStartUrl("google", "link", "ru")).toBe(
+      "/auth/google/start?purpose=link&lang=ru"
+    );
+  });
+
+  it("restores a pending gift after OAuth and accepts Telegram gift launches", () => {
+    const token = "T".repeat(43);
+    const { storage } = installBrowser();
+    expect(readRegistrationInviteParam({ initDataUnsafe: { start_param: `gift_${token}` } })).toBe(
+      `gift_${token}`
+    );
+    storage.set(GIFT_STORAGE_KEY, token);
+    expect(readRegistrationInviteParam()).toBe(`gift_${token}`);
+    expect(storage.has(REFERRAL_STORAGE_KEY)).toBe(false);
+  });
+
+  it("keeps the invite hint for malformed gift tokens", () => {
+    installBrowser("?gift=invalid");
+    expect(readRegistrationInviteParam()).toBe("");
+    expect(shouldShowInviteOnlyHint({ registrationInviteOnlyEnabled: true })).toBe(true);
+  });
+
+  it("does not let an older stored gift replace a referral invitation", () => {
+    const { storage } = installBrowser("?ref=FRIEND");
+    storage.set(GIFT_STORAGE_KEY, "G".repeat(43));
+    expect(readRegistrationInviteParam()).toBe("FRIEND");
+  });
+
   it("keeps private tariff access through Telegram OAuth", () => {
     const accessCode = "ab".repeat(16);
     installBrowser("", `/checkout/${accessCode}`);

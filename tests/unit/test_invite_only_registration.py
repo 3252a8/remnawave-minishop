@@ -11,6 +11,7 @@ from bot.services.registration_invite_gate import (
     RegistrationInviteRequiredError,
     RegistrationInviteStatus,
     evaluate_registration_invite,
+    resolve_referrer_user_id,
 )
 
 
@@ -73,6 +74,140 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
             **app_values,
         }
         return SimpleNamespace(app=app, json=AsyncMock(return_value=payload), query=query or {})
+
+    async def test_gift_invite_is_read_only_and_does_not_require_referral_program(self):
+        settings = self._settings(referral_program_enabled=False)
+        gift = SimpleNamespace(payment_id=10, purchaser_id=7, recipient_id=None, status="ready")
+        referral_lookup = AsyncMock()
+        with (
+            patch(
+                "bot.services.registration_invite_gate.gift_dal.by_token",
+                AsyncMock(return_value=gift),
+            ),
+            patch(
+                "bot.services.registration_invite_gate.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=SimpleNamespace(status="succeeded")),
+            ),
+            patch(
+                "bot.services.registration_invite_gate.user_dal.get_user_by_referral_code",
+                referral_lookup,
+            ),
+        ):
+            check = await evaluate_registration_invite(
+                self._AsyncSessionFactory().session,
+                "gift_" + "G" * 43,
+                settings=settings,
+                current_user_id=None,
+            )
+            referrer = await resolve_referrer_user_id(
+                self._AsyncSessionFactory().session,
+                "gift_" + "G" * 43,
+                settings=settings,
+                current_user_id=None,
+            )
+        self.assertTrue(check.allowed)
+        self.assertIsNone(check.referrer_user_id)
+        self.assertIsNone(referrer)
+        self.assertEqual(gift.status, "ready")
+        self.assertIsNone(gift.recipient_id)
+        referral_lookup.assert_not_awaited()
+
+    async def test_unavailable_gifts_do_not_allow_invite_only_registration(self):
+        settings = self._settings()
+        for token, status, recipient_id, payment_status, current_user_id in (
+            ("invalid", "ready", None, "succeeded", None),
+            ("G" * 43, "missing", None, "succeeded", None),
+            ("G" * 43, "revoked", None, "succeeded", None),
+            ("G" * 43, "activated", 42, "succeeded", None),
+            ("G" * 43, "activating", 42, "succeeded", None),
+            ("G" * 43, "ready", None, "pending", None),
+            ("G" * 43, "ready", None, "refunded", None),
+            ("G" * 43, "ready", None, "succeeded", 7),
+        ):
+            with self.subTest(status=status, payment_status=payment_status, token=token):
+                gift = (
+                    None
+                    if status == "missing"
+                    else SimpleNamespace(
+                        payment_id=10, purchaser_id=7, recipient_id=recipient_id, status=status
+                    )
+                )
+                with (
+                    patch(
+                        "bot.services.registration_invite_gate.gift_dal.by_token",
+                        AsyncMock(return_value=gift),
+                    ),
+                    patch(
+                        "bot.services.registration_invite_gate.payment_dal.get_payment_by_db_id",
+                        AsyncMock(return_value=SimpleNamespace(status=payment_status)),
+                    ),
+                ):
+                    check = await evaluate_registration_invite(
+                        self._AsyncSessionFactory().session,
+                        "gift_" + token,
+                        settings=settings,
+                        current_user_id=current_user_id,
+                    )
+                self.assertTrue(check.requires_invite)
+
+    async def test_email_verify_registers_gift_recipient_without_claiming_gift(self):
+        settings = self._settings()
+        gift = SimpleNamespace(payment_id=10, purchaser_id=7, recipient_id=None, status="ready")
+        created_user = SimpleNamespace(
+            user_id=100,
+            email="new@example.com",
+            email_verified_at=datetime.now(UTC),
+            is_banned=False,
+            telegram_id=None,
+            referred_by_id=None,
+            referral_welcome_bonus_claimed_at=None,
+        )
+        request = self._request(
+            settings,
+            {"email": "new@example.com", "code": "123456", "referral_code": "gift_" + "G" * 43},
+            email_auth_service=SimpleNamespace(
+                verify_code=AsyncMock(return_value=SimpleNamespace(ok=True))
+            ),
+        )
+        with (
+            patch.object(auth_email.user_dal, "get_user_by_email", AsyncMock(return_value=None)),
+            patch.object(
+                auth_email.user_email_dal,
+                "get_user_by_verified_email_address",
+                AsyncMock(return_value=None),
+            ),
+            patch.object(
+                auth_email.user_email_dal, "ensure_primary_user_email_address", AsyncMock()
+            ),
+            patch(
+                "bot.services.registration_invite_gate.gift_dal.by_token",
+                AsyncMock(return_value=gift),
+            ),
+            patch(
+                "bot.services.registration_invite_gate.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=SimpleNamespace(status="succeeded")),
+            ),
+            patch.object(
+                auth_email.user_dal,
+                "create_email_user",
+                AsyncMock(return_value=(created_user, True)),
+            ) as create_user,
+            patch.object(
+                auth_referral.user_dal, "lock_user_by_id", AsyncMock(return_value=created_user)
+            ),
+            patch.object(
+                auth_referral.subscription_dal,
+                "has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ),
+            patch.object(auth_email, "_invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            response = await auth_email.email_auth_verify_route(request)
+        self.assertEqual(response.status, 200)
+        self.assertTrue(json.loads(response.text)["ok"])
+        self.assertIsNone(create_user.await_args.kwargs["referred_by_id"])
+        self.assertEqual(gift.status, "ready")
+        self.assertIsNone(gift.recipient_id)
 
     async def test_webapp_telegram_auth_requires_invite_for_new_user(self):
         settings = self._settings(invite_only=True)

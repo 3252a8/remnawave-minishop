@@ -3,6 +3,7 @@ import { referralStartParam } from "./launchParams.js";
 export const TOKEN_STORAGE_KEY = "rw_webapp_token";
 export const CSRF_COOKIE_NAME = "rw_webapp_csrf";
 export const REFERRAL_STORAGE_KEY = "rw_webapp_referral";
+export const GIFT_STORAGE_KEY = "minishop.pendingGift";
 
 function ignoreStorageError(error: unknown): void {
   void error;
