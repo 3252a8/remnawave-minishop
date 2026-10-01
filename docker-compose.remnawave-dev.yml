@@ -13,6 +13,9 @@ services:
 
   frontend:
     depends_on:
+      advertising-mock-data:
+        condition: service_completed_successfully
+        required: false
       dev-mock-data:
         condition: service_completed_successfully
         required: false
@@ -209,6 +212,24 @@ services:
       dev-seed:
         condition: service_completed_successfully
       remnawave-dev-seed:
+        condition: service_completed_successfully
+
+  advertising-mock-data:
+    image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: backend
+    profiles: [mock-data]
+    command: ['python', 'backend/scripts/seed_advertising_demo.py']
+    env_file: ["${APP_ENV_FILE:-.env}"]
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+      MINISHOP_PLUGIN_SAFE_MODE: '1'
+    networks: [remnawave-minishop]
+    depends_on:
+      dev-mock-data:
         condition: service_completed_successfully
 
 volumes:

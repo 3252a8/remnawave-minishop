@@ -944,6 +944,7 @@ class PromoCodeActivation(Base):
 
 
 from db import activity_models as activity_models  # noqa: E402
+from db import advertising_models as advertising_models  # noqa: E402
 from db import auth_models as auth_models  # noqa: E402
 from db import balance_models as balance_models  # noqa: E402
 from db import broadcast_models as broadcast_models  # noqa: E402

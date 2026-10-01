@@ -362,6 +362,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/ads/unassigned": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Ad Unassigned */
+    get: operations["get_admin_ad_unassigned_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/unassigned/assign": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Unassigned Assign */
+    post: operations["post_admin_ad_unassigned_assign_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/ads/{campaign_id}": {
     parameters: {
       query?: never;
@@ -379,6 +413,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/ads/{campaign_id}/archive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Archive */
+    post: operations["post_admin_ad_archive_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/ads/{campaign_id}/assign": {
     parameters: {
       query?: never;
@@ -390,6 +441,210 @@ export interface paths {
     put?: never;
     /** Admin Ad Assign */
     post: operations["post_admin_ad_assign_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/bindings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Binding Create */
+    post: operations["post_admin_ad_binding_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/bindings/{binding_id}/end": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Binding End */
+    post: operations["post_admin_ad_binding_end_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/candidates/{candidate_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Candidate Decide */
+    post: operations["post_admin_ad_candidate_decide_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/detail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Ad Detail */
+    get: operations["get_admin_ad_detail_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/edit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Edit */
+    post: operations["post_admin_ad_edit_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Ad Export */
+    get: operations["get_admin_ad_export_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/imports/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Import Preview */
+    post: operations["post_admin_ad_import_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/imports/{batch_id}/candidates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Candidates */
+    post: operations["post_admin_ad_candidates_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/imports/{batch_id}/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Import Confirm */
+    post: operations["post_admin_ad_import_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/imports/{batch_id}/revert": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Import Revert */
+    post: operations["post_admin_ad_import_revert_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/links": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Link Create */
+    post: operations["post_admin_ad_link_create_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/links/{link_id}/toggle": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Link Toggle */
+    post: operations["post_admin_ad_link_toggle_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -424,6 +679,23 @@ export interface paths {
     put?: never;
     /** Admin Ad Reset Stats */
     post: operations["post_admin_ad_reset_stats_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/ads/{campaign_id}/spend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Ad Spend Create */
+    post: operations["post_admin_ad_spend_create_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2611,6 +2883,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/advertising/capture": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Advertising Capture */
+    post: operations["post_advertising_capture_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/advertising/context": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Advertising Context */
+    get: operations["get_advertising_context_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/email/magic": {
     parameters: {
       query?: never;
@@ -3902,6 +4208,156 @@ export interface components {
        */
       advertiser_id: number | null;
     };
+    /** AdAuditOut */
+    AdAuditOut: {
+      /** Action */
+      action: string;
+      /** Actor Id */
+      actor_id: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+    };
+    /** AdBindingBody */
+    AdBindingBody: {
+      /**
+       * Link Id
+       * @default null
+       */
+      link_id: number | null;
+      /** Promo Code Id */
+      promo_code_id: number;
+      /**
+       * Purpose
+       * @default offer
+       * @enum {string}
+       */
+      purpose: "offer" | "manual_code_source";
+    };
+    /** AdBindingOut */
+    AdBindingOut: {
+      /**
+       * Activations
+       * @default 0
+       */
+      activations: number;
+      /** Code */
+      code: string;
+      /** Effects */
+      effects?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Ends At
+       * @default null
+       */
+      ends_at: string | null;
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /**
+       * Link Id
+       * @default null
+       */
+      link_id: number | null;
+      /**
+       * Pending
+       * @default 0
+       */
+      pending: number;
+      /** Promo Code Id */
+      promo_code_id: number;
+      /**
+       * Purchases
+       * @default 0
+       */
+      purchases: number;
+      /** Purpose */
+      purpose: string;
+      /**
+       * Refunded
+       * @default 0
+       */
+      refunded: number;
+      /**
+       * Starts At
+       * Format: date-time
+       */
+      starts_at: string;
+      /** Version */
+      version: number;
+    };
+    /** AdCandidateDecisionBody */
+    AdCandidateDecisionBody: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "confirmed_by_operator" | "rejected";
+    };
+    /** AdCandidateOut */
+    AdCandidateOut: {
+      /** Batch Id */
+      batch_id: string;
+      /** Bot Id */
+      bot_id: string;
+      /**
+       * Delta Seconds
+       * @default null
+       */
+      delta_seconds: number | null;
+      /** Id */
+      id: number;
+      /** Method Version */
+      method_version: string;
+      /** Reason */
+      reason: string;
+      /** Status */
+      status: string;
+      /**
+       * Touchpoint Id
+       * @default null
+       */
+      touchpoint_id: number | null;
+      /** Window Seconds */
+      window_seconds: number;
+    };
+    /** AdCandidatesBody */
+    AdCandidatesBody: {
+      /** Bot Id */
+      bot_id: string;
+      /** Window Seconds */
+      window_seconds: number;
+    };
+    /** AdCaptureBody */
+    AdCaptureBody: {
+      /**
+       * Code
+       * @default
+       */
+      code: string;
+      /**
+       * Event Id
+       * @default
+       */
+      event_id: string;
+      /** Utm */
+      utm?: {
+        [key: string]: string;
+      };
+    };
+    /** AdCaptureOut */
+    AdCaptureOut: {
+      /** Captured */
+      captured: boolean;
+      /** @default null */
+      context: components["schemas"]["AdPublicContextOut"] | null;
+    };
     /** AdCreateBody */
     AdCreateBody: {
       /**
@@ -3919,6 +4375,244 @@ export interface components {
       /** Start Param */
       start_param: string;
     };
+    /** AdDetailOut */
+    AdDetailOut: {
+      /**
+       * Archived At
+       * @default null
+       */
+      archived_at: string | null;
+      /** Attribution Window Days */
+      attribution_window_days: number;
+      /** Audit */
+      audit: components["schemas"]["AdAuditOut"][];
+      /** Available Codes */
+      available_codes: {
+        [key: string]: number;
+      };
+      /** Bindings */
+      bindings: components["schemas"]["AdBindingOut"][];
+      campaign: components["schemas"]["AdOut"];
+      /** Candidates */
+      candidates: components["schemas"]["AdCandidateOut"][];
+      /** Description */
+      description: string;
+      /** Imports */
+      imports: components["schemas"]["AdImportOut"][];
+      /** Legacy Urls */
+      legacy_urls?: {
+        [key: string]: string;
+      };
+      /**
+       * Legacy Warning
+       * @default null
+       */
+      legacy_warning: string | null;
+      /** Links */
+      links: components["schemas"]["AdLinkOut"][];
+      /** Name */
+      name: string;
+      report: components["schemas"]["AdvertisingReportOut"];
+      /** Report Currency */
+      report_currency: string;
+      /** Spend Source */
+      spend_source: string;
+      /** Spends */
+      spends: components["schemas"]["AdSpendOut"][];
+      /** Touch Total */
+      touch_total: number;
+      /** Touches */
+      touches: components["schemas"]["AdTouchOut"][];
+    };
+    /** AdEditBody */
+    AdEditBody: {
+      /**
+       * Attribution Window Days
+       * @default 30
+       */
+      attribution_window_days: number;
+      /**
+       * Cost
+       * @default 0
+       */
+      cost: number;
+      /**
+       * Description
+       * @default
+       */
+      description: string;
+      /** Name */
+      name: string;
+      /**
+       * Report Currency
+       * @default RUB
+       */
+      report_currency: string;
+      /**
+       * Spend Source
+       * @default legacy
+       * @enum {string}
+       */
+      spend_source: "legacy" | "manual" | "import";
+    };
+    /** AdImportConfirmBody */
+    AdImportConfirmBody: {
+      /**
+       * Replace
+       * @default false
+       */
+      replace: boolean;
+    };
+    /** AdImportOut */
+    AdImportOut: {
+      /** Account */
+      account: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Fingerprint */
+      fingerprint: string;
+      /** Granularity */
+      granularity: string;
+      /** Id */
+      id: string;
+      /** Rows */
+      rows: number;
+      /** Status */
+      status: string;
+      /** Timezone */
+      timezone: string;
+    };
+    /** AdImportPreviewBody */
+    AdImportPreviewBody: {
+      /** Account */
+      account: string;
+      /** Csv */
+      csv: string;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * Delimiter
+       * @default ,
+       * @enum {string}
+       */
+      delimiter: "," | ";" | "\t";
+      /**
+       * Granularity
+       * @default daily
+       * @enum {string}
+       */
+      granularity: "daily" | "minute" | "interval" | "cumulative" | "event";
+      /** Mapping */
+      mapping: {
+        [key: string]: string;
+      };
+      /** Timezone */
+      timezone: string;
+    };
+    /** AdImportPreviewOut */
+    AdImportPreviewOut: {
+      batch: components["schemas"]["AdImportOut"];
+      /** Preview */
+      preview: {
+        [key: string]: unknown;
+      }[];
+    };
+    /** AdLinkBody */
+    AdLinkBody: {
+      /**
+       * Destination
+       * @default web
+       * @enum {string}
+       */
+      destination: "web" | "bot" | "miniapp";
+      /**
+       * Label
+       * @default
+       */
+      label: string;
+      /**
+       * Landing Path
+       * @default /
+       */
+      landing_path: string;
+      /** Utm */
+      utm?: {
+        [key: string]: string;
+      };
+    };
+    /** AdLinkOut */
+    AdLinkOut: {
+      /** Code */
+      code: string;
+      /** Destination */
+      destination: string;
+      /** Id */
+      id: number;
+      /** Is Active */
+      is_active: boolean;
+      /** Label */
+      label: string;
+      /** Landing Path */
+      landing_path: string;
+      /** Urls */
+      urls: {
+        [key: string]: string;
+      };
+      /** Utm */
+      utm: {
+        [key: string]: string;
+      };
+    };
+    /** AdMoneyOut */
+    AdMoneyOut: {
+      /**
+       * Average Order Minor
+       * @default null
+       */
+      average_order_minor: number | null;
+      /**
+       * Cac Minor
+       * @default null
+       */
+      cac_minor: number | null;
+      /** Cash Minor */
+      cash_minor: string;
+      /** Currency */
+      currency: string;
+      /** D30 Minor */
+      d30_minor: string;
+      /** D7 Minor */
+      d7_minor: string;
+      /** D90 Minor */
+      d90_minor: string;
+      /** First Purchase Minor */
+      first_purchase_minor: string;
+      /** Net Minor */
+      net_minor: string;
+      /** Product Minor */
+      product_minor: string;
+      /** Purchases */
+      purchases: number;
+      /** Refund Minor */
+      refund_minor: string;
+      /** Repeat Purchase Minor */
+      repeat_purchase_minor: string;
+      /**
+       * Roas
+       * @default null
+       */
+      roas: number | null;
+      /** Scale */
+      scale: number;
+      /** Spend Minor */
+      spend_minor: string | null;
+    };
     /** AdOut */
     AdOut: {
       /**
@@ -3926,6 +4620,11 @@ export interface components {
        * @default null
        */
       advertiser_id: number | null;
+      /**
+       * Archived At
+       * @default null
+       */
+      archived_at: string | null;
       /** Cost */
       cost: number;
       /**
@@ -3937,6 +4636,11 @@ export interface components {
       id: number;
       /** Is Active */
       is_active: boolean;
+      /**
+       * Name
+       * @default null
+       */
+      name: string | null;
       /**
        * Source
        * @default null
@@ -3954,6 +4658,32 @@ export interface components {
        */
       stats_reset_at: string | null;
     };
+    /** AdPublicContextOut */
+    AdPublicContextOut: {
+      /** Code */
+      code: string;
+      /** Landing Path */
+      landing_path: string;
+      /**
+       * Offer Available
+       * @default false
+       */
+      offer_available: boolean;
+      /**
+       * Offer Code
+       * @default null
+       */
+      offer_code: string | null;
+      /**
+       * Offer Mode
+       * @default none
+       */
+      offer_mode: string;
+      /** Utm */
+      utm: {
+        [key: string]: string;
+      };
+    };
     /** AdPurchaseItem */
     AdPurchaseItem: {
       /** Amount */
@@ -3970,8 +4700,33 @@ export interface components {
        * @default null
        */
       description: string | null;
+      /**
+       * Evidence
+       * @default legacy_bot_start
+       */
+      evidence: string;
+      /**
+       * First Product Purchase
+       * @default null
+       */
+      first_product_purchase: boolean | null;
+      /**
+       * Funding Source
+       * @default null
+       */
+      funding_source: string | null;
       /** Payment Id */
       payment_id: number;
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Status
+       * @default succeeded
+       */
+      status: string;
       /** User Id */
       user_id: number;
       /**
@@ -3982,8 +4737,63 @@ export interface components {
     };
     /** AdPurchasesListOut */
     AdPurchasesListOut: {
+      /**
+       * Page
+       * @default 0
+       */
+      page: number;
+      /**
+       * Page Size
+       * @default 50
+       */
+      page_size: number;
       /** Purchases */
       purchases: components["schemas"]["AdPurchaseItem"][];
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
+    };
+    /** AdSpendBody */
+    AdSpendBody: {
+      /** Amount */
+      amount: string;
+      /**
+       * Currency
+       * @default RUB
+       */
+      currency: string;
+      /**
+       * Note
+       * @default
+       */
+      note: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+    };
+    /** AdSpendOut */
+    AdSpendOut: {
+      /** Amount Minor */
+      amount_minor: string;
+      /** Currency */
+      currency: string;
+      /** Id */
+      id: number;
+      /** Note */
+      note: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+      /** Scale */
+      scale: number;
+      /** Source */
+      source: string;
     };
     /** AdStatsOut */
     AdStatsOut: {
@@ -3997,6 +4807,10 @@ export interface components {
        * @default 0
        */
       revenue: number;
+      /** Revenue By Currency */
+      revenue_by_currency?: {
+        [key: string]: number;
+      };
       /**
        * Starts
        * @default 0
@@ -4014,12 +4828,92 @@ export interface components {
        * Is Active
        * @default true
        */
-      is_active: unknown;
+      is_active: boolean;
+    };
+    /** AdTouchOut */
+    AdTouchOut: {
+      /** Channel */
+      channel: string;
+      /** Evidence */
+      evidence: string;
+      /** Id */
+      id: number;
+      /**
+       * Is New User
+       * @default null
+       */
+      is_new_user: boolean | null;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+      /**
+       * Original User Id
+       * @default null
+       */
+      original_user_id: number | null;
+      /**
+       * Received At
+       * Format: date-time
+       */
+      received_at: string;
+      /**
+       * User Id
+       * @default null
+       */
+      user_id: number | null;
+      /** Utm */
+      utm: {
+        [key: string]: string;
+      };
+    };
+    /** AdUnassignedBody */
+    AdUnassignedBody: {
+      /** Campaign Id */
+      campaign_id: number;
+      /** Utm */
+      utm: {
+        [key: string]: string;
+      };
+    };
+    /** AdUnassignedOut */
+    AdUnassignedOut: {
+      /** Campaigns */
+      campaigns?: {
+        [key: string]: string;
+      };
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
+      /** Touches */
+      touches: components["schemas"]["AdTouchOut"][];
     };
     /** AdminAdsListOut */
     AdminAdsListOut: {
       /** Campaigns */
       campaigns: components["schemas"]["AdOut"][];
+      /**
+       * Page
+       * @default 0
+       */
+      page: number;
+      /**
+       * Page Size
+       * @default 50
+       */
+      page_size: number;
+      /** Revenue By Currency */
+      revenue_by_currency?: {
+        [key: string]: number;
+      };
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
       /** Totals */
       totals: {
         [key: string]: number;
@@ -6914,6 +7808,49 @@ export interface components {
        * @default null
        */
       username: string | null;
+    };
+    /** AdvertisingReportOut */
+    AdvertisingReportOut: {
+      /** Attributed Users */
+      attributed_users: number;
+      /** Contacts */
+      contacts: number;
+      /**
+       * Ctr
+       * @default null
+       */
+      ctr: number | null;
+      /** Currencies */
+      currencies: components["schemas"]["AdMoneyOut"][];
+      /** First Payers */
+      first_payers: number;
+      /** Legacy Payment Count */
+      legacy_payment_count: number;
+      /** Mature Cohorts */
+      mature_cohorts: {
+        [key: string]: number;
+      };
+      /** Payers */
+      payers: number;
+      /** Period Mode */
+      period_mode: string;
+      /** Platform */
+      platform: {
+        [key: string]: number | null;
+      };
+      /** Purchases */
+      purchases: number;
+      /**
+       * Registration Conversion
+       * @default null
+       */
+      registration_conversion: number | null;
+      /** Registrations */
+      registrations: number;
+      /** Returning Users */
+      returning_users: number;
+      /** Trials */
+      trials: number;
     };
     /** Author */
     Author: {
@@ -11663,7 +12600,82 @@ export interface operations {
       };
     };
   };
+  get_admin_ad_unassigned_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdUnassignedOut"];
+        };
+      };
+    };
+  };
+  post_admin_ad_unassigned_assign_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdUnassignedBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   delete_admin_ad_delete_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_archive_route: {
     parameters: {
       query?: never;
       header?: never;
@@ -11717,6 +12729,342 @@ export interface operations {
       };
     };
   };
+  post_admin_ad_binding_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdBindingBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_binding_end_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+        binding_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_candidate_decide_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+        candidate_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdCandidateDecisionBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_ad_detail_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdDetailOut"];
+        };
+      };
+    };
+  };
+  post_admin_ad_edit_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdEditBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  get_admin_ad_export_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/csv": string;
+        };
+      };
+    };
+  };
+  post_admin_ad_import_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdImportPreviewBody"];
+        "text/csv": string;
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdImportPreviewOut"];
+        };
+      };
+    };
+  };
+  post_admin_ad_candidates_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+        batch_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdCandidatesBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_import_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+        batch_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdImportConfirmBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_import_revert_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+        batch_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_link_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdLinkBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_link_toggle_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+        link_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdToggleBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_admin_ad_purchases_route: {
     parameters: {
       query?: never;
@@ -11752,6 +13100,35 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_ad_spend_create_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdSpendBody"];
+      };
+    };
     responses: {
       /** @description JSON response */
       200: {
@@ -16040,6 +17417,56 @@ export interface operations {
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
+        };
+      };
+    };
+  };
+  post_advertising_capture_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdCaptureBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdCaptureOut"];
+        };
+      };
+    };
+  };
+  get_advertising_context_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdCaptureOut"];
         };
       };
     };

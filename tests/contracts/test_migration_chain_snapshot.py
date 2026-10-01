@@ -113,6 +113,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0095_access_rotations",
     "0096_user_device_names",
     "0096_advertiser_campaign_fields",
+    "0097_advertising_evidence",
 ]
 
 

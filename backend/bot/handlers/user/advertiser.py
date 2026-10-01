@@ -1,3 +1,5 @@
+from html import escape
+
 from aiogram import Router, types
 from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,30 +29,32 @@ async def my_ads_command(
     user = await user_dal.get_user_by_telegram_id(
         session, telegram_user_id
     ) or await user_dal.get_user_by_id(session, telegram_user_id)
-    lookup_id = int(user.user_id) if user else telegram_user_id
+    lookup_id = int(user.user_id) if user else None
 
-    campaigns = await ad_dal.list_campaigns(session, advertiser_id=lookup_id)
-    if not campaigns and lookup_id != telegram_user_id:
-        campaigns = await ad_dal.list_campaigns(session, advertiser_id=telegram_user_id)
+    campaigns = (
+        await ad_dal.list_campaigns(session, advertiser_id=lookup_id)
+        if lookup_id is not None
+        else []
+    )
 
     if not campaigns:
         await message.answer(_("advertiser_no_campaigns"))
         return
 
     text = _("advertiser_campaigns_header")
+    from db.dal.ad_statistics import campaign_statistics
+
+    statistics = await campaign_statistics(session, [int(c.ad_campaign_id) for c in campaigns])
     for camp in campaigns:
-        try:
-            stats = await ad_dal.get_campaign_stats(session, camp.ad_campaign_id)
-        except Exception:
-            stats = {"starts": 0, "trials": 0, "payers": 0, "revenue": 0.0}
+        stats = statistics[int(camp.ad_campaign_id)]
 
         status_text = (
             _("advertiser_status_active") if camp.is_active else _("advertiser_status_inactive")
         )
-        text += _(
+        item = _(
             "advertiser_campaign_item",
-            source=camp.source,
-            start_param=camp.start_param,
+            source=escape(camp.source or ""),
+            start_param=escape(camp.start_param or ""),
             status=status_text,
             starts=stats.get("starts", 0),
             trials=stats.get("trials", 0),
@@ -58,4 +62,9 @@ async def my_ads_command(
             revenue=f"{float(stats.get('revenue', 0.0)):.2f}",
         )
 
-    await message.answer(text, parse_mode="HTML")
+        if len(text) + len(item) > 3900:
+            await message.answer(text, parse_mode="HTML")
+            text = ""
+        text += item
+    if text:
+        await message.answer(text, parse_mode="HTML")

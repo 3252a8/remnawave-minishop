@@ -130,7 +130,15 @@ class AdCampaign(Base):
     is_active = Column(Boolean, default=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     stats_reset_at = Column(DateTime(timezone=True), nullable=True)
-    advertiser_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
+    advertiser_id = Column(
+        BigInteger, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    name = Column(String(160), nullable=True)
+    description = Column(Text, nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    report_currency = Column(String(8), nullable=False, default="RUB", server_default="RUB")
+    attribution_window_days = Column(Integer, nullable=False, default=30, server_default="30")
+    spend_source = Column(String(16), nullable=False, default="legacy", server_default="legacy")
 
     advertiser = relationship("User", foreign_keys=[advertiser_id])
     attributions = relationship(

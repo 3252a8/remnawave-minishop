@@ -78,7 +78,7 @@ export function createAdminStores({
     at,
     queryClient: adminQueryClient,
   });
-  const adsStore = createAdsStore({ api: api as never, onToast, at });
+  const adsStore = createAdsStore({ api: api as never, apiBlob, onToast, at });
   const backupsStore = createBackupsStore({ api: api as never, onToast, at });
   const broadcastStore = createBroadcastStore({ api: api as never, onToast, at });
   const documentsStore = createDocumentsStore({ api: api as never, onToast, at });

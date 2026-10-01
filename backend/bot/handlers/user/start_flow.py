@@ -1,4 +1,3 @@
-import contextlib
 import logging
 import re
 from datetime import UTC, datetime
@@ -470,23 +469,21 @@ async def start_command_handler(
                     "Failed to update existing user %s in session: %s", user_id, e_update
                 )
 
-    # Attribute user to ad campaign if start param provided
-    if ad_start_param:
-        try:
-            from db.dal import ad_dal as _ad_dal
+    from bot.services.advertising.capture import capture_contact
 
-            campaign = await _ad_dal.get_campaign_by_start_param(session, ad_start_param)
-            if campaign and campaign.is_active:
-                await _ad_dal.ensure_attribution(
-                    session, user_id=user_id, campaign_id=campaign.ad_campaign_id
-                )
-                await session.commit()
-        except Exception as e_attr:
-            logger.error(
-                "Failed to attribute user %s to ad '%s': %s", user_id, ad_start_param, e_attr
-            )
-            with contextlib.suppress(Exception):
-                await session.rollback()
+    await capture_contact(
+        session,
+        code=ad_start_param or "",
+        user_id=user_id,
+        channel="bot",
+        event_key=(
+            f"{message.bot.id if message.bot else 'unknown'}:{message.chat.id}:{message.message_id}"
+        ),
+        occurred_at=message.date,
+        bot_id=str(message.bot.id) if message.bot else None,
+        is_new_user=not is_existing_user,
+    )
+    await session.commit()
 
     await emit_bot_started(
         user_id=user_id,

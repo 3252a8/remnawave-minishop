@@ -259,6 +259,9 @@ async def email_auth_verify_route(request: web.Request) -> web.Response:
                 await session.rollback()
                 return _json_error(403, "banned", "Access denied")
 
+            from bot.services.advertising.capture import claim_auth_context
+
+            await claim_auth_context(session, verify_result.operation_key, int(db_user.user_id))
             await session.commit()
         except Exception:
             await session.rollback()
@@ -362,6 +365,9 @@ async def email_auth_magic_route(request: web.Request) -> web.Response:
                 await session.rollback()
                 return _json_error(403, "banned", "Access denied")
 
+            from bot.services.advertising.capture import claim_auth_context
+
+            await claim_auth_context(session, magic_result.operation_key, int(db_user.user_id))
             await session.commit()
         except Exception:
             await session.rollback()
@@ -404,6 +410,7 @@ async def _request_email_code(
                 target_user_id=target_user_id,
                 referral_param=referral_param,
                 tariff_access_code=tariff_access_code,
+                advertising_visit_id=request.cookies.get("ms_ad_visit"),
             )
             if not result.ok:
                 await session.rollback()

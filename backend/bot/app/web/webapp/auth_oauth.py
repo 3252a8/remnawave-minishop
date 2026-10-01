@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import logging
 import secrets
 from datetime import datetime
@@ -326,7 +327,9 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
                 await _apply_ad_attribution_if_needed(
                     session,
                     int(db_user.user_id),
-                    str(state.get("referral_code") or "") or telegram_user.get("start_param"),
+                    telegram_user.get("start_param") or str(state.get("start_param") or ""),
+                    event_key=f"oauth:{state.get('nonce', '')}:{telegram_user.get('id')}",
+                    is_new_user=bool(getattr(db_user, "_webapp_created", False)),
                 )
 
             if db_user.is_banned:
@@ -479,7 +482,9 @@ async def auth_token_route(request: web.Request) -> web.Response:
             await _apply_ad_attribution_if_needed(
                 session,
                 int(db_user.user_id),
-                referral_param or telegram_user.get("start_param"),
+                telegram_user.get("start_param") or auth_payload.start_param,
+                event_key="auth:" + hashlib.sha256(str(payload).encode()).hexdigest(),
+                is_new_user=bool(getattr(db_user, "_webapp_created", False)),
             )
             authenticated_user_id = int(db_user.user_id)
             await session.commit()

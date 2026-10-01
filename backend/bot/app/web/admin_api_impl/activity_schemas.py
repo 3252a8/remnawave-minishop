@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, StrictBool, field_validator
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
+from bot.services.advertising.validation import start_code
 
 from .schema_helpers import display_label as _display_label
 
@@ -15,6 +16,7 @@ class AdStatsOut(HttpResponseModel):
     trials: int = 0
     payers: int = 0
     revenue: float = 0.0
+    revenue_by_currency: dict[str, float] = Field(default_factory=dict)
 
 
 class AdOut(HttpResponseModel):
@@ -26,6 +28,8 @@ class AdOut(HttpResponseModel):
     created_at: datetime | None = None
     advertiser_id: int | None = None
     stats_reset_at: datetime | None = None
+    archived_at: datetime | None = None
+    name: str | None = None
     stats: AdStatsOut = Field(default_factory=AdStatsOut)
 
     @classmethod
@@ -41,6 +45,8 @@ class AdOut(HttpResponseModel):
             if getattr(campaign, "advertiser_id", None) is not None
             else None,
             stats_reset_at=getattr(campaign, "stats_reset_at", None),
+            archived_at=getattr(campaign, "archived_at", None),
+            name=getattr(campaign, "name", None),
             stats=AdStatsOut.model_validate(totals or {}),
         )
 
@@ -48,13 +54,17 @@ class AdOut(HttpResponseModel):
 class AdminAdsListOut(HttpResponseModel):
     campaigns: list[AdOut]
     totals: dict[str, float]
+    total: int = 0
+    page: int = 0
+    page_size: int = 50
+    revenue_by_currency: dict[str, float] = Field(default_factory=dict)
 
 
 class AdCreateBody(HttpBodyModel):
-    source: str
+    source: str = Field(min_length=1, max_length=160)
     start_param: str
-    cost: float = 0.0
-    advertiser_id: int | None = None
+    cost: float = Field(0.0, ge=0, le=100_000_000, allow_inf_nan=False)
+    advertiser_id: int | None = Field(None, ge=1)
 
     @field_validator("source", "start_param", mode="before")
     @classmethod
@@ -69,6 +79,11 @@ class AdCreateBody(HttpBodyModel):
     def _coerce_cost(cls, value: Any) -> float:
         return float(value or 0.0)
 
+    @field_validator("start_param")
+    @classmethod
+    def _start(cls, value: str) -> str:
+        return start_code(value)
+
     @field_validator("advertiser_id", mode="before")
     @classmethod
     def _coerce_advertiser_id(cls, value: Any) -> int | None:
@@ -78,7 +93,7 @@ class AdCreateBody(HttpBodyModel):
 
 
 class AdAssignBody(HttpBodyModel):
-    advertiser_id: int | None = None
+    advertiser_id: int | None = Field(None, ge=1)
 
     @field_validator("advertiser_id", mode="before")
     @classmethod
@@ -96,14 +111,22 @@ class AdPurchaseItem(HttpResponseModel):
     currency: str
     description: str | None = None
     created_at: datetime | None = None
+    status: str = "succeeded"
+    funding_source: str | None = None
+    sale_mode: str | None = None
+    evidence: str = "legacy_bot_start"
+    first_product_purchase: bool | None = None
 
 
 class AdPurchasesListOut(HttpResponseModel):
     purchases: list[AdPurchaseItem]
+    total: int = 0
+    page: int = 0
+    page_size: int = 50
 
 
 class AdToggleBody(HttpBodyModel):
-    is_active: Any = True
+    is_active: StrictBool = True
 
 
 class LogOut(HttpResponseModel):

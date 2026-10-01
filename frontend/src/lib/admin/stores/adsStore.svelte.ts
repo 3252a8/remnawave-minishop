@@ -26,6 +26,11 @@ type AdsState = {
   ads: Ad[];
   adsTotals: Record<string, number> | null;
   adsLoading: boolean;
+  adsPage: number;
+  adsTotal: number;
+  adsError: string;
+  adPurchasesPage: number;
+  adPurchasesTotal: number;
   adCreateOpen: boolean;
   adDraft: AdDraft;
   adPurchasesOpen: boolean;
@@ -35,16 +40,19 @@ type AdsState = {
 };
 type AdsStoreOptions = {
   api: AdminApi;
+  apiBlob?: ApiClient["apiBlob"];
   onToast: ToastFn;
   at: TranslateFn;
 };
 export type AdsStore = AdsState & {
-  loadAds: () => Promise<void>;
+  request: AdminApi;
+  requestBlob?: ApiClient["apiBlob"];
+  loadAds: (page?: number, filters?: Record<string, string>) => Promise<void>;
   createAd: () => Promise<void>;
   toggleAd: (ad: Ad) => Promise<void>;
   assignAdvertiser: (ad: Ad, advertiserId: number | null) => Promise<void>;
   resetAdStats: (ad: Ad) => Promise<void>;
-  loadAdPurchases: (ad: Ad) => Promise<void>;
+  loadAdPurchases: (ad: Ad, page?: number) => Promise<void>;
   setPurchasesOpen: (open: boolean) => void;
   deleteAd: (ad: Ad) => Promise<void>;
   setCreateOpen: (open: boolean) => void;
@@ -62,11 +70,16 @@ const defaultAdDraft = (): AdDraft => ({
   advertiser_id: null,
 });
 
-export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore {
+export function createAdsStore({ api, apiBlob, onToast, at }: AdsStoreOptions): AdsStore {
   let ads = $state.raw<Ad[]>([]);
   const state = $state<Omit<AdsState, "ads">>({
     adsTotals: null,
     adsLoading: false,
+    adsPage: 0,
+    adsTotal: 0,
+    adsError: "",
+    adPurchasesPage: 0,
+    adPurchasesTotal: 0,
     adCreateOpen: false,
     adDraft: defaultAdDraft(),
     adPurchasesOpen: false,
@@ -82,15 +95,26 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     },
   });
 
-  async function loadAds(): Promise<void> {
+  let adsFilters: Record<string, string> = {};
+  async function loadAds(page = state.adsPage, filters?: Record<string, string>): Promise<void> {
+    if (filters) adsFilters = filters;
+    state.adsPage = page;
+    state.adsError = "";
     state.adsLoading = true;
     try {
-      const data = await api(buildAdminAdsPath());
+      const data = await api(
+        buildAdminAdsPath(
+          new URLSearchParams({ ...adsFilters, page: String(page), page_size: "10" })
+        )
+      );
       if (isOkResponse(data)) {
         const payload = unwrap(data);
         ads = payload.campaigns || [];
         state.adsTotals = payload.totals || {};
-      }
+        state.adsTotal = payload.total ?? ads.length;
+      } else state.adsError = adminErrorMessage(data, at);
+    } catch {
+      state.adsError = at("ads_load_failed");
     } finally {
       state.adsLoading = false;
     }
@@ -160,18 +184,20 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
     }
   }
 
-  async function loadAdPurchases(ad: Ad): Promise<void> {
+  async function loadAdPurchases(ad: Ad, page = 0): Promise<void> {
     state.adPurchasesOpen = true;
     state.adPurchasesLoading = true;
     state.adPurchasesList = [];
     state.adPurchasesAd = ad;
+    state.adPurchasesPage = page;
     try {
-      const params = new URLSearchParams({ page: "0", page_size: "50" });
+      const params = new URLSearchParams({ page: String(page), page_size: "50" });
       const path = buildAdminAdPurchasesPath(ad.id, params);
       const res = await api(path);
       if (isOkResponse(res)) {
         const payload = unwrap(res);
         state.adPurchasesList = payload.purchases || [];
+        state.adPurchasesTotal = payload.total ?? state.adPurchasesList.length;
       } else {
         onToast(adminErrorMessage(res, at));
       }
@@ -204,6 +230,8 @@ export function createAdsStore({ api, onToast, at }: AdsStoreOptions): AdsStore 
   }
 
   return Object.assign(store, {
+    request: api,
+    requestBlob: apiBlob,
     loadAds,
     createAd,
     toggleAd,

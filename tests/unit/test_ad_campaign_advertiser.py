@@ -103,7 +103,7 @@ class AdDalAdvertiserTests(IsolatedAsyncioTestCase):
             funding_source="external",
             created_at=datetime(2026, 9, 1, 12, 0, 0, tzinfo=UTC),
         )
-        result_mock.all.return_value = [(payment, "buyer55", 50)]
+        result_mock.all.return_value = [(payment, "buyer55", 50, None)]
         session.execute.return_value = result_mock
 
         items = await ad_dal.list_campaign_purchases(
@@ -174,7 +174,7 @@ class AdminAdsAdvertiserRouteTests(IsolatedAsyncioTestCase):
         with (
             patch.object(admin_ads, "_require_admin_user_id", return_value=1),
             patch(
-                "bot.app.web.admin_api_impl.ads.user_dal.get_user_by_telegram_id",
+                "bot.app.web.admin_api_impl.ads.user_dal.get_user_by_id",
                 AsyncMock(return_value=advertiser_user),
             ),
         ):
@@ -235,6 +235,7 @@ class AdminAdsAdvertiserRouteTests(IsolatedAsyncioTestCase):
             patch.object(
                 ad_dal, "list_campaign_purchases", AsyncMock(return_value=sample_purchases)
             ),
+            patch.object(ad_dal, "count_campaign_purchases", AsyncMock(return_value=1)),
         ):
             resp = await admin_ads.admin_ad_purchases_route(request)
             assert resp.status == 200
@@ -325,7 +326,7 @@ class AdvertiserBotHandlerTests(IsolatedAsyncioTestCase):
                 AsyncMock(return_value=db_user),
             ),
             patch.object(ad_dal, "list_campaigns", AsyncMock(return_value=[campaign])),
-            patch.object(ad_dal, "get_campaign_stats", AsyncMock(return_value=stats)),
+            patch("db.dal.ad_statistics.campaign_statistics", AsyncMock(return_value={1: stats})),
         ):
             await advertiser_handler.my_ads_command(
                 message=message,
@@ -343,42 +344,33 @@ class AdvertiserBotHandlerTests(IsolatedAsyncioTestCase):
 
 
 class WebAppAuthAdAttributionTests(IsolatedAsyncioTestCase):
-    async def test_apply_ad_attribution_creates_attribution_when_campaign_active(self):
+    async def test_auth_uses_shared_advertising_capture_without_granting_entitlements(self):
         from bot.app.web.webapp.auth import _apply_ad_attribution_if_needed
 
         session = FakeSession()
-        campaign = AdCampaign(
-            ad_campaign_id=7,
-            source="Influencer",
-            start_param="promo_ad",
-            cost=200.0,
-            is_active=True,
+        with patch(
+            "bot.services.advertising.capture.capture_contact", AsyncMock(return_value=None)
+        ) as capture:
+            await _apply_ad_attribution_if_needed(
+                session,
+                user_id=100,
+                raw_start_param="channel_a",
+                event_key="signed-operation",
+                is_new_user=True,
+            )
+        capture.assert_awaited_once_with(
+            session,
+            code="channel_a",
+            user_id=100,
+            channel="telegram",
+            event_key="signed-operation",
+            is_new_user=True,
         )
+        assert session.added == []
 
-        with (
-            patch.object(ad_dal, "get_campaign_by_start_param", AsyncMock(return_value=campaign)),
-            patch.object(ad_dal, "ensure_attribution", AsyncMock()) as ensure_mock,
-        ):
-            await _apply_ad_attribution_if_needed(session, user_id=100, raw_start_param="promo_ad")
-            ensure_mock.assert_awaited_once_with(session, user_id=100, campaign_id=7)
-
-    async def test_apply_ad_attribution_ignores_inactive_or_missing_campaign(self):
+    async def test_auth_with_empty_payload_does_not_create_advertising_evidence(self):
         from bot.app.web.webapp.auth import _apply_ad_attribution_if_needed
 
-        session = FakeSession()
-        inactive_campaign = AdCampaign(
-            ad_campaign_id=8,
-            source="Old Promo",
-            start_param="old_ad",
-            cost=50.0,
-            is_active=False,
-        )
-
-        with (
-            patch.object(
-                ad_dal, "get_campaign_by_start_param", AsyncMock(return_value=inactive_campaign)
-            ),
-            patch.object(ad_dal, "ensure_attribution", AsyncMock()) as ensure_mock,
-        ):
-            await _apply_ad_attribution_if_needed(session, user_id=100, raw_start_param="old_ad")
-            ensure_mock.assert_not_called()
+        with patch("bot.services.advertising.capture.capture_contact", AsyncMock()) as capture:
+            await _apply_ad_attribution_if_needed(FakeSession(), user_id=100, raw_start_param=None)
+        capture.assert_not_awaited()

@@ -5,6 +5,7 @@ import { demoApiResponse } from "./mockApi/datasetApi";
 import { partnerProgramDemoResponse } from "./mockApi/partnerProgramResponse";
 import { webappFallbackResponse } from "./mockApi/webappFallback";
 import { giftsDemoResponse } from "./mockApi/giftsDemo";
+import { advertisingDemoResponse } from "./mockApi/advertisingDemo";
 
 export async function mockApi(
   path: string,
@@ -18,6 +19,8 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const advertising = advertisingDemoResponse(path, options);
+  if (advertising !== undefined) return advertising;
   if (cleanPath === "/theme-effects") return { ok: true, effect: null };
   const giftsResponse = giftsDemoResponse(cleanPath, options, path);
   if (giftsResponse !== undefined) return giftsResponse;

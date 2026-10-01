@@ -771,6 +771,7 @@ export function createAccountStore({
   async function logout() {
     if (telegramSdk.hasLaunchParams()) return;
     markManualLogout();
+    clearAdvertisingContext();
     clearToken();
     try {
       await publicApi(buildAuthLogoutPath(), {
@@ -784,3 +785,4 @@ export function createAccountStore({
 
   return state;
 }
+import { clearAdvertisingContext } from "../advertising";

@@ -207,6 +207,9 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             confirmed_panel_user,
         )
 
+        from db.dal.ad_dal import mark_trial_activated
+
+        await mark_trial_activated(session, user_id)
         if commit:
             await session.commit()
 

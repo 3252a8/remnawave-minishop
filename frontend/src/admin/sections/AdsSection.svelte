@@ -1,12 +1,14 @@
 <script lang="ts">
   import { getAdsStore } from "$lib/admin/context";
   import { Input } from "$components/ui/index.js";
-  import { Trash2 } from "$components/ui/icons.js";
+  import AdWorkspace from "./advertising/AdWorkspace.svelte";
+  import AdUnassignedPanel from "./advertising/AdUnassignedPanel.svelte";
   import { onMount } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import {
     AdminBadge,
     AdminButton,
+    AdminSelect,
     AdminEmptyState,
     AdminField,
     AdminPagination,
@@ -26,15 +28,32 @@
   let {
     at,
     fmtMoney,
+    appRepositoryUrl = "https://dev.minishop.minidoc.cc/",
   }: {
     at: TranslateFn;
     fmtMoney: (value: number) => string;
+    appRepositoryUrl?: string;
   } = $props();
 
   const ADS_PAGE_SIZE = 10;
   const adsStore = getAdsStore();
   const adsTable = new TableHandler<Ad>([], { rowsPerPage: ADS_PAGE_SIZE });
   let adsSort = $state("id_desc");
+  let selectedCampaign = $state<number | null>(null);
+  let unassignedOpen = $state(false);
+  let search = $state("");
+  let status = $state("all");
+  let since = $state("");
+  let until = $state("");
+  function filter(page = 0) {
+    void adsStore.loadAds(page, {
+      search,
+      status,
+      sort: adsSort,
+      ...(since ? { start: `${since}T00:00:00Z` } : {}),
+      ...(until ? { end: `${until}T00:00:00Z` } : {}),
+    });
+  }
 
   const ads = $derived(adsStore.ads as Ad[]);
   const adsLoading = $derived(Boolean(adsStore.adsLoading));
@@ -106,175 +125,199 @@
   function setAdsSort(sort: string): void {
     adsSort = sort;
     adsTable.setPage(1);
+    filter();
   }
 </script>
 
-<div class="admin-table-wrap">
-  {#if adsLoading}
-    <AdminTableSkeleton
-      headers={adHeaders}
-      rows={6}
-      rowHeight={58}
-      actionColumn
-      widths={["44px", "96px", "110px", "96px", "70px", "54px", "54px", "72px", "160px"]}
-    />
-  {:else if !ads.length}
-    <AdminEmptyState tone="card"
-      ><span class="admin-muted">{at("ads_empty", {}, "No campaigns found")}</span></AdminEmptyState
-    >
-  {:else}
-    <AdminTable>
-      <thead>
-        <tr>
-          <AdminSortableHeader
-            label={at("id", {}, "ID")}
-            column={adSortColumns[0]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_source", {}, "Source")}
-            column={adSortColumns[1]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_param", {}, "Parameter")}
-            column={adSortColumns[2]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_advertiser", {}, "Advertiser")}
-            column={adSortColumns[3]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_cost", {}, "Cost")}
-            column={adSortColumns[4]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_registrations", {}, "Registrations")}
-            column={adSortColumns[5]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_conversions", {}, "Conversions")}
-            column={adSortColumns[6]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <AdminSortableHeader
-            label={at("ads_col_status", {}, "Status")}
-            column={adSortColumns[7]}
-            currentSort={adsSort}
-            {at}
-            onSort={setAdsSort}
-          />
-          <th class="admin-cell-actions">{at("actions", {}, "Actions")}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each adRows as ad (ad.id)}
-          <tr>
-            <td class="admin-cell-id" data-label={at("id", {}, "ID")}>#{ad.id}</td>
-            <td data-label={at("ads_col_source", {}, "Source")}>{ad.source}</td>
-            <td class="admin-cell-mono" data-label={at("ads_col_param", {}, "Parameter")}
-              >{ad.start_param}</td
-            >
-            <td class="admin-cell-mono" data-label={at("ads_col_advertiser", {}, "Advertiser")}
-              >{ad.advertiser_id || "—"}</td
-            >
-            <td data-label={at("ads_col_cost", {}, "Cost")}>{fmtMoney(ad.cost)}</td>
-            <td data-label={at("ads_col_registrations", {}, "Registrations")}
-              >{adRegistrationCount(ad.stats)}</td
-            >
-            <td data-label={at("ads_col_conversions", {}, "Conversions")}
-              >{adConversionCount(ad.stats)}</td
-            >
-            <td data-label={at("ads_col_status", {}, "Status")}>
-              {#if ad.is_active}
-                <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
-              {:else}
-                <AdminBadge variant="muted">{at("status_disabled", {}, "Disabled")}</AdminBadge>
-              {/if}
-            </td>
-            <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
-              <AdminButton size="sm" onclick={() => adsStore.loadAdPurchases(ad)}>
-                {at("btn_purchases", {}, "Purchases")}
-              </AdminButton>
-              <AdminButton
-                size="sm"
-                onclick={() => {
-                  const newId = prompt(
-                    at(
-                      "prompt_advertiser",
-                      {},
-                      "Enter advertiser Telegram ID (or empty to clear):"
-                    ),
-                    ad.advertiser_id ? String(ad.advertiser_id) : ""
-                  );
-                  if (newId !== null) {
-                    const parsed = newId.trim() ? Number(newId.trim()) : null;
-                    adsStore.assignAdvertiser(ad, parsed && !Number.isNaN(parsed) ? parsed : null);
-                  }
-                }}
-              >
-                {at("btn_assign", {}, "Advertiser")}
-              </AdminButton>
-              <AdminButton
-                size="sm"
-                onclick={() => {
-                  if (confirm(at("confirm_reset_stats", {}, "Reset campaign statistics?"))) {
-                    adsStore.resetAdStats(ad);
-                  }
-                }}
-              >
-                {at("btn_reset", {}, "Reset")}
-              </AdminButton>
-              <AdminButton size="sm" onclick={() => adsStore.toggleAd(ad)}>
-                {ad.is_active ? at("btn_disable", {}, "Off") : at("btn_enable", {}, "On")}
-              </AdminButton>
-              <AdminButton
-                size="sm"
-                variant="danger"
-                title={at("btn_delete", {}, "Delete")}
-                aria-label={at("btn_delete", {}, "Delete")}
-                onclick={() => adsStore.deleteAd(ad)}
-              >
-                <Trash2 size={13} />
-              </AdminButton>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </AdminTable>
-    {#if ads.length > ADS_PAGE_SIZE}
-      <AdminPagination
-        table={adsTable}
-        pageLabel={at("page_short", {}, "Page")}
-        ofLabel={at("pagination_of", {}, "of")}
-        totalLabel={at("total", {}, "Total")}
-        jumpLabel={at("page_short", {}, "Page")}
-        jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
-        goLabel={at("pagination_go", {}, "Go")}
-        prevLabel={at("back", {}, "Back")}
-        nextLabel={at("next", {}, "Next")}
-      />
-    {/if}
-  {/if}
+<div class="admin-section-actions">
+  <AdminButton
+    onclick={() => {
+      unassignedOpen = !unassignedOpen;
+      selectedCampaign = null;
+    }}>{at("ads_unassigned")}</AdminButton
+  >
 </div>
+{#if selectedCampaign !== null}
+  <AdWorkspace
+    campaignId={selectedCampaign}
+    documentationUrl={appRepositoryUrl}
+    {at}
+    onback={() => {
+      selectedCampaign = null;
+    }}
+  />
+{:else if unassignedOpen}
+  <AdUnassignedPanel
+    {at}
+    onback={() => {
+      unassignedOpen = false;
+    }}
+  />
+{:else}
+  <div class="ad-filters admin-section-actions">
+    <AdminField label={at("search")}><Input bind:value={search} /></AdminField>
+    <AdminField label={at("ads_status")}
+      ><AdminSelect
+        bind:value={status}
+        items={["all", "active", "paused", "archived"].map((value) => ({
+          value,
+          label: at(`ads_${value}`),
+        }))}
+        ariaLabel={at("ads_status")}
+      /></AdminField
+    >
+    <AdminField label={at("ads_created_from")}><Input type="date" bind:value={since} /></AdminField>
+    <AdminField label={at("ads_created_until")}><Input type="date" bind:value={until} /></AdminField
+    >
+    <AdminButton onclick={() => filter()}>{at("ads_apply_filters")}</AdminButton>
+  </div>
+  {#if adsStore.adsError}<p role="alert">{adsStore.adsError}</p>
+    <AdminButton onclick={() => filter()}>{at("retry")}</AdminButton>{/if}
+  <div class="admin-table-wrap">
+    {#if adsLoading}
+      <AdminTableSkeleton
+        headers={adHeaders}
+        rows={6}
+        rowHeight={58}
+        actionColumn
+        widths={["44px", "96px", "110px", "96px", "70px", "54px", "54px", "72px", "160px"]}
+      />
+    {:else if !ads.length}
+      <AdminEmptyState tone="card"
+        ><span class="admin-muted">{at("ads_empty", {}, "No campaigns found")}</span
+        ></AdminEmptyState
+      >
+    {:else}
+      <AdminTable>
+        <thead>
+          <tr>
+            <AdminSortableHeader
+              label={at("id", {}, "ID")}
+              column={adSortColumns[0]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_source", {}, "Source")}
+              column={adSortColumns[1]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_param", {}, "Parameter")}
+              column={adSortColumns[2]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_advertiser", {}, "Advertiser")}
+              column={adSortColumns[3]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_cost", {}, "Cost")}
+              column={adSortColumns[4]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_registrations", {}, "Registrations")}
+              column={adSortColumns[5]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_conversions", {}, "Conversions")}
+              column={adSortColumns[6]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <AdminSortableHeader
+              label={at("ads_col_status", {}, "Status")}
+              column={adSortColumns[7]}
+              currentSort={adsSort}
+              {at}
+              onSort={setAdsSort}
+            />
+            <th class="admin-cell-actions">{at("actions", {}, "Actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each adRows as ad (ad.id)}
+            <tr>
+              <td class="admin-cell-id" data-label={at("id", {}, "ID")}>#{ad.id}</td>
+              <td data-label={at("ads_col_source", {}, "Source")}>{ad.source}</td>
+              <td class="admin-cell-mono" data-label={at("ads_col_param", {}, "Parameter")}
+                >{ad.start_param}</td
+              >
+              <td class="admin-cell-mono" data-label={at("ads_col_advertiser", {}, "Advertiser")}
+                >{ad.advertiser_id || "—"}</td
+              >
+              <td data-label={at("ads_col_cost", {}, "Cost")}>{fmtMoney(ad.cost)}</td>
+              <td data-label={at("ads_col_registrations", {}, "Registrations")}
+                >{adRegistrationCount(ad.stats)}</td
+              >
+              <td data-label={at("ads_col_conversions", {}, "Conversions")}
+                >{adConversionCount(ad.stats)}</td
+              >
+              <td data-label={at("ads_col_status", {}, "Status")}>
+                {#if ad.is_active}
+                  <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
+                {:else}
+                  <AdminBadge variant="muted">{at("status_disabled", {}, "Disabled")}</AdminBadge>
+                {/if}
+              </td>
+              <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
+                <AdminButton
+                  size="sm"
+                  variant="primary"
+                  onclick={() => {
+                    selectedCampaign = ad.id;
+                  }}>{at("ads_open_campaign")}</AdminButton
+                >
+                <AdminButton
+                  size="sm"
+                  disabled={Boolean(ad.archived_at)}
+                  onclick={() => adsStore.toggleAd(ad)}
+                >
+                  {ad.archived_at
+                    ? at("ads_archived")
+                    : ad.is_active
+                      ? at("btn_disable", {}, "Off")
+                      : at("btn_enable", {}, "On")}
+                </AdminButton>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </AdminTable>
+      {#if adsStore.adsTotal > ADS_PAGE_SIZE}
+        <AdminPagination
+          page={adsStore.adsPage}
+          pageCount={Math.ceil(adsStore.adsTotal / ADS_PAGE_SIZE)}
+          total={adsStore.adsTotal}
+          onPageChange={(page) => filter(page)}
+          pageLabel={at("page_short", {}, "Page")}
+          ofLabel={at("pagination_of", {}, "of")}
+          totalLabel={at("total", {}, "Total")}
+          jumpLabel={at("page_short", {}, "Page")}
+          jumpAriaLabel={at("pagination_jump_aria", {}, "Go to page")}
+          goLabel={at("pagination_go", {}, "Go")}
+          prevLabel={at("back", {}, "Back")}
+          nextLabel={at("next", {}, "Next")}
+        />
+      {/if}
+    {/if}
+  </div>
+{/if}
 
 <Dialog
   open={adCreateOpen}
@@ -386,13 +429,26 @@
             <tr>
               <td class="admin-cell-id">#{p.payment_id}</td>
               <td>{p.username || p.user_id}</td>
-              <td>{fmtMoney(p.amount)}</td>
+              <td>{p.amount.toLocaleString()} {p.currency}</td>
               <td>{p.description || "—"}</td>
               <td>{p.created_at ? new Date(p.created_at).toLocaleString() : "—"}</td>
             </tr>
           {/each}
         </tbody>
       </AdminTable>
+      <AdminPagination
+        page={adsStore.adPurchasesPage}
+        pageCount={Math.ceil(adsStore.adPurchasesTotal / 50)}
+        total={adsStore.adPurchasesTotal}
+        pageLabel={at("page_short")}
+        ofLabel={at("pagination_of")}
+        totalLabel={at("total")}
+        prevLabel={at("back")}
+        nextLabel={at("next")}
+        onPageChange={(page) => {
+          if (adsStore.adPurchasesAd) void adsStore.loadAdPurchases(adsStore.adPurchasesAd, page);
+        }}
+      />
     {/if}
   </div>
 </Dialog>

@@ -563,7 +563,7 @@ INSERT INTO subscriptions (
     premium_topup_used_bytes, premium_used_bytes, premium_is_limited,
     premium_period_start_at, premium_unlimited_override, premium_bonus_bytes,
     regular_bonus_bytes, regular_unlimited_override, period_start_at,
-    is_throttled, hwid_device_limit, extra_hwid_devices
+    is_throttled, hwid_device_limit, extra_hwid_devices, hwid_device_limit_is_override
 )
 SELECT
     (item ->> 'subscription_id')::integer,
@@ -601,7 +601,8 @@ SELECT
     pg_temp.dev_demo_time(item ->> 'start_date'),
     COALESCE((item ->> 'is_throttled')::boolean, false),
     NULLIF(item ->> 'hwid_device_limit', '')::integer,
-    COALESCE(NULLIF(item ->> 'extra_hwid_devices', '')::integer, 0)
+    COALESCE(NULLIF(item ->> 'extra_hwid_devices', '')::integer, 0),
+    COALESCE((item ->> 'hwid_device_limit_is_override')::boolean, false)
 FROM source
 ON CONFLICT (subscription_id) DO UPDATE SET
     user_id = EXCLUDED.user_id,
@@ -638,7 +639,8 @@ ON CONFLICT (subscription_id) DO UPDATE SET
     period_start_at = EXCLUDED.period_start_at,
     is_throttled = EXCLUDED.is_throttled,
     hwid_device_limit = EXCLUDED.hwid_device_limit,
-    extra_hwid_devices = EXCLUDED.extra_hwid_devices;
+    extra_hwid_devices = EXCLUDED.extra_hwid_devices,
+    hwid_device_limit_is_override = EXCLUDED.hwid_device_limit_is_override;
 
 WITH source AS (
     SELECT item
@@ -1007,7 +1009,7 @@ INSERT INTO admin_broadcasts (
     texts, email_subjects, buttons, scheduled_at, created_at, started_at,
     finished_at, updated_at, recipient_count, total_deliveries,
     successful_deliveries, failed_deliveries, telegram_sent, telegram_failed,
-    email_sent, email_failed, last_error
+    email_sent, email_failed, last_error, exclude_blocked_telegram
 )
 VALUES
     (910030001, 910000001, 'completed_with_errors', true, 'expired', '["telegram"]'::json,
@@ -1015,17 +1017,17 @@ VALUES
      '{}'::json, '[{"kind":"webapp_section","section":"plans"}]'::json,
      now() - interval '1 day', now() - interval '25 hours', now() - interval '1 day',
      now() - interval '23 hours 59 minutes', now() - interval '23 hours 59 minutes',
-     311, 311, 306, 5, 306, 5, 0, 0, null),
+     311, 311, 306, 5, 306, 5, 0, 0, null, false),
     (910030002, 910000001, 'running', true, 'all', '["telegram","email"]'::json,
      '{"ru":"Летнее обновление уже доступно. Откройте приложение и посмотрите, что изменилось!"}'::json,
      '{"ru":"Летнее обновление"}'::json, '[]'::json,
      now() - interval '2 minutes', now() - interval '5 minutes', now() - interval '2 minutes',
-     null, now() - interval '10 seconds', 1280, 1766, 618, 3, 472, 2, 146, 1, null),
+     null, now() - interval '10 seconds', 1280, 1766, 618, 3, 472, 2, 146, 1, null, false),
     (910030003, 910000001, 'scheduled', true, 'active', '["telegram","email"]'::json,
      '{"ru":"Напоминаем о технических работах сегодня ночью.","en":"Scheduled maintenance is planned for tonight."}'::json,
      '{"ru":"Технические работы","en":"Scheduled maintenance"}'::json,
      '[{"kind":"url","label":"Статус сервиса","url":"https://status.example.com"}]'::json,
-     '2099-01-01 12:00:00+00', now(), null, null, now(), 0, 0, 0, 0, 0, 0, 0, 0, null)
+     '2099-01-01 12:00:00+00', now(), null, null, now(), 0, 0, 0, 0, 0, 0, 0, 0, null, false)
 ON CONFLICT (broadcast_id) DO UPDATE SET
     status = EXCLUDED.status,
     is_visible = EXCLUDED.is_visible,
@@ -1046,7 +1048,8 @@ ON CONFLICT (broadcast_id) DO UPDATE SET
     telegram_failed = EXCLUDED.telegram_failed,
     email_sent = EXCLUDED.email_sent,
     email_failed = EXCLUDED.email_failed,
-    last_error = EXCLUDED.last_error;
+    last_error = EXCLUDED.last_error,
+    exclude_blocked_telegram = EXCLUDED.exclude_blocked_telegram;
 
 SELECT setval(pg_get_serial_sequence('subscriptions', 'subscription_id'), GREATEST((SELECT COALESCE(MAX(subscription_id), 1) FROM subscriptions), 1), true);
 SELECT setval(pg_get_serial_sequence('payments', 'payment_id'), GREATEST((SELECT COALESCE(MAX(payment_id), 1) FROM payments), 1), true);

@@ -8,6 +8,12 @@ from config.settings_models import ReferralSettings
 
 
 class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.capture = AsyncMock(return_value=None)
+        guard = patch("bot.services.advertising.capture.capture_contact", self.capture)
+        guard.start()
+        self.addCleanup(guard.stop)
+
     def _settings(self, **overrides):
         values = {
             "DEFAULT_LANGUAGE": "en",
@@ -44,7 +50,10 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
                 last_name="Example",
                 full_name="Alice Example",
             ),
-            bot=AsyncMock(),
+            bot=AsyncMock(id=123),
+            chat=SimpleNamespace(id=42),
+            message_id=1,
+            date=datetime.now(UTC),
             answer=AsyncMock(),
         )
 

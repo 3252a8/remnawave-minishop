@@ -472,6 +472,9 @@ async def update_promo_code(
         setattr(promo, key, value)
     await session.flush()
     await session.refresh(promo)
+    from bot.services.advertising.offers import version_bindings
+
+    await version_bindings(session, promo)
     return promo
 
 
@@ -504,9 +507,19 @@ async def delete_promo_code(session: AsyncSession, promo_id: int) -> PromoCode |
         return None
     activations_count = await count_promo_activations_by_code_id(session, promo_id)
     payments_count = await count_payments_by_promo_code_id(session, promo_id)
-    if activations_count > 0 or payments_count > 0:
+    from db.advertising_models import AdPromoBinding
+
+    bound = (
+        await session.execute(
+            select(AdPromoBinding.id).where(AdPromoBinding.promo_code_id == promo_id).limit(1)
+        )
+    ).first()
+    if activations_count > 0 or payments_count > 0 or bound:
         promo.is_active = False
         promo.archived_at = datetime.now(UTC)
+        from bot.services.advertising.offers import version_bindings
+
+        await version_bindings(session, promo)
         return await release_archived_promo_code(session, promo)
 
     await session.delete(promo)
@@ -639,6 +652,9 @@ async def record_promo_activation(
     session.add(new_activation)
     await session.flush()
     await session.refresh(new_activation)
+    from bot.services.advertising.offers import record_offer_activation
+
+    await record_offer_activation(session, new_activation)
     logger.info(
         "Promo code %s activated by user %s. Activation ID: %s",
         promo_code_id,

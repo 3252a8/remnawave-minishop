@@ -144,7 +144,13 @@ def test_ad_response_model_exposes_typed_stats_contract():
     stats_schema = AdOut.model_json_schema()["properties"]["stats"]
 
     assert stats_schema == {"$ref": "#/$defs/AdStatsOut"}
-    assert set(AdStatsOut.model_fields) == {"starts", "trials", "payers", "revenue"}
+    assert set(AdStatsOut.model_fields) == {
+        "starts",
+        "trials",
+        "payers",
+        "revenue",
+        "revenue_by_currency",
+    }
 
 
 class _LazyLogEntry:

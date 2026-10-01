@@ -382,6 +382,9 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/sync", admin_sync_route)
 
     router.add_get("/api/admin/ads", admin_ads_list_route)
+    from .advertising import setup_advertising_routes
+
+    setup_advertising_routes(router)
     router.add_post("/api/admin/ads", admin_ad_create_route)
     router.add_post("/api/admin/ads/{campaign_id:\\d+}/toggle", admin_ad_toggle_route)
     router.add_post("/api/admin/ads/{campaign_id:\\d+}/assign", admin_ad_assign_route)
