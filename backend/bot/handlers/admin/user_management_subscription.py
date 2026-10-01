@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import can_ban_account
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
@@ -360,6 +361,18 @@ async def handle_toggle_ban(
 
     try:
         new_ban_status = not user.is_banned
+
+        if new_ban_status and (
+            not callback.from_user
+            or not await can_ban_account(
+                session,
+                await require_telegram_account_id(session, callback.from_user.id),
+                user.user_id,
+            )
+        ):
+            await session.rollback()
+            await callback.answer(_("wa_auth_access_denied"), show_alert=True)
+            return
 
         # Update in database
         await user_dal.update_user(session, user.user_id, {"is_banned": new_ban_status})

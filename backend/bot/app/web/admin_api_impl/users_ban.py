@@ -9,6 +9,7 @@ from bot.app.web.context import (
     get_settings,
 )
 from bot.app.web.request_parsing import parse_body_or_400
+from bot.services.account_roles import can_ban_account
 from db.dal import user_dal
 
 from .auth import _require_admin_user_id
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 async def admin_user_ban_route(request: web.Request) -> web.Response:
-    _require_admin_user_id(request)
+    actor_id = _require_admin_user_id(request)
     target_id = int(request.match_info["user_id"])
     body = await parse_body_or_400(request, AdminUserBanBody)
     desired = bool(body.banned)
@@ -35,6 +36,10 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
         user = await user_dal.get_user_by_id(session, target_id)
         if not user:
             return _error(404, "not_found")
+
+        if desired and not await can_ban_account(session, actor_id, target_id):
+            await session.rollback()
+            return _error(403, "forbidden")
 
         panel_user_uuids = await user_dal.get_panel_user_uuids_for_user(
             session, target_id, user=user

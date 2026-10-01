@@ -41,6 +41,7 @@ class AdminUserBanRouteTests(unittest.IsolatedAsyncioTestCase):
             app["panel_service"] = panel_service
         request = SimpleNamespace(app=app, match_info={"user_id": "42"})
         patches = {
+            "ban_policy": patch.object(users_ban, "can_ban_account", AsyncMock(return_value=True)),
             "auth": patch.object(users_ban, "_require_admin_user_id", return_value=100),
             "body": patch.object(
                 users_ban,
@@ -197,4 +198,21 @@ class AdminUserBanRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(session.committed)
         mocks["uuids"].assert_not_awaited()
         mocks["invalidate"].assert_not_awaited()
+        update.assert_not_awaited()
+
+    async def test_protected_account_never_reaches_panel_or_commit(self):
+        user = User(user_id=42, is_banned=False)
+        update = AsyncMock(return_value=True)
+        request, session, _, mocks = self._setup_route(
+            banned=True,
+            user=user,
+            panel_uuids=["owner"],
+            panel_service=SimpleNamespace(update_user_status_on_panel=update),
+        )
+        mocks["ban_policy"].return_value = False
+        response = await users_ban.admin_user_ban_route(request)
+        self.assertEqual(response.status, 403)
+        self.assertFalse(user.is_banned)
+        self.assertFalse(session.committed)
+        mocks["uuids"].assert_not_awaited()
         update.assert_not_awaited()

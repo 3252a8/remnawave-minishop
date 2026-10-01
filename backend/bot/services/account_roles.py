@@ -49,6 +49,29 @@ async def active_admin_user_ids(session: AsyncSession) -> list[int]:
     return list(result.scalars().all())
 
 
+async def can_ban_account(session: AsyncSession, actor_id: int, target_id: int) -> bool:
+    """Serialize owner protection with role changes until the caller commits."""
+    await session.execute(text("SELECT pg_advisory_xact_lock(:lock)"), {"lock": _ROLE_LOCK_ID})
+    if actor_id == target_id:
+        return False
+    if not await has_role(session, target_id, ROLE_OWNER):
+        return True
+    if not await has_role(session, actor_id, ROLE_OWNER):
+        return False
+    accessible_owners = await session.scalar(
+        select(func.count())
+        .select_from(AccountRole)
+        .join(User, User.user_id == AccountRole.user_id)
+        .where(
+            AccountRole.role == ROLE_OWNER,
+            AccountRole.revoked_at.is_(None),
+            User.is_banned.is_(False),
+            User.user_id != target_id,
+        )
+    )
+    return bool(accessible_owners)
+
+
 async def bootstrap_owner(
     session: AsyncSession, email: str | None = None, minishop_id: str | None = None
 ) -> int:
@@ -119,6 +142,7 @@ async def grant_role(
 ) -> None:
     if role not in ADMIN_ROLES:
         raise ValueError("Unsupported role")
+    await session.execute(text("SELECT pg_advisory_xact_lock(:lock)"), {"lock": _ROLE_LOCK_ID})
     user = await session.get(User, user_id)
     if user is None:
         raise ValueError("Account does not exist")
@@ -160,9 +184,15 @@ async def revoke_role(
         owner_count = await session.scalar(
             select(func.count())
             .select_from(AccountRole)
-            .where(AccountRole.role == ROLE_OWNER, AccountRole.revoked_at.is_(None))
+            .join(User, User.user_id == AccountRole.user_id)
+            .where(
+                AccountRole.role == ROLE_OWNER,
+                AccountRole.revoked_at.is_(None),
+                User.is_banned.is_(False),
+                User.user_id != user_id,
+            )
         )
-        if not owner_count or owner_count <= 1:
+        if not owner_count:
             raise ValueError("Cannot revoke the last owner")
     assignment.revoked_at = datetime.now(UTC)
     assignment.revoked_by = actor_user_id
