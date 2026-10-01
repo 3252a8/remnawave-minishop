@@ -39,6 +39,7 @@ class Settings(
     TelegramTransportSettings,
 ):
     _trusted_subscription_config_path: Path = PrivateAttr()
+    _trusted_outbound_urls: tuple[str, ...] = PrivateAttr(default=())
 
     def model_post_init(self, context: object) -> None:
         # Freeze the operator's file selection before database overrides are applied.
@@ -47,6 +48,7 @@ class Settings(
         self._trusted_subscription_config_path = (
             path if path.is_absolute() else root / path
         ).resolve()
+        self._trusted_outbound_urls = (str(self.SERVER_STATUS_XRAY_CHECKER_URL or ""),)
 
     ADMIN_IDS_STR: str = Field(
         default="", alias="ADMIN_IDS", description="Comma-separated list of admin Telegram User IDs"

@@ -451,4 +451,14 @@ def settings_stub(**overrides: Any) -> SettingsStub:
     if not guide_path.is_absolute():
         guide_path = Path(__file__).resolve().parents[2] / guide_path
     values["_trusted_subscription_config_path"] = guide_path.resolve()
+    values.setdefault(
+        "_trusted_outbound_urls",
+        tuple(
+            str(values.get(key) or "")
+            for key in (
+                "SERVER_STATUS_XRAY_CHECKER_URL",
+                "SERVER_STATUS_KUMA_URL",
+            )
+        ),
+    )
     return SettingsStub(**values)

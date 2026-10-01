@@ -14,6 +14,12 @@ import aiohttp
 from pydantic import ValidationError
 
 from bot.infra.redis import cache_get_json, cache_set_json, redis_key, redis_lock
+from bot.utils.outbound_network import (
+    GuardedResolver,
+    OutboundPolicy,
+    approved_endpoints,
+    outbound_trace,
+)
 from config.server_status import (
     KumaStatusPageUrlError,
     parse_kuma_status_page_url,
@@ -41,10 +47,14 @@ class ServerStatusService:
         self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
         self._local_cache: dict[str, tuple[datetime, ServerStatus]] = {}
+        self._outbound_policy = OutboundPolicy(approved_endpoints(settings._trusted_outbound_urls))
 
     async def start(self) -> None:
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            self._session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(resolver=GuardedResolver(self._outbound_policy)),
+                trace_configs=[outbound_trace(self._outbound_policy)],
+            )
 
     async def close(self) -> None:
         if self._session is not None:
@@ -211,6 +221,8 @@ class ServerStatusService:
         response: aiohttp.ClientResponse | None = None
         body: bytes | None = None
         try:
+            if provider == "xray-checker":
+                self._outbound_policy.check_url(url)
             async with self._session.get(url, timeout=timeout) as response:
                 body_buffer = bytearray()
                 while len(body_buffer) <= MAX_PROVIDER_RESPONSE_BYTES:

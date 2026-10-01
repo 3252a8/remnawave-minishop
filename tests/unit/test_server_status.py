@@ -373,8 +373,10 @@ def test_provider_response_size_is_limited() -> None:
         app = web.Application()
         app.router.add_get("/status", large_response)
         server = TestServer(app)
-        service = ServerStatusService(_settings())
         await server.start_server()
+        service = ServerStatusService(
+            _settings(_trusted_outbound_urls=(str(server.make_url("/")),))
+        )
         try:
             with pytest.raises(ProviderFetchError, match="response_too_large"):
                 await service._fetch_json("uptime-kuma", str(server.make_url("/status")))
@@ -399,8 +401,10 @@ def test_provider_reads_chunked_json_until_eof() -> None:
         app = web.Application()
         app.router.add_get("/status", chunked_response)
         server = TestServer(app)
-        service = ServerStatusService(_settings())
         await server.start_server()
+        service = ServerStatusService(
+            _settings(_trusted_outbound_urls=(str(server.make_url("/")),))
+        )
         try:
             payload = await service._fetch_json(
                 "uptime-kuma",
@@ -438,8 +442,10 @@ def test_provider_invalid_json_response_is_classified_without_body_logging(
         app = web.Application()
         app.router.add_get("/api/status-page/heartbeat/example", invalid_response)
         server = TestServer(app)
-        service = ServerStatusService(_settings())
         await server.start_server()
+        service = ServerStatusService(
+            _settings(_trusted_outbound_urls=(str(server.make_url("/")),))
+        )
         try:
             with pytest.raises(ProviderFetchError, match="invalid_response"):
                 await service._fetch_json(
@@ -478,8 +484,10 @@ def test_provider_failure_logs_redirect_target_without_query_or_body(
         app.router.add_get("/original", redirect)
         app.router.add_get("/replacement", replacement)
         server = TestServer(app)
-        service = ServerStatusService(_settings())
         await server.start_server()
+        service = ServerStatusService(
+            _settings(_trusted_outbound_urls=(str(server.make_url("/")),))
+        )
         try:
             with pytest.raises(ProviderFetchError, match="invalid_response"):
                 await service._fetch_json(
