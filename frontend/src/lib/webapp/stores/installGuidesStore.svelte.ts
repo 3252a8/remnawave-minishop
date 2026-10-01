@@ -55,7 +55,7 @@ export function createInstallGuidesStore({
   showToast: (message: string) => void;
 }) {
   let inFlight: InFlightGuides | null = null;
-  let loadedPath = "";
+  let loadedPath: SubscriptionGuidesPath | PublicSubscriptionGuidesPath | null = null;
   const state = $state<InstallGuidesState>(initialInstallGuidesState());
 
   function stateFromResponse(response: GuidesResponse): InstallGuidesState {
@@ -102,11 +102,11 @@ export function createInstallGuidesStore({
     force = false
   ) {
     if (inFlight?.path === path) return inFlight.promise;
-    if (!force && state.loaded && loadedPath === path) return state;
+    if (!force && state.loaded && !state.error && loadedPath === path) return state;
     const promise = (async () => {
       patchState({
         loading: true,
-        loaded: force ? false : state.loaded,
+        loaded: false,
         error: "",
       });
       try {
@@ -149,6 +149,10 @@ export function createInstallGuidesStore({
     return fetchGuides(publicPath(shareToken), force);
   }
 
+  async function retry() {
+    return fetchGuides(loadedPath ?? buildSubscriptionGuidesPath(), true);
+  }
+
   function hydrate(
     path: SubscriptionGuidesPath | PublicSubscriptionGuidesPath,
     response: GuidesResponse
@@ -159,7 +163,7 @@ export function createInstallGuidesStore({
 
   function reset() {
     inFlight = null;
-    loadedPath = "";
+    loadedPath = null;
     assignState(initialInstallGuidesState());
   }
 
@@ -187,6 +191,7 @@ export function createInstallGuidesStore({
     },
     load,
     loadPublic,
+    retry,
     hydrate,
     publicPath,
     reset,

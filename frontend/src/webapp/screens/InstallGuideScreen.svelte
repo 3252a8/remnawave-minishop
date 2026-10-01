@@ -10,6 +10,7 @@
     ExternalLink,
     Monitor,
     QrCode,
+    RefreshCw,
     Share2,
     Smartphone,
   } from "$components/ui/icons.js";
@@ -374,6 +375,12 @@
   {:else if !installGuidesStore?.enabled || !config || !platforms.length}
     <Card class="install-empty">
       <p>{t("wa_install_unavailable", {}, "Instructions are unavailable.")}</p>
+      {#if installGuidesStore?.error}
+        <Button class="wide" onclick={() => installGuidesStore.retry()}>
+          <RefreshCw size={18} />
+          {t("wa_install_retry", {}, "Try again")}
+        </Button>
+      {/if}
       <Button class="wide" onclick={openConnectLink}>
         <ExternalLink size={18} />
         {t("wa_install_and_configure")}

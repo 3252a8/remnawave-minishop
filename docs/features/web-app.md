@@ -164,6 +164,11 @@ curl -I https://app.example.com/guides/install/ios
 
 Экран `/install` доступен только авторизованному пользователю Web App. Он получает данные из `/api/subscription-guides`, определяет платформу по Telegram Mini Apps platform, `navigator.userAgentData.platform` и `navigator.userAgent`, а затем показывает приложения и шаги из Remnawave Subscription Page v1 config. Ссылки типа `happ://...` и другие deeplink-кнопки открываются прямо из Mini App; в шаблонах заменяются `{{SUBSCRIPTION_LINK}}`, `{{USERNAME}}`, `{{HAPP_CRYPT3_LINK}}`, `{{HAPP_CRYPT4_LINK}}` и `{{INCY_CRYPT1_LINK}}`. Крипто-шаблоны шифруют исходный HTTP(S) URL подписки для соответствующего клиента.
 
+Если загрузка инструкций завершилась ошибкой, экран предлагает **Загрузить снова**.
+Повторное открытие экрана также заново запрашивает данные: ошибка не кешируется до перезагрузки
+Mini App. Повторная загрузка публичной ссылки `/s/<token>` использует ту же подписку и не требует
+авторизации. Успешно загруженные и явно отключённые инструкции сохраняют обычное кеширование.
+
 Конфиг инструкций загружается в таком порядке:
 
 1. JSON из админки, только если включен `SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED`.

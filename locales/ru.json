@@ -3227,6 +3227,7 @@
   "wa_install_app": "Приложение",
   "wa_install_loading": "Загружаем инструкции...",
   "wa_install_unavailable": "Инструкции недоступны.",
+  "wa_install_retry": "Загрузить снова",
   "wa_install_subscription_link": "Ссылка подписки",
   "wa_install_subscription_link_hint": "Отсканируйте QR-код или скопируйте ссылку.",
   "wa_install_qr_alt": "QR-код подписки",

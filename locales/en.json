@@ -3227,6 +3227,7 @@
   "wa_install_app": "App",
   "wa_install_loading": "Loading instructions...",
   "wa_install_unavailable": "Instructions are unavailable.",
+  "wa_install_retry": "Try again",
   "wa_install_subscription_link": "Subscription link",
   "wa_install_subscription_link_hint": "Scan the QR code or copy the link.",
   "wa_install_qr_alt": "Subscription QR code",
