@@ -4,29 +4,7 @@ import smtplib
 import socket
 import ssl
 
-from bot.utils.outbound_network import OutboundPolicy
-
-
-def connect_socket(
-    policy: OutboundPolicy,
-    host: str,
-    port: int,
-    timeout: float,
-    source_address: tuple[str, int] | None = None,
-) -> socket.socket:
-    if not 0 < port <= 65535:
-        raise ValueError("unsafe_outbound_port")
-    answers = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    addresses = list(dict.fromkeys(str(answer[4][0]) for answer in answers))
-    for address in addresses:
-        policy.check_address(host, port, address)
-    error: OSError = OSError("No usable destination address")
-    for address in addresses:
-        try:
-            return socket.create_connection((address, port), timeout, source_address)
-        except OSError as exc:
-            error = exc
-    raise error
+from bot.utils.outbound_network import OutboundPolicy, connect_socket
 
 
 class GuardedSMTP(smtplib.SMTP):

@@ -7,10 +7,12 @@ import time
 from decimal import ROUND_CEILING, Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlencode
-from urllib.request import urlopen
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import SettingsConfigDict
+
+from bot.utils.http_transport import fetch_json_sync
+from bot.utils.outbound_network import OutboundPolicy, approved_endpoints
 
 from ..base import (
     ProviderEnvConfig,
@@ -427,8 +429,11 @@ def _exchange_rate_sync(
         return cached[1]
 
     try:
-        with urlopen(url, timeout=5) as response:
-            response_data = json.loads(response.read().decode("utf-8"))
+        response_data = fetch_json_sync(
+            url,
+            timeout=5,
+            policy=OutboundPolicy(approved_endpoints([config._trusted_exchange_rate_url])),
+        )
     except Exception:
         logger.exception(
             "Paykilla exchange rate sync lookup failed (source=%s target=%s).",

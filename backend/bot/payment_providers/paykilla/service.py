@@ -10,6 +10,8 @@ from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.http_transport import fetch_json
+from bot.utils.outbound_network import OutboundPolicy, approved_endpoints
 from config.settings import Settings
 from db.dal import payment_dal
 
@@ -154,29 +156,19 @@ class PaykillaService(HttpClientMixin):
         if cached and now - cached[0] < cache_seconds:
             return cached[1]
 
-        session = await self._get_session()
         url = self._exchange_rate_url(source_currency, target_currency)
-        async with session.get(url) as response:
-            response_text = await response.text()
-            try:
-                response_data = json.loads(response_text) if response_text else {}
-            except json.JSONDecodeError as exc:
-                raise ValueError("exchange_rate_invalid_json") from exc
-            if response.status != 200 or response_data.get("result") != "success":
-                logger.error(
-                    "Paykilla exchange rate request failed "
-                    "(status=%s, body=%s, source=%s, target=%s)",
-                    response.status,
-                    response_data,
-                    source_currency,
-                    target_currency,
-                )
-                raise ValueError("exchange_rate_unavailable")
-            rates = response_data.get("rates") if isinstance(response_data, dict) else None
-            target_rate = rates.get(target_currency) if isinstance(rates, dict) else None
-            rate = _decimal_from_api(target_rate)
-            if rate is None or rate <= 0:
-                raise ValueError("exchange_rate_missing")
+        response_data = await fetch_json(
+            url,
+            total_seconds=self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS,
+            policy=OutboundPolicy(approved_endpoints([self.config._trusted_exchange_rate_url])),
+        )
+        if not isinstance(response_data, dict) or response_data.get("result") != "success":
+            raise ValueError("exchange_rate_unavailable")
+        rates = response_data.get("rates")
+        target_rate = rates.get(target_currency) if isinstance(rates, dict) else None
+        rate = _decimal_from_api(target_rate)
+        if rate is None or rate <= 0:
+            raise ValueError("exchange_rate_missing")
 
         cache[cache_key] = (now, rate)
         return rate
