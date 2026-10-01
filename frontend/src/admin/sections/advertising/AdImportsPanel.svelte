@@ -3,7 +3,12 @@
   import { csvHeader } from "./csvHeader";
   import Dialog from "$components/ui/dialog.svelte";
   import {
+    AdminBadge,
     AdminButton,
+    AdminCardActions,
+    AdminEmptyState,
+    AdminFormGrid,
+    AdminSettingsGroup,
     AdminField,
     AdminSelect,
     AdminTable,
@@ -88,209 +93,378 @@
   }
 </script>
 
-<p class="admin-muted">{at("ads_import_hint")}</p>
-<p class="admin-muted">{at("ads_csv_limit")}</p>
-<div class="admin-form ad-form-grid">
-  <AdminField label={at("ads_csv_file")}
-    ><FileInput
-      aria-label={at("ads_csv_file")}
-      accept=".csv,text/csv"
-      onchange={chooseFile}
-    /></AdminField
-  >
-  <AdminField label={at("ads_import_account")}
-    ><Input bind:value={account} maxlength={128} /></AdminField
-  >
-  <AdminField label={at("ads_timezone")}><Input bind:value={timezone} /></AdminField>
-  <AdminField label={at("ads_currency")}><Input bind:value={currency} maxlength={8} /></AdminField>
-  <AdminField label={at("ads_delimiter")}
-    ><AdminSelect
-      bind:value={delimiter}
-      items={[
-        { value: ",", label: at("ads_comma") },
-        { value: ";", label: at("ads_semicolon") },
-        { value: "\t", label: at("ads_tab") },
-      ]}
-      ariaLabel={at("ads_delimiter")}
-    /></AdminField
-  >
-  <AdminField label={at("ads_granularity")}
-    ><AdminSelect
-      bind:value={granularity}
-      items={[
-        { value: "daily", label: at("ads_daily") },
-        { value: "minute", label: at("ads_minute") },
-        { value: "interval", label: at("ads_interval") },
-        { value: "cumulative", label: at("ads_cumulative") },
-        { value: "event", label: at("ads_event") },
-      ]}
-      ariaLabel={at("ads_granularity")}
-    /></AdminField
-  >
-</div>
-<AdminField label={at("ads_csv_text")}
-  ><Textarea
-    class="input ad-csv-input"
-    bind:value={csv}
-    ariaLabel={at("ads_csv_text")}
-    rows={5}
-    oninput={() => {
-      preview = null;
-    }}
-    placeholder="date,ad,impressions,clicks,starts,cost,currency"
-  ></Textarea></AdminField
->
-<div class="admin-form ad-form-grid">
-  {#each fields as field}<AdminField label={at(`ads_column_${field}`)}
-      ><AdminSelect
-        value={columns[field] || ""}
-        items={columnItems}
-        ariaLabel={at(`ads_column_${field}`)}
-        onValueChange={(value) => {
-          columns = { ...columns, [field]: value };
-          preview = null;
-        }}
-      /></AdminField
-    >{/each}
-</div>
-{#if error}<p role="alert">{error}</p>{/if}
-<AdminButton
-  variant="primary"
-  disabled={busy || !csv || !account || !columns.start || !columns.advertisement}
-  onclick={prepare}>{busy ? at("loading") : at("ads_preview_import")}</AdminButton
->
-{#if preview}
-  <h3>{at("ads_import_preview", { count: preview.batch.rows })}</h3>
-  <p class="admin-muted">{at("ads_preview_limit")}</p>
-  <AdminTable
-    ><thead
-      ><tr
-        ><th>{at("ads_column_start")}</th><th>{at("ads_column_advertisement")}</th><th
-          >{at("ads_impressions")}</th
-        ><th>{at("ads_clicks")}</th><th>{at("ads_starts")}</th><th>{at("ads_spend")}</th></tr
-      ></thead
+<div class="ad-imports-panel">
+  <AdminSettingsGroup title={at("ads_import_settings")} description={at("ads_import_hint")}>
+    <AdminField label={at("ads_csv_file")} hint={at("ads_csv_limit")}>
+      <FileInput
+        buttonLabel={at("ads_choose_file")}
+        emptyLabel={at("ads_no_file_selected")}
+        aria-label={at("ads_csv_file")}
+        accept=".csv,text/csv"
+        onchange={chooseFile}
+      />
+    </AdminField>
+    <AdminFormGrid columns={3}>
+      <AdminField label={at("ads_import_account")}>
+        <Input
+          bind:value={account}
+          maxlength={128}
+          aria-label={at("ads_import_account")}
+          oninput={() => (preview = null)}
+        />
+      </AdminField>
+      <AdminField label={at("ads_timezone")}>
+        <Input
+          bind:value={timezone}
+          aria-label={at("ads_timezone")}
+          oninput={() => (preview = null)}
+        />
+      </AdminField>
+      <AdminField label={at("ads_currency")}>
+        <Input
+          bind:value={currency}
+          maxlength={8}
+          aria-label={at("ads_currency")}
+          oninput={() => (preview = null)}
+        />
+      </AdminField>
+      <AdminField label={at("ads_delimiter")}>
+        <AdminSelect
+          bind:value={delimiter}
+          items={[
+            { value: ",", label: at("ads_comma") },
+            { value: ";", label: at("ads_semicolon") },
+            { value: "\t", label: at("ads_tab") },
+          ]}
+          ariaLabel={at("ads_delimiter")}
+          onValueChange={() => {
+            preview = null;
+            columns = {};
+          }}
+        />
+      </AdminField>
+      <AdminField label={at("ads_granularity")}>
+        <AdminSelect
+          bind:value={granularity}
+          items={[
+            { value: "daily", label: at("ads_daily") },
+            { value: "minute", label: at("ads_minute") },
+            { value: "interval", label: at("ads_interval") },
+            { value: "cumulative", label: at("ads_cumulative") },
+            { value: "event", label: at("ads_event") },
+          ]}
+          ariaLabel={at("ads_granularity")}
+          onValueChange={() => (preview = null)}
+        />
+      </AdminField>
+    </AdminFormGrid>
+    <AdminField label={at("ads_csv_text")}>
+      <Textarea
+        bind:value={csv}
+        ariaLabel={at("ads_csv_text")}
+        rows={5}
+        oninput={() => (preview = null)}
+        placeholder="date,ad,impressions,clicks,starts,cost,currency"
+      />
+    </AdminField>
+  </AdminSettingsGroup>
+
+  <AdminSettingsGroup title={at("ads_import_mapping")}>
+    <AdminFormGrid columns={4}>
+      {#each fields as field (field)}
+        <AdminField label={at(`ads_column_${field}`)}>
+          <AdminSelect
+            value={columns[field] || ""}
+            items={columnItems}
+            disabled={!headers.length}
+            ariaLabel={at(`ads_column_${field}`)}
+            onValueChange={(value) => {
+              columns = { ...columns, [field]: value };
+              preview = null;
+            }}
+          />
+        </AdminField>
+      {/each}
+    </AdminFormGrid>
+    {#if error}<p class="ad-panel-note" role="alert">{error}</p>{/if}
+    <AdminCardActions divider={false}>
+      <AdminButton
+        variant="primary"
+        disabled={busy || !csv || !account || !columns.start || !columns.advertisement}
+        onclick={prepare}>{busy ? at("loading") : at("ads_preview_import")}</AdminButton
+      >
+    </AdminCardActions>
+  </AdminSettingsGroup>
+
+  {#if preview}
+    <AdminSettingsGroup
+      title={at("ads_import_preview", { count: preview.batch.rows })}
+      description={at("ads_preview_limit")}
     >
-    <tbody
-      >{#each preview.preview.slice(0, 20) as row}<tr
-          ><td>{String(row.interval_start || "")}</td><td>{String(row.advertisement || "")}</td><td
-            >{Array.isArray(row.available_metrics) && row.available_metrics.includes("impressions")
-              ? String(row.impressions ?? 0)
-              : "—"}</td
-          ><td
-            >{Array.isArray(row.available_metrics) && row.available_metrics.includes("clicks")
-              ? String(row.clicks ?? 0)
-              : "—"}</td
-          ><td
-            >{Array.isArray(row.available_metrics) && row.available_metrics.includes("starts")
-              ? String(row.starts ?? 0)
-              : "—"}</td
-          ><td
-            >{row.cost_minor == null ? "—" : String(row.cost_minor)}
-            {String(row.currency || "")} · {at("ads_minor_units")}</td
-          ></tr
-        >{/each}</tbody
-    >
-  </AdminTable>
-  <p class="admin-muted">{at("ads_import_replace_hint")}</p>
-  <AdminSelect
-    bind:value={replaceMode}
-    items={[
-      { value: "keep", label: at("ads_keep_imports") },
-      { value: "replace", label: at("ads_replace_imports") },
-    ]}
-    ariaLabel={at("ads_import_revision")}
-  />
-  <AdminButton variant="primary" onclick={confirm}>{at("ads_confirm_import")}</AdminButton>
-{/if}
-<h3>{at("ads_import_history")}</h3>
-<AdminTable
-  ><thead
-    ><tr
-      ><th>{at("ads_import_account")}</th><th>{at("ads_date")}</th><th>{at("ads_rows")}</th><th
-        >{at("ads_status")}</th
-      ><th>{at("actions")}</th></tr
-    ></thead
-  >
-  <tbody
-    >{#each data.imports as batch}<tr
-        ><td>{batch.account}</td><td>{adDate(batch.created_at)}</td><td
-          >{batch.rows} · {at(`ads_${batch.granularity}`)}</td
-        ><td>{at(`ads_${batch.status}`)}</td><td
-          >{#if batch.status === "confirmed"}<AdminButton
-              variant="dangerSoft"
-              onclick={() => {
-                revertId = batch.id;
-              }}>{at("ads_revert_import")}</AdminButton
-            >{/if}{#if batch.granularity === "event" && batch.status === "confirmed"}<AdminButton
-              disabled={!botId}
-              onclick={() =>
-                mutate(
-                  "candidates",
-                  { bot_id: botId, window_seconds: Number(windowSeconds) },
-                  batch.id
-                )}>{at("ads_find_candidates")}</AdminButton
-            >{/if}</td
-        ></tr
-      >{/each}</tbody
-  >
-</AdminTable>
-<h3>{at("ads_matching")}</h3>
-<p class="admin-muted">{at("ads_matching_hint")}</p>
-<div class="ad-form-grid">
-  <AdminField label={at("ads_bot_id")}><Input bind:value={botId} /></AdminField><AdminField
-    label={at("ads_match_window")}
-    ><Input type="number" min="1" max="3600" bind:value={windowSeconds} /></AdminField
-  >
+      <AdminTable
+        layout="fixed"
+        class="admin-table-compact"
+        aria-label={at("ads_import_preview", { count: preview.batch.rows })}
+      >
+        <thead>
+          <tr>
+            <th>{at("ads_column_advertisement")}</th>
+            <th>{at("ads_column_start")}</th>
+            <th>{at("ads_impressions")}</th>
+            <th>{at("ads_clicks")}</th>
+            <th>{at("ads_starts")}</th>
+            <th>{at("ads_spend")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each preview.preview.slice(0, 20) as row, index (index)}
+            <tr>
+              <td class="admin-cell-primary" data-label={at("ads_column_advertisement")}
+                >{String(row.advertisement || "")}</td
+              >
+              <td data-label={at("ads_column_start")}>{String(row.interval_start || "")}</td>
+              <td data-label={at("ads_impressions")}>
+                {Array.isArray(row.available_metrics) &&
+                row.available_metrics.includes("impressions")
+                  ? String(row.impressions ?? 0)
+                  : "—"}
+              </td>
+              <td data-label={at("ads_clicks")}>
+                {Array.isArray(row.available_metrics) && row.available_metrics.includes("clicks")
+                  ? String(row.clicks ?? 0)
+                  : "—"}
+              </td>
+              <td data-label={at("ads_starts")}>
+                {Array.isArray(row.available_metrics) && row.available_metrics.includes("starts")
+                  ? String(row.starts ?? 0)
+                  : "—"}
+              </td>
+              <td data-label={at("ads_spend")}>
+                <div class="ad-cell-stack">
+                  <span
+                    >{row.cost_minor == null ? "—" : String(row.cost_minor)}
+                    {String(row.currency || "")}</span
+                  >
+                  <small class="admin-muted">{at("ads_minor_units")}</small>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </AdminTable>
+      <AdminField label={at("ads_import_revision")} hint={at("ads_import_replace_hint")}>
+        <AdminSelect
+          bind:value={replaceMode}
+          items={[
+            { value: "keep", label: at("ads_keep_imports") },
+            { value: "replace", label: at("ads_replace_imports") },
+          ]}
+          ariaLabel={at("ads_import_revision")}
+        />
+      </AdminField>
+      <AdminCardActions divider={false}>
+        <AdminButton variant="primary" onclick={confirm}>{at("ads_confirm_import")}</AdminButton>
+      </AdminCardActions>
+    </AdminSettingsGroup>
+  {/if}
+
+  <AdminSettingsGroup title={at("ads_import_history")}>
+    {#if data.imports.length}
+      <AdminTable layout="fixed" class="admin-table-compact" aria-label={at("ads_import_history")}>
+        <thead>
+          <tr>
+            <th>{at("ads_import_account")}</th>
+            <th>{at("ads_date")}</th>
+            <th>{at("ads_rows")}</th>
+            <th>{at("ads_status")}</th>
+            <th>{at("actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.imports as batch (batch.id)}
+            <tr>
+              <td class="admin-cell-primary" data-label={at("ads_import_account")}
+                >{batch.account}</td
+              >
+              <td data-label={at("ads_date")}>{adDate(batch.created_at)}</td>
+              <td data-label={at("ads_rows")}>
+                <div class="ad-cell-stack">
+                  <strong>{batch.rows}</strong><small class="admin-muted"
+                    >{at(`ads_${batch.granularity}`)}</small
+                  >
+                </div>
+              </td>
+              <td data-label={at("ads_status")}>
+                <AdminBadge
+                  variant={batch.status === "confirmed"
+                    ? "success"
+                    : batch.status === "preview"
+                      ? "warning"
+                      : "muted"}
+                >
+                  {at(`ads_${batch.status}`)}
+                </AdminBadge>
+              </td>
+              <td class="admin-cell-actions" data-label={at("actions")}>
+                <div class="ad-row-actions">
+                  {#if batch.status === "confirmed"}
+                    <AdminButton
+                      size="sm"
+                      variant="dangerSoft"
+                      onclick={() => (revertId = batch.id)}>{at("ads_revert_import")}</AdminButton
+                    >
+                  {/if}
+                  {#if batch.granularity === "event" && batch.status === "confirmed"}
+                    <AdminButton
+                      size="sm"
+                      disabled={!botId}
+                      onclick={() =>
+                        mutate(
+                          "candidates",
+                          { bot_id: botId, window_seconds: Number(windowSeconds) },
+                          batch.id
+                        )}>{at("ads_find_candidates")}</AdminButton
+                    >
+                  {/if}
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </AdminTable>
+    {:else}
+      <AdminEmptyState>{at("ads_imports_empty")}</AdminEmptyState>
+    {/if}
+  </AdminSettingsGroup>
+
+  <AdminSettingsGroup title={at("ads_matching")} description={at("ads_matching_hint")}>
+    <AdminFormGrid columns={2}>
+      <AdminField label={at("ads_bot_id")}
+        ><Input bind:value={botId} aria-label={at("ads_bot_id")} /></AdminField
+      >
+      <AdminField label={at("ads_match_window")}>
+        <Input
+          type="number"
+          min="1"
+          max="3600"
+          bind:value={windowSeconds}
+          aria-label={at("ads_match_window")}
+        />
+      </AdminField>
+    </AdminFormGrid>
+    {#if data.candidates.length}
+      <AdminTable layout="fixed" class="admin-table-compact" aria-label={at("ads_matching")}>
+        <thead>
+          <tr>
+            <th>{at("id")}</th>
+            <th>{at("ads_contact")}</th>
+            <th>{at("ads_delta_seconds")}</th>
+            <th>{at("ads_status")}</th>
+            <th>{at("ads_reason")}</th>
+            <th>{at("actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.candidates as candidate (candidate.id)}
+            <tr>
+              <td class="admin-cell-primary" data-label={at("id")}>{candidate.id}</td>
+              <td data-label={at("ads_contact")}>{candidate.touchpoint_id || "—"}</td>
+              <td data-label={at("ads_delta_seconds")}>{candidate.delta_seconds ?? "—"}</td>
+              <td data-label={at("ads_status")}>
+                <AdminBadge
+                  variant={candidate.status === "confirmed_by_operator"
+                    ? "success"
+                    : candidate.status === "ambiguous"
+                      ? "warning"
+                      : "muted"}
+                >
+                  {at(`ads_${candidate.status}`)}
+                </AdminBadge>
+              </td>
+              <td data-label={at("ads_reason")}>
+                <div class="ad-cell-stack">
+                  <span>{at(`ads_match_${candidate.reason}`)}</span>
+                  <small class="admin-muted"
+                    >±{candidate.window_seconds}s · {candidate.bot_id}</small
+                  >
+                </div>
+              </td>
+              <td class="admin-cell-actions" data-label={at("actions")}>
+                {#if candidate.touchpoint_id && ["candidate", "ambiguous"].includes(candidate.status)}
+                  <div class="ad-row-actions">
+                    <AdminButton
+                      size="sm"
+                      onclick={() =>
+                        mutate("decide", { status: "confirmed_by_operator" }, candidate.id)}
+                      >{at("ads_confirm_candidate")}</AdminButton
+                    >
+                    <AdminButton
+                      size="sm"
+                      onclick={() => mutate("decide", { status: "rejected" }, candidate.id)}
+                      >{at("ads_reject_candidate")}</AdminButton
+                    >
+                  </div>
+                {/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </AdminTable>
+    {:else}
+      <AdminEmptyState>{at("ads_candidates_empty")}</AdminEmptyState>
+    {/if}
+  </AdminSettingsGroup>
 </div>
-<AdminTable
-  ><thead
-    ><tr
-      ><th>ID</th><th>{at("ads_contact")}</th><th>{at("ads_delta_seconds")}</th><th
-        >{at("ads_status")}</th
-      ><th>{at("ads_reason")}</th><th>{at("actions")}</th></tr
-    ></thead
-  >
-  <tbody
-    >{#each data.candidates as candidate}<tr
-        ><td>{candidate.id}</td><td>{candidate.touchpoint_id || "—"}</td><td
-          >{candidate.delta_seconds ?? "—"}</td
-        ><td>{at(`ads_${candidate.status}`)}</td><td
-          >{at(`ads_match_${candidate.reason}`)} &middot; &plusmn;{candidate.window_seconds}s
-          &middot; {candidate.bot_id}</td
-        ><td
-          >{#if candidate.touchpoint_id && ["candidate", "ambiguous"].includes(candidate.status)}<AdminButton
-              onclick={() => mutate("decide", { status: "confirmed_by_operator" }, candidate.id)}
-              >{at("ads_confirm_candidate")}</AdminButton
-            ><AdminButton onclick={() => mutate("decide", { status: "rejected" }, candidate.id)}
-              >{at("ads_reject_candidate")}</AdminButton
-            >{/if}</td
-        ></tr
-      >{/each}</tbody
-  >
-</AdminTable>
+
 <Dialog
   open={Boolean(revertId)}
   title={at("ads_revert_import")}
+  description={at("ads_revert_hint")}
   closeLabel={at("close")}
-  onclose={() => {
-    revertId = "";
-  }}
+  onclose={() => (revertId = "")}
   class="admin-dialog admin-dialog-compact"
 >
-  <p>{at("ads_revert_hint")}</p>
-  <AdminButton
-    variant="danger"
-    onclick={async () => {
-      if (await mutate("revert", {}, revertId)) revertId = "";
-    }}>{at("ads_revert_import")}</AdminButton
-  >
+  <AdminCardActions divider={false}>
+    <AdminButton onclick={() => (revertId = "")}>{at("cancel")}</AdminButton>
+    <AdminButton
+      variant="danger"
+      onclick={async () => {
+        if (await mutate("revert", {}, revertId)) revertId = "";
+      }}
+    >
+      {at("ads_revert_import")}
+    </AdminButton>
+  </AdminCardActions>
 </Dialog>
 
 <style>
-  .ad-form-grid {
+  .ad-imports-panel {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 12px;
-    margin: 16px 0;
+    gap: 18px;
+    min-width: 0;
+  }
+  .ad-panel-note {
+    margin: 0;
+    line-height: 1.5;
+  }
+  .ad-cell-stack {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+  .ad-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+  }
+  .ad-row-actions :global(.admin-btn) {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+  }
+  .ad-imports-panel :global(td) {
+    font-variant-numeric: tabular-nums;
   }
 </style>

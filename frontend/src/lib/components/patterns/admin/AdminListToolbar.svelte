@@ -13,6 +13,7 @@
     total,
     totalLabel,
     columns = 3,
+    mobileColumns,
     mobileFilterMode = "inline",
     onsubmit,
     class: className = "",
@@ -27,6 +28,7 @@
     total?: number;
     totalLabel?: string;
     columns?: number;
+    mobileColumns?: number;
     mobileFilterMode?: "inline" | "dialog";
     onsubmit?: (event: SubmitEvent) => void;
     class?: string;
@@ -42,7 +44,7 @@
 <form
   class={cn("admin-list-toolbar", className)}
   data-mobile-filters={mobileFilterMode}
-  style={`--toolbar-columns: ${columns}; --toolbar-mobile-columns: ${Math.min(2, columns)}`}
+  style={`--toolbar-columns: ${columns}; --toolbar-mobile-columns: ${mobileColumns ?? Math.min(2, columns)}`}
   onsubmit={(event) => {
     event.preventDefault();
     onsubmit?.(event);
@@ -106,7 +108,8 @@
   .admin-list-toolbar-filters {
     display: grid;
     grid-template-columns: repeat(var(--toolbar-columns), minmax(0, 1fr));
-    flex: 1;
+    align-items: end;
+    flex: 1 1 min(100%, 680px);
     gap: 12px;
     min-width: 0;
   }
@@ -116,7 +119,8 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .admin-list-toolbar-summary {
     display: flex;
@@ -125,7 +129,8 @@
     gap: 6px;
     min-height: 36px;
     font-size: 14px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .admin-list-toolbar-summary > span {
     color: var(--admin-muted);

@@ -179,8 +179,12 @@ async def claim_visit(session: AsyncSession, visit_id: str, user_id: int) -> Non
         return
     if visit.user_id is not None and visit.user_id != user_id:
         return
+    # FOR NO KEY UPDATE serializes claims without upgrading the KEY SHARE locks
+    # held by contact/visit foreign keys, which can deadlock concurrent captures.
     user = (
-        await session.execute(select(User).where(User.user_id == user_id).with_for_update())
+        await session.execute(
+            select(User).where(User.user_id == user_id).with_for_update(key_share=True)
+        )
     ).scalar_one_or_none()
     if user is None or user.is_banned:
         return
