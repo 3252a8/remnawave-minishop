@@ -36,9 +36,11 @@
   [fc028953](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fc0289530708519cc4adb9695e72f4a628769254)
   [97e35a23](https://gitlab.com/3252a8/remnawave-minishop/-/commit/97e35a23ab0edc42a243bc83243e7a2ea00b56ba)
   [fce661e6](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fce661e6d1e859b34a841a93c6e7ac5448553956)
+  Иконки SVG проверяются как XML с разрешёнными элементами и атрибутами геометрии.
 
 - **Экспорт платежей.** Текстовые ячейки CSV не запускают формулы при открытии в таблицах;
   числовые суммы сохраняют свой тип и знак.
+  [645eb278](https://gitlab.com/3252a8/remnawave-minishop/-/commit/645eb278faa8395e0741531d1b7684c360657f1b)
 
 - **Проверка обновлений Git-плагинов.** Выбранный ref сохраняется отдельно от SHA
   просмотренного пакета; установка закреплена на проверенном коммите, а следующая

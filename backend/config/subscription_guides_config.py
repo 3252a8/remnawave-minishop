@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote_to_bytes, urlsplit
 
+from config.svg_icons import inert_svg
+
 
 class SubscriptionGuidesConfigError(ValueError):
     """Raised when the embedded subscription guides config is invalid."""
@@ -660,7 +662,7 @@ def _sanitize_svg(value: Any, path: str) -> str:
     trimmed = svg.strip()
     if not trimmed.lower().startswith("<svg"):
         raise SubscriptionGuidesConfigError(f"{path} must be an SVG document")
-    if UNSAFE_SVG_RE.search(trimmed):
+    if UNSAFE_SVG_RE.search(trimmed) or not inert_svg(trimmed):
         raise SubscriptionGuidesConfigError(f"{path} contains unsafe SVG markup")
     return trimmed
 
