@@ -22,6 +22,7 @@
   } from "./lib/webapp/browser.js";
   import { isExternalAppLaunchPath, readExternalAppLaunchTarget } from "./lib/webapp/appLinks.js";
   import { canUseSubscriptionInstallGuides } from "./lib/webapp/connectLinks.js";
+  import { themeEffectsEnabled, themeEffectsIdentity } from "./lib/webapp/themeEffectsViewer";
   import { createI18n } from "./lib/webapp/i18n.js";
   import {
     currentSearchParams,
@@ -805,11 +806,14 @@
 
 <ThemeEffectsHost
   client={dataClient.apiClient}
-  enabled={mode === "app" &&
-    screen !== "admin" &&
-    Boolean(user?.user_id) &&
-    (!isAdmin || Boolean(previewThemeKey) || Boolean(CFG.adminThemeEffectsEnabled))}
-  identity={String(user?.user_id || "")}
+  enabled={themeEffectsEnabled({
+    mode,
+    screen,
+    user,
+    previewKey: previewThemeKey,
+    adminEffectsEnabled: Boolean(CFG.adminThemeEffectsEnabled),
+  })}
+  identity={themeEffectsIdentity(user)}
   themeKey={resolvedThemeKey}
   previewKey={previewThemeKey}
   {t}
