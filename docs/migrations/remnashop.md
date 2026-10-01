@@ -92,6 +92,13 @@ Wizard показывает выбранную валюту после dry-run �
 - `BOT_SUPPORT_USERNAME` -> `SUPPORT_LINK`;
 - `APP_DEFAULT_LOCALE` -> `DEFAULT_LANGUAGE`.
 
+При миграции через install wizard адрес API и адрес панели для браузера настраиваются
+отдельно. `REMNAWAVE_HOST` используется для API; `PANEL_PUBLIC_URL` берётся из текущей
+конфигурации Minishop, найденного публичного адреса Remnawave или публичного адреса
+API старого бота. При внутреннем `REMNAWAVE_HOST` без найденного внешнего адреса
+задайте `PANEL_PUBLIC_URL` вручную. Сам importer сохраняет назначение `PANEL_API_URL`
+и не выводит внешний адрес из внутреннего имени Docker-сервиса.
+
 `BOT_MINI_APP` из Remnashop не переносится автоматически. В Remnashop эта
 переменная управляет кнопкой подключения к subscription page или внешнему Mini
 App, а не веб-кабинетом Remnashop. В Minishop `SUBSCRIPTION_MINI_APP_URL`

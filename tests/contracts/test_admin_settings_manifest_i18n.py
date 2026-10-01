@@ -835,6 +835,18 @@ def test_remnawave_settings_include_panel_webhook_metadata():
             assert manifest[setting_key]["i18n_description_key"] in messages
 
 
+def test_public_panel_url_is_an_optional_localized_browser_setting():
+    field = _manifest_by_key()["PANEL_PUBLIC_URL"]
+    assert field["section"] == "remnawave"
+    assert field["type"] == "url"
+    assert field["optional"] is True
+    assert field["secret"] is False
+    for language in ("ru", "en"):
+        messages = _locale(language)
+        assert field["i18n_label_key"] in messages
+        assert field["i18n_description_key"] in messages
+
+
 def test_payment_provider_admin_only_toggles_are_mutually_exclusive():
     manifest = _manifest_by_key()
 

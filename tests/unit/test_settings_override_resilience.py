@@ -9,14 +9,19 @@ process silently ignored.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from aiohttp.test_utils import make_mocked_request
 from pydantic import model_validator
 from pydantic_settings import SettingsConfigDict
 
+from bot.app.web.admin_api_impl import settings as settings_api
+from bot.app.web.admin_api_impl.panel_links import build_panel_user_admin_url
 from bot.app.web.webapp import external_oauth
 from bot.payment_providers import registry
 from bot.payment_providers.base import ProviderEnvConfig
@@ -220,6 +225,64 @@ def test_update_overrides_persists_selected_webapp_theme(_memory_overrides) -> N
     assert result["not_applied"] == []
     assert _memory_overrides == {"WEBAPP_DEFAULT_THEME": "ocean"}
     assert settings.WEBAPP_DEFAULT_THEME == "ocean"
+
+
+def test_admin_can_save_and_read_separate_panel_urls(monkeypatch, _memory_overrides) -> None:
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="app_user",
+        POSTGRES_PASSWORD="app_password",
+    )
+    updates = {
+        "PANEL_API_URL": "http://remnawave:3000/api",
+        "PANEL_PUBLIC_URL": "https://browser.example.com/prefix/api",
+    }
+    monkeypatch.setattr(settings_api, "_require_admin_user_id", lambda request: 42)
+    monkeypatch.setattr(settings_api, "get_settings", lambda request: settings)
+    monkeypatch.setattr(settings_api, "get_session_factory", lambda request: lambda: _FakeSession())
+    monkeypatch.setattr(
+        settings_api,
+        "parse_body_or_400",
+        AsyncMock(return_value=SimpleNamespace(updates=updates, deletes=[])),
+    )
+    refresh = AsyncMock()
+    monkeypatch.setattr(settings_api, "refresh_webapp_runtime_after_settings_change", refresh)
+
+    response = asyncio.run(
+        settings_api.admin_settings_patch_route(make_mocked_request("PATCH", "/admin/settings"))
+    )
+
+    assert response.status == 200
+    assert response.text is not None
+    assert json.loads(response.text)["not_applied"] == []
+    assert _memory_overrides == updates
+    assert settings.panel_settings.api_url == updates["PANEL_API_URL"]
+    assert (
+        build_panel_user_admin_url(settings.PANEL_API_URL, 158, settings.PANEL_PUBLIC_URL)
+        == "https://browser.example.com/prefix/dashboard/open/user/158"
+    )
+    refresh.assert_awaited_once()
+
+    monkeypatch.setattr(
+        settings_api.app_settings_dal,
+        "get_overrides_with_meta",
+        AsyncMock(return_value=[{"key": key} for key in updates]),
+    )
+    response = asyncio.run(
+        settings_api.admin_settings_get_route(make_mocked_request("GET", "/admin/settings"))
+    )
+    assert response.status == 200
+    assert response.text is not None
+    fields = {
+        field["key"]: field
+        for section in json.loads(response.text)["sections"]
+        for field in section["fields"]
+    }
+    for key, expected in updates.items():
+        assert fields[key]["value"] == expected
+        assert fields[key]["overridden"] is True
+        assert fields[key]["value_source"] == "database_override"
 
 
 def test_legacy_kuma_slug_override_is_applied_but_not_admin_editable() -> None:

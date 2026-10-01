@@ -138,7 +138,16 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "url",
         "remnawave",
         "URL API Remnawave",
-        "For example, https://panel.example.com/api.",
+        "Used by backend and worker, for example http://remnawave:3000/api.",
+    ),
+    SettingField(
+        "PANEL_PUBLIC_URL",
+        "url",
+        "remnawave",
+        "Remnawave browser URL",
+        "Panel URL opened by administrators, for example https://panel.example.com. "
+        "Empty uses PANEL_API_URL. An optional /api suffix is removed from browser links.",
+        placeholder="https://panel.example.com",
     ),
     SettingField(
         "PANEL_API_KEY",

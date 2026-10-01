@@ -659,6 +659,16 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(panel_settings.api_connect_timeout_seconds, 8)
         self.assertEqual(panel_settings.api_sock_read_timeout_seconds, 15)
 
+    def test_public_panel_url_keeps_internal_api_settings(self):
+        settings = self._settings(
+            PANEL_API_URL="http://remnawave:3000/api",
+            PANEL_PUBLIC_URL="https://panel.example.com",
+        )
+
+        self.assertEqual(settings.panel_settings.api_url, "http://remnawave:3000/api")
+        self.assertEqual(settings.PANEL_PUBLIC_URL, "https://panel.example.com")
+        self.assertIsNone(self._settings().PANEL_PUBLIC_URL)
+
     def test_compatibility_settings_view_reflects_migration_fields(self):
         settings = Settings(
             _env_file=None,

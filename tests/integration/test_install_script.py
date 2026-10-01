@@ -57,6 +57,97 @@ trust_existing_reverse_proxy || exit 21
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+@pytest.mark.parametrize("legacy_source", ["", "remnashop", "bedolaga"])
+def test_panel_url_detection_separates_api_and_browser_addresses(
+    tmp_path: Path, legacy_source: str
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    panel_env = tmp_path / "panel.env"
+    panel_env.write_text(
+        "REMNAWAVE_PANEL_URL=http://remnawave:3000\nFRONT_END_DOMAIN=panel.example.com/prefix\n",
+        encoding="utf-8",
+    )
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+LEGACY_SOURCE={shlex.quote(legacy_source)}
+EGAMES_REMNAWAVE_ENV={shlex.quote(panel_env.as_posix())}
+detect_remnashop_env_value() {{ [ "$1" = REMNAWAVE_HOST ] && printf '%s' http://remnawave:3000; }}
+detect_bedolaga_env_value() {{
+    [ "$1" = REMNAWAVE_API_URL ] && printf '%s' http://remnawave:3000/api
+}}
+if [ -z "$LEGACY_SOURCE" ]; then
+    detect_remnashop_env_value() {{ return 1; }}
+fi
+[ "$(detect_panel_api_url)" = http://remnawave:3000/api ] || exit 20
+[ "$(detect_panel_public_url)" = https://panel.example.com/prefix ] || exit 21
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("legacy_source", ["remnashop", "bedolaga"])
+@pytest.mark.parametrize(
+    ("source_url", "expected"),
+    [
+        ("https://panel.example.com/prefix/api", "https://panel.example.com/prefix"),
+        ("http://remnawave:3000/api", ""),
+        ("http://192.168.1.2:3000/api", ""),
+    ],
+)
+def test_panel_browser_url_detection_does_not_guess_internal_hosts(
+    tmp_path: Path, legacy_source: str, source_url: str, expected: str
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+LEGACY_SOURCE={legacy_source}
+detect_egames_panel_env() {{ return 1; }}
+detect_remnashop_env_value() {{
+    [ "$1" = REMNAWAVE_HOST ] && printf '%s' {shlex.quote(source_url)}
+}}
+detect_bedolaga_env_value() {{
+    [ "$1" = REMNAWAVE_API_URL ] && printf '%s' {shlex.quote(source_url)}
+}}
+[ "$(detect_panel_public_url || true)" = {shlex.quote(expected)} ] || exit 20
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_panel_browser_url_is_preserved_when_wizard_renders_env(tmp_path: Path) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    env_path = tmp_path / "existing.env"
+    env_path.write_text(
+        "PANEL_API_URL=http://remnawave:3000/api\n"
+        "PANEL_PUBLIC_URL=https://operator.example.com/prefix/api\n",
+        encoding="utf-8",
+    )
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+ENV_PATH={shlex.quote(env_path.as_posix())}
+RENDERED_ENV={shlex.quote((tmp_path / "rendered.env").as_posix())}
+PANEL_API_URL_VALUE=http://remnawave:3000/api
+detect_panel_public_url() {{ printf '%s' https://detected.example.com; }}
+info() {{ :; }}
+prompt_panel_public_url <<EOF
+
+EOF
+[ "$PANEL_PUBLIC_URL_VALUE" = https://operator.example.com/prefix/api ] || exit 20
+render_env_file "$RENDERED_ENV" || exit 21
+[ "$(grep -c '^PANEL_PUBLIC_URL=' "$RENDERED_ENV")" = 1 ] || exit 22
+expected_public_url=https://operator.example.com/prefix/api
+[ "$(env_file_get PANEL_PUBLIC_URL "$RENDERED_ENV")" = "$expected_public_url" ] || exit 23
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_shell_installer_help_does_not_require_python():
     if not shutil.which("sh"):
         pytest.skip("sh is not available on this platform")
@@ -1884,6 +1975,7 @@ def test_shell_installer_copies_compatible_bedolaga_env_with_masked_confirmation
                 "ADMIN_IDS=101;202",
                 "WEBHOOK_SECRET_TOKEN=source-webhook-secret",
                 "REMNAWAVE_API_URL=https://panel.example.com",
+                "PANEL_PUBLIC_URL=https://source-panel.example.com",
                 "REMNAWAVE_API_KEY=source-panel-secret",
                 "TELEGRAM_OIDC_CLIENT_ID=telegram-client",
                 "TELEGRAM_OIDC_CLIENT_SECRET=telegram-client-secret",
@@ -1912,7 +2004,8 @@ def test_shell_installer_copies_compatible_bedolaga_env_with_masked_confirmation
         encoding="utf-8",
     )
     target_env.write_text(
-        "BOT_TOKEN=old-token\nADMIN_IDS=1\nPOSTGRES_PASSWORD=target-db-secret\n",
+        "BOT_TOKEN=old-token\nADMIN_IDS=1\nPOSTGRES_PASSWORD=target-db-secret\n"
+        "PANEL_PUBLIC_URL=https://operator-panel.example.com\n",
         encoding="utf-8",
     )
 
@@ -1935,6 +2028,7 @@ sync_bedolaga_bootstrap_env || exit 20
 [ "$(env_file_get ADMIN_IDS "$ENV_PATH")" = 101,202 ] || exit 22
 [ "$(env_file_get WEBHOOK_SECRET_TOKEN "$ENV_PATH")" = source-webhook-secret ] || exit 23
 [ "$(env_file_get PANEL_API_URL "$ENV_PATH")" = https://panel.example.com/api ] || exit 24
+[ "$(env_file_get PANEL_PUBLIC_URL "$ENV_PATH")" = https://operator-panel.example.com ] || exit 24
 [ "$(env_file_get PANEL_API_KEY "$ENV_PATH")" = source-panel-secret ] || exit 25
 [ "$(env_file_get TELEGRAM_OAUTH_CLIENT_ID "$ENV_PATH")" = telegram-client ] || exit 26
 [ "$(env_file_get TELEGRAM_OAUTH_CLIENT_SECRET "$ENV_PATH")" = telegram-client-secret ] || exit 26

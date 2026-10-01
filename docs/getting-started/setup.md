@@ -36,6 +36,12 @@ docker compose logs -f backend worker frontend
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN`, `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET`.
 
+Если API панели доступен контейнерам по внутреннему адресу, дополнительно задайте
+`PANEL_PUBLIC_URL` — адрес панели для браузера администратора. Например,
+`PANEL_API_URL=http://remnawave:3000/api` и `PANEL_PUBLIC_URL=https://panel.example.com`.
+Install wizard ищет и предлагает оба адреса отдельно; без найденного публичного
+адреса его можно ввести вручную. См. [настройки Remnawave](../configuration/env-vars.md).
+
 Для вебхуков Remnawave в панели укажите `WEBHOOK_URL` как `WEBHOOK_BASE_URL` + `/webhook/panel`, например `https://app.example.com/webhook/panel`. Секрет создается или задается в Remnawave Panel; тот же секрет вставьте в `PANEL_WEBHOOK_SECRET` в `.env` или позже в **Система -> Настройки -> Remnawave Panel**.
 
 ## Как выбрать Compose-вариант

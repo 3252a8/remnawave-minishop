@@ -34,7 +34,7 @@ nano .env
 | `SUBSCRIPTION_MINI_APP_URL` | Публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`. Это URL, который открывают кнопки Telegram и который указывается в BotFather; не добавляйте сюда `/api` или webhook-пути. |
 | `SUBSCRIPTION_GUIDES_ENABLED`, `SUBSCRIPTION_GUIDES_BOT_MENU_ENABLED` | Встроенные инструкции установки в Web App и кнопках бота. По умолчанию включены; обычно их достаточно менять в админке. |
 | `SUBSCRIPTION_GATEWAY_ENABLED` | Выдача подписки приложениям по публичной ссылке `/s/<token>`. По умолчанию включена; переключатель находится в админке, в разделе «Инструкции подключения». |
-| `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` | Базовая интеграция с Remnawave. Секрет вебхука задайте в Remnawave Panel и вставьте то же значение в настройки бота; эти значения стоит хранить в `.env`, но при необходимости их можно переопределить из админки. |
+| `PANEL_API_URL`, `PANEL_PUBLIC_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` | Базовая интеграция с Remnawave. `PANEL_API_URL` обслуживает запросы backend и worker; `PANEL_PUBLIC_URL` задаёт адрес панели для браузера администратора. При внутреннем адресе API задайте доступный из браузера публичный адрес отдельно; пустое значение сохраняет ссылки из `PANEL_API_URL`. Секрет вебхука задайте в Remnawave Panel и вставьте то же значение в настройки бота; эти значения стоит хранить в `.env`, но при необходимости их можно переопределить из админки. |
 
 `WEBAPP_SESSION_SECRET` и `WEBHOOK_SECRET_TOKEN` можно сгенерировать так:
 

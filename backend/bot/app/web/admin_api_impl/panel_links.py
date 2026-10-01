@@ -8,16 +8,20 @@ from bot.services.panel_api_compat import numeric_panel_user_id
 def build_panel_user_admin_url(
     panel_api_url: object,
     panel_user_reference: object,
+    panel_public_url: object = None,
 ) -> str | None:
     """Build the Remnawave 3.x user-card URL when a numeric user id is known.
 
     Remnawave 2.x stores UUID user references and has no equivalent deep-link
     route. Returning ``None`` for those references keeps older installations
     from rendering a link that the panel cannot open.
+    Prefer the browser-facing URL; retain the API URL for existing installations
+    with no separate public URL. An invalid explicit public URL never falls back
+    to an internal API address.
     """
 
     user_id = numeric_panel_user_id(panel_user_reference)
-    raw_url = str(panel_api_url or "").strip()
+    raw_url = str(panel_public_url or "").strip() or str(panel_api_url or "").strip()
     if user_id is None or not raw_url:
         return None
 

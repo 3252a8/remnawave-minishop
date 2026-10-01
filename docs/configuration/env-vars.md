@@ -314,7 +314,8 @@ Trust-all вариант записывается как
 
 | Переменная | Назначение |
 | --- | --- |
-| `PANEL_API_URL` | URL API панели, например `https://panel.example.com/api`. |
+| `PANEL_API_URL` | URL API для запросов backend и worker, например `http://remnawave:3000/api` в общей Docker-сети или `https://panel.example.com/api`. |
+| `PANEL_PUBLIC_URL` | Адрес панели для браузера администратора, например `https://panel.example.com`. Используется в ссылке на карточку пользователя Remnawave 3.x; допускаются префикс пути и окончание `/api`. Если пусто, ссылка строится из `PANEL_API_URL` для совместимости с существующими установками. |
 | `PANEL_API_KEY` | API-ключ панели. |
 | `PANEL_API_COOKIE` | Необязательное содержимое Cookie header (`name=value`) для панелей, защищённых `eGamesAPI/remnawave-reverse-proxy`. Install wizard также принимает строку `Cookie:`/`Set-Cookie:` или полный eGames access URL с одной query-парой и сохраняет каноническое значение. Cookie не заменяет `PANEL_API_KEY`. |
 | `APP_RUNTIME_MODE` | Профиль запуска: `production`, `development`, `staging`, `test`. |
@@ -327,6 +328,17 @@ Trust-all вариант записывается как
 | `USER_TRAFFIC_LIMIT_GB` | Legacy-лимит трафика пользователя. |
 | `USER_TRAFFIC_STRATEGY` | Legacy-стратегия лимита трафика. |
 | `USER_HWID_DEVICE_LIMIT` | Legacy-лимит HWID-устройств по умолчанию. |
+
+Для панели в общей Docker-сети можно задать `PANEL_API_URL=http://remnawave:3000/api`
+и `PANEL_PUBLIC_URL=https://panel.example.com`. Контейнеры backend и worker должны иметь
+доступ к внутреннему адресу. Публичный URL не меняет API-ключи, Cookie, вебхуки или
+адрес подписки, полученный от панели; параметры доступа eGames остаются в `PANEL_API_COOKIE`.
+
+Install wizard предлагает оба адреса отдельно: внутренний API берётся из текущего `.env`,
+Remnashop/Bedolaga или конфигурации Remnawave, а адрес браузера — из `FRONT_END_DOMAIN` /
+`REMNAWAVE_PANEL_URL` панели либо публичного адреса API старого бота. Имена Docker-сервисов
+и частные адреса API автоматически не подставляются как публичный URL. Уже заданный
+`PANEL_PUBLIC_URL` сохраняется при повторной настройке и переносе Bedolaga.
 | `HWID_DEVICE_TRAFFIC_BONUS_GB` | Устаревший fallback для активных HWID-докупок, созданных до появления снимка бонуса пакета. Новые бонусы настраиваются полем `traffic_bonus_gb` в `tariffs[].hwid_device_packages`; в админке глобальное поле скрыто. |
 
 В Remnawave Panel поле `WEBHOOK_URL` должно указывать на публичный Minishop webhook: `WEBHOOK_BASE_URL` + `/webhook/panel`. Если публичный домен приложения `https://app.example.com`, итоговый адрес будет `https://app.example.com/webhook/panel`.

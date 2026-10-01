@@ -526,6 +526,10 @@ class Settings(
         ),
     )
     PANEL_API_URL: str | None = None
+    PANEL_PUBLIC_URL: str | None = Field(
+        default=None,
+        description="Browser-facing Remnawave Panel URL; defaults to PANEL_API_URL when empty.",
+    )
     PANEL_API_KEY: str | None = None
     PANEL_API_COOKIE: str | None = None
     USER_TRAFFIC_LIMIT_GB: float | None = Field(default=0.0)

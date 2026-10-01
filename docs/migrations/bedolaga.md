@@ -25,6 +25,13 @@ Minishop умеет переносить данные из PostgreSQL
 
 ## Безопасность
 
+Install wizard отдельно предлагает `PANEL_API_URL` для backend и worker и
+`PANEL_PUBLIC_URL` для браузера администратора. Адрес API обнаруживается из
+`REMNAWAVE_API_URL`; публичный адрес — из конфигурации Remnawave или публичного
+адреса API старого бота. Уже заданный `PANEL_PUBLIC_URL` в `.env` Minishop сохраняется
+при автопереносе настроек Bedolaga. Если старый API имеет внутренний адрес,
+а внешний URL не найден, укажите адрес для браузера вручную.
+
 Source и target должны быть разными базами. Source-соединение переводится в
 read-only transaction. `--dry-run` не запускает миграции схемы target и подавляет
 любые ORM/SQL-записи в target. Повторный apply идемпотентен благодаря

@@ -117,6 +117,7 @@ WEBHOOK_SECRET_TOKEN_VALUE=""
 TRUSTED_PROXIES_VALUE=""
 DEFAULT_TRUSTED_PROXIES_VALUE="127.0.0.1,::1,host:frontend,host:caddy,host:nginx,host:angie,host:newt,host:newt-2"
 PANEL_API_URL_VALUE=""
+PANEL_PUBLIC_URL_VALUE=""
 PANEL_API_KEY_VALUE=""
 PANEL_API_COOKIE_VALUE=""
 PANEL_WEBHOOK_SECRET_VALUE=""
@@ -125,7 +126,7 @@ TELEGRAM_OAUTH_CLIENT_SECRET_VALUE=""
 TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE=""
 EXISTING_PROXY_CONTAINER_NAME=""
 
-KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN TELEGRAM_ENABLED TELEGRAM_BOT_PROXY_URL TELEGRAM_OAUTH_USE_BOT_PROXY ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET EMAIL_AUTH_SECRET PUBLIC_APP_URL EMAIL_LOGIN_ENABLED SMTP_HOST SMTP_PORT SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
+KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN TELEGRAM_ENABLED TELEGRAM_BOT_PROXY_URL TELEGRAM_OAUTH_USE_BOT_PROXY ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET EMAIL_AUTH_SECRET PUBLIC_APP_URL EMAIL_LOGIN_ENABLED SMTP_HOST SMTP_PORT SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_PUBLIC_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
 
 color() {
     printf '%s%s%s' "$2" "$1" "$RESET"
@@ -1002,6 +1003,59 @@ detect_panel_api_url() {
     return 1
 }
 
+normalize_panel_public_url() {
+    public_base=$(normalize_panel_api_url "$1") || return 1
+    public_base=$(printf '%s' "$public_base" | sed 's/[?#].*$//; s:/*$::; s:/api$::')
+    public_host=$(url_hostname "$public_base" | tr '[:upper:]' '[:lower:]')
+    # Do not guess a browser address from Docker names or private API hosts.
+    # Administrators can still enter such an address explicitly when accessible.
+    case "$public_host" in
+        ''|localhost|*.localhost|*.local|*.internal|0.*|10.*|127.*|169.254.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*|*@*|*\[*|*\]*) return 1 ;;
+        *.*) printf '%s' "$public_base" ;;
+        *) return 1 ;;
+    esac
+}
+
+detect_panel_public_url() {
+    case "${LEGACY_SOURCE:-}" in
+        bedolaga) public_value=$(detect_bedolaga_env_value PANEL_PUBLIC_URL || true) ;;
+        *) public_value=$(detect_remnashop_env_value PANEL_PUBLIC_URL || true) ;;
+    esac
+    if [ -n "$public_value" ]; then
+        printf '%s' "$public_value"
+        return 0
+    fi
+
+    panel_env=$(detect_egames_panel_env || true)
+    if [ -n "$panel_env" ] && [ -f "$panel_env" ]; then
+        for public_key in FRONT_END_DOMAIN REMNAWAVE_PANEL_URL; do
+            public_value=$(env_file_get "$public_key" "$panel_env")
+            if [ -n "$public_value" ] && normalize_panel_public_url "$public_value"; then
+                return 0
+            fi
+        done
+    fi
+    public_value=$(detect_panel_api_url || true)
+    [ -n "$public_value" ] && normalize_panel_public_url "$public_value"
+}
+
+prompt_panel_public_url() {
+    detected_panel_public_url="${PANEL_PUBLIC_URL_VALUE:-}"
+    [ -n "$detected_panel_public_url" ] || detected_panel_public_url=$(env_get PANEL_PUBLIC_URL "")
+    if [ -z "$detected_panel_public_url" ]; then
+        detected_panel_public_url=$(detect_panel_public_url || true)
+    fi
+    if [ -z "$detected_panel_public_url" ]; then
+        detected_panel_public_url=$(normalize_panel_public_url "$PANEL_API_URL_VALUE" || true)
+    fi
+    public_url_prefilled=0
+    [ -z "$detected_panel_public_url" ] || public_url_prefilled=1
+    info "URL API используется backend и worker; URL панели для браузера задаётся отдельно."
+    info "Если API имеет внутренний адрес, укажите доступный из браузера URL панели. Пустое значение использует URL API."
+    prompt_value "URL Remnawave Panel для браузера (необязательно)" "$detected_panel_public_url" 0 0 url "$public_url_prefilled" || return 1
+    PANEL_PUBLIC_URL_VALUE="$PROMPT_VALUE"
+}
+
 detect_panel_api_key() {
     case "${LEGACY_SOURCE:-}" in
         bedolaga) value=$(detect_bedolaga_env_value REMNAWAVE_API_KEY || true) ;;
@@ -1163,6 +1217,7 @@ prompt_panel_access_cookie() {
 
 clear_panel_configuration() {
     PANEL_API_URL_VALUE=""
+    PANEL_PUBLIC_URL_VALUE=""
     PANEL_API_KEY_VALUE=""
     PANEL_API_COOKIE_VALUE=""
     PANEL_WEBHOOK_SECRET_VALUE=""
@@ -1378,6 +1433,7 @@ configure_panel_integration() {
         fi
         prompt_value "URL API Remnawave Panel" "$detected_panel_api_url" 0 0 "" "$detected_panel_api_url_prefilled"
         PANEL_API_URL_VALUE="$PROMPT_VALUE"
+        prompt_panel_public_url || return 1
         if [ "$detected_panel_api_key" != "change_me" ]; then
             info "Использую найденный API-ключ Remnawave Panel как значение по умолчанию."
         fi
@@ -2007,6 +2063,7 @@ display_env_summary() {
     show_env_value SMTP_FROM_EMAIL "$SMTP_FROM_EMAIL_VALUE"
     show_env_value WEBHOOK_SECRET_TOKEN "$WEBHOOK_SECRET_TOKEN_VALUE"
     show_env_value PANEL_API_URL "$PANEL_API_URL_VALUE"
+    show_env_value PANEL_PUBLIC_URL "$PANEL_PUBLIC_URL_VALUE"
     show_env_value PANEL_API_KEY "$PANEL_API_KEY_VALUE"
     show_env_value PANEL_API_COOKIE "$PANEL_API_COOKIE_VALUE"
     show_env_value PANEL_WEBHOOK_SECRET "$PANEL_WEBHOOK_SECRET_VALUE"
@@ -2105,6 +2162,7 @@ render_env_file() {
 
     printf '\n# Remnawave Panel\n' >> "$output"
     env_line PANEL_API_URL "$PANEL_API_URL_VALUE" "$output"
+    env_line PANEL_PUBLIC_URL "$PANEL_PUBLIC_URL_VALUE" "$output"
     env_line PANEL_API_KEY "$PANEL_API_KEY_VALUE" "$output"
     env_line PANEL_API_COOKIE "$PANEL_API_COOKIE_VALUE" "$output"
     env_line PANEL_WEBHOOK_SECRET "$PANEL_WEBHOOK_SECRET_VALUE" "$output"
@@ -3377,6 +3435,7 @@ bedolaga_env_mapping_value() {
             normalize_panel_api_url "$source_value"
             ;;
         PANEL_API_KEY) detect_bedolaga_env_value REMNAWAVE_API_KEY ;;
+        PANEL_PUBLIC_URL) detect_panel_public_url ;;
         TELEGRAM_OAUTH_CLIENT_ID) detect_bedolaga_env_value TELEGRAM_OIDC_CLIENT_ID ;;
         TELEGRAM_OAUTH_CLIENT_SECRET) detect_bedolaga_env_value TELEGRAM_OIDC_CLIENT_SECRET ;;
         GOOGLE_OIDC_ENABLED) detect_bedolaga_env_value OAUTH_GOOGLE_ENABLED ;;
@@ -3440,7 +3499,7 @@ sync_bedolaga_bootstrap_env() {
     chmod 600 "$plan_file" 2>/dev/null || true
     for target_key in \
         BOT_TOKEN ADMIN_IDS WEBHOOK_SECRET_TOKEN \
-        PANEL_API_URL PANEL_API_KEY \
+        PANEL_API_URL PANEL_PUBLIC_URL PANEL_API_KEY \
         TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET \
         GOOGLE_OIDC_ENABLED GOOGLE_OIDC_CLIENT_ID GOOGLE_OIDC_CLIENT_SECRET \
         SMTP_HOST SMTP_PORT SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL SMTP_FROM_NAME \
@@ -3450,6 +3509,9 @@ sync_bedolaga_bootstrap_env() {
         source_value=$(bedolaga_env_mapping_value "$target_key" || true)
         [ -n "$source_value" ] || continue
         current_value=$(env_file_get "$target_key" "$ENV_PATH")
+        if [ "$target_key" = "PANEL_PUBLIC_URL" ] && [ -n "$current_value" ]; then
+            continue
+        fi
         [ "$source_value" != "$current_value" ] || continue
         printf '%s\t%s\n' "$target_key" "$source_value" >> "$plan_file"
     done

@@ -11,6 +11,7 @@ import aiohttp
 from bot.services.panel_api_compat import PanelApiCompatibility
 from bot.services.panel_api_contracts import PanelApiCapability, PanelApiOperation
 from bot.services.panel_api_service import PanelApiService, _endpoint_log_label
+from config.settings import Settings
 from tests.support.settings_stub import settings_stub
 
 
@@ -49,6 +50,41 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(timeout.connect, 10)
         self.assertEqual(timeout.sock_connect, 9)
         self.assertEqual(timeout.sock_read, 20)
+
+    async def test_public_panel_url_does_not_change_api_request_destination(self):
+        service = PanelApiService(
+            Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                PANEL_API_URL="http://remnawave:3000/api",
+                PANEL_PUBLIC_URL="https://panel.example.com",
+            )
+        )
+
+        class OkResponse:
+            status = 200
+            headers: ClassVar[dict[str, str]] = {"Content-Type": "application/json"}
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                return None
+
+            async def text(self):
+                return '{"response": {"ok": true}}'
+
+        transport = SimpleNamespace(request=unittest.mock.Mock(return_value=OkResponse()))
+        service._get_session = AsyncMock(return_value=transport)
+        result = await service._request_once("GET", "/system/stats")
+
+        self.assertEqual(result, {"response": {"ok": True}})
+        self.assertEqual(
+            transport.request.call_args.args[:2],
+            ("GET", "http://remnawave:3000/api/system/stats"),
+        )
 
     async def test_prepare_headers_includes_optional_panel_cookie(self):
         service = PanelApiService(
