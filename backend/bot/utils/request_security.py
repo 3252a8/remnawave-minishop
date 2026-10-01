@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import ipaddress
+import socket
+import time
 from collections.abc import Sequence
+from functools import lru_cache
 
 from aiohttp import web
 
@@ -49,11 +52,24 @@ def parse_ip_entries(raw_values: Sequence[str] | str | None) -> list[ipaddress._
     for value in values:
         if not value:
             continue
+        if value.startswith("host:"):
+            parsed.extend(_proxy_host_networks(value[5:], int(time.monotonic() // 60)))
+            continue
         try:
             parsed.append(ipaddress.ip_network(value, strict=False))
         except ValueError:
             continue
     return parsed
+
+
+@lru_cache(maxsize=128)
+def _proxy_host_networks(host: str, _minute: int) -> tuple[ipaddress._BaseNetwork, ...]:
+    """Docker service identities resolve to individual addresses, not the whole LAN."""
+    try:
+        addresses = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+        return tuple({ipaddress.ip_network(str(address[4][0])) for address in addresses})
+    except (OSError, ValueError):
+        return ()
 
 
 def _parse_ip(value: str | None) -> ipaddress._BaseAddress | None:

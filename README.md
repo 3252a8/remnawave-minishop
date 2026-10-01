@@ -106,7 +106,7 @@ docker compose logs -f backend worker frontend
 - `WEBAPP_SESSION_SECRET`, `WEBHOOK_SECRET_TOKEN` - стабильные секреты;
 - `SUBSCRIPTION_MINI_APP_URL` - публичный HTTPS URL Mini App/frontend, например `https://app.domain.com/`;
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` - доступ к Remnawave;
-- `TRUSTED_PROXIES` - оставьте дефолт для Docker/Caddy/Angie/Nginx/Newt или укажите IP/CIDR своего reverse proxy, чтобы IP allowlist платежных webhook видел реального провайдера;
+- `TRUSTED_PROXIES` - используйте дефолт готового Compose-профиля или задайте IP/CIDR либо `host:имя-сервиса` своего reverse proxy, чтобы IP allowlist платежных webhook видел реального провайдера;
 - остальные настройки удобнее задать в Web App админке.
 
 В Remnawave Panel укажите `WEBHOOK_URL` как публичный адрес Minishop с путем `/webhook/panel`, например `https://app.example.com/webhook/panel`. Секрет вебхука задается в самой Remnawave Panel; это же значение вставьте в `PANEL_WEBHOOK_SECRET` в `.env` или в **Система -> Настройки -> Remnawave Panel** в админке.

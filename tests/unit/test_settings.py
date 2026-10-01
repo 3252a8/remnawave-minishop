@@ -289,7 +289,7 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.MINISHOP_EDGE_TOKEN, "edge-secret")
         self.assertEqual(settings.MINISHOP_EDGE_TOKEN_HEADER, "X-Minishop-Edge-Token")
 
-    def test_trusted_proxies_default_includes_private_proxy_ranges(self):
+    def test_trusted_proxies_default_names_only_the_frontend_and_loopback(self):
         settings = Settings(
             _env_file=None,
             BOT_TOKEN="token",
@@ -302,10 +302,7 @@ class SettingsTests(unittest.TestCase):
             [
                 "127.0.0.1",
                 "::1",
-                "10.0.0.0/8",
-                "172.16.0.0/12",
-                "192.168.0.0/16",
-                "fc00::/7",
+                "host:frontend",
             ],
         )
 
