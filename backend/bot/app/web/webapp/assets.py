@@ -28,9 +28,7 @@ from bot.middlewares.i18n import (
 from bot.services.legal_document_links import legal_document_links
 from config.settings import Settings
 from config.webapp_themes_config import (
-    public_theme_payload,
     public_themes_catalog_payload,
-    resolve_webapp_theme_selection,
 )
 from db.dal import subscription_dal
 
@@ -142,7 +140,7 @@ from .constants import (
     WEBAPP_SESSION_COOKIE_NAME,
     WEBAPP_STATE_CHANGING_METHODS,
 )
-from .html_payload import image_preload_markup
+from .html_payload import image_preload_markup, json_script_payload
 from .response_helpers import json_response
 
 _TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
@@ -511,34 +509,14 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
     webapp_settings = settings.webapp_settings
     themes_catalog = settings.webapp_themes_catalog
     primary_color = webapp_settings.primary_color or "#00fe7a"
-    preview_key = str(request.query.get("theme_preview") or "").strip()
-    preview_theme = (
-        resolve_webapp_theme_selection(themes_catalog, preview_key) if preview_key else None
-    )
-    if preview_theme is None or not preview_theme.enabled:
-        preview_key = ""
-    elif preview_key == "light":
-        preview_key = preview_theme.key
+    # The public bootstrap must not change with an unauthenticated preview link.
+    # The client activates a preview only after loading an authenticated admin.
+    preview_key = ""
     themes_payload = public_themes_catalog_payload(
         themes_catalog,
         primary_color,
         enabled_only=True,
     )
-    if preview_theme is not None and preview_key:
-        preview_payload = public_theme_payload(preview_theme, primary_color)
-        payload_themes = themes_payload.get("themes")
-        if isinstance(payload_themes, list):
-            replaced = False
-            for idx, theme_payload in enumerate(payload_themes):
-                if (
-                    isinstance(theme_payload, dict)
-                    and theme_payload.get("key") == preview_theme.key
-                ):
-                    payload_themes[idx] = preview_payload
-                    replaced = True
-                    break
-            if not replaced:
-                payload_themes.insert(0, preview_payload)
     i18n_instance: object | None = get_i18n(request)
     i18n_scope = _normalize_i18n_scope(request.query.get("i18n_scope") or "webapp")
     if i18n_instance and hasattr(i18n_instance, "reload_overrides_from_file"):
@@ -749,7 +727,7 @@ async def index_route(request: web.Request) -> web.Response:
         WEBAPP_CONFIG_PLACEHOLDER,
         (
             f'<script id="webapp-config" type="application/json" nonce="{nonce}">'
-            + json.dumps(config, ensure_ascii=False, separators=(",", ":"))
+            + json_script_payload(config)
             + "</script>"
         ),
     )
@@ -757,7 +735,7 @@ async def index_route(request: web.Request) -> web.Response:
         WEBAPP_I18N_PLACEHOLDER,
         (
             f'<script id="i18n" type="application/json" nonce="{nonce}">'
-            + json.dumps(i18n_payload, ensure_ascii=False, separators=(",", ":"))
+            + json_script_payload(i18n_payload)
             + "</script>"
         ),
     )

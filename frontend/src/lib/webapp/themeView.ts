@@ -69,13 +69,16 @@ export function computeThemeView({
   systemColorScheme = "",
   userThemeModeEnabled = true,
 }: ThemeViewInput): ThemeView {
-  const rawThemesCatalog = themePreviewDraft?.catalog ||
+  const previewThemeAllowed = Boolean(data?.user && user?.is_admin && themePreviewKey);
+  const rawThemesCatalog = (previewThemeAllowed ? themePreviewDraft?.catalog : null) ||
     data?.themes_catalog ||
     cfgThemesCatalog || { default_theme: "dark", themes: [] };
   const themesCatalog = materializeThemesCatalog(rawThemesCatalog);
-  const previewThemeAllowed = Boolean(themePreviewKey && (!data?.user || user?.is_admin));
   const previewThemeEntry: ThemeEntry = previewThemeAllowed
-    ? findThemeEntry(themesCatalog, themePreviewKey)
+    ? themePreviewKey === "light"
+      ? materializeThemeEntry(findThemeEntry(themesCatalog, "dark"), "light") ||
+        findThemeEntry(themesCatalog, "light")
+      : findThemeEntry(themesCatalog, themePreviewKey)
     : null;
   const userTheme = userThemeModeEnabled
     ? resolveThemePreference({

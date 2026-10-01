@@ -398,9 +398,7 @@ def _theme_css_href_for_html(theme: Any) -> str:
 
 
 def _initial_theme_for_request(request: web.Request, catalog: Any) -> Any:
-    query = getattr(request, "query", {}) or {}
-    preview_key = str(query.get("theme_preview") or "").strip()
-    theme = resolve_webapp_theme_selection(catalog, preview_key or None)
+    theme = resolve_webapp_theme_selection(catalog, None)
     return theme
 
 

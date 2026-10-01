@@ -151,7 +151,6 @@
       ? MOCK_SOURCE
       : null;
   const requestedThemePreviewKey = String(query.get("theme_preview") || "").trim();
-  const themePreviewDraft = readThemePreviewDraft(requestedThemePreviewKey);
   const CFG = {
     ...MOCK_SOURCE.config,
     ...(MOCK ? MOCK.config : {}),
@@ -169,7 +168,6 @@
   const initialAdminSectionFromLocation = docsDemoRouter.initialAdminSectionFromLocation;
   const routePathnameFromLocation = docsDemoRouter.routePathnameFromLocation;
   const syncAppSectionPath = docsDemoRouter.syncAppSectionPath;
-  const themePreviewKey = String(CFG.themePreviewKey || requestedThemePreviewKey).trim();
   const I18N: WebappRecord = injectedI18n || {};
 
   resetShellState({
@@ -193,6 +191,10 @@
   );
   const user: UserProfile = $derived(asWebappRecord(data?.user) as UserProfile);
   const isAdmin = $derived(Boolean(user?.is_admin));
+  const themePreviewKey = $derived(mode === "app" && isAdmin ? requestedThemePreviewKey : "");
+  const themePreviewDraft = $derived(
+    themePreviewKey ? readThemePreviewDraft(themePreviewKey) : null
+  );
   const publicInstallSubscription: SubscriptionView | null = $derived(
     asWebappRecordOrNull(shellState.publicInstallSubscription) as SubscriptionView | null
   );

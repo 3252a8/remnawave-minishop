@@ -128,9 +128,39 @@ describe("computeThemeView", () => {
   });
 
   it("honours an allowed preview theme key", () => {
-    const view = computeThemeView({ ...BASE, themePreviewKey: "dark" });
+    const view = computeThemeView({
+      ...BASE,
+      themePreviewKey: "dark",
+      data: { user: { is_admin: true } },
+      user: { is_admin: true },
+    });
     expect(view.resolvedThemeKey).toBe("dark");
     expect(view.effectiveThemeEntry?.key).toBe("dark");
+  });
+
+  it.each([null, { user: { is_admin: false } }])(
+    "ignores both preview keys and drafts before administrator authentication (%j)",
+    (data) => {
+      const view = computeThemeView({
+        ...BASE,
+        data,
+        themePreviewKey: "dark",
+        themePreviewDraft: { catalog: { default_theme: "dark", themes: [CATALOG.themes[1]] } },
+      });
+      expect(view).toEqual(computeThemeView({ ...BASE, data }));
+    }
+  );
+
+  it("keeps the legacy light preview link for authenticated administrators", () => {
+    const view = computeThemeView({
+      ...BASE,
+      themePreviewKey: "light",
+      data: { user: { is_admin: true } },
+      user: { is_admin: true },
+    });
+    expect(view.resolvedThemeKey).toBe("dark");
+    expect(view.effectiveThemeEntry?.active_variant).toBe("light");
+    expect(view.shellToneClass).toBe("theme-light");
   });
 
   it("exposes the referral bonus list mode of the effective theme", () => {
