@@ -49,6 +49,7 @@ from .auth_panel import (
     _sync_merged_panel_identity_for_user,
 )
 from .auth_referral import (
+    _apply_ad_attribution_if_needed,
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
     _ensure_user_from_telegram,
@@ -322,6 +323,11 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
                         db_user,
                         str(state.get("referral_code") or "") or telegram_user.get("start_param"),
                     )
+                await _apply_ad_attribution_if_needed(
+                    session,
+                    int(db_user.user_id),
+                    str(state.get("referral_code") or "") or telegram_user.get("start_param"),
+                )
 
             if db_user.is_banned:
                 await session.rollback()
@@ -470,6 +476,11 @@ async def auth_token_route(request: web.Request) -> web.Response:
                     db_user,
                     referral_param or telegram_user.get("start_param"),
                 )
+            await _apply_ad_attribution_if_needed(
+                session,
+                int(db_user.user_id),
+                referral_param or telegram_user.get("start_param"),
+            )
             authenticated_user_id = int(db_user.user_id)
             await session.commit()
         except RegistrationInviteRequiredError:

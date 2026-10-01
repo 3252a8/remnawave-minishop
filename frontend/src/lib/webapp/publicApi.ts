@@ -713,6 +713,30 @@ export function buildAdminAdTogglePath(campaignId: string | number): AdminAdTogg
   );
 }
 
+export type AdminAdAssignPath = BuiltApiPath<"/api/admin/ads/{campaign_id}/assign">;
+export function buildAdminAdAssignPath(campaignId: string | number): AdminAdAssignPath {
+  return builtApiPath<"/api/admin/ads/{campaign_id}/assign">(
+    `/admin/ads/${encodeURIComponent(String(campaignId))}/assign`
+  );
+}
+
+export type AdminAdResetStatsPath = BuiltApiPath<"/api/admin/ads/{campaign_id}/reset-stats">;
+export function buildAdminAdResetStatsPath(campaignId: string | number): AdminAdResetStatsPath {
+  return builtApiPath<"/api/admin/ads/{campaign_id}/reset-stats">(
+    `/admin/ads/${encodeURIComponent(String(campaignId))}/reset-stats`
+  );
+}
+
+export type AdminAdPurchasesPath = BuiltApiPath<"/api/admin/ads/{campaign_id}/purchases">;
+export function buildAdminAdPurchasesPath(
+  campaignId: string | number,
+  params?: URLSearchParams
+): AdminAdPurchasesPath {
+  const base = `/admin/ads/${encodeURIComponent(String(campaignId))}/purchases`;
+  const query = params?.toString();
+  return builtApiPath<"/api/admin/ads/{campaign_id}/purchases">(query ? `${base}?${query}` : base);
+}
+
 export type AdminSupportStatsPath = "/admin/support/stats";
 export function buildAdminSupportStatsPath(): AdminSupportStatsPath {
   return "/admin/support/stats";

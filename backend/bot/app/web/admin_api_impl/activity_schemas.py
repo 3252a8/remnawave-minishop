@@ -24,6 +24,8 @@ class AdOut(HttpResponseModel):
     cost: float
     is_active: bool
     created_at: datetime | None = None
+    advertiser_id: int | None = None
+    stats_reset_at: datetime | None = None
     stats: AdStatsOut = Field(default_factory=AdStatsOut)
 
     @classmethod
@@ -35,6 +37,10 @@ class AdOut(HttpResponseModel):
             cost=float(campaign.cost or 0),
             is_active=bool(campaign.is_active),
             created_at=campaign.created_at,
+            advertiser_id=int(campaign.advertiser_id)
+            if getattr(campaign, "advertiser_id", None) is not None
+            else None,
+            stats_reset_at=getattr(campaign, "stats_reset_at", None),
             stats=AdStatsOut.model_validate(totals or {}),
         )
 
@@ -48,6 +54,7 @@ class AdCreateBody(HttpBodyModel):
     source: str
     start_param: str
     cost: float = 0.0
+    advertiser_id: int | None = None
 
     @field_validator("source", "start_param", mode="before")
     @classmethod
@@ -61,6 +68,38 @@ class AdCreateBody(HttpBodyModel):
     @classmethod
     def _coerce_cost(cls, value: Any) -> float:
         return float(value or 0.0)
+
+    @field_validator("advertiser_id", mode="before")
+    @classmethod
+    def _coerce_advertiser_id(cls, value: Any) -> int | None:
+        if value is None or value == "" or value == 0:
+            return None
+        return int(value)
+
+
+class AdAssignBody(HttpBodyModel):
+    advertiser_id: int | None = None
+
+    @field_validator("advertiser_id", mode="before")
+    @classmethod
+    def _coerce_advertiser_id(cls, value: Any) -> int | None:
+        if value is None or value == "" or value == 0:
+            return None
+        return int(value)
+
+
+class AdPurchaseItem(HttpResponseModel):
+    payment_id: int
+    user_id: int
+    username: str | None = None
+    amount: float
+    currency: str
+    description: str | None = None
+    created_at: datetime | None = None
+
+
+class AdPurchasesListOut(HttpResponseModel):
+    purchases: list[AdPurchaseItem]
 
 
 class AdToggleBody(HttpBodyModel):
