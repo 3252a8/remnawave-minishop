@@ -142,6 +142,7 @@ from .constants import (
     WEBAPP_SESSION_COOKIE_NAME,
     WEBAPP_STATE_CHANGING_METHODS,
 )
+from .html_payload import image_preload_markup
 from .response_helpers import json_response
 
 _TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
@@ -770,10 +771,7 @@ async def index_route(request: web.Request) -> web.Response:
     if brand_asset_url:
         html = html.replace(
             "</head>",
-            (
-                f'<link rel="preload" href="{brand_asset_url}" '
-                'as="image" fetchpriority="high">\n</head>'
-            ),
+            (image_preload_markup(str(brand_asset_url)) + "\n</head>"),
             1,
         )
     response = web.Response(text=html, content_type="text/html", charset="utf-8")
