@@ -1,9 +1,10 @@
 import logging
 import os
 import secrets
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import Field, PrivateAttr, SecretStr, ValidationError
 from pydantic_settings import SettingsConfigDict
 
 from config.settings_defaults import (
@@ -37,6 +38,16 @@ class Settings(
     TrialSettings,
     TelegramTransportSettings,
 ):
+    _trusted_subscription_config_path: Path = PrivateAttr()
+
+    def model_post_init(self, context: object) -> None:
+        # Freeze the operator's file selection before database overrides are applied.
+        path = Path(self.SUBSCRIPTION_PAGE_CONFIG_PATH)
+        root = Path(__file__).resolve().parents[2]
+        self._trusted_subscription_config_path = (
+            path if path.is_absolute() else root / path
+        ).resolve()
+
     ADMIN_IDS_STR: str = Field(
         default="", alias="ADMIN_IDS", description="Comma-separated list of admin Telegram User IDs"
     )

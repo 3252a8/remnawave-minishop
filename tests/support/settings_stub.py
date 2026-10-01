@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -446,4 +447,8 @@ def settings_stub(**overrides: Any) -> SettingsStub:
         if key in overrides:
             overrides[f"_{key}"] = overrides.pop(key)
     values.update(overrides)
+    guide_path = Path(str(values["SUBSCRIPTION_PAGE_CONFIG_PATH"]))
+    if not guide_path.is_absolute():
+        guide_path = Path(__file__).resolve().parents[2] / guide_path
+    values["_trusted_subscription_config_path"] = guide_path.resolve()
     return SettingsStub(**values)

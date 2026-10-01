@@ -6,7 +6,9 @@ import base64
 import copy
 import hashlib
 import json
+import os
 import re
+import stat
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -155,13 +157,22 @@ def resolve_subscription_guides_config_path(settings: Any) -> Path:
     path = Path(configured_path)
     if not path.is_absolute():
         path = APP_ROOT / path
-    return path
+    resolved = path.resolve()
+    trusted_path = settings._trusted_subscription_config_path
+    if (
+        not resolved.is_relative_to((APP_ROOT / "data" / "subpage-config").resolve())
+        and resolved != trusted_path
+    ):
+        raise SubscriptionGuidesConfigError("Config file path is outside the allowed location")
+    return resolved
 
 
 def ensure_subscription_guides_config_file(settings: Any) -> Path:
     path = resolve_subscription_guides_config_path(settings)
     if not path.exists():
-        raise SubscriptionGuidesConfigError(f"Config file does not exist: {path}")
+        raise SubscriptionGuidesConfigError("Config file does not exist")
+    if not path.is_file():
+        raise SubscriptionGuidesConfigError("Config must be a regular file")
     return path
 
 
@@ -274,9 +285,15 @@ def _read_config_source(settings: Any) -> tuple[str, str]:
 
     path = ensure_subscription_guides_config_file(settings)
     try:
-        return "file", path.read_text(encoding="utf-8")
-    except OSError as exc:
-        raise SubscriptionGuidesConfigError(f"Failed to read config file: {exc}") from exc
+        with path.open("rb") as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise SubscriptionGuidesConfigError("Config must be a regular file")
+            raw = source.read(4 * 1024 * 1024 + 1)
+        if len(raw) > 4 * 1024 * 1024:
+            raise SubscriptionGuidesConfigError("Config file exceeds the size limit")
+        return "file", raw.decode("utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise SubscriptionGuidesConfigError("Failed to read config file") from exc
 
 
 def _extract_config_candidate(value: Any, seen: set[int]) -> Any:
