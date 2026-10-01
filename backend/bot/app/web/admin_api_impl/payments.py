@@ -22,6 +22,7 @@ from bot.services.payment_fulfillment import (
     payment_action_state,
     reverse_payment_fulfillment,
 )
+from bot.utils.csv_export import spreadsheet_cell
 from db.dal import payment_dal
 from db.dal.payment_user_search import payment_user_search
 from db.models import Payment, User
@@ -353,19 +354,22 @@ async def admin_payments_export_route(request: web.Request) -> web.Response:
         label = _payment_user_display_label(p.user, int(p.user_id)) if p.user else str(p.user_id)
         writer.writerow(
             [
-                p.payment_id,
-                p.user_id,
-                label,
-                p.provider,
-                p.provider_payment_id or "",
-                p.amount,
-                p.currency,
-                p.status,
-                p.description or "",
-                p.subscription_duration_months or "",
-                p.sale_mode or "",
-                p.tariff_key or "",
-                p.created_at.isoformat() if p.created_at else "",
+                spreadsheet_cell(value)
+                for value in [
+                    p.payment_id,
+                    p.user_id,
+                    label,
+                    p.provider,
+                    p.provider_payment_id or "",
+                    p.amount,
+                    p.currency,
+                    p.status,
+                    p.description or "",
+                    p.subscription_duration_months or "",
+                    p.sale_mode or "",
+                    p.tariff_key or "",
+                    p.created_at.isoformat() if p.created_at else "",
+                ]
             ]
         )
 

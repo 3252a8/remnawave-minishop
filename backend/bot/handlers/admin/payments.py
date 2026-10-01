@@ -1,4 +1,3 @@
-import csv
 import io
 import logging
 from datetime import UTC, datetime
@@ -11,6 +10,7 @@ from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboar
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import pending_statuses, provider_label_map
 from bot.utils.callback_answer import callback_data, callback_message
+from bot.utils.csv_export import SpreadsheetWriter
 from config.settings import Settings
 from db.dal import payment_dal
 from db.models import Payment
@@ -215,7 +215,7 @@ async def export_payments_csv_handler(
 
         # Create CSV in memory
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = SpreadsheetWriter(output)
 
         # Write header
         writer.writerow(

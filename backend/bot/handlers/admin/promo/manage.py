@@ -4,7 +4,6 @@ Shared formatting lives in ``manage_format``; the edit-flow FSM in
 ``manage_edit``. Both are re-exported here for compatibility.
 """
 
-import csv
 import io
 from datetime import UTC, datetime
 
@@ -19,6 +18,7 @@ from bot.services.promo_effects import (
     summarize_effects,
 )
 from bot.utils.callback_answer import callback_data, callback_message
+from bot.utils.csv_export import SpreadsheetWriter
 from config.settings import Settings
 from db.dal import promo_code_dal
 
@@ -345,7 +345,7 @@ async def promo_export_activations_handler(
             return
 
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = SpreadsheetWriter(output)
         writer.writerow(
             [
                 "User ID",
@@ -430,7 +430,7 @@ async def promo_export_all_handler(
         )
 
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = SpreadsheetWriter(output)
 
         # CSV headers (forced to English)
         writer.writerow(

@@ -1,4 +1,3 @@
-import csv
 import io
 import logging
 import random
@@ -20,6 +19,7 @@ from bot.services.promo_code_service import PromoCodeService
 from bot.services.promo_effects import PROMO_APPLIES_TO_SUBSCRIPTION, PromoEffects
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_message, message_bot
+from bot.utils.csv_export import SpreadsheetWriter
 from config.settings import Settings
 from db.dal import promo_code_dal
 
@@ -405,7 +405,7 @@ async def create_bulk_promo_codes_final(
 
             # Create CSV file
             output = io.StringIO()
-            writer = csv.writer(output)
+            writer = SpreadsheetWriter(output)
 
             # CSV headers
             writer.writerow(

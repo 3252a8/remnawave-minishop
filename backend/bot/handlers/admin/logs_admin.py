@@ -21,6 +21,7 @@ from bot.keyboards.inline.admin_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
+from bot.utils.csv_export import SpreadsheetWriter
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
 from db.models import MessageLog, User
@@ -428,7 +429,9 @@ async def export_logs_csv_handler(
 
         # Create CSV content
         csv_buffer = io.StringIO()
-        csv_writer = csv.writer(csv_buffer, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        csv_writer = SpreadsheetWriter(
+            csv_buffer, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
+        )
 
         # Write header
         headers = [
