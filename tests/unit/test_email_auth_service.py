@@ -144,7 +144,7 @@ def test_smtp_send_uses_explicit_envelope_recipient():
     smtp_context.__enter__.return_value = smtp
 
     with patch(
-        "bot.services.email_auth_service.smtplib.SMTP",
+        "bot.services.email_auth_service.GuardedSMTP",
         return_value=smtp_context,
     ):
         service._send_message_via_smtp(

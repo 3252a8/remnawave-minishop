@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from bot.services.email_templates import EmailContent, EmailInlineImage, render_login_code
 from bot.services.message_audit import log_user_message_delivery
+from bot.utils.outbound_network import OutboundPolicy
+from bot.utils.smtp_transport import GuardedSMTP, GuardedSMTPSSL
 from config.settings import Settings
 from config.tariffs_config import normalize_tariff_access_code
 from db.dal import security_dal, user_dal
@@ -766,12 +768,14 @@ class EmailAuthService:
         use_ssl: bool,
         starttls: bool,
     ) -> None:
+        policy = OutboundPolicy(getattr(self.settings, "_trusted_smtp_endpoints", ()))
         if use_ssl:
-            with smtplib.SMTP_SSL(
+            with GuardedSMTPSSL(
                 smtp_host,
                 smtp_port,
                 context=context,
                 timeout=timeout,
+                policy=policy,
             ) as smtp:
                 smtp.ehlo()
                 smtp.login(self.settings.SMTP_USERNAME, self.settings.SMTP_PASSWORD)
@@ -782,7 +786,7 @@ class EmailAuthService:
                 )
             return
 
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=timeout) as smtp:
+        with GuardedSMTP(smtp_host, smtp_port, timeout=timeout, policy=policy) as smtp:
             smtp.ehlo()
             if starttls:
                 smtp.starttls(context=context)
