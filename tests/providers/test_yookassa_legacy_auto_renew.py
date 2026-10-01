@@ -352,6 +352,29 @@ class LegacyAutoRenewFulfillmentTests(IsolatedAsyncioTestCase):
         self.subscription_service.activate_subscription.assert_awaited_once()
         assert update_status.await_args.kwargs["new_status"] == "succeeded"
 
+    async def test_subscription_referral_bonus_is_queued_on_the_durable_ledger(self):
+        result, _ensure_order, _update_status = await self._process()
+
+        assert result is not None
+        apply_bonus = self.referral_service.apply_referral_bonuses_for_payment
+        apply_bonus.assert_awaited_once()
+        assert apply_bonus.await_args.kwargs["defer"] is True
+        assert apply_bonus.await_args.kwargs["current_payment_db_id"] == 5
+        # The accrual worker recovers every succeeded payment still marked as
+        # unprocessed; leaving this one unmarked would grant the bonus again.
+        assert self.payment.referral_accrual_processed is True
+
+    async def test_failed_referral_decision_is_left_for_accrual_recovery(self):
+        self.referral_service.apply_referral_bonuses_for_payment.side_effect = RuntimeError(
+            "accrual unavailable"
+        )
+
+        result, _ensure_order, update_status = await self._process()
+
+        assert result is not None
+        assert update_status.await_args.kwargs["new_status"] == "succeeded"
+        assert self.payment.referral_accrual_processed is False
+
     async def test_underpayment_is_rejected_against_authoritative_quote(self):
         result, ensure_order, update_status = await self._process(amount="1.00")
 
