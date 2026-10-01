@@ -140,6 +140,7 @@ from .constants import (
     WEBAPP_SESSION_COOKIE_NAME,
     WEBAPP_STATE_CHANGING_METHODS,
 )
+from .csrf_origin import browser_origin_allowed, browser_origin_present
 from .html_payload import image_preload_markup, json_script_payload
 from .response_helpers import json_response
 
@@ -289,11 +290,13 @@ async def _csrf_protection_middleware(request: web.Request, handler: Handler) ->
     ):
         return await handler(request)
 
-    if (
-        request.method in WEBAPP_STATE_CHANGING_METHODS
-        and request.path not in WEBAPP_CSRF_EXEMPT_PATHS
-        and request.cookies.get(WEBAPP_SESSION_COOKIE_NAME)
-    ):
+    if request.method in WEBAPP_STATE_CHANGING_METHODS:
+        if not browser_origin_allowed(request, settings):
+            return _json_error(403, "csrf_failed", "Invalid request origin")
+        if not request.cookies.get(WEBAPP_SESSION_COOKIE_NAME):
+            return await handler(request)
+        if request.path in WEBAPP_CSRF_EXEMPT_PATHS and browser_origin_present(request):
+            return await handler(request)
         csrf_cookie = request.cookies.get(WEBAPP_CSRF_COOKIE_NAME, "")
         csrf_header = request.headers.get(WEBAPP_CSRF_HEADER_NAME, "")
         if not csrf_cookie or not csrf_header or not hmac.compare_digest(csrf_header, csrf_cookie):
