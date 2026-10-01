@@ -665,7 +665,15 @@ async def process_successful_payment(
         applied_promo_bonus_days = activation_details.get("applied_promo_bonus_days", 0)
 
         referral_bonus_info = None
-        if sale_mode_base == "subscription":
+        # Same durable accrual as the shared finalizer: the decision is queued in
+        # this transaction and the accrual worker applies it. A payment left
+        # unprocessed is picked up again by the worker's recovery, so applying the
+        # bonus here directly would grant it a second time.
+        payment_record.referral_accrual_processed = bool(
+            sale_mode_base != "subscription"
+            or float(getattr(payment_record, "amount", payment_value) or 0) <= 0
+        )
+        if not payment_record.referral_accrual_processed:
             try:
                 referral_savepoint = await session.begin_nested()
                 try:
@@ -677,12 +685,14 @@ async def process_successful_payment(
                         skip_if_active_before_payment=False,
                         tariff_key=effective_tariff_key,
                         duration_days=activation_details.get("duration_days"),
+                        defer=True,
                     )
                 except Exception:
                     await referral_savepoint.rollback()
                     raise
                 else:
                     await referral_savepoint.commit()
+                    payment_record.referral_accrual_processed = True
             except Exception:
                 referral_bonus_info = None
                 logger.exception(
