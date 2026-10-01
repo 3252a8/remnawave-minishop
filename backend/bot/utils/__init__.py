@@ -1,11 +1,13 @@
 # Bot utilities package
+from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from aiogram import Bot, types
-
 if TYPE_CHECKING:
+    from aiogram import Bot, types
+
     from bot.utils.message_queue import MessageQueueManager
 
 
@@ -253,7 +255,7 @@ async def send_message_by_type(
 
 
 async def send_message_via_queue(
-    queue_manager: "MessageQueueManager",
+    queue_manager: MessageQueueManager,
     uid: int,
     content: MessageContent,
     **kwargs: Any,
@@ -365,3 +367,12 @@ async def send_direct_message(
                 MessageContent(content.content_type, content.file_id, final_caption),
                 **kwargs,
             )
+
+
+def __getattr__(name: str) -> Any:
+    if name in {"Bot", "types"}:
+        aiogram = importlib.import_module("aiogram")
+        value = getattr(aiogram, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
