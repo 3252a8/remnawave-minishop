@@ -309,6 +309,7 @@ export const DEV_MOCK: PreviewMock = {
       webapp_link: "https://minishop.app/ref/ABCD1234",
       invited_count: 4,
       purchased_count: 2,
+      received_bonus_days: 14,
       welcome_bonus_days: 3,
       welcome_bonus_without_telegram_enabled: true,
       welcome_bonus_requires_telegram: false,

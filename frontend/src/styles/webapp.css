@@ -2723,6 +2723,39 @@ a {
   font-size: 12px;
 }
 
+.referral-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.referral-stat {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sheen-soft);
+}
+
+.referral-stat dt {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.referral-stat dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 .referral-bonus-list {
   display: grid;
   gap: 8px;

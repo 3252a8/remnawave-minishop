@@ -671,6 +671,8 @@ WEBAPP_REFERRAL_SCHEMA: dict[str, Any] = {
         "webapp_link": NULLABLE_STRING_SCHEMA,
         "invited_count": INTEGER_SCHEMA,
         "purchased_count": INTEGER_SCHEMA,
+        "received_bonus_days": NULLABLE_INTEGER_SCHEMA,
+        "received_bonus_since": NULLABLE_STRING_SCHEMA,
         "welcome_bonus_days": INTEGER_SCHEMA,
         "welcome_bonus_without_telegram_enabled": BOOLEAN_SCHEMA,
         "welcome_bonus_requires_telegram": BOOLEAN_SCHEMA,

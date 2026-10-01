@@ -17276,6 +17276,8 @@ export interface operations {
               invited_count?: number;
               one_bonus_per_referee?: boolean;
               purchased_count?: number;
+              received_bonus_days?: number | null;
+              received_bonus_since?: string | null;
               webapp_link?: string | null;
               welcome_bonus_block_reason?: string | null;
               welcome_bonus_days?: number;

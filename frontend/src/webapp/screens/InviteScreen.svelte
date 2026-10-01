@@ -8,6 +8,7 @@
   import Card from "$components/ui/card.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
   import { visibleReferralLinks } from "$lib/webapp/referralLinks.js";
+  import { formatReceivedSince, referralStats } from "$lib/webapp/referralStats.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import type {
     CopyTextAction,
@@ -65,6 +66,7 @@
   );
   const usesTariffBonusSummaries = $derived(tariffBonusSummaries.length > 0);
   const referralLinks = $derived(visibleReferralLinks(referral));
+  const stats = $derived(referralStats(referral));
   const periodBonusListCollapsible = $derived(referralBonusListMode !== "plain");
   // Mirrors the traffic reset disclosure in HomeScreen.svelte: the theme picks
   // the default state, the reader can still expand and collapse it by hand.
@@ -170,6 +172,28 @@
                 {/if}
               </div>
             </div>
+            <dl class="referral-stats">
+              <div class="referral-stat">
+                <dt>{t("wa_referral_stats_invited")}</dt>
+                <dd>{stats.invited}</dd>
+              </div>
+              <div class="referral-stat">
+                <dt>{t("wa_referral_stats_paid")}</dt>
+                <dd>{stats.paid}</dd>
+              </div>
+              {#if stats.received}
+                <div class="referral-stat">
+                  <dt>
+                    {stats.received.since
+                      ? t("wa_referral_stats_received_since", {
+                          date: formatReceivedSince(stats.received.since),
+                        })
+                      : t("wa_referral_stats_received")}
+                  </dt>
+                  <dd>{t("wa_referral_stats_received_days", { days: stats.received.days })}</dd>
+                </div>
+              {/if}
+            </dl>
             <div>
               <h3 class="card-heading">{t("wa_referral_link_title")}</h3>
               {#if referralLinks.length}

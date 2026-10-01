@@ -30182,6 +30182,18 @@
                         "purchased_count": {
                           "type": "integer"
                         },
+                        "received_bonus_days": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "received_bonus_since": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "webapp_link": {
                           "type": [
                             "string",
