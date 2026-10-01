@@ -3337,12 +3337,43 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result["traffic_used_bytes"], 5 * GIB)
         self.assertEqual(result["premium_used_bytes"], 2 * GIB)
+        self.assertEqual(result["premium_limit_bytes"], 3 * GIB)
+        self.assertTrue(result["premium_traffic_limited"])
         self.assertTrue(
             any(
                 call.args[2].get("traffic_used_bytes") == 5 * GIB
                 for call in update_subscription.await_args_list
             )
         )
+
+    async def test_local_trial_details_show_only_finite_premium_traffic_limits(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
+            )
+            service = _make_service(settings)
+            db_user = SimpleNamespace(
+                user_id=42, panel_user_uuid="panel-user", language_code="en", username="alice"
+            )
+            for provider, status, limit, expected in (
+                ("trial", "ACTIVE", 3 * GIB, True),
+                ("imported", "TRIAL", 3 * GIB, True),
+                ("trial", "TRIAL", 0, False),
+                ("imported", "ACTIVE", 3 * GIB, False),
+            ):
+                with self.subTest(provider=provider, status=status, limit=limit):
+                    local_sub = self._local_active_sub()
+                    local_sub.provider = provider
+                    local_sub.status_from_panel = status
+                    local_sub.premium_baseline_bytes = limit
+                    result = await service._local_active_subscription_details_fallback(
+                        db_user, local_sub, refresh_metadata=False, panel_lookup_failed=True
+                    )
+                    self.assertEqual(result["premium_limit_bytes"], limit)
+                    self.assertEqual(result["premium_traffic_limited"], expected)
 
     async def test_get_active_subscription_details_preserves_local_subscription_on_panel_error(
         self,

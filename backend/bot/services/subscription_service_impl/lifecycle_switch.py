@@ -102,12 +102,21 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
         premium_unlimited_override = bool(
             getattr(local_active_sub, "premium_unlimited_override", False)
         )
-        premium_traffic_limited = bool(tariff and tariff.has_premium_squad_limit())
         premium_limit_bytes = self._premium_effective_limit_bytes(
             premium_baseline,
             premium_topup_balance,
             premium_topup_used,
             premium_bonus_bytes,
+        )
+        premium_traffic_limited = bool(
+            (tariff and tariff.has_premium_squad_limit())
+            or (
+                premium_limit_bytes > 0
+                and (
+                    str(getattr(local_active_sub, "provider", "") or "").strip().lower() == "trial"
+                    or str(local_active_sub.status_from_panel or "").strip().upper() == "TRIAL"
+                )
+            )
         )
         billing_model_display = (
             tariff.billing_model

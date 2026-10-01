@@ -240,7 +240,6 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             if local_active_sub
             else False
         )
-        premium_traffic_limited = bool(tariff and tariff.has_premium_squad_limit())
         regular_bonus_bytes = (
             int(getattr(local_active_sub, "regular_bonus_bytes", 0) or 0) if local_active_sub else 0
         )
@@ -319,6 +318,17 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
             premium_topup_balance,
             premium_topup_used,
             premium_bonus_bytes,
+        )
+        premium_traffic_limited = bool(
+            (tariff and tariff.has_premium_squad_limit())
+            or (
+                premium_limit_bytes > 0
+                and local_active_sub
+                and (
+                    str(getattr(local_active_sub, "provider", "") or "").strip().lower() == "trial"
+                    or str(local_active_sub.status_from_panel or "").strip().upper() == "TRIAL"
+                )
+            )
         )
         premium_panel_user_data = panel_user_data if billing_model_display == "period" else None
         premium_traffic_limit_strategy = (
