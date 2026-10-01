@@ -373,7 +373,7 @@ export function createSettingsStore({
         return true;
       } else if (res?.errors) {
         const summary = Object.entries(res.errors)
-          .map(([k, v]) => `${k}: ${v}`)
+          .map(([k, v]) => `${k}: ${adminErrorMessage(v, at, String(v))}`)
           .join("; ");
         onToast(at("settings_validation_errors", { errors: summary }, "Errors: {errors}"));
       } else {

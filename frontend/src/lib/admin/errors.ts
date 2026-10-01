@@ -10,6 +10,7 @@ type AdminErrorPayload = {
 type AdminTranslate = (key: string, vars?: Record<string, unknown>, fallback?: string) => string;
 
 const ADMIN_ERROR_KEYS: Record<string, string> = {
+  unapproved_payment_api_origin: "error_payment_api_origin",
   invalid_archive: "error_theme_archive",
   empty_archive: "error_theme_archive",
   zip_required: "error_theme_archive",

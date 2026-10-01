@@ -6,7 +6,14 @@ import logging
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from aiohttp import ClientError, ClientSession, ClientTimeout, TraceConfig
+from aiohttp import ClientError, ClientSession, ClientTimeout, TCPConnector, TraceConfig
+
+from bot.utils.outbound_network import (
+    CredentialPolicy,
+    GuardedResolver,
+    OutboundPolicy,
+    outbound_trace,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -161,9 +168,19 @@ class HttpClientMixin:
             task.add_done_callback(self._session_cleanup_tasks.discard)
             session = None
         if session is None or session.closed:
+            config = getattr(self, "config", None)
+            approved_urls = getattr(config, "_trusted_api_urls", None)
+            policy = (
+                CredentialPolicy(
+                    approved_urls, private_urls=getattr(config, "_trusted_private_api_urls", ())
+                )
+                if approved_urls is not None
+                else OutboundPolicy()
+            )
             session = ClientSession(
                 timeout=ClientTimeout(total=timeout_seconds),
-                trace_configs=[_payment_trace_config()],
+                connector=TCPConnector(resolver=GuardedResolver(policy)),
+                trace_configs=[_payment_trace_config(), outbound_trace(policy)],
             )
             self._session = session
         return session

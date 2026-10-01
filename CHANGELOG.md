@@ -34,45 +34,52 @@
   Ссылка `theme_preview` и локальный черновик применяются только
   после загрузки авторизованного администратора; начальное оформление и вход не меняются.
   [fc028953](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fc0289530708519cc4adb9695e72f4a628769254)
-  [97e35a23](https://gitlab.com/3252a8/remnawave-minishop/-/commit/97e35a23ab0edc42a243bc83243e7a2ea00b56ba)
-  [fce661e6](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fce661e6d1e859b34a841a93c6e7ac5448553956)
+  [71ad7361](https://gitlab.com/3252a8/remnawave-minishop/-/commit/71ad7361b1b517bd013c9730e6f0490e9910481d)
+  [bfaa4a83](https://gitlab.com/3252a8/remnawave-minishop/-/commit/bfaa4a831194bbb45fd74a2e06d3109abb5782a7)
   Иконки SVG проверяются как XML с разрешёнными элементами и атрибутами геометрии.
-  [783fc107](https://gitlab.com/3252a8/remnawave-minishop/-/commit/783fc1073070ef83d168ca6c59aa135c766e802e)
+  [05e13e05](https://gitlab.com/3252a8/remnawave-minishop/-/commit/05e13e05f9fb30fb30453c4d7d724dac2fe454ef)
 
 - **Защита владельца аккаунтов.** Обычный администратор не может заблокировать владельца;
   запрещены собственная блокировка и потеря последнего доступного владельца. Проверка
-  выполняется до панели и согласована с изменениями ролей в одной транзакции.
-  [4a187c45](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4a187c45388ea79c770a787d0581d09181a8515c)
+  выполняется до панели в Mini App и Telegram-боте и согласована с изменениями ролей
+  в одной транзакции.
+  [82735247](https://gitlab.com/3252a8/remnawave-minishop/-/commit/82735247cbf40f28dca3376296b3579cca9cfe0e)
 
 - **Файлы инструкций подключения.** Из админки доступны файлы внутри `data/subpage-config`
   и исходный путь оператора из `.env`. Обход каталога и устройства отклоняются, чтение
   ограничено 4 MiB, ответы не раскрывают пути и системные ошибки.
-  [657fda47](https://gitlab.com/3252a8/remnawave-minishop/-/commit/657fda47c32cef21847a749e22533f068e550591)
+  [f799a3e4](https://gitlab.com/3252a8/remnawave-minishop/-/commit/f799a3e4e5953f3e4a3e382951a052330bd916ff)
 
 - **Защита входа Mini App.** Запросы с чужого browser origin отклоняются также при входе
   и выходе, исключая незаметную смену аккаунта. Вход Telegram, email, passkey и обращения
   с действующим Bearer-токеном сохраняют прежние сценарии.
-  [ee5ed8c2](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ee5ed8c2f82b57b86c6aa5a22f57ccb7c0b560ca)
+  [7689c39e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/7689c39ecb939c63517d73bcb20aeaa10e4e6e02)
 
 - **Доверие адресам прокси.** Дефолт доверяет loopback и конкретному сервису frontend,
   Compose-профили добавляют свой reverse proxy через `host:`. Остальные частные адреса
   не могут подменить IP клиента в заголовках.
-  [af4923fa](https://gitlab.com/3252a8/remnawave-minishop/-/commit/af4923fa05d54e2bbab3ed45a853380b35e73225)
+  [29a44312](https://gitlab.com/3252a8/remnawave-minishop/-/commit/29a4431201fa857b2a0fb646ded1baabc5da5899)
 
 - **Адреса внешних сервисов.** Xray Checker и Uptime Kuma проверяют схему URL, адреса фактического DNS
   подключения и переходы HTTP. Внутренний адрес доступен только при исходной настройке
   оператором в `.env`; изменение из админки не расширяет разрешённые адреса.
-  [03c136da](https://gitlab.com/3252a8/remnawave-minishop/-/commit/03c136da7bda8576ecfa271d836aba85219688c1)
-  [fa6aa966](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fa6aa9661cddff5eb2a39930fbc051d8f8644ab2)
+  [1c173fdc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/1c173fdcfddf7ff0032b22962be166a0202770a7)
+  [46039bfc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/46039bfce1f065a730fc3df19b34e6222c807aa9)
   SMTP использует проверенный IP, сохраняя TLS-проверку исходного имени; внутренние SMTP
   и резервные порты разрешаются только из исходных настроек оператора.
-  [43fe40f8](https://gitlab.com/3252a8/remnawave-minishop/-/commit/43fe40f8a07547b426bd2990b595f1e74704b3b4)
+  [c26ab8a8](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c26ab8a82aac25e169d54ac980a935d04a91f41f)
   Курсы PayKilla используют одинаковые ограничения в синхронном и асинхронном пути:
   только HTTP(S), проверенный DNS, безопасные переходы и ограниченный размер ответа.
+  [cad4782b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/cad4782b28b2001ea76c2fcfa92ebbf2406800b3)
+  Платёжные API отправляют ключи только на штатный origin провайдера или origin,
+  закреплённый оператором в `.env`; изменение адреса или переход на чужой сайт не
+  пересылает платёжные секреты. DNS проверяется перед подключением.
+  Неподтверждённый origin отклоняется при сохранении с локализованной подсказкой.
 
-- **Экспорт платежей.** Текстовые ячейки CSV не запускают формулы при открытии в таблицах;
-  числовые суммы сохраняют свой тип и знак.
-  [645eb278](https://gitlab.com/3252a8/remnawave-minishop/-/commit/645eb278faa8395e0741531d1b7684c360657f1b)
+- **Экспорт CSV.** Текстовые ячейки платежей, промокодов и журналов в Mini App и
+  Telegram-боте не запускают формулы при открытии в таблицах; числовые суммы сохраняют
+  свой тип и знак.
+  [bb2a88fe](https://gitlab.com/3252a8/remnawave-minishop/-/commit/bb2a88fe7dd5dcc226d6b0e40e97e702e0959471)
 
 - **Проверка обновлений Git-плагинов.** Выбранный ref сохраняется отдельно от SHA
   просмотренного пакета; установка закреплена на проверенном коммите, а следующая
@@ -141,6 +148,9 @@
 
 - Для собственного reverse proxy задайте его IP/CIDR или `host:имя-сервиса` в
   `TRUSTED_PROXIES`; все частные сети больше не считаются доверенными по умолчанию.
+- Нестандартный origin платёжного API закрепляйте исходным `<PROVIDER>_BASE_URL` в `.env`.
+  Для внутренних SMTP, Kuma, Xray Checker и курсов валют также задайте исходные адреса
+  оператором; административные изменения не добавляют разрешения на внутреннюю сеть.
 - Миграция `0094_referral_accruals` добавляет очередь начислений и резерв периода.
 - Миграция `0095_access_rotations` сохраняет операции перевыпуска доступа для восстановления.
   Для доставки и повторов должен работать штатный процесс worker.

@@ -417,6 +417,31 @@ async def refresh_overrides_from_db(
     return apply_overrides(settings, overrides)
 
 
+def _provider_api_origin_errors(updates: dict[str, Any]) -> dict[str, str]:
+    from bot.payment_providers import find_manifest_owner, get_provider_bundle
+    from bot.utils.outbound_network import CredentialPolicy
+
+    errors: dict[str, str] = {}
+    for key, value in updates.items():
+        owner = find_manifest_owner(key)
+        if owner is None or not value:
+            continue
+        spec, field = owner
+        if field.target != "config" or field.attr != "BASE_URL":
+            continue
+        bundle = get_provider_bundle(spec.service_key)
+        if bundle is None or bundle.config is None:
+            continue
+        config = bundle.config
+        try:
+            CredentialPolicy(
+                config._trusted_api_urls, private_urls=config._trusted_private_api_urls
+            ).check_url(str(value))
+        except ValueError:
+            errors[key] = "unapproved_payment_api_origin"
+    return errors
+
+
 async def update_overrides(
     settings: Settings,
     async_session_factory: sessionmaker,
@@ -448,6 +473,7 @@ async def update_overrides(
             continue
         valid_deletes.append(key)
 
+    errors.update(_provider_api_origin_errors(coerced_updates))
     if errors:
         return {"ok": False, "errors": errors}
 

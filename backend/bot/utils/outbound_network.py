@@ -72,6 +72,25 @@ class OutboundPolicy:
         self.check_address(host, port, host)
 
 
+class CredentialPolicy(OutboundPolicy):
+    """Credentials may go only to a shipped API origin or an operator-pinned origin."""
+
+    def __init__(self, urls: Iterable[str], *, private_urls: Iterable[str] = ()) -> None:
+        origins = set()
+        for url in urls:
+            try:
+                origins.add((urlsplit(url).scheme, *url_endpoint(url)))
+            except ValueError:
+                continue
+        self.origins = frozenset(origins)
+        super().__init__(approved_endpoints(private_urls))
+
+    def check_url(self, url: str) -> None:
+        if (urlsplit(url).scheme, *url_endpoint(url)) not in self.origins:
+            raise ValueError("unapproved_payment_api_origin")
+        super().check_url(url)
+
+
 def connect_socket(
     policy: OutboundPolicy,
     host: str,

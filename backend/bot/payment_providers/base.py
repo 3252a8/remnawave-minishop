@@ -34,6 +34,8 @@ class ProviderEnvConfig(BaseSettings):
 
     ADMIN_ONLY_ENABLED: bool = False
     _trusted_exchange_rate_url: str = PrivateAttr(default="")
+    _trusted_api_urls: tuple[str, ...] = PrivateAttr(default=())
+    _trusted_private_api_urls: tuple[str, ...] = PrivateAttr(default=())
 
     def model_post_init(self, context: object) -> None:
         self._trusted_exchange_rate_url = (
@@ -41,6 +43,14 @@ class ProviderEnvConfig(BaseSettings):
             if "EXCHANGE_RATE_URL" in self.model_fields_set
             else ""
         )
+        field = type(self).model_fields.get("BASE_URL")
+        if field is not None:
+            self._trusted_api_urls = (
+                str(field.default or ""),
+                str(getattr(self, "BASE_URL", "") or ""),
+            )
+            if "BASE_URL" in self.model_fields_set:
+                self._trusted_private_api_urls = (str(getattr(self, "BASE_URL", "") or ""),)
 
     model_config = SettingsConfigDict(
         env_file=".env",

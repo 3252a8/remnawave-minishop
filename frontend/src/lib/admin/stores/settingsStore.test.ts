@@ -4,6 +4,34 @@ import { QueryClient } from "@tanstack/svelte-query";
 import { createSettingsStore } from "./settingsStore.svelte.js";
 
 describe("settingsStore", () => {
+  it("explains rejected payment origins and preserves the unsaved value", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, sections: [] })
+      .mockResolvedValueOnce({
+        ok: false,
+        errors: { PAYKILLA_BASE_URL: "unapproved_payment_api_origin" },
+      });
+    const onToast = vi.fn();
+    const store = createSettingsStore({
+      api: api as never,
+      at: (key, params, fallback) => {
+        if (key === "error_payment_api_origin") return "Configure the API origin in .env";
+        if (key === "settings_validation_errors") return String(params?.errors);
+        return fallback || "";
+      },
+      onToast,
+    });
+    await store.loadSettings();
+    store.markDirty("PAYKILLA_BASE_URL", "https://unapproved.example");
+
+    await expect(store.saveSettings()).resolves.toBe(false);
+
+    expect(onToast).toHaveBeenCalledWith("PAYKILLA_BASE_URL: Configure the API origin in .env");
+    expect(store.settingsDirty.PAYKILLA_BASE_URL.value).toBe("https://unapproved.example");
+    expect(store.settingsSaving).toBe(false);
+  });
+
   it("reuses the settings query and refreshes it explicitly", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

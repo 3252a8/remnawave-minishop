@@ -6,7 +6,12 @@ import pytest
 from aiohttp.abc import ResolveResult
 from aiohttp.resolver import ThreadedResolver
 
-from bot.utils.outbound_network import GuardedResolver, OutboundPolicy, approved_endpoints
+from bot.utils.outbound_network import (
+    CredentialPolicy,
+    GuardedResolver,
+    OutboundPolicy,
+    approved_endpoints,
+)
 
 
 @pytest.mark.parametrize(
@@ -54,3 +59,11 @@ def test_dns_rebinding_is_checked_in_the_resolver_used_by_the_connection() -> No
             await resolver.close()
 
     asyncio.run(run())
+
+
+def test_official_api_origin_does_not_implicitly_approve_private_dns_answers() -> None:
+    policy = CredentialPolicy(["https://api.cloudpayments.ru"])
+    with pytest.raises(ValueError):
+        policy.check_address("api.cloudpayments.ru", 443, "10.0.0.2")
+    with pytest.raises(ValueError):
+        policy.check_url("http://api.cloudpayments.ru:443/orders")

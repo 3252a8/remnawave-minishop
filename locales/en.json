@@ -1526,6 +1526,7 @@
   "admin_error_write_failed": "Failed to write the settings file. Check that the data directory is mounted and writable by backend.",
   "admin_error_i18n_unavailable": "Translations service is unavailable. Check locale loading and data/locales-overrides.json, then restart backend if needed.",
   "admin_error_invalid_payload": "The request contains invalid data. Check the filled fields and retry the action.",
+  "admin_error_payment_api_origin": "For a different payment API address, set the provider's initial BASE_URL in .env and restart backend and worker. Keys are not sent to an unapproved address.",
   "admin_error_invalid_audience": "The recipient was not found. Refresh or reopen the user card and try again.",
   "admin_error_invalid_amount": "Invalid amount or traffic value. Enter a positive number and retry the action.",
   "admin_error_invalid_traffic_strategy": "Invalid traffic reset strategy. Select one of the available values.",

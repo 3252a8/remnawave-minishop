@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { adminErrorMessage } from "./errors.js";
 
 const messages: Record<string, string> = {
+  error_payment_api_origin: "Pin the payment API origin in the operator configuration",
   error_image_dimensions: "Image dimensions are not supported",
   error_image_type: "Image type is not supported",
   error_invalid_audience:
@@ -17,6 +18,11 @@ function at(key: string, vars: Record<string, unknown> = {}, fallback = ""): str
 }
 
 describe("adminErrorMessage", () => {
+  it("explains a payment API origin restriction", () => {
+    expect(adminErrorMessage("unapproved_payment_api_origin", at)).toBe(
+      messages.error_payment_api_origin
+    );
+  });
   it("explains how to resolve a Tribute tariff conflict", () => {
     const error = Object.assign(new Error("conflict"), {
       status: 409,
