@@ -161,7 +161,7 @@ docker compose up -d --force-recreate backend worker
 | `DB_POOL_RECYCLE_SECONDS` | `.env` | Период recycling DB-соединений. |
 | `REDIS_URL` | Compose | Redis для FSM, кеша, rate-limit, очередей и locks. В Compose задается автоматически. |
 | `REDIS_KEY_PREFIX` | `.env` | Префикс Redis-ключей. |
-| `TRUSTED_PROXIES` | `.env` | IP/CIDR или `host:имя-сервиса` доверенных обратных прокси. По умолчанию loopback и `host:frontend`; Compose-профили добавляют свой прокси. |
+| `TRUSTED_PROXIES` | `.env` | IP/CIDR или `host:имя-сервиса` доверенных обратных прокси. По умолчанию loopback и сервисы frontend, Caddy, Nginx, Angie, Newt, `newt-2`; отсутствующие сервисы игнорируются. Для дополнительного прокси добавьте его адрес или имя к стандартному списку из [настроек безопасности](security.md). |
 | `HTTP_BIND` / `HTTPS_BIND` | Caddy/Angie Compose | Адреса публикации Caddy- и Angie-вариантов. |
 | `NEWT_ID` / `NEWT_SECRET` | Dev Compose | Доступы Newt в dev-compose. |
 | `DEV_POSTGRES_PORT` | Dev Compose | Хостовый порт PostgreSQL единого dev stand для full-stack QA. По умолчанию `6768`. |

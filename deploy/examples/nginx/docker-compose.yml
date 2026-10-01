@@ -76,7 +76,7 @@ services:
     environment:
       <<: *app_environment
       WEBAPP_ENABLED: ${WEBAPP_ENABLED:-true}
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,host:frontend,host:nginx}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1,::1,host:frontend,host:caddy,host:nginx,host:angie,host:newt,host:newt-2}
     volumes:
       - ./data:/app/data
       - ${COMPOSE_BACKUP_SOURCE:-.}:/app/compose-source:${COMPOSE_RESTORE_MODE:-rw}

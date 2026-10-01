@@ -688,9 +688,13 @@ docker compose up -d backend worker
 
 Для платежных провайдеров с IP allowlist важно, чтобы reverse proxy передавал реальный IP
 отправителя в `X-Forwarded-For`, а backend доверял IP последнего proxy-hop через
-`TRUSTED_PROXIES`. Готовые профили `caddy`, `angie`, `nginx` и `newt` доверяют loopback,
-frontend и своему proxy через `host:имя-сервиса`, без доверия всей Docker/LAN-сети.
-Для собственного proxy задайте его точный IP/CIDR или имя через `host:`. Для домена за Cloudflare backend безопасно принимает реальный адрес из
+`TRUSTED_PROXIES`. Готовые профили и приложение доверяют loopback и отдельным адресам
+сервисов `frontend`, `caddy`, `nginx`, `angie`, `newt`, `newt-2`. Переменную можно не
+задавать; отсутствующие сервисы игнорируются, а адреса контейнеров обновляются раз в минуту.
+Для собственного proxy добавьте его точный IP/CIDR или имя через `host:` к
+[стандартному списку](../configuration/security.md). Установщик добавляет выбранный
+контейнер автоматически, включая точный Docker gateway для host-network.
+Для домена за Cloudflare backend безопасно принимает реальный адрес из
 `CF-Connecting-IP`, когда ближайший внешний hop входит в официальные сети Cloudflare;
 добавлять эти сети в `TRUSTED_PROXIES` не требуется. Trust-all режим возможен через
 `0.0.0.0/0,::/0`, но используйте его

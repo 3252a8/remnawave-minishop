@@ -31,6 +31,32 @@ def _run_installer_function(tmp_path: Path, shell_body: str) -> subprocess.Compl
     )
 
 
+@pytest.mark.parametrize("host_network", [False, True])
+def test_existing_reverse_proxy_adds_exact_trust_without_replacing_operator_entries(
+    tmp_path: Path, host_network: bool
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    env_path = tmp_path / "test.env"
+    env_path.write_text("TRUSTED_PROXIES=127.0.0.1,host:frontend,203.0.113.42\n", encoding="utf-8")
+    entry = "172.20.0.1" if host_network else "host:custom-ingress"
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+ENV_PATH={shlex.quote(env_path.as_posix())}
+EXISTING_PROXY_CONTAINER_NAME=custom-ingress
+container_uses_host_network() {{ {"return 0" if host_network else "return 1"}; }}
+ensure_target_network_exists() {{ return 0; }}
+target_network_name() {{ printf '%s' minishop; }}
+docker() {{ printf '%s\\n' 172.20.0.1; }}
+trust_existing_reverse_proxy || exit 20
+trust_existing_reverse_proxy || exit 21
+[ "$(env_get TRUSTED_PROXIES '')" = '127.0.0.1,host:frontend,203.0.113.42,{entry}' ] || exit 22
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_shell_installer_help_does_not_require_python():
     if not shutil.which("sh"):
         pytest.skip("sh is not available on this platform")

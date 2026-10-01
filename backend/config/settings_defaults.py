@@ -25,5 +25,10 @@ DEFAULT_TRUSTED_PROXIES = ",".join(
         "127.0.0.1",
         "::1",
         "host:frontend",
+        "host:caddy",
+        "host:nginx",
+        "host:angie",
+        "host:newt",
+        "host:newt-2",
     ]
 )

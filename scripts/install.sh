@@ -115,6 +115,7 @@ SMTP_PASSWORD_VALUE=""
 SMTP_FROM_EMAIL_VALUE=""
 WEBHOOK_SECRET_TOKEN_VALUE=""
 TRUSTED_PROXIES_VALUE=""
+DEFAULT_TRUSTED_PROXIES_VALUE="127.0.0.1,::1,host:frontend,host:caddy,host:nginx,host:angie,host:newt,host:newt-2"
 PANEL_API_URL_VALUE=""
 PANEL_API_KEY_VALUE=""
 PANEL_API_COOKIE_VALUE=""
@@ -1850,7 +1851,7 @@ prompt_common_env() {
             MINIAPP_HOST_VALUE="$PROMPT_VALUE"
             WEBHOOK_PUBLIC_URL_VALUE="$(env_get WEBHOOK_PUBLIC_URL "https://$WEBHOOK_HOST_VALUE")"
             MINIAPP_PUBLIC_URL_VALUE="$(env_get MINIAPP_PUBLIC_URL "https://$MINIAPP_HOST_VALUE/")"
-            TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES '127.0.0.1,::1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7')"
+            TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES "$DEFAULT_TRUSTED_PROXIES_VALUE")"
             ;;
     esac
 
@@ -1878,7 +1879,7 @@ prompt_common_env() {
             WEBHOOK_PUBLIC_URL_VALUE="$PROMPT_VALUE"
             prompt_value "Публичный URL Mini App" "$(env_get MINIAPP_PUBLIC_URL 'http://127.0.0.1:8082/')" 1 0 "url"
             MINIAPP_PUBLIC_URL_VALUE="$PROMPT_VALUE"
-            TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES '127.0.0.1,::1')"
+            TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES "$DEFAULT_TRUSTED_PROXIES_VALUE")"
             ;;
         egames)
             prompt_value "Адрес привязки backend для eGames Nginx" "$(env_get WEB_SERVER_BIND '127.0.0.1:8080')" 0 0 "bind"
@@ -4133,6 +4134,7 @@ configure_egames_reverse_proxy() {
         if docker exec "$nginx_container" nginx -t; then
             docker exec "$nginx_container" nginx -s reload || docker restart "$nginx_container" >/dev/null
             ok "Маршруты eGames Nginx настроены: $webhook_host -> 127.0.0.1:$backend_port и $miniapp_host -> 127.0.0.1:$frontend_port"
+            EXISTING_PROXY_CONTAINER_NAME="$nginx_container"
         else
             warn "Проверка конфига Nginx не прошла; восстанавливаю $backup"
             cp "$backup" "$nginx_conf"
@@ -4729,6 +4731,26 @@ attach_existing_reverse_proxy_container() {
     EXISTING_PROXY_CONTAINER_NAME="$proxy_name"
 }
 
+trust_existing_reverse_proxy() {
+    trusted_proxy_name="${EXISTING_PROXY_CONTAINER_NAME:-}"
+    [ -n "$trusted_proxy_name" ] || return 0
+    if container_uses_host_network "$trusted_proxy_name"; then
+        ensure_target_network_exists || return 1
+        trusted_proxy_entries=$(docker network inspect -f '{{range .IPAM.Config}}{{println .Gateway}}{{end}}' "$(target_network_name)") || return 1
+        [ -n "$trusted_proxy_entries" ] || return 1
+    else
+        trusted_proxy_entries="host:$trusted_proxy_name"
+    fi
+    TRUSTED_PROXIES_VALUE="$(env_get TRUSTED_PROXIES "$DEFAULT_TRUSTED_PROXIES_VALUE")"
+    for trusted_proxy_entry in $trusted_proxy_entries; do
+        case ",$TRUSTED_PROXIES_VALUE," in
+            *",$trusted_proxy_entry,"*) ;;
+            *) TRUSTED_PROXIES_VALUE="$TRUSTED_PROXIES_VALUE,$trusted_proxy_entry" ;;
+        esac
+    done
+    set_env_file_value "$ENV_PATH" TRUSTED_PROXIES "$TRUSTED_PROXIES_VALUE"
+}
+
 configure_existing_reverse_proxy() {
     is_egames_profile || return 0
     default_proxy_mode="2"
@@ -4741,16 +4763,17 @@ configure_existing_reverse_proxy() {
         "3. Пропустить - настрою reverse proxy вручную." || return 1
     case "$CHOICE_VALUE" in
         1)
-            configure_egames_reverse_proxy
+            configure_egames_reverse_proxy || return 1
             ;;
         2)
-            attach_existing_reverse_proxy_container
+            attach_existing_reverse_proxy_container || return 1
             ;;
         3)
             warn "Настройка reverse proxy пропущена. Направьте WEBHOOK_HOST на backend-порт и MINIAPP_HOST на frontend-порт вручную."
             return 0
             ;;
     esac
+    trust_existing_reverse_proxy
 }
 
 refresh_egames_nginx_after_migration() {
