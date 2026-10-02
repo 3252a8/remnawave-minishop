@@ -6,11 +6,13 @@
   let {
     plan = null,
     method = "",
+    animated = true,
     replaceAnimations = false,
     updateIntervalMs = 0,
   }: {
     plan?: BillingPlan | null;
     method?: string;
+    animated?: boolean;
     replaceAnimations?: boolean;
     updateIntervalMs?: number;
   } = $props();
@@ -27,6 +29,7 @@
   {suffix}
   ariaLabel={`${amount}${suffix}`}
   format={{ maximumFractionDigits: Number.isInteger(amount) ? 0 : 2 }}
+  {animated}
   {replaceAnimations}
   {updateIntervalMs}
 />

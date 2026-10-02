@@ -2,12 +2,14 @@
   import { billingErrorMessage } from "$lib/webapp/billingActions.js";
   import CheckoutHeader from "./CheckoutHeader.svelte";
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
-  import { ArrowLeft, ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
+  import { ArrowLeft, ArrowRight } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
-  import Checkbox from "$components/ui/checkbox.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { CheckoutAddonSliders, EmptyCard } from "$components/patterns/webapp/index.js";
-  import CheckoutPeriodPrice from "./CheckoutPeriodPrice.svelte";
+  import CheckoutPeriodOptions, {
+    type CheckoutPeriodOption,
+    type CheckoutRenewalOption,
+  } from "./CheckoutPeriodOptions.svelte";
   import CheckoutPaymentControls from "./CheckoutPaymentControls.svelte";
   import CheckoutTariffPicker from "./CheckoutTariffPicker.svelte";
   import PendingPaymentCard from "./PendingPaymentCard.svelte";
@@ -597,6 +599,36 @@
     const trafficUnit = trafficMode || !isSubscriptionPlan(plan);
     return t(trafficUnit ? "wa_per_gb_short" : "wa_per_month_label");
   }
+  function checkoutPeriodOption(plan: PlanView): CheckoutPeriodOption {
+    const title = planDisplayTitle(plan);
+    const subtitle = planSubtitle(plan);
+    return {
+      key: planKey(plan),
+      plan,
+      title: tariffMode ? subtitle || title : title,
+      subtitle: tariffMode ? "" : subtitle,
+      checkoutPlan: planWithCheckoutSelection(plan),
+      promoPlans: checkoutPromoPlanParts(plan),
+      unitPricePlan: checkoutUnitPricePlan(plan),
+      unitPriceSuffix: checkoutUnitPriceSuffix(plan),
+    };
+  }
+  function checkoutRenewalOption(): CheckoutRenewalOption | null {
+    if (!showHwidRenewalBlock()) return null;
+    return {
+      label: t("wa_hwid_devices_renewal_checkbox", {
+        count: hwidRenewalCount(),
+        price: hwidRenewalPriceLabel(),
+      }),
+      hint: hwidRenewalHint(),
+      bonusLabel: hwidRenewalBonusLabel(),
+      warning: showHwidDesyncNotice()
+        ? t("wa_hwid_devices_desync_notice", {
+            date: subscription.extra_hwid_devices_valid_until_text,
+          })
+        : "",
+    };
+  }
   function tariffLimitLabel(tariff: TariffView) {
     return tariffLimitLabelFn(tariff, { t });
   }
@@ -772,6 +804,7 @@
     quotedPlan={selectedQuotedPlanForPayment}
     providerManagesPrice={providerManagesPrice()}
     fallbackPrice={selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
+    animated={checkoutAddonValueAnimationEnabled}
     priceUpdateIntervalMs={checkoutSliderInteracting ? 420 : 0}
     {t}
   />
@@ -785,6 +818,26 @@
     description={paymentDescription()}
     purchaseDescription={subscriptionPurchaseDescription}
     {inline}
+  />
+{/snippet}
+
+{#snippet checkoutPeriodOptions(periodPlans: PlanView[])}
+  <CheckoutPeriodOptions
+    options={periodPlans.map(checkoutPeriodOption)}
+    selectedKey={planKey(selectedPlan)}
+    renewalOption={checkoutRenewalOption()}
+    renewalUnavailableNote={showHwidRenewalUnavailableNote()
+      ? t("wa_hwid_devices_renewal_unavailable", {
+          count: Number(subscription.extra_hwid_devices || 0),
+          date: subscription.extra_hwid_devices_valid_until_text || "",
+        })
+      : ""}
+    bind:renewHwidDevices
+    animated={checkoutAddonValueAnimationEnabled}
+    method={selectedMethod}
+    updateIntervalMs={checkoutSliderInteracting ? 420 : 0}
+    onSelect={(plan) => (selectedPlan = plan)}
+    {t}
   />
 {/snippet}
 
@@ -838,137 +891,14 @@
       {/if}
       {#if selectedTariffPlans.length}
         {@render checkoutTariffCard()}
-        {#if showHwidRenewalBlock()}
-          <label class="hwid-renewal-option">
-            <Checkbox
-              checked={renewHwidDevices}
-              ariaLabel={t("wa_hwid_devices_renewal_checkbox_aria")}
-              onCheckedChange={(checked) => (renewHwidDevices = checked)}
-            />
-            <span>
-              <strong>
-                {t("wa_hwid_devices_renewal_checkbox", {
-                  count: hwidRenewalCount(),
-                  price: hwidRenewalPriceLabel(),
-                })}
-              </strong>
-              <small>{hwidRenewalHint()}</small>
-              {#if hwidRenewalBonusLabel()}
-                <small class="hwid-traffic-bonus">{hwidRenewalBonusLabel()}</small>
-              {/if}
-              {#if showHwidDesyncNotice()}
-                <small class="hwid-renewal-warning">
-                  {t("wa_hwid_devices_desync_notice", {
-                    date: subscription.extra_hwid_devices_valid_until_text,
-                  })}
-                </small>
-              {/if}
-            </span>
-          </label>
-        {:else if showHwidRenewalUnavailableNote()}
-          <div class="subscription-purchase-description">
-            <p>
-              {t("wa_hwid_devices_renewal_unavailable", {
-                count: Number(subscription.extra_hwid_devices || 0),
-                date: subscription.extra_hwid_devices_valid_until_text || "",
-              })}
-            </p>
-          </div>
-        {/if}
-        <div class="period-grid period-grid-two-columns">
-          {#each selectedTariffPlans as plan}
-            {@const promoPlans = checkoutPromoPlanParts(plan)}
-            <button
-              class:active={planKey(selectedPlan) === planKey(plan)}
-              class="period-card"
-              type="button"
-              onclick={() => (selectedPlan = plan)}
-            >
-              <strong>{planSubtitle(plan) || planDisplayTitle(plan)}</strong>
-              <CheckoutPeriodPrice
-                plan={planWithCheckoutSelection(plan)}
-                {promoPlans}
-                unitPricePlan={checkoutUnitPricePlan(plan)}
-                unitPriceSuffix={checkoutUnitPriceSuffix(plan)}
-                method={selectedMethod}
-                updateIntervalMs={checkoutSliderInteracting ? 420 : 0}
-              />
-              {#if planKey(selectedPlan) === planKey(plan)}
-                <CheckCircle2 size={18} />
-              {/if}
-            </button>
-          {/each}
-        </div>
+        {@render checkoutPeriodOptions(selectedTariffPlans)}
         {@render checkoutPaymentControls()}
       {:else}
         <EmptyCard>{t("wa_no_tariff_change_options")}</EmptyCard>
       {/if}
     {:else}
       {@render checkoutTariffCard()}
-      {#if showHwidRenewalBlock()}
-        <label class="hwid-renewal-option">
-          <Checkbox
-            checked={renewHwidDevices}
-            ariaLabel={t("wa_hwid_devices_renewal_checkbox_aria")}
-            onCheckedChange={(checked) => (renewHwidDevices = checked)}
-          />
-          <span>
-            <strong>
-              {t("wa_hwid_devices_renewal_checkbox", {
-                count: hwidRenewalCount(),
-                price: hwidRenewalPriceLabel(),
-              })}
-            </strong>
-            <small>{hwidRenewalHint()}</small>
-            {#if hwidRenewalBonusLabel()}
-              <small class="hwid-traffic-bonus">{hwidRenewalBonusLabel()}</small>
-            {/if}
-            {#if showHwidDesyncNotice()}
-              <small class="hwid-renewal-warning">
-                {t("wa_hwid_devices_desync_notice", {
-                  date: subscription.extra_hwid_devices_valid_until_text,
-                })}
-              </small>
-            {/if}
-          </span>
-        </label>
-      {:else if showHwidRenewalUnavailableNote()}
-        <div class="subscription-purchase-description">
-          <p>
-            {t("wa_hwid_devices_renewal_unavailable", {
-              count: Number(subscription.extra_hwid_devices || 0),
-              date: subscription.extra_hwid_devices_valid_until_text || "",
-            })}
-          </p>
-        </div>
-      {/if}
-      <div class="period-grid period-grid-two-columns">
-        {#each plans as plan}
-          {@const promoPlans = checkoutPromoPlanParts(plan)}
-          <button
-            class:active={planKey(selectedPlan) === planKey(plan)}
-            class="period-card"
-            type="button"
-            onclick={() => (selectedPlan = plan)}
-          >
-            <strong>{planDisplayTitle(plan)}</strong>
-            {#if planSubtitle(plan)}
-              <em>{planSubtitle(plan)}</em>
-            {/if}
-            <CheckoutPeriodPrice
-              plan={planWithCheckoutSelection(plan)}
-              {promoPlans}
-              unitPricePlan={checkoutUnitPricePlan(plan)}
-              unitPriceSuffix={checkoutUnitPriceSuffix(plan)}
-              method={selectedMethod}
-              updateIntervalMs={checkoutSliderInteracting ? 420 : 0}
-            />
-            {#if planKey(selectedPlan) === planKey(plan)}
-              <CheckCircle2 size={18} />
-            {/if}
-          </button>
-        {/each}
-      </div>
+      {@render checkoutPeriodOptions(plans)}
       {@render checkoutPaymentControls()}
     {/if}
   </div>

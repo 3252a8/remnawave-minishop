@@ -51,6 +51,7 @@
     quotedPlan = null,
     providerManagesPrice = false,
     fallbackPrice = "",
+    animated = true,
     replacePriceAnimations = false,
     priceUpdateIntervalMs = 0,
     t = (key) => key,
@@ -90,6 +91,7 @@
     quotedPlan?: PlanView | null;
     providerManagesPrice?: boolean;
     fallbackPrice?: string;
+    animated?: boolean;
     replacePriceAnimations?: boolean;
     priceUpdateIntervalMs?: number;
     t?: Translate;
@@ -184,6 +186,7 @@
           ><AnimatedPrice
             plan={promoPrice.base}
             method={selectedMethod}
+            {animated}
             replaceAnimations={replacePriceAnimations}
             updateIntervalMs={priceUpdateIntervalMs}
           /></s
@@ -192,6 +195,7 @@
           ><AnimatedPrice
             plan={promoPrice.discounted}
             method={selectedMethod}
+            {animated}
             replaceAnimations={replacePriceAnimations}
             updateIntervalMs={priceUpdateIntervalMs}
           /></b
@@ -201,6 +205,7 @@
       <AnimatedPrice
         plan={quotedPlan}
         method={selectedMethod}
+        {animated}
         replaceAnimations={replacePriceAnimations}
         updateIntervalMs={priceUpdateIntervalMs}
       />
