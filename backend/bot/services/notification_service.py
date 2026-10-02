@@ -227,8 +227,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             telegram_id=telegram_id,
         )
 
-        referral_text = await self._registration_inviter_text(
-            _, referred_by_id=referred_by_id, partner_user_id=partner_user_id
+        referral_text, profile_keyboard = await self._registration_inviter_context(
+            _,
+            referred_by_id=referred_by_id,
+            partner_user_id=partner_user_id,
+            profile_keyboard=profile_keyboard,
         )
 
         message = _(
@@ -258,12 +261,14 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
         public_id = await self._public_user_id(user_id, minishop_id)
 
-        referral_text = await self._registration_inviter_text(
-            _, referred_by_id=referred_by_id, partner_user_id=partner_user_id
-        )
-
         user_display, profile_keyboard = await self._user_log_context(
             _, user_id, minishop_id=public_id, email=email
+        )
+        referral_text, profile_keyboard = await self._registration_inviter_context(
+            _,
+            referred_by_id=referred_by_id,
+            partner_user_id=partner_user_id,
+            profile_keyboard=profile_keyboard,
         )
 
         message = _(
@@ -295,12 +300,14 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         _ = lambda k, **kw: self.i18n.gettext(admin_lang, k, **kw) if self.i18n else k
         public_id = await self._public_user_id(user_id, minishop_id)
 
-        referral_text = await self._registration_inviter_text(
-            _, referred_by_id=referred_by_id, partner_user_id=partner_user_id
-        )
-
         user_display, profile_keyboard = await self._user_log_context(
             _, user_id, minishop_id=public_id, email=email
+        )
+        referral_text, profile_keyboard = await self._registration_inviter_context(
+            _,
+            referred_by_id=referred_by_id,
+            partner_user_id=partner_user_id,
+            profile_keyboard=profile_keyboard,
         )
 
         message = _(
@@ -313,21 +320,6 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
         await self._send_to_log_channel(message, reply_markup=profile_keyboard)
-
-    async def _registration_inviter_text(
-        self,
-        translate: Callable[..., str],
-        *,
-        referred_by_id: int | None,
-        partner_user_id: int | None,
-    ) -> str:
-        if partner_user_id is not None:
-            partner_link = hd.quote(await self._public_user_id(partner_user_id))
-            return translate("log_partner_suffix", partner_link=partner_link)
-        if referred_by_id is not None:
-            referrer_link = hd.quote(await self._public_user_id(referred_by_id))
-            return translate("log_referral_suffix", referrer_link=referrer_link)
-        return ""
 
     async def notify_account_email_linked(
         self,

@@ -97,6 +97,8 @@ class NotificationUserContextMixin:
         *,
         user_id: int | None = None,
         minishop_id: str | None = None,
+        profile_button_key: str = "log_open_profile_link",
+        card_button_key: str = "log_open_user_card_button",
     ) -> InlineKeyboardMarkup | None:
         buttons = []
         card_button = None
@@ -109,17 +111,17 @@ class NotificationUserContextMixin:
                 )
             card_button = (
                 InlineKeyboardButton(
-                    text=translate("log_open_user_card_button"),
+                    text=translate(card_button_key),
                     url=card_link,
                 )
                 if card_link
                 else InlineKeyboardButton(
-                    text=translate("log_open_user_card_button"),
+                    text=translate(card_button_key),
                     callback_data=f"admin_user_card_from_list:{user_id}:0",
                 )
             )
         for identity, key in (
-            (telegram_id, "log_open_profile_link"),
+            (telegram_id, profile_button_key),
             (referrer_telegram_id, "log_open_referrer_profile_button"),
         ):
             if identity and identity > 0:
@@ -129,6 +131,42 @@ class NotificationUserContextMixin:
         if card_button is not None:
             buttons.append([card_button])
         return InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+
+    async def _registration_inviter_context(
+        self,
+        translate: Callable[..., str],
+        *,
+        referred_by_id: int | None,
+        partner_user_id: int | None,
+        profile_keyboard: InlineKeyboardMarkup | None,
+    ) -> tuple[str, InlineKeyboardMarkup | None]:
+        inviter_id = partner_user_id if partner_user_id is not None else referred_by_id
+        if inviter_id is None:
+            return "", profile_keyboard
+
+        is_partner = partner_user_id is not None
+        display, inviter_keyboard = await self._user_log_context(
+            translate,
+            inviter_id,
+            profile_button_key=(
+                "log_open_partner_profile_button"
+                if is_partner
+                else "log_open_referrer_profile_button"
+            ),
+            card_button_key=(
+                "log_open_partner_card_button" if is_partner else "log_open_referrer_card_button"
+            ),
+        )
+        text = (
+            translate("log_partner_suffix", partner_link=display or "—")
+            if is_partner
+            else translate("log_referral_suffix", referrer_link=display or "—")
+        )
+        rows = list(profile_keyboard.inline_keyboard) if profile_keyboard else []
+        if inviter_keyboard:
+            rows.extend(inviter_keyboard.inline_keyboard)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+        return text, keyboard
 
     async def _user_log_context(
         self,
@@ -140,6 +178,8 @@ class NotificationUserContextMixin:
         email: str | None = None,
         telegram_id: int | None = None,
         first_name: str | None = None,
+        profile_button_key: str = "log_open_profile_link",
+        card_button_key: str = "log_open_user_card_button",
     ) -> tuple[str, InlineKeyboardMarkup | None]:
         if self.session_factory is not None:
             try:
@@ -156,6 +196,11 @@ class NotificationUserContextMixin:
         public_id = await self._public_user_id(user_id, minishop_id)
         display = self._format_user_display(public_id, username, first_name, email, telegram_id)
         keyboard = self._build_profile_keyboard(
-            translate, telegram_id, user_id=user_id, minishop_id=public_id
+            translate,
+            telegram_id,
+            user_id=user_id,
+            minishop_id=public_id,
+            profile_button_key=profile_button_key,
+            card_button_key=card_button_key,
         )
         return display, keyboard

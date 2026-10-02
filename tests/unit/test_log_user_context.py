@@ -130,7 +130,7 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
             f"https://t.me/shop_bot?start=admin_user_{PUBLIC_ID}",
         )
 
-    async def test_registration_logs_identify_partner_for_telegram_email_and_oauth(self):
+    async def test_registration_logs_identify_inviter_for_telegram_email_and_oauth(self):
         cases = [
             ("notify_new_user_registration", {}),
             ("notify_new_email_user_registration", {"email": "user@example.test"}),
@@ -139,27 +139,138 @@ class LogUserContextTests(IsolatedAsyncioTestCase):
                 {"provider": "google", "email": "user@example.test"},
             ),
         ]
-        partner_public_id = "ms_" + "b" * 32
+        inviter_public_id = "ms_" + "b" * 32
+        users = {
+            42: SimpleNamespace(
+                minishop_id=PUBLIC_ID,
+                first_name="New user",
+                username="new_user",
+                email="user@example.test",
+                telegram_id=123456,
+            ),
+            7: SimpleNamespace(
+                minishop_id=inviter_public_id,
+                first_name="Alice <&>",
+                username="alice",
+                email="alice<&@example.test",
+                telegram_id=765432,
+            ),
+        }
         for language in ("ru", "en"):
             service = _service(language)
-            public_user_id = AsyncMock(
-                side_effect=lambda user_id, minishop_id=None: (
-                    partner_public_id if user_id == 7 else PUBLIC_ID
+            context = MagicMock()
+            context.__aenter__ = AsyncMock(return_value=SimpleNamespace())
+            context.__aexit__ = AsyncMock(return_value=False)
+            lookup = AsyncMock(side_effect=lambda session, user_id: users[user_id])
+            with (
+                patch.object(service, "session_factory", MagicMock(return_value=context)),
+                patch("bot.services.notification_user_context.user_dal.get_user_by_id", lookup),
+            ):
+                for is_partner in (False, True):
+                    for method, kwargs in cases:
+                        with self.subTest(language=language, partner=is_partner, method=method):
+                            lookup.reset_mock()
+                            await getattr(service, method)(
+                                user_id=42,
+                                minishop_id=PUBLIC_ID,
+                                referred_by_id=9 if is_partner else 7,
+                                partner_user_id=7 if is_partner else None,
+                                **kwargs,
+                            )
+                            call = service._send_to_log_channel.await_args
+                            message = call.args[0]
+                            header = service.i18n.gettext(
+                                language,
+                                "log_partner_suffix" if is_partner else "log_referral_suffix",
+                                partner_link="",
+                                referrer_link="",
+                            ).strip()
+                            self.assertIn(f"New user\n\n{header}\n", message)
+                            inviter_block = message.split(header, 1)[1]
+                            for field in (
+                                inviter_public_id,
+                                "@alice",
+                                "765432",
+                                "alice&lt;&amp;@example.test",
+                                "Alice &lt;&amp;&gt;",
+                            ):
+                                matching = [
+                                    line for line in inviter_block.splitlines() if field in line
+                                ]
+                                self.assertEqual(len(matching), 1, (field, inviter_block))
+                            self.assertEqual(
+                                [call.args[1] for call in lookup.await_args_list], [42, 7]
+                            )
+                            keyboard = call.kwargs["reply_markup"]
+                            buttons = [button for row in keyboard.inline_keyboard for button in row]
+                            self.assertEqual(len(buttons), 4)
+                            self.assertEqual(
+                                buttons[-1].url,
+                                f"https://t.me/shop_bot?start=admin_user_{inviter_public_id}",
+                            )
+                            card_key = (
+                                "log_open_partner_card_button"
+                                if is_partner
+                                else "log_open_referrer_card_button"
+                            )
+                            self.assertEqual(
+                                buttons[-1].text, service.i18n.gettext(language, card_key)
+                            )
+                            self.assertEqual(buttons[-2].url, "tg://user?id=765432")
+                            fallback = remove_profile_link_buttons(keyboard)
+                            self.assertEqual(
+                                [button.url for row in fallback.inline_keyboard for button in row],
+                                [buttons[1].url, buttons[-1].url],
+                            )
+
+    async def test_email_only_inviter_keeps_both_cards_with_navigation_fallbacks(self):
+        service = _service()
+        inviter_public_id = "ms_" + "b" * 32
+        inviter = SimpleNamespace(minishop_id=inviter_public_id, email="alice@example.test")
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(return_value=SimpleNamespace())
+        context.__aexit__ = AsyncMock(return_value=False)
+        service.bot_username = ""
+        with (
+            patch.object(service, "session_factory", MagicMock(return_value=context)),
+            patch(
+                "bot.services.notification_user_context.user_dal.get_user_by_id",
+                AsyncMock(side_effect=lambda session, user_id: inviter if user_id == 7 else None),
+            ),
+        ):
+            for web_url in ("https://app.example.test/app", ""):
+                service.settings.SUBSCRIPTION_MINI_APP_URL = web_url
+                await service.notify_new_email_user_registration(
+                    user_id=42,
+                    minishop_id=PUBLIC_ID,
+                    email="user@example.test",
+                    referred_by_id=7,
                 )
-            )
-            with patch.object(service, "_public_user_id", public_user_id):
-                for method, kwargs in cases:
-                    with self.subTest(language=language, method=method):
-                        await getattr(service, method)(
-                            user_id=42,
-                            minishop_id=PUBLIC_ID,
-                            referred_by_id=None,
-                            partner_user_id=7,
-                            **kwargs,
-                        )
-                        message = service._send_to_log_channel.await_args.args[0]
-                        self.assertIn(partner_public_id, message)
-                        self.assertIn("партнёром" if language == "ru" else "partner", message)
+                call = service._send_to_log_channel.await_args
+                self.assertIn("alice@example.test", call.args[0])
+                self.assertNotIn("Telegram", call.args[0])
+                self.assertNotIn("Name:", call.args[0])
+                buttons = [
+                    button for row in call.kwargs["reply_markup"].inline_keyboard for button in row
+                ]
+                self.assertEqual(len(buttons), 2)
+                if web_url:
+                    self.assertEqual(buttons[-1].url, f"{web_url}/admin/users/{inviter_public_id}")
+                else:
+                    self.assertEqual(buttons[-1].callback_data, "admin_user_card_from_list:7:0")
+
+    async def test_unavailable_inviter_does_not_prevent_registration_notification(self):
+        service = _service()
+        await service.notify_new_email_user_registration(
+            user_id=42,
+            minishop_id=PUBLIC_ID,
+            email="user@example.test",
+            referred_by_id=7,
+        )
+        call = service._send_to_log_channel.await_args
+        self.assertIn("\n\n🤝 <b>Invited by</b>\n—\n", call.args[0])
+        self.assertIn(PUBLIC_ID, call.args[0])
+        self.assertEqual(len(call.kwargs["reply_markup"].inline_keyboard), 2)
 
     async def test_rejected_profile_link_fallback_preserves_user_card(self):
         service = _service()
