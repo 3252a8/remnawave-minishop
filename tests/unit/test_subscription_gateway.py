@@ -13,6 +13,7 @@ from bot.app.web.context import SETTINGS
 from bot.app.web.webapp import subscription_access, subscription_gateway
 from bot.app.web.webapp.subscription_gateway import _representation
 from bot.services.remnawave_subscription_source import (
+    _MAX_PANEL_HEADER_BYTES,
     RemnawaveSubscriptionSource,
     SubscriptionTransportError,
     filter_client_headers,
@@ -160,7 +161,7 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
                     client.get(
                         shop_server.make_url("/s/" + "a" * 32),
                         headers={
-                            "User-Agent": "Happ/4.2.1/Windows/2609041405606",
+                            "user-agent": "Happ/4.2.1/Windows/2609041405606",
                             "Accept": "text/html, */*",
                         },
                     ) as response,
@@ -238,7 +239,11 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
                     None,
                     {
                         "User-Agent": "happ/1.0",
-                        "x-hwid": "device-a",
+                        "x-hwid": "device-123456",
+                        "x-device-os": "Windows",
+                        "x-ver-os": "11",
+                        "x-device-model": "Desktop",
+                        "x-remnawave-real-ip": "198.51.100.99",
                         "X-Policy": "present",
                         "Authorization": "Bearer secret",
                     },
@@ -248,10 +253,118 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.body, b"\x00\xff\nraw")
         self.assertEqual(result.headers["subscription-userinfo"], "upload=1")
         self.assertNotIn("Set-Cookie", result.headers)
-        self.assertEqual(seen["x-hwid"], "device-a")
+        self.assertEqual(seen["x-hwid"], "device-123456")
         self.assertEqual(seen["X-Policy"], "present")
         self.assertEqual(seen["x-remnawave-real-ip"], "192.0.2.2")
+        self.assertEqual(seen["x-device-os"], "Windows")
+        self.assertEqual(seen["x-ver-os"], "11")
+        self.assertEqual(seen["x-device-model"], "Desktop")
         self.assertNotIn("Authorization", seen)
+
+    async def test_large_client_settings_survive_the_public_gateway(self) -> None:
+        client_settings = "a" * (48 * 1024)
+
+        async def subscription(_request: web.Request) -> web.Response:
+            return web.Response(
+                body=b"raw profile",
+                headers={
+                    "X-Client-Settings": client_settings,
+                    "x-hwid-limit": "2",
+                    "Profile-Web-Page-Url": "https://panel.test/default",
+                },
+            )
+
+        panel_app = web.Application()
+        panel_app.router.add_get("/api/sub/{short_uuid}", subscription)
+        async with TestServer(panel_app) as panel_server:
+            shop_app = web.Application()
+            shop_app[SETTINGS] = settings_stub(
+                PANEL_API_URL=str(panel_server.make_url("/api")),
+                SUBSCRIPTION_GATEWAY_ENABLED=True,
+                SUBSCRIPTION_MINI_APP_URL="https://shop.test",
+                SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL=True,
+            )
+            shop_app[subscription_gateway._DELIVERY_SEMAPHORE_KEY] = asyncio.Semaphore(64)
+            shop_app.router.add_get(
+                "/s/{share_token}", subscription_gateway.subscription_gateway_route
+            )
+            with (
+                patch.object(
+                    subscription_gateway,
+                    "resolve_subscription_access",
+                    AsyncMock(return_value=SimpleNamespace(panel_short_uuid="short-id")),
+                ),
+                patch.object(subscription_gateway, "_rate_limited", AsyncMock(return_value=None)),
+            ):
+                async with (
+                    TestServer(shop_app) as shop_server,
+                    ClientSession(max_field_size=128 * 1024) as client,
+                    client.get(
+                        shop_server.make_url("/s/" + "a" * 32),
+                        headers={"user-agent": "Happ/1.0"},
+                    ) as response,
+                ):
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(await response.read(), b"raw profile")
+                    self.assertEqual(response.headers["X-Client-Settings"], client_settings)
+                    self.assertEqual(response.headers["x-hwid-limit"], "2")
+                    self.assertEqual(
+                        response.headers.getall("profile-web-page-url"),
+                        ["https://shop.test/s/" + "a" * 32 + "?view=page"],
+                    )
+
+    async def test_panel_header_limits_fail_instead_of_delivering_partial_settings(self) -> None:
+        for headers in (
+            {"X-Client-Settings": "a" * (_MAX_PANEL_HEADER_BYTES + 1)},
+            {f"X-Settings-{i}": "a" * (20 * 1024) for i in range(4)},
+        ):
+            with self.subTest(headers=list(headers)):
+
+                async def subscription(
+                    _request: web.Request, response_headers: dict[str, str] = headers
+                ) -> web.Response:
+                    return web.Response(body=b"raw", headers=response_headers)
+
+                app = web.Application()
+                app.router.add_get("/api/sub/{short_uuid}", subscription)
+                async with TestServer(app) as server:
+                    with self.assertRaises(SubscriptionTransportError) as failure:
+                        await RemnawaveSubscriptionSource(
+                            settings_stub(PANEL_API_URL=str(server.make_url("/api")))
+                        ).fetch(
+                            SimpleNamespace(panel_short_uuid="short-id"),
+                            DeliveryRequest(None, {"user-agent": "Happ/1.0"}, "192.0.2.2"),
+                        )
+                self.assertEqual(failure.exception.status, 502)
+
+    async def test_panel_hwid_rejections_keep_status_and_client_instructions(self) -> None:
+        for status, flag in ((404, "x-hwid-not-supported"), (403, "x-hwid-max-devices-reached")):
+            with self.subTest(status=status):
+
+                async def subscription(
+                    request: web.Request, response_status: int = status, response_flag: str = flag
+                ) -> web.Response:
+                    self.assertEqual(request.headers["x-hwid"], "device-123456")
+                    return web.Response(
+                        status=response_status,
+                        body=b"device limit",
+                        headers={response_flag: "true"},
+                    )
+
+                app = web.Application()
+                app.router.add_get("/api/sub/{short_uuid}", subscription)
+                async with TestServer(app) as server:
+                    result = await RemnawaveSubscriptionSource(
+                        settings_stub(PANEL_API_URL=str(server.make_url("/api")))
+                    ).fetch(
+                        SimpleNamespace(panel_short_uuid="short-id"),
+                        DeliveryRequest(
+                            None, {"USER-AGENT": "Happ/1.0", "X-HWID": "device-123456"}, "192.0.2.2"
+                        ),
+                    )
+                self.assertEqual(result.status, status)
+                self.assertEqual(result.body, b"device limit")
+                self.assertEqual(result.headers[flag], "true")
 
     async def test_html_challenge_is_an_upstream_error(self) -> None:
         async def challenge(_request: web.Request) -> web.Response:

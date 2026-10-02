@@ -5,11 +5,13 @@ import re
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import aiohttp
+from multidict import CIMultiDict
 
 from bot.services.subscription_delivery import DeliveryRequest, DeliveryResult
 from config.settings import Settings
 
 _SHORT_UUID = re.compile(r"[A-Za-z0-9_-]{6,80}\Z")
+_MAX_PANEL_HEADER_BYTES = 64 * 1024
 _HOP_HEADERS = {
     "connection",
     "keep-alive",
@@ -99,22 +101,32 @@ def filter_client_headers(
 def filter_panel_headers(
     headers: dict[str, str], *, edge_header: str = "X-Minishop-Edge-Token"
 ) -> dict[str, str]:
+    if (
+        sum(
+            len(name.encode("utf-8", "surrogateescape"))
+            + len(value.encode("utf-8", "surrogateescape"))
+            + 4
+            for name, value in headers.items()
+        )
+        + 2
+        > _MAX_PANEL_HEADER_BYTES
+    ):
+        raise SubscriptionTransportError(502)
     connection = next(
         (value for name, value in headers.items() if name.lower() == "connection"), ""
     )
     connection_tokens = {token.strip().lower() for token in connection.split(",") if token.strip()}
-    return {
+    result = {
         name: value
         for name, value in headers.items()
         if name.lower() not in _RESPONSE_BLOCKED | connection_tokens
         and name.lower() != edge_header.lower()
         and name.lower() != "location"
         and not name.lower().startswith("x-minishop-edge-")
-        and len(name) <= 128
-        and len(value) <= 4096
-        and "\r" not in value
-        and "\n" not in value
     }
+    if any(len(name) > 128 or "\r" in value or "\n" in value for name, value in result.items()):
+        raise SubscriptionTransportError(502)
+    return result
 
 
 class RemnawaveSubscriptionSource:
@@ -128,10 +140,12 @@ class RemnawaveSubscriptionSource:
         url = panel_subscription_url(
             str(self.settings.PANEL_API_URL or ""), short_uuid, request.client_type
         )
-        headers = filter_client_headers(
-            request.headers, edge_header=self.settings.MINISHOP_EDGE_TOKEN_HEADER
+        headers = CIMultiDict(
+            filter_client_headers(
+                request.headers, edge_header=self.settings.MINISHOP_EDGE_TOKEN_HEADER
+            )
         )
-        user_agent = request.headers.get("User-Agent", "").strip()
+        user_agent = headers.get("User-Agent", "").strip()
         if not user_agent:
             raise SubscriptionTransportError(400)
         headers.update(
@@ -153,11 +167,20 @@ class RemnawaveSubscriptionSource:
                     cookie_jar=aiohttp.DummyCookieJar(),
                     auto_decompress=True,
                     trust_env=False,
+                    max_line_size=_MAX_PANEL_HEADER_BYTES,
+                    max_field_size=_MAX_PANEL_HEADER_BYTES,
                 ) as session,
                 session.get(url, headers=headers, allow_redirects=False) as response,
             ):
                 if 300 <= response.status < 400:
                     raise SubscriptionTransportError(502)
+                if sum(len(name) + len(value) + 4 for name, value in response.raw_headers) + 2 > (
+                    _MAX_PANEL_HEADER_BYTES
+                ):
+                    raise SubscriptionTransportError(502)
+                response_headers = filter_panel_headers(
+                    dict(response.headers), edge_header=self.settings.MINISHOP_EDGE_TOKEN_HEADER
+                )
                 if response.content_length and response.content_length > 8 * 1024 * 1024:
                     raise SubscriptionTransportError(502)
                 body = bytearray()
@@ -176,9 +199,7 @@ class RemnawaveSubscriptionSource:
                     raise SubscriptionTransportError(502)
                 return DeliveryResult(
                     status=response.status,
-                    headers=filter_panel_headers(
-                        dict(response.headers), edge_header=self.settings.MINISHOP_EDGE_TOKEN_HEADER
-                    ),
+                    headers=response_headers,
                     body=bytes(body),
                 )
         except TimeoutError as exc:

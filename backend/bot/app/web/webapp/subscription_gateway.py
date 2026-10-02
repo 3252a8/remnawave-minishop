@@ -4,6 +4,7 @@ import asyncio
 from collections import deque
 
 from aiohttp import web
+from multidict import CIMultiDict
 
 from bot.app.web.context import get_settings
 from bot.services.remnawave_subscription_source import (
@@ -167,7 +168,7 @@ async def subscription_gateway_route(request: web.Request) -> web.Response:
         return _error(exc.status)
     finally:
         semaphore.release()
-    headers = dict(result.headers)
+    headers = CIMultiDict(result.headers)
     if settings.SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL:
         page_url = _public_install_url(request, token)
         if page_url:

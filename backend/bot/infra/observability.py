@@ -10,6 +10,7 @@ from typing import Protocol, cast, runtime_checkable
 from aiohttp import web
 
 from bot.infra.performance import PerformanceScope, current_scope
+from bot.utils.subscription_log_redaction import redact_subscription_urls
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,7 @@ async def observability_error_middleware(
             source="aiohttp.handler",
             attributes={
                 "method": request.method,
-                "path": request.path,
+                "path": redact_subscription_urls(request.path),
             },
         )
         raise

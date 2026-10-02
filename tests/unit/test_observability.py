@@ -77,11 +77,22 @@ def test_report_error_keeps_reporter_failures_isolated(caplog: pytest.LogCapture
     assert "Error reporter failed while handling test.source" in caplog.text
 
 
-def test_observability_middleware_reports_handler_exception() -> None:
+@pytest.mark.parametrize(
+    ("path", "reported_path"),
+    [
+        ("/boom", "/boom"),
+        ("/s/" + "a" * 32, "/s/[redacted]"),
+        (
+            "/api/subscription-guides/public/" + "a" * 32,
+            "/api/subscription-guides/public/[redacted]",
+        ),
+    ],
+)
+def test_observability_middleware_reports_handler_exception(path: str, reported_path: str) -> None:
     reporter = RecordingReporter()
     app = web.Application(middlewares=[observability_error_middleware])
     set_service_context(app, ERROR_REPORTER_SERVICE_KEY, reporter)
-    request = make_mocked_request("GET", "/boom", app=app)
+    request = make_mocked_request("GET", path, app=app)
 
     async def handler(request: web.Request) -> web.Response:
         raise RuntimeError("boom")
@@ -97,4 +108,4 @@ def test_observability_middleware_reports_handler_exception() -> None:
     assert isinstance(exc, RuntimeError)
     assert str(exc) == "boom"
     assert source == "aiohttp.handler"
-    assert attributes == {"method": "GET", "path": "/boom"}
+    assert attributes == {"method": "GET", "path": reported_path}

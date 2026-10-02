@@ -31,6 +31,7 @@ from bot.plugins import (
     setup_web_plugins,
 )
 from bot.utils.request_security import request_client_ip
+from bot.utils.subscription_log_redaction import redact_subscription_urls
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,28 @@ class SecureSimpleRequestHandler(SimpleRequestHandler):
 
 class TrustedProxyAccessLogger(AccessLogger):
     """Aiohttp access logger that respects trusted X-Forwarded-For headers."""
+
+    def __init__(self, logger: logging.Logger, log_format: str = AccessLogger.LOG_FORMAT) -> None:
+        super().__init__(logger, log_format)
+        # The base class explicitly shares AccessLogger._FORMAT_CACHE. Always
+        # select our methods, even when another server cached the same format.
+        self._log_format, self._methods = self.compile_format(log_format)
+
+    @staticmethod
+    def _format_r(request: web.BaseRequest, response: web.StreamResponse, time: float) -> str:
+        return redact_subscription_urls(AccessLogger._format_r(request, response, time))
+
+    @staticmethod
+    def _format_i(
+        key: str, request: web.BaseRequest, response: web.StreamResponse, time: float
+    ) -> str:
+        return redact_subscription_urls(AccessLogger._format_i(key, request, response, time))
+
+    @staticmethod
+    def _format_o(
+        key: str, request: web.BaseRequest, response: web.StreamResponse, time: float
+    ) -> str:
+        return redact_subscription_urls(AccessLogger._format_o(key, request, response, time))
 
     def compile_format(self, log_format: str) -> tuple[str, list[KeyMethod]]:
         methods = []
