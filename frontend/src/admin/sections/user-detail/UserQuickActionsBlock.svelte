@@ -5,7 +5,7 @@
     AdminSectionHeader,
     AdminSelect,
   } from "$components/patterns/admin/index.js";
-  import { Checkbox, Input } from "$components/ui/index.js";
+  import { Checkbox, DateInput, Input } from "$components/ui/index.js";
   import { Label } from "$components/ui/primitives.js";
   import { CalendarDays, Minus, Plus, RefreshCw } from "$components/ui/icons.js";
   import type { SelectOption, TranslateFn } from "./userDetailTypes";
@@ -121,12 +121,13 @@
         {:else}
           <Label.Root class="admin-field-label admin-extend-field admin-user-extend-days-field">
             <span>{at("user_extend_end_date", {}, "New end date")}</span>
-            <Input
-              class="input"
-              type="date"
+            <DateInput
               min={minEndDateIso}
               bind:value={usersStore.userExtendEndDate}
-              aria-label={at("user_extend_end_date", {}, "New end date")}
+              ariaLabel={at("user_extend_end_date", {}, "New end date")}
+              locale={at("calendar_locale", {}, "en")}
+              clearLabel={at("clear_date", {}, "Clear date")}
+              disabled={userActionBusy}
             />
           </Label.Root>
         {/if}

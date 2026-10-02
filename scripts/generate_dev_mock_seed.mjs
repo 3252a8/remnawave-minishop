@@ -1,3 +1,4 @@
+import { withDemoIdentities } from "../frontend/src/lib/webapp/demoIdentities.ts";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -5,22 +6,42 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
-const datasetPath = path.join(repoRoot, "frontend", "src", "lib", "webapp", "demoDataset.js");
-const minishopSeedPath = path.join(repoRoot, "deploy", "dev", "seed-minishop-mock-data.sql");
-const remnawaveSeedPath = path.join(repoRoot, "deploy", "dev", "seed-remnawave-mock-data.sql");
+const datasetPath = path.join(
+  repoRoot,
+  "frontend",
+  "src",
+  "lib",
+  "webapp",
+  "demoDataset.js",
+);
+const minishopSeedPath = path.join(
+  repoRoot,
+  "deploy",
+  "dev",
+  "seed-minishop-mock-data.sql",
+);
+const remnawaveSeedPath = path.join(
+  repoRoot,
+  "deploy",
+  "dev",
+  "seed-remnawave-mock-data.sql",
+);
 const checkOnly = process.argv.includes("--check");
 const passwordHash =
   "pbkdf2_sha256$260000$ZGV2LW1vY2stc2FsdC12MQ$yidwfE8twrgh7F9p4vZ0grT2zjvEOGIPkSD5XEUt1Nk";
 
 const datasetSource = await readFile(datasetPath, "utf8");
-const { DEMO_DATASET } = await import(
+const { DEMO_DATASET: rawDataset } = await import(
   `data:text/javascript;base64,${Buffer.from(datasetSource).toString("base64")}`
 );
+const DEMO_DATASET = withDemoIdentities(rawDataset);
 const datasetSha256 = createHash("sha256").update(datasetSource).digest("hex");
 const anchor = DEMO_DATASET.generatedFrom?.dumpCreatedAt;
 
 if (!anchor || !DEMO_DATASET.generatedFrom?.anonymized) {
-  throw new Error("Refusing to generate dev seeds from a dataset without an anonymized timestamp");
+  throw new Error(
+    "Refusing to generate dev seeds from a dataset without an anonymized timestamp",
+  );
 }
 
 function uniqueBy(items, key) {
@@ -45,7 +66,11 @@ function flexibleLimitSnapshot({
 }) {
   const items = [];
   if (extraDevices > 0) {
-    items.push({ kind: "devices", extra_units: extraDevices, traffic_bonus_gb: 0 });
+    items.push({
+      kind: "devices",
+      extra_units: extraDevices,
+      traffic_bonus_gb: 0,
+    });
   }
   if (regularLimitGb != null) {
     items.push({
@@ -164,8 +189,10 @@ const flexibleLimitRenewalPayments = [
 ];
 
 const subscriptions = uniqueBy(
-  Object.values(DEMO_DATASET.adminUserDetails || {}).flatMap((detail) => detail.subscriptions || []),
-  "subscription_id"
+  Object.values(DEMO_DATASET.adminUserDetails || {}).flatMap(
+    (detail) => detail.subscriptions || [],
+  ),
+  "subscription_id",
 );
 const subscriptionsByUser = new Map();
 for (const subscription of subscriptions) {
@@ -184,11 +211,14 @@ const users = (DEMO_DATASET.adminUsers || []).map((user) => ({
   email: safeEmail(user),
   original_telegram_linked: Boolean(user.telegram_linked),
   telegram_id: null,
-  panel_user_uuid: subscriptionsByUser.get(user.user_id)?.panel_user_uuid || null,
+  panel_user_uuid:
+    subscriptionsByUser.get(user.user_id)?.panel_user_uuid || null,
   password_hash: user.password_auth_enabled ? passwordHash : null,
 }));
 
-const supportMessages = Object.values(DEMO_DATASET.supportMessages || {}).flat();
+const supportMessages = Object.values(
+  DEMO_DATASET.supportMessages || {},
+).flat();
 const sourcePayments = [
   ...flexibleLimitRenewalPayments,
   ...(DEMO_DATASET.adminPayments || []),
@@ -198,7 +228,9 @@ for (const payment of sourcePayments) {
   if (String(payment.status || "").toLowerCase() !== "succeeded") continue;
   const current = latestSucceededPaymentByUser.get(payment.user_id);
   const paymentTime = Date.parse(payment.updated_at || payment.created_at || 0);
-  const currentTime = Date.parse(current?.updated_at || current?.created_at || 0);
+  const currentTime = Date.parse(
+    current?.updated_at || current?.created_at || 0,
+  );
   if (!current || paymentTime > currentTime) {
     latestSucceededPaymentByUser.set(payment.user_id, payment);
   }
@@ -206,7 +238,7 @@ for (const payment of sourcePayments) {
 const reversiblePaymentIds = new Set(
   [...latestSucceededPaymentByUser.values()]
     .filter((payment) => subscriptionsByUser.has(payment.user_id))
-    .map((payment) => payment.payment_id)
+    .map((payment) => payment.payment_id),
 );
 const payments = sourcePayments.map((payment) => ({
   ...payment,
@@ -216,8 +248,10 @@ const payments = sourcePayments.map((payment) => ({
     : null,
 }));
 const payers = uniqueBy(
-  payments.filter((payment) => String(payment.status).toLowerCase() === "succeeded"),
-  "user_id"
+  payments.filter(
+    (payment) => String(payment.status).toLowerCase() === "succeeded",
+  ),
+  "user_id",
 );
 const remainingUserIds = users.map((user) => user.user_id);
 const usedAttributionIds = new Set();
@@ -229,11 +263,13 @@ for (const campaign of DEMO_DATASET.ads || []) {
   const selected = [];
   for (const payment of payers) {
     if (selected.length >= wantedPayers) break;
-    if (!usedAttributionIds.has(payment.user_id)) selected.push(payment.user_id);
+    if (!usedAttributionIds.has(payment.user_id))
+      selected.push(payment.user_id);
   }
   for (const userId of remainingUserIds) {
     if (selected.length >= wantedUsers) break;
-    if (!usedAttributionIds.has(userId) && !selected.includes(userId)) selected.push(userId);
+    if (!usedAttributionIds.has(userId) && !selected.includes(userId))
+      selected.push(userId);
   }
   selected.forEach((userId, index) => {
     usedAttributionIds.add(userId);
@@ -242,7 +278,9 @@ for (const campaign of DEMO_DATASET.ads || []) {
       ad_campaign_id: campaign.id,
       first_start_at: campaign.created_at,
       trial_activated_at:
-        index < Number(campaign.stats?.trial_activations || 0) ? campaign.created_at : null,
+        index < Number(campaign.stats?.trial_activations || 0)
+          ? campaign.created_at
+          : null,
     });
   });
 }
@@ -287,7 +325,8 @@ const panelUsers = users
       telegram_id: 900000000000000 + Number(user.user_id),
       hwid_device_limit: Number(subscription.hwid_device_limit || 0),
       tag: "mini-shop-docs-demo",
-      last_triggered_threshold: limit > 0 ? Math.min(100, Math.floor((used / limit) * 100)) : 0,
+      last_triggered_threshold:
+        limit > 0 ? Math.min(100, Math.floor((used / limit) * 100)) : 0,
       tariff_key: subscription.tariff_key || "",
     };
   })
@@ -295,11 +334,15 @@ const panelUsers = users
 
 function sqlJson(value, tag) {
   const text = JSON.stringify(value);
-  if (text.includes(`$${tag}$`)) throw new Error(`Dataset contains reserved SQL delimiter ${tag}`);
+  if (text.includes(`$${tag}$`))
+    throw new Error(`Dataset contains reserved SQL delimiter ${tag}`);
   return `$${tag}$${text}$${tag}$::jsonb`;
 }
 
-const header = (target, counts) => `-- Generated by scripts/generate_dev_mock_seed.mjs. Do not edit manually.
+const header = (
+  target,
+  counts,
+) => `-- Generated by scripts/generate_dev_mock_seed.mjs. Do not edit manually.
 -- Source: ${DEMO_DATASET.generatedFrom.source} (${anchor}, anonymized)
 -- Dataset SHA-256: ${datasetSha256}
 -- Target: ${target}
@@ -308,7 +351,7 @@ const header = (target, counts) => `-- Generated by scripts/generate_dev_mock_se
 
 const minishopSql = `${header(
   "Minishop PostgreSQL",
-  `users=${users.length}, subscriptions=${subscriptions.length}, payments=${payments.length}, reversible_payments=${reversiblePaymentIds.size}, logs=${payload.logs.length}, tickets=${payload.tickets.length}, messages=${supportMessages.length}, promos=${payload.promos.length}, ads=${payload.ads.length}`
+  `users=${users.length}, subscriptions=${subscriptions.length}, payments=${payments.length}, reversible_payments=${reversiblePaymentIds.size}, logs=${payload.logs.length}, tickets=${payload.tickets.length}, messages=${supportMessages.length}, promos=${payload.promos.length}, ads=${payload.ads.length}`,
 )}BEGIN;
 
 CREATE TEMP TABLE dev_demo_payload (payload jsonb NOT NULL) ON COMMIT DROP;
@@ -361,7 +404,7 @@ WITH source AS (
          jsonb_array_elements(payload -> 'users') AS item
 )
 INSERT INTO users (
-    user_id, username, email, email_verified_at, password_hash, password_set_at,
+    user_id, account_id, username, email, email_verified_at, password_hash, password_set_at,
     telegram_id, telegram_photo_url, telegram_notifications_status,
     telegram_notifications_checked_at, telegram_notifications_blocked_at,
     first_name, last_name, language_code, registration_date, is_banned,
@@ -369,6 +412,7 @@ INSERT INTO users (
 )
 SELECT
     (item ->> 'user_id')::bigint,
+    substr(item ->> 'minishop_id', 4)::uuid,
     NULLIF(item ->> 'username', ''),
     NULLIF(item ->> 'email', ''),
     CASE WHEN COALESCE((item ->> 'email_verified')::boolean, false)
@@ -391,6 +435,7 @@ SELECT
     false
 FROM source
 ON CONFLICT (user_id) DO UPDATE SET
+    account_id = EXCLUDED.account_id,
     username = EXCLUDED.username,
     email = EXCLUDED.email,
     email_verified_at = EXCLUDED.email_verified_at,
@@ -1225,7 +1270,9 @@ async function updateGeneratedFile(filePath, contents) {
   if (checkOnly) {
     const current = await readFile(filePath, "utf8").catch(() => "");
     if (current !== contents) {
-      throw new Error(`${path.relative(repoRoot, filePath)} is stale; run npm run dev:stand:generate:mocks`);
+      throw new Error(
+        `${path.relative(repoRoot, filePath)} is stale; run npm run dev:stand:generate:mocks`,
+      );
     }
     return;
   }
@@ -1238,5 +1285,5 @@ await Promise.all([
 ]);
 
 console.log(
-  `${checkOnly ? "Verified" : "Generated"} docs-demo dev seeds (${users.length} users, ${subscriptions.length} subscriptions, ${payments.length} payments, ${payload.logs.length} logs)`
+  `${checkOnly ? "Verified" : "Generated"} docs-demo dev seeds (${users.length} users, ${subscriptions.length} subscriptions, ${payments.length} payments, ${payload.logs.length} logs)`,
 );

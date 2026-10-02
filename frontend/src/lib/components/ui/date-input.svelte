@@ -11,6 +11,13 @@
     locale = "en",
     withTime = false,
     disabled = false,
+    min = "",
+    id = undefined,
+    class: className = "",
+    invalid = false,
+    describedBy = undefined,
+    onValueChange,
+    onClear,
   }: {
     value?: string;
     ariaLabel: string;
@@ -18,25 +25,41 @@
     locale?: string;
     withTime?: boolean;
     disabled?: boolean;
+    min?: string;
+    id?: string;
+    class?: string;
+    invalid?: boolean;
+    describedBy?: string;
+    onValueChange?: (value: string) => void;
+    onClear?: () => void;
   } = $props();
   let open = $state(false);
   let trigger = $state<HTMLButtonElement | null>(null);
-  const date = $derived.by(() => {
-    if (!value) return undefined;
+  function parseValue(raw: string): DateValue | undefined {
+    if (!raw) return undefined;
     try {
-      return withTime ? parseDateTime(value) : parseDate(value);
+      return withTime ? parseDateTime(raw) : parseDate(raw);
     } catch {
       return undefined;
     }
-  });
+  }
+  const date = $derived(parseValue(value));
+  const minimumDate = $derived(parseValue(min));
+  function localPlaceholder(): DateValue {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+    return parseDateTime(local.toISOString().slice(0, 16));
+  }
   function update(next: DateValue | undefined) {
     value = next ? next.toString().slice(0, withTime ? 16 : 10) : "";
+    onValueChange?.(value);
   }
 </script>
 
 <DatePicker.Root
   value={date}
-  placeholder={withTime ? parseDateTime(new Date().toISOString().slice(0, 16)) : undefined}
+  minValue={minimumDate}
+  placeholder={withTime ? localPlaceholder() : undefined}
   onValueChange={update}
   bind:open
   {disabled}
@@ -48,8 +71,14 @@
   weekStartsOn={1}
 >
   <DatePicker.Label class="sr-only">{ariaLabel}</DatePicker.Label>
-  <div class="date-input-shell">
-    <DatePicker.Input class="input date-input" aria-label={ariaLabel}>
+  <div class="date-input-shell" class:with-time={withTime}>
+    <DatePicker.Input
+      {id}
+      class={`input date-input ${className} ${invalid ? "input-error" : ""}`.trim()}
+      aria-label={ariaLabel}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
+    >
       {#snippet children({ segments })}
         {#each segments as segment, index (`${segment.part}-${index}`)}
           <DatePicker.Segment part={segment.part} class="date-input-segment"
@@ -70,6 +99,7 @@
         {disabled}
         onclick={() => {
           update(undefined);
+          onClear?.();
           trigger?.focus();
         }}><X size={14} /></Button
       >
@@ -139,6 +169,16 @@
   :global(.date-input-segment:focus) {
     background: var(--admin-surface-2, var(--panel));
     box-shadow: 0 0 0 2px var(--accent);
+  }
+  :global(.date-input-segment[data-segment="literal"]) {
+    padding: 0;
+  }
+  :global(.date-input-clear.btn) {
+    width: 30px;
+    height: 30px;
+    min-height: 30px;
+    flex: 0 0 auto;
+    padding: 0;
   }
   :global(.date-input-trigger),
   :global(.date-input-nav) {
@@ -219,5 +259,17 @@
   }
   :global(.date-input-day[data-disabled]) {
     cursor: default;
+  }
+  @media (max-width: 420px) {
+    :global(.date-input-shell.with-time .date-input) {
+      gap: 0;
+      padding-inline: 6px;
+    }
+    :global(.date-input-shell.with-time .date-input-trigger),
+    :global(.date-input-shell.with-time .date-input-clear.btn) {
+      width: 24px;
+      height: 24px;
+      min-height: 24px;
+    }
   }
 </style>

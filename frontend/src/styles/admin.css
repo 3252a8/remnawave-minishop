@@ -315,6 +315,19 @@
   min-width: 0;
 }
 
+.admin-header.is-user-detail {
+  min-height: 0;
+  padding-top: 20px;
+  padding-bottom: 4px;
+  border-bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.admin-header.is-user-detail + .admin-main {
+  padding-top: 8px;
+}
+
 .admin-header-title-line {
   display: flex;
   align-items: center;
@@ -4619,6 +4632,10 @@
 
   .admin-main {
     padding: 16px;
+  }
+
+  .admin-header.is-user-detail {
+    padding-top: 8px;
   }
 }
 

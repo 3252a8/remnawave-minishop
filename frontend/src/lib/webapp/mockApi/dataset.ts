@@ -1,3 +1,4 @@
+import { withDemoIdentities } from "../demoIdentities.js";
 import { DEMO_DATASET } from "../demoDataset.js";
 import { structuredCloneSafe } from "../../safeClone.js";
 
@@ -6,6 +7,7 @@ export type DemoRecord = Record<string, unknown>;
 export type DemoAdminUser = DemoRecord & {
   id?: number | string | null;
   user_id?: number | string | null;
+  minishop_id?: string | null;
   telegram_id?: number | string | null;
   username?: string | null;
   first_name?: string | null;
@@ -77,7 +79,7 @@ export type DemoDataset = DemoRecord & {
   device_topup_options?: DemoRecord;
 };
 
-export const DATASET = DEMO_DATASET as unknown as DemoDataset;
+export const DATASET = withDemoIdentities(DEMO_DATASET) as unknown as DemoDataset;
 
 export function defaultClone<T>(value: T): T {
   return structuredCloneSafe(value);

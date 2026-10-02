@@ -14,6 +14,15 @@ async function expectContainedBy(element: Locator, container: Locator): Promise<
   );
 }
 
+async function enterDateTime(shell: Locator, value: string): Promise<void> {
+  const clear = shell.getByRole("button", { name: /^Очистить дату:/ });
+  if (await clear.count()) await clear.click();
+  const [year, month, day, hour, minute] = value.split(/[-T:]/);
+  for (const [part, text] of Object.entries({ year, month, day, hour, minute })) {
+    await shell.locator(`[data-segment="${part}"]`).pressSequentially(text);
+  }
+}
+
 test("broadcast editor is compact and history uses a sortable detail table", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
@@ -36,15 +45,17 @@ test("broadcast editor is compact and history uses a sortable detail table", asy
 
   const scheduleControl = page.locator(".broadcast-schedule-control");
   await scheduleControl.getByRole("checkbox").click();
-  const scheduleInput = scheduleControl.locator('input[type="datetime-local"]');
+  await expect(scheduleControl.locator('input[type="datetime-local"]')).toHaveCount(0);
+  const scheduleInput = scheduleControl.locator(".date-input");
   await expect(scheduleInput).toBeVisible();
+  await expectContainedBy(scheduleInput.locator(".date-input-trigger"), scheduleInput);
   await expect(scheduleControl.getByText("Отправить позже", { exact: true })).toHaveCount(0);
   const primaryControls = page.locator(
     [
       ".broadcast-audience-control .admin-select-trigger",
       '.broadcast-channels .broadcast-channel:first-child [role="checkbox"]',
       ".broadcast-language-control .message-locale-tab:first-child",
-      '.broadcast-schedule-control input[type="datetime-local"]',
+      ".broadcast-schedule-control .date-input",
     ].join(", ")
   );
   await expect(primaryControls).toHaveCount(4);
@@ -63,11 +74,13 @@ test("broadcast editor is compact and history uses a sortable detail table", asy
   expect(scheduledControlBoxes.map((box) => Math.round(box.height))).toEqual(
     initialControlBoxes.map((box) => Math.round(box.height))
   );
-  const minimumSchedule = await scheduleInput.getAttribute("min");
-  expect(minimumSchedule).not.toBeNull();
-  expect(new Date(minimumSchedule || "").getTime()).toBeGreaterThan(Date.now() - 60_000);
-
-  await scheduleInput.fill("2020-01-01T00:00");
+  await scheduleControl.locator(".date-input-trigger").click();
+  const calendar = page.locator(".date-input-popover");
+  await expect(calendar).toBeVisible();
+  await expect(calendar.locator(".date-input-day[data-disabled]").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(calendar).toBeHidden();
+  await enterDateTime(scheduleControl.locator(".date-input-shell"), "2020-01-01T00:00");
   await expect(scheduleInput).toHaveAttribute("aria-invalid", "true");
   await expect(scheduleInput).toHaveClass(/input-error/);
   await expect(scheduleControl).toHaveClass(/is-invalid/);
@@ -124,10 +137,14 @@ test("broadcast history opens details on mobile and scheduled items can be edite
 
   const scheduleControl = page.locator(".broadcast-schedule-control");
   await scheduleControl.getByRole("checkbox").click();
-  const editorScheduleInput = scheduleControl.locator('input[type="datetime-local"]');
+  const editorScheduleInput = scheduleControl.locator(".date-input");
   await expect(editorScheduleInput).toBeVisible();
   await expectContainedBy(scheduleControl, page.locator(".broadcast-setup-grid"));
   await expectContainedBy(editorScheduleInput, scheduleControl);
+  await expectContainedBy(editorScheduleInput.locator(".date-input-trigger"), editorScheduleInput);
+  expect(
+    await editorScheduleInput.evaluate((node) => node.scrollWidth - node.clientWidth)
+  ).toBeLessThanOrEqual(1);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   ).toBeLessThanOrEqual(1);
@@ -140,21 +157,30 @@ test("broadcast history opens details on mobile and scheduled items can be edite
   const detail = page.getByRole("dialog");
   await expect(detail).toBeVisible();
   await detail.getByRole("button", { name: "Изменить время" }).click();
-  const scheduleInput = detail.locator('input[type="datetime-local"]');
+  await expect(detail.locator('input[type="datetime-local"]')).toHaveCount(0);
+  const scheduleInput = detail.locator(".date-input");
   await expect(scheduleInput).toBeVisible();
   const rescheduleRow = detail.locator(".broadcast-reschedule-row");
   await expectContainedBy(rescheduleRow, detail.locator(".admin-broadcast-dialog"));
   await expectContainedBy(scheduleInput, rescheduleRow);
+  await expectContainedBy(scheduleInput.locator(".date-input-trigger"), scheduleInput);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   ).toBeLessThanOrEqual(1);
-  await scheduleInput.fill("2020-01-01T00:00");
+  await detail.locator(".date-input-trigger").click();
+  const calendar = page.locator(".date-input-popover");
+  await expect(calendar).toBeVisible();
+  await expectContainedBy(calendar, page.locator("body"));
+  await page.keyboard.press("Escape");
+  await expect(calendar).toBeHidden();
+  await expect(detail).toBeVisible();
+  await enterDateTime(detail.locator(".date-input-shell"), "2020-01-01T00:00");
   await expect(scheduleInput).toHaveAttribute("aria-invalid", "true");
   await expect(scheduleInput).toHaveClass(/input-error/);
   await expect(detail.getByRole("button", { name: "Обновить" })).toBeDisabled();
   await expect(detail.getByText("Время отправки должно быть в будущем")).toBeVisible();
-  await scheduleInput.fill("2031-05-20T14:30");
-  await expect(scheduleInput).toHaveAttribute("aria-invalid", "false");
+  await enterDateTime(detail.locator(".date-input-shell"), "2031-05-20T14:30");
+  await expect(scheduleInput).not.toHaveAttribute("aria-invalid", "true");
   await detail.getByRole("button", { name: "Обновить" }).click();
   await expect(detail).toContainText("20.05.2031");
 

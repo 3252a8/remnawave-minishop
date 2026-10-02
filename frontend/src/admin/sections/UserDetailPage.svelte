@@ -7,7 +7,7 @@
   import type { Tariff } from "$lib/admin/stores/tariffsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import { trafficStrategyOptions as buildTrafficStrategyOptions } from "$lib/admin/tariffSettings";
-  import "./UserDetailModal.css";
+  import "./UserDetailPage.css";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MoneyFormatter = (value: unknown, currency?: string | null) => string;
@@ -40,7 +40,6 @@
     openTelegramProfileLink = () => false,
     onOpenPaymentCard,
     onOpenPartnerCard,
-    onClose = () => usersStore.closeUser(),
     routePrefix = "",
   }: {
     at: TranslateFn;
@@ -60,7 +59,6 @@
     openTelegramProfileLink?: (url: string) => boolean;
     onOpenPaymentCard: (paymentId: number) => void;
     onOpenPartnerCard: (partnerId: string) => void;
-    onClose?: () => void;
     routePrefix?: string;
   } = $props();
 
@@ -551,12 +549,14 @@
   {openedUserDetail}
   {userDetailLoading}
   {routePrefix}
-  {onClose}
+  onRetry={() => {
+    if (openedUser)
+      void usersStore.openUser(openedUser.minishop_id || openedUser.user_id, { skipPush: true });
+  }}
   {openedUserAvatarUrl}
   {openAvatarPreview}
   {userInitials}
   {userDisplayName}
-  {userSecondaryName}
   {openUserTelegramProfile}
   {openedUserTelegramProfileLink}
   {openedUserTelegramProfileHint}

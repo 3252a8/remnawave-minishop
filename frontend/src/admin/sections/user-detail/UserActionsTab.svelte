@@ -4,7 +4,6 @@
   import UserDangerActionsCard from "./UserDangerActionsCard.svelte";
   import UserBalanceActionCard from "./UserBalanceActionCard.svelte";
   import UserHwidLimitActionCard from "./UserHwidLimitActionCard.svelte";
-  import UserQuickActionsBlock from "./UserQuickActionsBlock.svelte";
   import UserSquadOverridesActionCard from "./UserSquadOverridesActionCard.svelte";
   import UserTariffActionCard from "./UserTariffActionCard.svelte";
   import UserTrafficGrantActionCard from "./UserTrafficGrantActionCard.svelte";
@@ -19,12 +18,6 @@
     openedUser?: AdminUser | null;
     openedUserDetail?: AdminUserDetail | null;
     userActionBusy?: boolean;
-    extendTariffItems?: SelectOption[];
-    extendTariffsLoading?: boolean;
-    userExtendDaysValid?: boolean;
-    userExtendTariffValid?: boolean;
-    extendTariffRequired?: boolean;
-    selectExtendTariff: (value: string) => void;
     periodTariffItems?: SelectOption[];
     tariffActionDirty?: boolean;
     tariffHwidLimitChangeAvailable?: boolean;
@@ -65,12 +58,6 @@
     openedUser = null,
     openedUserDetail = null,
     userActionBusy = false,
-    extendTariffItems = [],
-    extendTariffsLoading = false,
-    userExtendDaysValid = false,
-    userExtendTariffValid = false,
-    extendTariffRequired = false,
-    selectExtendTariff,
     periodTariffItems = [],
     tariffActionDirty = false,
     tariffHwidLimitChangeAvailable = false,
@@ -107,25 +94,10 @@
   }: Props = $props();
 
   const activeSubscription = $derived(openedUserDetail?.active_subscription ?? null);
-  const extraHwidDevices = $derived(Number(activeSubscription?.extra_hwid_devices || 0));
-  const activeSubscriptionEndDate = $derived(String(activeSubscription?.end_date || ""));
   const openedUserIsBanned = $derived(Boolean(openedUser?.is_banned));
 </script>
 
 <Tabs.Content value="actions" class="admin-tabs-content admin-actions-tab">
-  <UserQuickActionsBlock
-    {at}
-    {userActionBusy}
-    {extendTariffItems}
-    {extendTariffsLoading}
-    {userExtendDaysValid}
-    {userExtendTariffValid}
-    {extendTariffRequired}
-    {extraHwidDevices}
-    {activeSubscriptionEndDate}
-    {selectExtendTariff}
-  />
-
   {#if openedUserDetail?.balance}
     <AdminExtensionPoint
       target="admin.users.detail.balance"

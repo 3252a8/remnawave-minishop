@@ -338,7 +338,11 @@ async function openAdminSection(page: Page, id: string): Promise<Locator> {
 }
 
 async function closeDialog(card: Locator): Promise<void> {
-  await card.locator(".dialog-head button").click();
+  if (await card.evaluate((element) => element.classList.contains("admin-user-detail-page"))) {
+    await card.page().locator('[data-admin-action="back-from-user"]').click();
+  } else {
+    await card.locator(".dialog-head button").click();
+  }
   await expect(card).toBeHidden();
 }
 
@@ -688,9 +692,9 @@ async function assertMobileExtendTariffSelectDoesNotTapThrough(
 ): Promise<void> {
   await page.setViewportSize(MOBILE_VIEWPORT);
 
-  const actionsTab = userDialog.locator(".admin-tabs-trigger").nth(3);
+  const actionsTab = userDialog.locator('.admin-tabs-trigger[data-value="subscription"]');
   await actionsTab.click();
-  const actionsPanel = userDialog.locator(".admin-actions-tab");
+  const actionsPanel = userDialog.locator('.admin-tabs-content[data-value="subscription"]');
   await expect(actionsPanel).toBeVisible();
 
   await page.evaluate(() => {
@@ -761,7 +765,7 @@ async function openUserDetailFromCurrentSection(
     checkTariffSave?: boolean;
   } = {}
 ): Promise<void> {
-  const userDialog = page.locator(".dialog-card.admin-user-dialog");
+  const userDialog = page.locator(".admin-user-detail-page");
   setPhase(`${phasePrefix}:user-card`);
   await expect(userDialog).toBeVisible();
   await assertFormFieldsNamed(page, `${phasePrefix}:user-card`);
@@ -773,8 +777,15 @@ async function openUserDetailFromCurrentSection(
   );
   await expect(remnawaveUserLink).toHaveAttribute("target", "_blank");
   await expect(remnawaveUserLink).toHaveAttribute("rel", /noopener/);
-  // Subscription, Activity, Notifications, Logs, Actions, Message.
-  await exerciseDialogTabs(userDialog, 6, setPhase, `${phasePrefix}:user-tabs`);
+  // Subscription, Actions, Payments, Logs, Message; notifications use a dialog.
+  await exerciseDialogTabs(userDialog, 5, setPhase, `${phasePrefix}:user-tabs`);
+
+  await userDialog.getByRole("button", { name: "Изменить", exact: true }).click();
+  const notificationsDialog = page.locator(".admin-user-notifications-dialog");
+  await expect(notificationsDialog).toBeVisible();
+  await assertFormFieldsNamed(page, `${phasePrefix}:notifications`);
+  await closeDialog(notificationsDialog);
+  await expect(userDialog).toBeVisible();
 
   setPhase(`${phasePrefix}:user-avatar`);
   if (
@@ -802,7 +813,7 @@ async function openUserDetailFromCurrentSection(
     await closeDialog(referralsDialog);
   }
 
-  const actionsTab = userDialog.locator(".admin-tabs-trigger").nth(3);
+  const actionsTab = userDialog.locator('.admin-tabs-trigger[data-value="actions"]');
   await actionsTab.click();
   const actionsPanel = userDialog.locator(".admin-actions-tab");
   await expect(actionsPanel).toBeVisible();
@@ -833,6 +844,8 @@ async function openUserDetailFromCurrentSection(
       `${phasePrefix}:mobile-extend-tariff-select`
     );
   }
+
+  await userDialog.locator('.admin-tabs-trigger[data-value="actions"]').click();
 
   if (options.checkTariffSave) {
     setPhase(`${phasePrefix}:save-tariff`);
@@ -875,6 +888,20 @@ async function openUserDetailFromCurrentSection(
   await expect(composerCard).toBeVisible();
   await expect(composerCard.locator(".ProseMirror")).toBeVisible();
   await expect(composerCard.locator('[data-admin-action="send-user-message"]')).toBeDisabled();
+  const channelCheckboxes = composerCard
+    .locator(".admin-user-message-channels")
+    .getByRole("checkbox");
+  await expect(channelCheckboxes).toHaveCount(2);
+  for (const checkbox of await channelCheckboxes.all()) {
+    await expect(checkbox).toHaveClass(/ui-checkbox/);
+    if (await checkbox.isEnabled()) {
+      const checked = await checkbox.getAttribute("aria-checked");
+      await checkbox.press("Space");
+      await expect(checkbox).toHaveAttribute("aria-checked", checked === "true" ? "false" : "true");
+      await checkbox.press("Space");
+      await expect(checkbox).toHaveAttribute("aria-checked", checked!);
+    }
+  }
   await assertFormFieldsNamed(page, `${phasePrefix}:message-composer`);
   await userDialog.locator('.admin-tabs-trigger[data-value="actions"]').first().click();
   await expect(actionsPanel).toBeVisible();
@@ -1121,11 +1148,12 @@ test("optional home widgets stay disabled by default and use dedicated presets",
   await expect(page.locator(".home-balance-card")).toHaveCount(0);
 });
 
-test("home actions stay at the viewport bottom when the logo changes size", async ({
-  page,
-}) => {
+test("home actions stay at the viewport bottom when the logo changes size", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  for (const viewport of [{ width: 1280, height: 752 }, { width: 390, height: 844 }]) {
+  for (const viewport of [
+    { width: 1280, height: 752 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
     await page.goto(`${APP_URL}?path=/home&mock=compact`);
 
@@ -1309,15 +1337,12 @@ test("Telegram fullscreen fallback protects webapp actions and admin chrome", as
   // This seeded user has invitees, so the nested list is available to exercise.
   await page.goto("/demo/runtime/admin/users/910001?theme_preview=dark");
   await page.evaluate(applyTelegramFullscreenInsets);
-  const userDialog = page.locator(".dialog:has(.admin-user-dialog)");
-  const userDialogCard = userDialog.locator(".admin-user-dialog");
+  const userDialogCard = page.locator(".admin-user-detail-page");
   await expect(userDialogCard).toBeVisible();
-  const adminDialogGeometry = await userDialog.evaluate((element) => ({
-    paddingTop: Number.parseFloat(window.getComputedStyle(element).paddingTop),
-    cardTop: element.querySelector(".dialog-card")!.getBoundingClientRect().top,
-  }));
-  expect(adminDialogGeometry.paddingTop).toBeGreaterThanOrEqual(96);
-  expect(adminDialogGeometry.cardTop).toBeGreaterThanOrEqual(96);
+  await expect(page.locator(".dialog-card.admin-user-dialog")).toHaveCount(0);
+  expect(
+    await userDialogCard.evaluate((element) => element.getBoundingClientRect().top)
+  ).toBeGreaterThanOrEqual(96);
 
   const avatarTrigger = userDialogCard.locator(".admin-avatar-preview-trigger:not(:disabled)");
   await expect(avatarTrigger).toBeVisible();
@@ -2204,21 +2229,27 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
   const paymentUserButtons = page.locator(".admin-payments-table .admin-payments-user-btn");
   await expect(paymentUserButtons.nth(1)).toBeVisible();
   await paymentUserButtons.first().click();
+  await expect(page).toHaveURL(/\/admin\/users\/ms_[0-9a-f]{32}(?:[?#].*)?$/);
 
   const firstPaymentUserId = new URL(page.url()).pathname.split("/").pop();
-  expect(firstPaymentUserId).toBeTruthy();
+  expect(firstPaymentUserId).toMatch(/^ms_[0-9a-f]{32}$/);
   await page.reload();
 
-  const userDialog = page.locator(".dialog-card.admin-user-dialog");
+  const userDialog = page.locator(".admin-user-detail-page");
   await expect(userDialog).toBeVisible();
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${firstPaymentUserId}`);
+  await expect(userDialog.locator('.admin-user-hero [data-copy-kind="user-id"]')).toContainText(
+    `${firstPaymentUserId}`
+  );
   await closeDialog(userDialog);
 
   await paymentUserButtons.nth(1).click();
+  await expect(page).toHaveURL(/\/admin\/users\/ms_[0-9a-f]{32}(?:[?#].*)?$/);
   const secondPaymentUserId = new URL(page.url()).pathname.split("/").pop();
   expect(secondPaymentUserId).toBeTruthy();
   expect(secondPaymentUserId).not.toBe(firstPaymentUserId);
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${secondPaymentUserId}`);
+  await expect(userDialog.locator('.admin-user-hero [data-copy-kind="user-id"]')).toContainText(
+    `${secondPaymentUserId}`
+  );
   await closeDialog(userDialog);
 
   const paymentButtons = page.locator(".admin-payments-table .admin-payment-id-btn");
@@ -2245,18 +2276,26 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
   await expect(userRows.nth(1)).toBeVisible();
   await userRows.first().click();
   const firstUserId = new URL(page.url()).pathname.split("/").pop();
-  expect(firstUserId).toBeTruthy();
+  expect(firstUserId).toMatch(/^ms_[0-9a-f]{32}$/);
   await page.reload();
 
   await expect(userDialog).toBeVisible();
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${firstUserId}`);
+  await expect(userDialog.locator('.admin-user-hero [data-copy-kind="user-id"]')).toContainText(
+    `${firstUserId}`
+  );
   await closeDialog(userDialog);
 
   await userRows.nth(1).click();
   const secondUserId = new URL(page.url()).pathname.split("/").pop();
   expect(secondUserId).toBeTruthy();
   expect(secondUserId).not.toBe(firstUserId);
-  await expect(userDialog.locator(".dialog-title-copy h2")).toContainText(`${secondUserId}`);
+  await expect(userDialog.locator('.admin-user-hero [data-copy-kind="user-id"]')).toContainText(
+    `${secondUserId}`
+  );
+  await page.locator('[data-admin-section="users"]').click();
+  await expect(userDialog).toHaveCount(0);
+  await expect(userRows.nth(1)).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/demo/runtime/admin/users");
 });
 
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
@@ -2556,6 +2595,9 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     .click();
   await expect(paymentDialog).toBeHidden();
   await openUserDetailFromCurrentSection(page, setPhase, "admin-payment-detail");
+
+  await expect(paymentDialog).toBeVisible();
+  await closeDialog(paymentDialog);
 
   setPhase("admin-payments:user-card");
   await page.locator(".admin-payments-user-btn").first().click();

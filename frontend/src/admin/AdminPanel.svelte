@@ -356,7 +356,9 @@
   function setActive(id: string): void {
     const next = normalizeSection(id);
     sidebarOpen = false;
-    if (active === next) return;
+    if (active === next && !usersStore.openedUser) return;
+    userReturnPath = "";
+    userReturnScrollTop = 0;
     active = next;
     settingsPath = [];
     usersStore.closeUser();
@@ -613,20 +615,7 @@
   }
 
   function openPaymentUserCard(userId: unknown): void {
-    const uid = Number(userId);
-    // Synthetic email-only users use negative user_id; still a valid admin target.
-    if (!Number.isFinite(uid) || uid === 0) return;
-    const next = normalizeSection("payments");
-    sidebarOpen = false;
-    if (active !== next) {
-      active = next;
-      usersStore.closeUser();
-      paymentsStore.closePayment({ skipPush: true });
-      onSectionChange(next);
-    }
-    usersStore.setActive(next);
-    paymentsStore.closePayment({ skipPush: true });
-    void usersStore.openUser(uid, { pathContext: "payments" });
+    openUserCard(userId);
   }
 
   /** Open a payment from anywhere (the partner commission list uses this). */
@@ -682,30 +671,43 @@
     void promosStore.openPromoById(id);
   }
 
+  let userReturnPath = $state("");
+  let userReturnScrollTop = 0;
+
   function openLogsUserCard(userId: unknown): void {
-    const uid = Number(userId);
-    if (!Number.isFinite(uid) || uid === 0) return;
-    const next = normalizeSection("logs");
-    sidebarOpen = false;
-    if (active !== next) {
-      active = next;
-      paymentsStore.closePayment({ skipPush: true });
-      supportStore.closeTicketView({ skipPush: true });
-      onSectionChange(next);
-    }
-    usersStore.setActive(next);
-    void usersStore.openUser(uid, { skipPush: true });
+    openUserCard(userId);
   }
 
-  function openUserCard(userId: unknown): void {
-    const uid = Number(userId);
-    if (!Number.isFinite(uid) || uid === 0) return;
+  function openUserCard(userOrId: unknown): void {
+    const user = typeof userOrId === "object" && userOrId !== null ? (userOrId as AdminUser) : null;
+    const identifier =
+      user?.minishop_id ||
+      (typeof userOrId === "string" && userOrId.startsWith("ms_")
+        ? userOrId
+        : Number(user?.user_id ?? userOrId));
+    if (!identifier || (typeof identifier === "number" && !Number.isFinite(identifier))) return;
+    if (!usersStore.openedUser && typeof window !== "undefined") {
+      userReturnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      userReturnScrollTop = document.querySelector(".admin-main")?.scrollTop || 0;
+    }
     sidebarOpen = false;
-    usersStore.setActive(active);
-    void usersStore.openUser(uid, {
-      skipPush: true,
-      pathContext: active === "users" || active === "payments" ? active : undefined,
-    });
+    paymentsStore.closePayment({ skipPush: true });
+    if (active !== "users") {
+      active = "users";
+      onSectionChange("users");
+    }
+    usersStore.setActive("users");
+    void usersStore.openUser(user || identifier);
+    window.history.replaceState(
+      {
+        ...window.history.state,
+        adminUserReturnPath: userReturnPath,
+        adminUserReturnScrollTop: userReturnScrollTop,
+      },
+      "",
+      window.location.href
+    );
+    document.querySelector(".admin-main")?.scrollTo({ top: 0 });
   }
 
   function userRouteKey(section: string): string {
@@ -717,9 +719,18 @@
   function closeUserCard(): void {
     dismissedUserRouteKey = userRouteKey(active);
     usersStore.closeUser({ skipPush: true });
-    if (active === "users" || active === "payments") {
-      onSectionChange(active, 0);
-    }
+    if (typeof window === "undefined") return;
+    const target =
+      userReturnPath ||
+      window.history.state?.adminUserReturnPath ||
+      `${withRoutePrefix("/admin/users", routePrefix)}${window.location.search}`;
+    const scrollTop =
+      userReturnScrollTop || Number(window.history.state?.adminUserReturnScrollTop || 0);
+    window.history.replaceState(null, "", target);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    userReturnPath = "";
+    userReturnScrollTop = 0;
+    window.setTimeout(() => document.querySelector(".admin-main")?.scrollTo({ top: scrollTop }), 0);
   }
 
   function resolvedAvatarUrl(user: AdminUser | null | undefined): string {

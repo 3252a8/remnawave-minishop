@@ -47,6 +47,119 @@ for (const [device, viewport] of [
   ["desktop", { width: 1440, height: 900 }],
   ["mobile", { width: 390, height: 844 }],
 ] as const) {
+  test(`promo expiry uses the shared calendar and preserves time on ${device}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(adminUrl("promos"));
+    await page.getByRole("button", { name: "Редактировать", exact: true }).first().click();
+    const dialog = page.locator(".admin-promo-edit-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('input[type="datetime-local"]')).toHaveCount(0);
+    const trigger = dialog.getByRole("button", { name: "Действует до", exact: true });
+    const unlimited = dialog.getByRole("checkbox", { name: "Без ограничения", exact: true });
+    await trigger.click();
+    const calendar = page.locator(".date-input-popover");
+    await expect(calendar).toBeVisible();
+    const bounds = await calendar.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+    await noOverflow(calendar);
+    await calendar.locator(".date-input-day:not([data-outside-month])").nth(15).click();
+    await expect(calendar).toBeHidden();
+    await trigger.click();
+    await expect(calendar).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(calendar).toBeHidden();
+    await expect(dialog).toBeVisible();
+    await expect(trigger).toBeFocused();
+    await dialog.getByRole("button", { name: "Очистить дату: Действует до", exact: true }).click();
+    await expect(unlimited).toBeChecked();
+    await expect(trigger).toBeDisabled();
+    await unlimited.uncheck();
+    await expect(trigger).toBeEnabled();
+    const field = dialog.locator(".date-input-shell");
+    await noOverflow(field.locator(".date-input"));
+    for (const [part, value] of Object.entries({
+      year: "2031",
+      month: "05",
+      day: "20",
+      hour: "14",
+      minute: "30",
+    })) {
+      await field.locator(`[data-segment="${part}"]`).pressSequentially(value);
+    }
+    await expect(field.locator('[data-segment="year"]')).toHaveAttribute("aria-valuenow", "2031");
+    await expect(field.locator('[data-segment="hour"]')).toHaveAttribute("aria-valuenow", "14");
+    await expect(field.locator('[data-segment="minute"]')).toHaveAttribute("aria-valuenow", "30");
+    await expect(unlimited).not.toBeChecked();
+    await expect(dialog.getByRole("button", { name: "Сохранить", exact: true })).toBeEnabled();
+    await noOverflow(dialog);
+  });
+
+  test(`guest checkout uses shared email validation on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/demo/runtime/login?mock=auth&plan=standard&theme_preview=dark");
+    await expect(page.getByRole("heading", { name: "Укажите email", exact: true })).toBeVisible();
+    const email = page.locator('.checkout-card input[type="email"]');
+    await expect(email).toHaveClass(/input/);
+    await expect(email).toHaveAttribute("autocomplete", "email");
+    await email.fill("invalid");
+    await email.press("Enter");
+    await expect(email).toHaveAttribute("aria-invalid", "true");
+    await email.fill("ui-regression@example.test");
+    await expect(email).not.toHaveAttribute("aria-invalid", "true");
+    await expect(email).toHaveValue("ui-regression@example.test");
+    await noOverflow(page.locator(".checkout-card"));
+  });
+
+  test(`subscription extension uses the shared calendar on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(
+      "/demo/runtime/admin/users/ms_100000000000400080000000000de418?theme_preview=dark"
+    );
+    const action = page.locator(".admin-user-action-sheet--extend");
+    await action.getByRole("button", { name: "Указать дату", exact: true }).click();
+    await expect(action.locator('input[type="date"]')).toHaveCount(0);
+    const trigger = action.getByRole("button", { name: "Новая дата окончания", exact: true });
+    const submit = action.getByRole("button", { name: "Изменить срок", exact: true });
+    await expect(submit).toBeDisabled();
+    await trigger.press("Enter");
+    const calendar = page.locator(".date-input-popover");
+    await expect(calendar).toBeVisible();
+    await expect(calendar.locator(".date-input-day[data-disabled]").first()).toBeVisible();
+    const bounds = await calendar.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+    await noOverflow(calendar);
+    const availableDay = calendar.locator(".date-input-day:not([data-disabled])").first();
+    const selectedDate = await availableDay.getAttribute("data-value");
+    const tomorrow = new Date();
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    expect(selectedDate! >= tomorrow.toISOString().slice(0, 10)).toBe(true);
+    await availableDay.click();
+    await page.keyboard.press("Escape");
+    await expect(calendar).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(submit).toBeEnabled();
+    await trigger.click();
+    await expect(calendar.locator(".date-input-day[data-selected]")).toHaveAttribute(
+      "data-value",
+      selectedDate!
+    );
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+    await action
+      .getByRole("button", { name: "Очистить дату: Новая дата окончания", exact: true })
+      .click();
+    await expect(submit).toBeDisabled();
+    await expect(trigger).toBeFocused();
+    await noOverflow(action);
+    expect(errors).toEqual([]);
+  });
+
   test(`Telegram merge confirmation fits on ${device}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto(
@@ -333,10 +446,13 @@ for (const [device, viewport] of [
     expect(errors).toEqual([]);
   });
 
-  test(`shared copy field and payment provider render on ${device}`, async ({ page, context }) => {
+  test(`shared copy field, payment provider and manual controls render on ${device}`, async ({
+    page,
+    context,
+  }) => {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    // Keep the real payment table and provider component; only seed a free operation.
+    // Keep the actual UI; seed the operation and both confirmation variants.
     await page.addInitScript(() => {
       type Props = {
         api: (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
@@ -359,6 +475,18 @@ for (const [device, viewport] of [
                     payments: result.payments.map((payment, index) =>
                       index ? payment : { ...payment, provider: "admin_gift", amount: 0 }
                     ),
+                  };
+                }
+                if (/^\/admin\/payments\/\d+$/.test(path) && result.payment) {
+                  return {
+                    ...result,
+                    payment: {
+                      ...result.payment,
+                      can_manual_finalize: true,
+                      can_reverse: true,
+                      manual_finalize_requires_promo_confirmation: true,
+                      promo_code_id: 14,
+                    },
                   };
                 }
                 return result;
@@ -394,6 +522,38 @@ for (const [device, viewport] of [
     await search.press("Enter");
     await expect(rows.first()).toBeVisible();
     await noOverflow(page.locator(".admin-list-toolbar"));
+    await rows
+      .first()
+      .getByRole("button", { name: /Открыть.*плат/ })
+      .click();
+    const paymentDialog = page.locator(".admin-payment-dialog");
+    await paymentDialog.getByRole("button", { name: "Провести платёж", exact: true }).click();
+    const reason = paymentDialog.getByRole("textbox", { name: "Причина", exact: true });
+    await expect(reason).toHaveClass(/textarea/);
+    await expect(reason).toHaveAttribute("maxlength", "500");
+    const confirm = paymentDialog.getByRole("button", { name: "Подтвердить", exact: true });
+    const conflict = paymentDialog.getByRole("checkbox", { name: /Применить сохранённые условия/ });
+    await expect(conflict).toHaveClass(/ui-checkbox/);
+    await expect(confirm).toBeDisabled();
+    await reason.fill("UI regression reason");
+    await expect(confirm).toBeDisabled();
+    await conflict.press("Space");
+    await expect(conflict).toBeChecked();
+    await expect(confirm).toBeEnabled();
+    await paymentDialog.getByRole("button", { name: "Отмена", exact: true }).click();
+    await paymentDialog.getByRole("button", { name: "Отменить платёж", exact: true }).click();
+    const restore = paymentDialog.getByRole("checkbox", {
+      name: "Вернуть это использование промокоду",
+      exact: true,
+    });
+    await expect(restore).toHaveClass(/ui-checkbox/);
+    await expect(restore).toBeChecked();
+    await restore.press("Space");
+    await expect(restore).not.toBeChecked();
+    await reason.fill("UI regression reason");
+    await expect(confirm).toBeEnabled();
+    await noOverflow(paymentDialog);
+    await paymentDialog.getByRole("button", { name: "Закрыть", exact: true }).last().click();
     await page.goto("/demo/runtime/app/?mock=checkout-addons&path=/invite&theme_preview=dark");
     await expect(page.locator(".gift-entry .copy-link-field").first()).toBeVisible();
     await copyFullLink(page, page.locator(".gift-entry .copy-link-field").first());

@@ -3,11 +3,11 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.svelte"
+USER_DETAIL = REPO_ROOT / "frontend/src/admin/sections/UserDetailPage.svelte"
 USER_DETAIL_VIEW = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailView.svelte"
 USER_ACTIVITY = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActivityTab.svelte"
-USER_DETAIL_ASIDE = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailAside.svelte"
-USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailModal.css"
+USER_DETAIL_FACTS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserDetailFacts.svelte"
+USER_DETAIL_CSS = REPO_ROOT / "frontend/src/admin/sections/UserDetailPage.css"
 USER_ACTIONS = REPO_ROOT / "frontend/src/admin/sections/user-detail/UserActionsTab.svelte"
 USER_QUICK_ACTIONS = (
     REPO_ROOT / "frontend/src/admin/sections/user-detail/UserQuickActionsBlock.svelte"
@@ -52,8 +52,8 @@ def _view_source() -> str:
     return USER_DETAIL_VIEW.read_text(encoding="utf-8")
 
 
-def _aside_source() -> str:
-    return USER_DETAIL_ASIDE.read_text(encoding="utf-8")
+def _facts_source() -> str:
+    return USER_DETAIL_FACTS.read_text(encoding="utf-8")
 
 
 def _actions_source() -> str:
@@ -139,9 +139,9 @@ def test_inactive_tabs_override_specific_tab_display_rules():
         re.S,
     )
     assert '\n.admin-tabs-content[data-state="inactive"] {' not in css
-    assert ".admin-user-dialog .admin-user-logs-tab" in user_detail_css
+    assert ".admin-user-detail-page .admin-user-logs-tab" in user_detail_css
     assert re.search(
-        r"\.admin-user-dialog\s+\.admin-user-logs-tab\s*{[^}]*display:\s*flex",
+        r"\.admin-user-detail-page\s+\.admin-user-logs-tab\s*{[^}]*display:\s*flex",
         user_detail_css,
         re.S,
     )
@@ -155,7 +155,7 @@ def test_extend_tariff_current_badge_is_localized():
 
 
 def test_user_detail_links_include_install_share_link():
-    source = _aside_source()
+    source = (USER_DETAIL_FACTS.parent / "UserDetailLinks.svelte").read_text(encoding="utf-8")
 
     assert "openedUserDetail.install_share_url" in source
     assert "user_label_install_share" in source
@@ -169,14 +169,15 @@ def test_user_detail_links_include_install_share_link():
 
 
 def test_user_detail_shows_hwid_device_usage():
-    source = _aside_source()
+    source = (USER_DETAIL_FACTS.parent / "UserDetailStats.svelte").read_text(encoding="utf-8")
 
-    assert 'openedUserDetail.hwid_devices?.current_devices ?? "—"' in source
-    assert 'openedUserDetail.hwid_devices?.max_devices ?? "∞"' in source
+    assert 'openedUserDetail?.hwid_devices?.current_devices ?? "—"' in source
+    assert "openedUserDetail?.hwid_devices?.max_devices" in source
+    assert 'limit != null && limit > 0 ? limit : "∞"' in source
     assert 'at("user_hwid_devices_usage", { current, max }' in source
     assert 'at("user_label_hwid_devices"' in source
 
-    expected = {"ru": "{current} из {max}", "en": "{current} of {max}"}
+    expected = {"ru": "{current} / {max}", "en": "{current} / {max}"}
     for language, value in expected.items():
         messages = json.loads((REPO_ROOT / "locales" / f"{language}.json").read_text("utf-8"))
         assert messages["admin_user_hwid_devices_usage"] == value
@@ -336,10 +337,8 @@ def test_user_recent_payments_open_payment_cards():
     assert "{onOpenPaymentCard}" in modal
     assert "{onOpenPaymentCard}" in view
     assert "{onOpenPaymentCard}" in layout
-    assert "{onOpenPaymentCard}" in lazy_modals
-    assert lazy_modals.index("{#if UserDetailModalComponent}") < lazy_modals.index(
-        "{#if PaymentDetailModalComponent}"
-    )
+    assert "UserDetailPageComponent" in layout
+    assert "UserDetailModalComponent" not in lazy_modals
     assert "void paymentsStore.openPayment(id)" in panel
 
 

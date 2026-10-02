@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getBroadcastStore, getTranslationsStore } from "$lib/admin/context";
-  import { Checkbox, ImageAttachment, Input } from "$components/ui/index.js";
+  import { Checkbox, DateInput, ImageAttachment, Input } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import { onMount } from "svelte";
   import { Label } from "$components/ui/primitives.js";
@@ -281,19 +281,18 @@
             </label>
             {#if scheduleEnabled}
               <div class="broadcast-schedule-input">
-                <Input
+                <DateInput
                   id="broadcast-scheduled-at"
-                  class={scheduleInvalid ? "input-error" : ""}
-                  type="datetime-local"
+                  withTime
                   value={scheduledAt}
                   min={minimumScheduledAt}
-                  aria-label={at("broadcast_scheduled_at", {}, "Scheduled")}
-                  aria-invalid={scheduleInvalid}
-                  aria-describedby={scheduleInvalid ? "broadcast-schedule-error" : undefined}
-                  oninput={(event) =>
-                    broadcastStore.updateField({
-                      broadcastScheduledAt: (event.currentTarget as HTMLInputElement).value,
-                    })}
+                  ariaLabel={at("broadcast_scheduled_at", {}, "Scheduled")}
+                  invalid={scheduleInvalid}
+                  describedBy={scheduleInvalid ? "broadcast-schedule-error" : undefined}
+                  locale={at("calendar_locale", {}, "en")}
+                  clearLabel={at("clear_date", {}, "Clear date")}
+                  onValueChange={(value) =>
+                    broadcastStore.updateField({ broadcastScheduledAt: value })}
                 />
               </div>
             {/if}
@@ -515,7 +514,11 @@
     animation: broadcast-schedule-input-in 0.16s ease-out both;
   }
 
-  .broadcast-schedule-input :global(input[type="datetime-local"]) {
+  .broadcast-schedule-input :global(.date-input-shell) {
+    width: 100%;
+  }
+
+  .broadcast-schedule-input :global(.date-input) {
     width: auto;
     height: 36px;
     min-width: 0;
@@ -643,7 +646,7 @@
       height: 46px;
     }
 
-    .broadcast-schedule-input :global(input[type="datetime-local"]) {
+    .broadcast-schedule-input :global(.date-input) {
       height: 46px;
       min-height: 46px;
     }

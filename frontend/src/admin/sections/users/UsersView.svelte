@@ -53,6 +53,7 @@
   let {
     at,
     usersStore,
+    onOpenUserCard,
     usersTable,
     usersFilterSheetOpen = $bindable(false),
     usersFilter,
@@ -101,6 +102,7 @@
   }: {
     at: TranslateFn;
     usersStore: UsersStoreBridge;
+    onOpenUserCard: (userId: unknown) => void;
     usersTable: UsersTableBridge;
     usersFilterSheetOpen: boolean;
     usersFilter: string;
@@ -382,11 +384,11 @@
             role="button"
             tabindex="0"
             data-user-id={user.user_id}
-            onclick={() => usersStore.openUser(user)}
+            onclick={() => onOpenUserCard(user)}
             onkeydown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                usersStore.openUser(user);
+                onOpenUserCard(user);
               }
             }}
           >
@@ -486,7 +488,7 @@
         <UserMobileCard
           {at}
           {user}
-          onopen={() => usersStore.openUser(user)}
+          onopen={() => onOpenUserCard(user)}
           {resolvedAvatarUrl}
           {panelStatusBadge}
           {userInitials}

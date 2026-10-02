@@ -1,3 +1,4 @@
+import { demoAdminUserById } from "./users.js";
 import { adminBroadcastDemoResponse } from "./adminBroadcasts";
 import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
@@ -231,7 +232,8 @@ export function demoApiResponse(
   }
   if (cleanPath.startsWith("/admin/users/")) {
     const parts = cleanPath.split("/");
-    const id = Number(parts[3]);
+    const user = demoAdminUserById(decodeURIComponent(parts[3] || ""));
+    const id = Number(user?.user_id);
     const detail = DATASET.adminUserDetails?.[String(id)];
     if (!detail) return { ok: false, error: "not_found" };
     const decoratedDetail = {
@@ -276,7 +278,7 @@ export function demoApiResponse(
               asc: "id_asc",
               desc: "id_desc",
               defaultDirection: "desc",
-              value: (row) => row.user_id,
+              value: (row) => row.minishop_id,
             },
             {
               asc: "registration_asc",

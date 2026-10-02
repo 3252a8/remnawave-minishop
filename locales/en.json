@@ -1712,6 +1712,8 @@
   "admin_description": "Description",
   "admin_status": "Status",
   "admin_date": "Date",
+  "admin_calendar_locale": "en",
+  "admin_clear_date": "Clear date",
   "admin_payments_empty": "No payments",
   "admin_payments_col_traffic_regular": "Main traffic",
   "admin_payments_col_traffic_premium": "Premium traffic",
@@ -4057,7 +4059,7 @@
   "admin_user_hwid_limit_with_extra": "{total} ({base} + {extra})",
   "admin_user_hwid_limit_count": "{count}",
   "admin_user_label_hwid_devices": "HWID devices",
-  "admin_user_hwid_devices_usage": "{current} of {max}",
+  "admin_user_hwid_devices_usage": "{current} / {max}",
   "admin_user_label_trial": "Trial",
   "admin_user_label_trial_count": "Trials",
   "admin_user_label_trial_reset_at": "Trial reset",
@@ -5702,5 +5704,12 @@
   "admin_ads_main_miniapp": "Main Mini App",
   "admin_ads_legacy_links": "Previously published links",
   "admin_ads_choose_file": "Choose file",
-  "admin_ads_no_file_selected": "No file selected"
+  "admin_ads_no_file_selected": "No file selected",
+  "admin_user_back": "Back to previous section",
+  "admin_user_detail_load_failed": "Unable to load this user. Try again.",
+  "admin_user_detail_retry": "Try again",
+  "admin_user_notifications_edit": "Edit",
+  "admin_user_telegram_id": "Telegram ID",
+  "admin_user_username": "Telegram username",
+  "admin_user_email": "Email"
 }

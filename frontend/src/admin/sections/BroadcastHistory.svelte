@@ -4,7 +4,7 @@
   import { getBroadcastStore } from "$lib/admin/context";
   import type { BroadcastHistoryItem } from "$lib/admin/stores/broadcastHistory";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
-  import { Input } from "$components/ui/index.js";
+  import { DateInput } from "$components/ui/index.js";
   import { CalendarDays, CircleQuestionMark, Trash2 } from "$components/ui/icons.js";
   import {
     AdminButton,
@@ -584,19 +584,15 @@
 
       {#if reschedulable(selectedBroadcast) && scheduleDrafts[selectedBroadcast.broadcastId] !== undefined}
         <div class="broadcast-reschedule-row">
-          <Input
-            class={scheduleDraftInvalid(scheduleDrafts[selectedBroadcast.broadcastId])
-              ? "input-error"
-              : ""}
-            type="datetime-local"
+          <DateInput
+            withTime
             value={scheduleDrafts[selectedBroadcast.broadcastId]}
             min={minimumScheduledAt}
-            aria-label={at("broadcast_scheduled_at", {}, "Scheduled")}
-            aria-invalid={scheduleDraftInvalid(scheduleDrafts[selectedBroadcast.broadcastId])}
-            oninput={(event) =>
-              (scheduleDrafts[selectedBroadcast.broadcastId] = (
-                event.currentTarget as HTMLInputElement
-              ).value)}
+            ariaLabel={at("broadcast_scheduled_at", {}, "Scheduled")}
+            invalid={scheduleDraftInvalid(scheduleDrafts[selectedBroadcast.broadcastId])}
+            locale={at("calendar_locale", {}, "en")}
+            clearLabel={at("clear_date", {}, "Clear date")}
+            onValueChange={(value) => (scheduleDrafts[selectedBroadcast.broadcastId] = value)}
           />
           <AdminButton
             size="sm"
@@ -858,9 +854,8 @@
     border-radius: 10px;
     background: var(--admin-surface-2);
   }
-  .broadcast-reschedule-row :global(input) {
-    width: auto;
-    min-width: 190px;
+  .broadcast-reschedule-row :global(.date-input-shell) {
+    min-width: 0;
     flex: 1 1 190px;
   }
   .broadcast-reschedule-error {
@@ -893,8 +888,7 @@
     .broadcast-detail-meta {
       grid-template-columns: minmax(0, 1fr);
     }
-    .broadcast-reschedule-row :global(input) {
-      min-width: 0;
+    .broadcast-reschedule-row :global(.date-input-shell) {
       flex-basis: 100%;
     }
     .broadcast-history-actions :global(button) {

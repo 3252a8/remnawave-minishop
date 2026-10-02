@@ -1712,6 +1712,8 @@
   "admin_description": "Описание",
   "admin_status": "Статус",
   "admin_date": "Дата",
+  "admin_calendar_locale": "ru",
+  "admin_clear_date": "Очистить дату",
   "admin_payments_empty": "Нет платежей",
   "admin_payments_col_traffic_regular": "Основной трафик",
   "admin_payments_col_traffic_premium": "Премиум трафик",
@@ -4057,7 +4059,7 @@
   "admin_user_hwid_limit_with_extra": "{total} ({base} + {extra})",
   "admin_user_hwid_limit_count": "{count}",
   "admin_user_label_hwid_devices": "HWID-устройства",
-  "admin_user_hwid_devices_usage": "{current} из {max}",
+  "admin_user_hwid_devices_usage": "{current} / {max}",
   "admin_user_label_trial": "Пробник / триал",
   "admin_user_label_trial_count": "Триалов",
   "admin_user_label_trial_reset_at": "Сброс триала",
@@ -5702,5 +5704,12 @@
   "admin_ads_main_miniapp": "Главное Mini App",
   "admin_ads_legacy_links": "Ранее опубликованные ссылки",
   "admin_ads_choose_file": "Выбрать файл",
-  "admin_ads_no_file_selected": "Файл не выбран"
+  "admin_ads_no_file_selected": "Файл не выбран",
+  "admin_user_back": "Назад к разделу",
+  "admin_user_detail_load_failed": "Не удалось загрузить карточку пользователя. Попробуйте ещё раз.",
+  "admin_user_detail_retry": "Повторить загрузку",
+  "admin_user_notifications_edit": "Изменить",
+  "admin_user_telegram_id": "Telegram ID",
+  "admin_user_username": "Имя в Telegram",
+  "admin_user_email": "Email"
 }

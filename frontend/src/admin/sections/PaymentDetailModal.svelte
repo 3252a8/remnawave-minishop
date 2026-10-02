@@ -13,7 +13,7 @@
   } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminCopyableValue } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import { Checkbox } from "$components/ui/index.js";
+  import { Checkbox, Textarea } from "$components/ui/index.js";
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
@@ -658,7 +658,11 @@
 
                   {#if actionMode === "finalize" && payment.manual_finalize_requires_promo_confirmation}
                     <label class="admin-payment-action-check">
-                      <input type="checkbox" bind:checked={confirmPromoConflict} />
+                      <Checkbox
+                        bind:checked={confirmPromoConflict}
+                        ariaLabel={at("payment_manual_confirm_promo_conflict")}
+                        disabled={paymentActionBusy}
+                      />
                       <span>
                         {at(
                           "payment_manual_confirm_promo_conflict",
@@ -671,7 +675,11 @@
 
                   {#if actionMode === "reverse" && payment.promo_code_id}
                     <label class="admin-payment-action-check">
-                      <input type="checkbox" bind:checked={restorePromoUsage} />
+                      <Checkbox
+                        bind:checked={restorePromoUsage}
+                        ariaLabel={at("payment_reverse_restore_promo")}
+                        disabled={paymentActionBusy}
+                      />
                       <span>
                         {at(
                           "payment_reverse_restore_promo",
@@ -699,15 +707,17 @@
 
                   <label class="admin-payment-action-reason">
                     <span>{at("payment_action_reason", {}, "Reason")}</span>
-                    <textarea
-                      rows="3"
-                      maxlength="500"
+                    <Textarea
+                      rows={3}
+                      maxlength={500}
                       bind:value={actionReason}
+                      ariaLabel={at("payment_action_reason", {}, "Reason")}
                       placeholder={at(
                         "payment_action_reason_placeholder",
                         {},
                         "Record why this manual action is required"
-                      )}></textarea>
+                      )}
+                    />
                   </label>
 
                   {#if actionMode === "reverse"}
@@ -807,7 +817,7 @@
     font-weight: 700;
   }
 
-  .admin-payment-action-reason textarea {
+  .admin-payment-action-reason :global(.textarea) {
     width: 100%;
     resize: vertical;
     border: 1px solid var(--admin-border);

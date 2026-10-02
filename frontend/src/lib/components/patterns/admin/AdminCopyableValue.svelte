@@ -8,6 +8,7 @@
     copyLabel: string;
     kind?: string;
     showIcon?: boolean;
+    wrap?: boolean;
     oncopy?: (value: string) => void;
     class?: string;
   };
@@ -18,6 +19,7 @@
     copyLabel,
     kind = "",
     showIcon = true,
+    wrap = false,
     oncopy = () => {},
     class: className = "",
   }: Props = $props();
@@ -34,6 +36,7 @@
 <button
   type="button"
   class={cn("admin-copyable-value", className)}
+  class:is-wrapping={wrap}
   data-copyable-value
   data-copy-kind={kind || undefined}
   aria-label={copyLabel}
@@ -72,6 +75,11 @@
     user-select: text;
     white-space: nowrap;
     -webkit-user-select: text;
+  }
+
+  .admin-copyable-value.is-wrapping > span {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .admin-copyable-value :global(svg) {

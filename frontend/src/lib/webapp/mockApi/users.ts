@@ -1,3 +1,4 @@
+import { demoMinishopId } from "../demoIdentities.js";
 import { withDemoAvatar, withDemoAvatarDetail, withDemoAvatarTicket } from "../demoAvatars.js";
 import { compareNullableDate, stringDate } from "../demoMockRuntime.js";
 import {
@@ -15,7 +16,7 @@ export function userName(user: DemoRecord | null | undefined): string {
     [record.first_name, record.last_name].filter(Boolean).join(" ").trim() ||
     record.username ||
     record.email ||
-    String(record.user_id || "")
+    String(record.minishop_id || "")
   );
 }
 
@@ -43,7 +44,7 @@ export function withDemoAdminUserMetrics(user: DemoAdminUser): DemoAdminUser {
 
   return {
     ...user,
-    minishop_id: user.minishop_id || (user.user_id ? String(user.user_id) : null),
+    minishop_id: demoMinishopId(user.user_id, user.minishop_id),
     payments_total_amount: paymentsTotal,
     payments_count: paymentsCount,
     payments_currency: user.payments_currency || "RUB",
@@ -57,7 +58,9 @@ export function withDemoAvatars(users: DemoAdminUser[], size = 96): DemoAdminUse
 }
 
 export function demoAdminUserById(userId: unknown): DemoAdminUser | undefined {
-  return (DATASET.adminUsers || []).find((user) => Number(user.user_id) === Number(userId));
+  return (DATASET.adminUsers || []).find(
+    (user) => user.minishop_id === String(userId) || Number(user.user_id) === Number(userId)
+  );
 }
 
 export function demoInviteesForUser(userId: unknown): DemoAdminUser[] {
@@ -72,12 +75,24 @@ export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail 
   const user = decorated.user || {};
   const inviter = user.referred_by_id ? demoAdminUserById(user.referred_by_id) : null;
   const invitees = demoInviteesForUser(user.user_id);
+  const baseLimit = Number(decorated.active_subscription?.hwid_device_limit ?? 0);
+  const extraDevices = Math.max(0, Number(decorated.active_subscription?.extra_hwid_devices ?? 0));
+  const maxDevices = baseLimit > 0 ? baseLimit + extraDevices : null;
+  const currentDevices = user.panel_user_uuid
+    ? Math.min(2 + (demoUserSeed(user) % 3), maxDevices ?? Infinity)
+    : 0;
   return {
     ...decorated,
     user: withDemoAdminUserMetrics(user),
+    hwid_devices: decorated.hwid_devices ?? {
+      current_devices: currentDevices,
+      max_devices: maxDevices,
+    },
     referral: {
       ...(decorated.referral || {}),
-      inviter: inviter ? (withDemoAvatar(inviter) as DemoAdminUser) : null,
+      inviter: inviter
+        ? (withDemoAvatar(withDemoAdminUserMetrics(inviter)) as DemoAdminUser)
+        : null,
       invitees_total: invitees.length,
     },
   };
@@ -142,6 +157,7 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
   if (q) {
     out = out.filter((user) =>
       [
+        user.minishop_id,
         user.user_id,
         user.telegram_id,
         user.username,
@@ -194,8 +210,10 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
       return stringDate(a.registration_date) - stringDate(b.registration_date);
     if (sort === "name_asc") return userName(a).localeCompare(userName(b));
     if (sort === "name_desc") return userName(b).localeCompare(userName(a));
-    if (sort === "id_asc") return Number(a.user_id || 0) - Number(b.user_id || 0);
-    if (sort === "id_desc") return Number(b.user_id || 0) - Number(a.user_id || 0);
+    if (sort === "id_asc")
+      return String(a.minishop_id || "").localeCompare(String(b.minishop_id || ""));
+    if (sort === "id_desc")
+      return String(b.minishop_id || "").localeCompare(String(a.minishop_id || ""));
     if (sort === "premium_ratio_asc")
       return (
         Number(a.premium_traffic?.used_bytes ?? 0) - Number(b.premium_traffic?.used_bytes ?? 0)
@@ -310,6 +328,7 @@ export function userSnapshotForTicket(ticket: DemoTicket): DemoRecord {
   const sub = detail.active_subscription || {};
   return {
     user_id: user.user_id,
+    minishop_id: user.minishop_id,
     name: userName(user) || user.username || user.email || String(user.user_id || ""),
     username: user.username || "",
     email: user.email || "",

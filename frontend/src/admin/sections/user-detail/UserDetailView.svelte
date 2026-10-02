@@ -1,4 +1,10 @@
 <script lang="ts">
+  import { AdminButton } from "$components/patterns/admin/index.js";
+  import { RefreshCw } from "$components/ui/icons.js";
+  import UserDetailLinks from "./UserDetailLinks.svelte";
+  import UserDetailStats from "./UserDetailStats.svelte";
+  import UserDetailHero from "./UserDetailHero.svelte";
+  import UserQuickActionsBlock from "./UserQuickActionsBlock.svelte";
   import { Tabs } from "$components/ui/primitives.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { getSettingsStore } from "$lib/admin/context";
@@ -8,7 +14,8 @@
   import UserActionsTab from "./UserActionsTab.svelte";
   import UserMessageComposerCard from "./UserMessageComposerCard.svelte";
   import UserNotificationPreferencesCard from "./UserNotificationPreferencesCard.svelte";
-  import UserDetailAside from "./UserDetailAside.svelte";
+  import UserDetailFacts from "./UserDetailFacts.svelte";
+  import UserNotificationSummaryCard from "./UserNotificationSummaryCard.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
   import UserSubscriptionTab from "./UserSubscriptionTab.svelte";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
@@ -32,12 +39,11 @@
     openedUserDetail,
     userDetailLoading,
     routePrefix,
-    onClose,
+    onRetry,
     openedUserAvatarUrl,
     openAvatarPreview,
     userInitials,
     userDisplayName,
-    userSecondaryName,
     openUserTelegramProfile,
     openedUserTelegramProfileLink,
     openedUserTelegramProfileHint,
@@ -111,12 +117,11 @@
     openedUserDetail: AdminUserDetail | null;
     userDetailLoading: boolean;
     routePrefix: string;
-    onClose: () => void;
+    onRetry: () => void;
     openedUserAvatarUrl: string;
     openAvatarPreview: () => void;
     userInitials: (user: AdminUser) => string;
     userDisplayName: (user: AdminUser) => string;
-    userSecondaryName: (user: AdminUser) => string;
     openUserTelegramProfile: () => void;
     openedUserTelegramProfileLink: string;
     openedUserTelegramProfileHint: string;
@@ -185,6 +190,12 @@
     updateUserExternalSquadUuid: (value: string) => void;
   } = $props();
 
+  let notificationsOpen = $state(false);
+  $effect(() => {
+    void openedUser?.user_id;
+    notificationsOpen = false;
+  });
+
   const availableFeatures = $derived(new Set<string>((settingsStore.features || []) as string[]));
   const visibleExtensionPanels = $derived.by(() => {
     void $adminExtensionRevision;
@@ -198,50 +209,78 @@
 
   $effect(() => {
     const selected = String(usersStore.userDetailTab || "");
+    if (selected === "notifications") {
+      notificationsOpen = true;
+      usersStore.userDetailTab = "subscription";
+    }
     if (selected.startsWith("extension:") && !visibleExtensionPanelTabs.has(selected)) {
       usersStore.userDetailTab = "subscription";
     }
   });
 </script>
 
-<Dialog
-  open={Boolean(openedUser)}
-  title={openedUser
-    ? at("user_detail_title", { id: openedUser.minishop_id || "—" }, "User {id}")
-    : ""}
-  description={openedUser?.username ? "@" + openedUser.username : ""}
-  closeLabel={at("close", {}, "Close")}
-  onclose={onClose}
-  class="admin-dialog admin-user-dialog"
->
-  {#if openedUser}
-    {#if userDetailLoading || !openedUserDetail}
-      <p class="admin-muted">{at("loading", {}, "Loading…")}</p>
+{#if openedUser}
+  <section
+    class="admin-user-detail-page"
+    aria-label={at("user_detail_title", { id: openedUser.minishop_id || "—" }, "User {id}")}
+  >
+    <UserDetailHero
+      {at}
+      {usersStore}
+      {openedUser}
+      {openedUserDetail}
+      {openedUserAvatarUrl}
+      {openAvatarPreview}
+      {userInitials}
+      {userDisplayName}
+      {fmtDate}
+      {openUserTelegramProfile}
+      {openedUserTelegramProfileLink}
+      {openedUserTelegramProfileHint}
+    >
+      {#snippet details()}
+        {#if openedUserDetail}
+          <UserDetailFacts
+            {at}
+            {usersStore}
+            {openedUser}
+            {openedUserDetail}
+            {userDisplayName}
+            {fmtDate}
+            {vpnLastConnectionLabel}
+            {referralInviter}
+            {referralInviteesTotal}
+            {openRelatedUser}
+            {onOpenPartnerCard}
+          />
+          <UserNotificationSummaryCard
+            {at}
+            {openedUserDetail}
+            onEditNotifications={() => (notificationsOpen = true)}
+          />
+        {/if}
+      {/snippet}
+    </UserDetailHero>
+    {#if openedUserDetail}
+      <UserDetailLinks {at} {usersStore} {openedUserDetail} />
+    {/if}
+    <UserDetailStats {at} {openedUser} {openedUserDetail} {fmtMoney} />
+    {#if userDetailLoading}
+      <div class="admin-user-page-state" aria-busy="true" aria-live="polite">
+        <p class="admin-muted">{at("loading", {}, "Loading…")}</p>
+        <span class="admin-skeleton admin-skeleton-line"></span>
+        <span class="admin-skeleton admin-skeleton-line"></span>
+      </div>
+    {:else if !openedUserDetail}
+      <div class="admin-user-page-state" role="alert">
+        <p>{at("user_detail_load_failed", {}, "Unable to load this user. Try again.")}</p>
+        <AdminButton onclick={onRetry}
+          ><RefreshCw size={14} />{at("user_detail_retry", {}, "Try again")}</AdminButton
+        >
+      </div>
     {:else}
-      <div class="admin-user-dialog-body">
-        <UserDetailAside
-          {at}
-          {usersStore}
-          {openedUser}
-          {openedUserDetail}
-          {openedUserAvatarUrl}
-          {openAvatarPreview}
-          {userInitials}
-          {userDisplayName}
-          {userSecondaryName}
-          {openUserTelegramProfile}
-          {openedUserTelegramProfileLink}
-          {openedUserTelegramProfileHint}
-          {fmtMoney}
-          {fmtDate}
-          {vpnLastConnectionLabel}
-          {referralInviter}
-          {referralInviteesTotal}
-          {openRelatedUser}
-          {onOpenPartnerCard}
-        />
-
-        <main class="admin-user-main">
+      <div class="admin-user-detail-body">
+        <div class="admin-user-main admin-user-detail-main">
           <Tabs.Root
             bind:value={usersStore.userDetailTab}
             class="admin-tabs-root admin-user-tabs-root"
@@ -250,20 +289,17 @@
               <Tabs.Trigger value="subscription" class="admin-tabs-trigger"
                 >{at("user_tab_subscription", {}, "Subscription")}</Tabs.Trigger
               >
+              <Tabs.Trigger value="actions" class="admin-tabs-trigger"
+                >{at("user_tab_actions", {}, "Actions")}</Tabs.Trigger
+              >
               <Tabs.Trigger value="activity" class="admin-tabs-trigger"
                 >{at("user_tab_activity", {}, "Payments")}</Tabs.Trigger
               >
               <Tabs.Trigger value="logs" class="admin-tabs-trigger"
                 >{at("user_tab_logs", {}, "Logs")}</Tabs.Trigger
               >
-              <Tabs.Trigger value="actions" class="admin-tabs-trigger"
-                >{at("user_tab_actions", {}, "Actions")}</Tabs.Trigger
-              >
               <Tabs.Trigger value="message" class="admin-tabs-trigger"
                 >{at("user_tab_message", {}, "Message")}</Tabs.Trigger
-              >
-              <Tabs.Trigger value="notifications" class="admin-tabs-trigger"
-                >{at("user_tab_notifications", {}, "Notifications")}</Tabs.Trigger
               >
               {#each visibleExtensionPanels as panel (panel.id)}
                 <Tabs.Trigger value={`extension:${panel.id}`} class="admin-tabs-trigger">
@@ -283,7 +319,26 @@
               {trafficLeftLabel}
               {trafficPercentValue}
               {trialSummaryText}
-            />
+            >
+              {#snippet quickActions()}
+                <UserQuickActionsBlock
+                  {at}
+                  {userActionBusy}
+                  {extendTariffItems}
+                  {extendTariffsLoading}
+                  {userExtendDaysValid}
+                  {userExtendTariffValid}
+                  {extendTariffRequired}
+                  extraHwidDevices={Number(
+                    openedUserDetail.active_subscription?.extra_hwid_devices || 0
+                  )}
+                  activeSubscriptionEndDate={String(
+                    openedUserDetail.active_subscription?.end_date || ""
+                  )}
+                  {selectExtendTariff}
+                />
+              {/snippet}
+            </UserSubscriptionTab>
 
             <UserActivityTab
               {at}
@@ -312,12 +367,6 @@
               {openedUser}
               {openedUserDetail}
               {userActionBusy}
-              {extendTariffItems}
-              {extendTariffsLoading}
-              {userExtendDaysValid}
-              {userExtendTariffValid}
-              {extendTariffRequired}
-              {selectExtendTariff}
               {periodTariffItems}
               {tariffActionDirty}
               {tariffHwidLimitChangeAvailable}
@@ -362,15 +411,6 @@
               />
             </Tabs.Content>
 
-            <Tabs.Content value="notifications" class="admin-tabs-content">
-              <UserNotificationPreferencesCard
-                {at}
-                {usersStore}
-                {openedUserDetail}
-                busy={userActionBusy}
-              />
-            </Tabs.Content>
-
             {#each visibleExtensionPanels as panel (panel.id)}
               {@const PanelComponent = panel.component}
               {@const requiredFeature = requiredFeatureForDescriptor(panel)}
@@ -390,8 +430,20 @@
               </Tabs.Content>
             {/each}
           </Tabs.Root>
-        </main>
+        </div>
       </div>
     {/if}
+  </section>
+{/if}
+
+<Dialog
+  open={notificationsOpen && Boolean(openedUserDetail)}
+  title={at("user_notifications_title", {}, "Notification preferences")}
+  closeLabel={at("close", {}, "Close")}
+  onclose={() => (notificationsOpen = false)}
+  class="admin-dialog admin-user-notifications-dialog"
+>
+  {#if openedUserDetail}
+    <UserNotificationPreferencesCard {at} {usersStore} {openedUserDetail} busy={userActionBusy} />
   {/if}
 </Dialog>

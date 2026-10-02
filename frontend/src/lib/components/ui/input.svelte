@@ -21,7 +21,7 @@
   > & {
     id?: string;
     value?: string | number;
-    type?: HTMLInputAttributes["type"];
+    type?: "text" | "search" | "email" | "url" | "tel" | "password" | "number" | "hidden";
     name?: string;
     placeholder?: string;
     inputmode?: string | null | undefined;

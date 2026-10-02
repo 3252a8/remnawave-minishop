@@ -1,5 +1,5 @@
 ﻿<script lang="ts">
-  import { Checkbox, Input, Tabs } from "$components/ui/index.js";
+  import { Checkbox, DateInput, Input, Tabs } from "$components/ui/index.js";
   import { Copy, ExternalLink } from "$components/ui/icons.js";
   import Dialog from "$components/ui/dialog.svelte";
   import {
@@ -270,16 +270,21 @@
                 </div>
                 <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("valid_until")}>
                   <AdminField label={at("promo_col_valid_until", {}, "Valid until")}>
-                    <Input
-                      type="datetime-local"
-                      class="input"
+                    <DateInput
+                      withTime
                       value={promoEditDraft.clear_valid_until
                         ? ""
                         : validUntilInputValue(
                             promoEditDraft.valid_until || promoEditing.valid_until
                           )}
                       disabled={Boolean(promoEditDraft.clear_valid_until)}
-                      oninput={(e) => updateEditValidUntil(inputValue(e))}
+                      ariaLabel={at("promo_col_valid_until", {}, "Valid until")}
+                      locale={at("calendar_locale", {}, "en")}
+                      clearLabel={at("clear_date", {}, "Clear date")}
+                      onValueChange={(value) => {
+                        if (value) updateEditValidUntil(value);
+                      }}
+                      onClear={() => updateEditValidUntil("")}
                     />
                   </AdminField>
                   {#if editFieldDirty("valid_until")}

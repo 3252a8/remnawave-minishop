@@ -10,9 +10,14 @@
   import BrandMark from "$lib/webapp/BrandMark.svelte";
   import AdminHeaderActions from "./AdminHeaderActions.svelte";
   import AdminLazyModals from "./AdminLazyModals.svelte";
+  import { getUsersStore } from "$lib/admin/context";
   import AdminSectionTabs from "./AdminSectionTabs.svelte";
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
-  import { dynamicComponent, type DynamicComponent } from "./adminLazyComponents";
+  import {
+    dynamicComponent,
+    loadDynamicComponent,
+    type DynamicComponent,
+  } from "./adminLazyComponents";
   import type { AdminSectionDescriptor } from "./sections/registry";
   import { ADMIN_SECTIONS } from "./sections/registry";
   import { adminExtensionRevision } from "./sections/extensionRegistry";
@@ -199,6 +204,18 @@
     warmSectionComponent: (section: AdminSectionDescriptor) => void;
     t: TranslateFn;
   } = $props();
+
+  const usersStore = getUsersStore();
+  let UserDetailPageComponent = $state<DynamicComponent | null>(null);
+  $effect(() => {
+    if (usersStore.openedUser) {
+      loadDynamicComponent(
+        UserDetailPageComponent,
+        () => import("./sections/UserDetailPage.svelte"),
+        (component) => (UserDetailPageComponent = component)
+      );
+    }
+  });
 
   const compactQuery = new MediaQuery("max-width: 720px", false);
   const isCompact = $derived(compactQuery.current);
@@ -481,7 +498,7 @@
   </aside>
 
   <section class="admin-content" data-scroll-container>
-    <header class="admin-header">
+    <header class="admin-header" class:is-user-detail={Boolean(usersStore.openedUser)}>
       <div style="display:flex; align-items:center; gap:12px; min-width:0;">
         <button
           type="button"
@@ -491,110 +508,157 @@
         >
           <Menu size={18} />
         </button>
-        <div class="admin-header-title">
-          <div class="admin-header-title-line">
-            <h2>{meta.title}</h2>
-            {#if active === "logs"}
-              <span class="admin-header-count" title={at("total", {}, "Total")}
-                >{Number(logsStore.logsTotal || 0)}</span
-              >
-            {/if}
+        {#if usersStore.openedUser}
+          <AdminButton
+            variant="ghost"
+            size="sm"
+            data-admin-action="back-from-user"
+            onclick={onCloseUser}
+          >
+            <ArrowLeft size={16} />{at("user_back", {}, "Back to previous section")}
+          </AdminButton>
+        {:else}
+          <div class="admin-header-title">
+            <div class="admin-header-title-line">
+              <h2>{meta.title}</h2>
+              {#if active === "logs"}
+                <span class="admin-header-count" title={at("total", {}, "Total")}
+                  >{Number(logsStore.logsTotal || 0)}</span
+                >
+              {/if}
+            </div>
+            {#if meta.subtitle}<small>{meta.subtitle}</small>{/if}
           </div>
-          {#if meta.subtitle}<small>{meta.subtitle}</small>{/if}
-        </div>
+        {/if}
       </div>
-      <AdminHeaderActions
-        {active}
-        {at}
-        {dirtyCount}
-        {settingsSaving}
-        {syncBusy}
-        {translationsDirtyCount}
-        {translationsSaving}
-        onCreateAd={() => adsStore.setCreateOpen(true)}
-        onCreateCode={() => promosStore.setCreateOpen(true)}
-        onCreateDocument={documentsStore.openCreateDocument}
-        onCreateTariff={tariffsStore.openCreateTariff}
-        {onExportPayments}
-        onSaveSettings={() => settingsStore.saveSettings(onSaveSettings)}
-        onSaveTranslations={() => translationsStore.saveTranslations(onSaveTranslations)}
-        onSyncStats={statsStore.triggerSync}
-      />
+      {#if !usersStore.openedUser}
+        <AdminHeaderActions
+          {active}
+          {at}
+          {dirtyCount}
+          {settingsSaving}
+          {syncBusy}
+          {translationsDirtyCount}
+          {translationsSaving}
+          onCreateAd={() => adsStore.setCreateOpen(true)}
+          onCreateCode={() => promosStore.setCreateOpen(true)}
+          onCreateDocument={documentsStore.openCreateDocument}
+          onCreateTariff={tariffsStore.openCreateTariff}
+          {onExportPayments}
+          onSaveSettings={() => settingsStore.saveSettings(onSaveSettings)}
+          onSaveTranslations={() => translationsStore.saveTranslations(onSaveTranslations)}
+          onSyncStats={statsStore.triggerSync}
+        />
+      {/if}
     </header>
 
     <!-- The panel scrolls here, not on the document, so overlays freeze it by
          this marker (see lib/webapp/scrollLock.ts). -->
     <main class="admin-main" data-scroll-container>
-      <ConfigAlertsBanner {at} section={active} onNavigate={onSetActive} />
-      {#key `${active}:${runtimeSectionEntry}`}
-        <div
-          class="admin-section-stage"
-          data-admin-active-section={active}
-          in:fade={sectionFade()}
-          out:fade={sectionFade()}
-        >
-          <AdminSectionTabs
-            sectionId={active}
-            {currentLang}
+      {#if usersStore.openedUser}
+        {#if UserDetailPageComponent}
+          <UserDetailPageComponent
             {at}
-            {availableFeatures}
-            {featuresResolved}
+            {fmtDate}
+            {fmtDateShort}
+            {fmtMoney}
+            {resolvedAvatarUrl}
+            {userDisplayName}
+            {userSecondaryName}
+            {userInitials}
+            {userTelegramProfileLink}
+            {userTelegramProfileLinkKind}
+            {openTelegramProfileLink}
+            {paymentStatusVariant}
+            {onOpenPaymentCard}
+            {onOpenPartnerCard}
+            {trafficPercentValue}
+            {trafficLeftLabel}
+            {trafficOfLabel}
             {routePrefix}
-            {onOpenUserCard}
-            onNavigateSection={onSetActive}
+          />
+        {:else}
+          <div class="admin-section-loading" aria-busy="true" aria-live="polite">
+            {at("loading", {}, "Loading…")}
+          </div>
+        {/if}
+      {/if}
+      <div
+        hidden={Boolean(usersStore.openedUser)}
+        style:display={usersStore.openedUser ? "none" : undefined}
+      >
+        <ConfigAlertsBanner {at} section={active} onNavigate={onSetActive} />
+        {#key `${active}:${runtimeSectionEntry}`}
+          <div
+            class="admin-section-stage"
+            data-admin-active-section={active}
+            in:fade={sectionFade()}
+            out:fade={sectionFade()}
           >
-            {#snippet section()}
-              {#if activeSectionComponent}
-                {@const ActiveSectionComponent = activeSectionComponent}
-                <ActiveSectionComponent
-                  {api}
-                  runtimeViewId={ADMIN_SECTIONS.find((section) => section.id === active)
-                    ?.runtimeViewId}
-                  runtimeEntry={ADMIN_SECTIONS.find((section) => section.id === active)
-                    ?.runtimeEntry}
-                  {at}
-                  {availableFeatures}
-                  {brand}
-                  {currentLang}
-                  {fmtDate}
-                  {fmtDateShort}
-                  {fmtMoney}
-                  {featureAvailable}
-                  {featuresResolved}
-                  onSettingsSaved={onSaveSettings}
-                  onTranslationsSaved={onSaveTranslations}
-                  {paymentStatusVariant}
-                  {panelStatusBadge}
-                  {resolvedAvatarUrl}
-                  {routePrefix}
-                  {settingsPath}
-                  {userDisplayName}
-                  {userInitials}
-                  {userSecondaryName}
-                  {appFaviconUrl}
-                  {appFaviconUseCustom}
-                  {appRepositoryUrl}
-                  {onOpenUserCard}
-                  {onOpenPaymentCard}
-                  {onOpenUsersFilter}
-                  {onUsersFiltersChange}
-                  {onOpenSettingsPath}
-                  {onSettingsPathChange}
-                  {initialTicketId}
-                  onNavigateSection={onSetActive}
-                />
-              {:else if activeSectionLoading}
-                <div class="admin-section-loading" aria-busy="true" aria-live="polite">
-                  <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
-                  <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-                  ></span>
-                  <span class="admin-skeleton admin-skeleton-line"></span>
-                </div>
-              {/if}
-            {/snippet}
-          </AdminSectionTabs>
-        </div>
-      {/key}
+            <AdminSectionTabs
+              sectionId={active}
+              {currentLang}
+              {at}
+              {availableFeatures}
+              {featuresResolved}
+              {routePrefix}
+              {onOpenUserCard}
+              onNavigateSection={onSetActive}
+            >
+              {#snippet section()}
+                {#if activeSectionComponent}
+                  {@const ActiveSectionComponent = activeSectionComponent}
+                  <ActiveSectionComponent
+                    {api}
+                    runtimeViewId={ADMIN_SECTIONS.find((section) => section.id === active)
+                      ?.runtimeViewId}
+                    runtimeEntry={ADMIN_SECTIONS.find((section) => section.id === active)
+                      ?.runtimeEntry}
+                    {at}
+                    {availableFeatures}
+                    {brand}
+                    {currentLang}
+                    {fmtDate}
+                    {fmtDateShort}
+                    {fmtMoney}
+                    {featureAvailable}
+                    {featuresResolved}
+                    onSettingsSaved={onSaveSettings}
+                    onTranslationsSaved={onSaveTranslations}
+                    {paymentStatusVariant}
+                    {panelStatusBadge}
+                    {resolvedAvatarUrl}
+                    {routePrefix}
+                    {settingsPath}
+                    {userDisplayName}
+                    {userInitials}
+                    {userSecondaryName}
+                    {appFaviconUrl}
+                    {appFaviconUseCustom}
+                    {appRepositoryUrl}
+                    {onOpenUserCard}
+                    {onOpenPaymentCard}
+                    {onOpenUsersFilter}
+                    {onUsersFiltersChange}
+                    {onOpenSettingsPath}
+                    {onSettingsPathChange}
+                    {initialTicketId}
+                    onNavigateSection={onSetActive}
+                  />
+                {:else if activeSectionLoading}
+                  <div class="admin-section-loading" aria-busy="true" aria-live="polite">
+                    <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"
+                    ></span>
+                    <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+                    ></span>
+                    <span class="admin-skeleton admin-skeleton-line"></span>
+                  </div>
+                {/if}
+              {/snippet}
+            </AdminSectionTabs>
+          </div>
+        {/key}
+      </div>
     </main>
   </section>
 </div>
@@ -602,23 +666,10 @@
 <AdminLazyModals
   {at}
   {fmtDate}
-  {fmtDateShort}
   {fmtMoney}
-  {openTelegramProfileLink}
   {paymentStatusVariant}
-  {resolvedAvatarUrl}
-  {trafficLeftLabel}
-  {trafficOfLabel}
-  {trafficPercentValue}
-  {userDisplayName}
-  {userInitials}
-  {userSecondaryName}
-  {userTelegramProfileLink}
-  {userTelegramProfileLinkKind}
-  {onCloseUser}
   {onOpenPaymentUserCard}
   {onOpenPaymentPromoCard}
-  {onOpenPaymentCard}
   {onOpenPartnerCard}
   {routePrefix}
 />

@@ -38,6 +38,7 @@
     userInitials?: (user: AdminUser) => string;
     userSecondaryName?: (user: AdminUser) => string;
     onUsersFiltersChange?: (filters: UsersRouteFilters) => void;
+    onOpenUserCard?: (userId: unknown) => void;
   };
   type TrafficBadge =
     | {
@@ -58,6 +59,9 @@
     userInitials = () => "",
     userSecondaryName = () => "",
     onUsersFiltersChange = () => {},
+    onOpenUserCard = (userId: unknown) => {
+      void usersStore.openUser(Number(userId));
+    },
   }: UsersSectionProps = $props();
 
   const usersStore = getUsersStore();
@@ -375,6 +379,7 @@
 <UsersView
   {at}
   {usersStore}
+  {onOpenUserCard}
   {usersTable}
   bind:usersFilterSheetOpen
   {usersFilter}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import { AdminBadge, AdminTrafficCard } from "$components/patterns/admin/index.js";
   import { Separator, Tabs } from "$components/ui/primitives.js";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
@@ -15,6 +16,7 @@
     trafficLeftLabel,
     trafficPercentValue,
     trialSummaryText,
+    quickActions,
   }: {
     at: TranslateFn;
     openedUserDetail: AdminUserDetail;
@@ -26,6 +28,7 @@
     trafficLeftLabel: (used: unknown, limit: unknown) => string;
     trafficPercentValue: (left: unknown, total: unknown) => number;
     trialSummaryText: (trial: Record<string, unknown> | null | undefined) => string;
+    quickActions?: Snippet;
   } = $props();
 </script>
 
@@ -135,6 +138,8 @@
     <p class="admin-muted">{at("user_no_active_subscription", {}, "No active subscription")}</p>
   {/if}
 
+  {@render quickActions?.()}
+
   {#if openedUserDetail?.trial}
     <ul class="admin-meta-list">
       <li>
@@ -176,7 +181,7 @@
       )}
     </div>
     <div class="admin-mini-list">
-      {#each openedUserDetail.subscriptions.slice(0, 8) as sub}
+      {#each openedUserDetail.subscriptions.slice(0, 8) as sub (sub.subscription_id)}
         <div class="admin-mini-list-row">
           <div>
             <strong>{subscriptionDisplayLabel(sub)}</strong>

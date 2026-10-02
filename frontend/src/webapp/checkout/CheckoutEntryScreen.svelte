@@ -1,5 +1,6 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import { Input } from "$components/ui/index.js";
   import EmailCodeScreen from "../auth/EmailCodeScreen.svelte";
   import CheckoutTariffPicker from "../payment-dialogs/CheckoutTariffPicker.svelte";
   import type { CheckoutDeeplink } from "$lib/webapp/deeplinks.js";
@@ -258,7 +259,7 @@
             <p>{t("wa_checkout_guest_email_description")}</p>
           </header>
           <label class="email-field">
-            <input
+            <Input
               bind:value={email}
               type="email"
               autocomplete="email"
@@ -544,7 +545,7 @@
     gap: 7px;
   }
 
-  .email-field input {
+  .email-field :global(.input) {
     width: 100%;
     box-sizing: border-box;
     border: 1px solid var(--border);
@@ -555,18 +556,18 @@
     outline: none;
   }
 
-  .email-field input {
+  .email-field :global(.input) {
     height: 54px;
     padding: 0 17px;
     font-size: 17px;
   }
 
-  .email-field input:focus {
+  .email-field :global(.input:focus) {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
   }
 
-  .email-field input[aria-invalid="true"] {
+  .email-field :global(.input[aria-invalid="true"]) {
     border-color: var(--danger);
   }
 

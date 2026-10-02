@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AdminButton, AdminSectionHeader } from "$components/patterns/admin/index.js";
-  import { ImageAttachment, Input } from "$components/ui/index.js";
+  import { Checkbox, ImageAttachment, Input } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import MessageButtonsEditor from "$lib/admin/components/MessageButtonsEditor.svelte";
   import MessageComposer from "$lib/admin/components/MessageComposer.svelte";
@@ -157,12 +157,12 @@
 
     <div class="admin-user-message-channels">
       <label class="admin-check" class:is-disabled={!hasTelegram}>
-        <input
-          type="checkbox"
+        <Checkbox
           id="user-message-channel-telegram"
           name="user-message-channel-telegram"
+          ariaLabel={at("broadcast_channel_telegram", {}, "Telegram")}
           bind:checked={telegramEnabled}
-          disabled={!hasTelegram}
+          disabled={busy || !hasTelegram}
         />
         {at("broadcast_channel_telegram", {}, "Telegram")}
         {#if !hasTelegram}
@@ -172,12 +172,12 @@
         {/if}
       </label>
       <label class="admin-check" class:is-disabled={!hasEmail}>
-        <input
-          type="checkbox"
+        <Checkbox
           id="user-message-channel-email"
           name="user-message-channel-email"
+          ariaLabel={at("broadcast_channel_email", {}, "Email")}
           bind:checked={emailEnabled}
-          disabled={!hasEmail}
+          disabled={busy || !hasEmail}
         />
         {at("broadcast_channel_email", {}, "Email")}
         {#if !hasEmail}

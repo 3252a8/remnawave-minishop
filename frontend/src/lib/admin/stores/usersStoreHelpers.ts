@@ -92,7 +92,7 @@ export function pushUserPath(
   target = withRoutePrefix(target, routePrefix);
   if (window.location.pathname !== target) {
     window.history[replace ? "replaceState" : "pushState"](
-      null,
+      window.history.state,
       "",
       `${target}${window.location.search}${window.location.hash}`
     );
