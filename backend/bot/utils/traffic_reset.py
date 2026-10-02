@@ -220,6 +220,25 @@ def advance_traffic_reset(value: datetime, strategy: str) -> datetime:
     return add_months(value, 1)
 
 
+def traffic_periods_between(
+    previous_start: datetime | None,
+    current_start: datetime | None,
+    strategy: str,
+) -> int:
+    """How many counter periods ended between two period starts; at least one."""
+    previous = aware_utc(previous_start)
+    current = aware_utc(current_start)
+    normalized = normalize_traffic_limit_strategy(strategy, default="MONTH")
+    if previous is None or current is None or current <= previous or normalized == "NO_RESET":
+        return 1
+    periods = 0
+    candidate = previous
+    while candidate < current and periods < 36:
+        candidate = advance_traffic_reset(candidate, normalized)
+        periods += 1
+    return max(1, periods)
+
+
 def previous_traffic_reset(value: datetime, strategy: str) -> datetime | None:
     normalized = normalize_traffic_limit_strategy(strategy, default="MONTH")
     anchor = aware_utc(value)

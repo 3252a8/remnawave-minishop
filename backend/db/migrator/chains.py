@@ -24,6 +24,7 @@ from .chain_0095_access_rotations import CHAIN_0095_ACCESS_ROTATIONS
 from .chain_0096_advertiser_campaign_fields import CHAIN_0096_ADVERTISER_CAMPAIGN_FIELDS
 from .chain_0096_user_device_names import CHAIN_0096_USER_DEVICE_NAMES
 from .chain_0097_advertising_evidence import CHAIN_0097_ADVERTISING_EVIDENCE
+from .chain_0098_topup_period_lifetime import CHAIN_0098_TOPUP_PERIOD_LIFETIME
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -51,4 +52,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0096_USER_DEVICE_NAMES,
     *CHAIN_0096_ADVERTISER_CAMPAIGN_FIELDS,
     *CHAIN_0097_ADVERTISING_EVIDENCE,
+    *CHAIN_0098_TOPUP_PERIOD_LIFETIME,
 ]

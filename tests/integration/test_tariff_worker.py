@@ -518,6 +518,7 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
                     50,
                     payload.get("trafficLimitStrategy"),
                 ),
+                _extract_lifetime_used_traffic=lambda _payload: None,
             ),
             bot=bot,
             i18n=_FormatI18n(),
@@ -3333,3 +3334,93 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(sub.premium_is_limited)
         self.assertEqual(int(sub.premium_used_bytes), 30 * (1024**3))
         panel_service.update_user_details_on_panel.assert_not_awaited()
+
+    async def test_regular_tick_charges_the_carried_over_pack_at_the_counter_reset(self):
+        gb = 1024**3
+        tariff = SimpleNamespace(
+            billing_model="period",
+            traffic_limit_strategy="MONTH",
+            monthly_bytes=50 * gb,
+            key="standard",
+        )
+        worker = TariffTrafficWorker(
+            settings=SimpleNamespace(
+                tariffs_config=SimpleNamespace(require_configured=lambda _key: tariff),
+            ),
+            session_factory=SimpleNamespace(),
+            panel_service=SimpleNamespace(),
+            subscription_service=SimpleNamespace(
+                _extract_panel_traffic_details=lambda payload: (
+                    payload["userTraffic"]["usedTrafficBytes"],
+                    100 * gb,
+                    "MONTH",
+                ),
+                _extract_lifetime_used_traffic=lambda payload: payload["userTraffic"][
+                    "lifetimeUsedTrafficBytes"
+                ],
+                _compute_main_traffic_limit_bytes=lambda **kw: (
+                    kw["tier_baseline_bytes"]
+                    + kw["topup_balance_bytes"]
+                    + kw["regular_bonus_bytes"]
+                    + kw["hwid_device_bonus_bytes"]
+                ),
+                _hwid_traffic_bonus_bytes_from_summary=lambda _summary: 0,
+            ),
+        )
+        worker._trial_premium_tariff = lambda: None
+        # The panel reset the counter: the period that ended used 560 - 480 = 80 GB.
+        worker._prefetch_panel_users_by_uuid = AsyncMock(
+            return_value={
+                "panel-1": {
+                    "uuid": "panel-1",
+                    "status": "ACTIVE",
+                    "trafficLimitStrategy": "MONTH",
+                    "userTraffic": {"usedTrafficBytes": 0, "lifetimeUsedTrafficBytes": 560 * gb},
+                },
+            }
+        )
+        worker._maybe_send_regular_reset_notice = AsyncMock()
+        worker._panel_next_traffic_reset_at = MagicMock(return_value=None)
+        worker._sync_hwid_device_limit = AsyncMock()
+        worker._maybe_warn_or_throttle = AsyncMock()
+        worker._sync_premium_squad_limit = AsyncMock()
+        worker._finish_premium_panel_batch = AsyncMock()
+        now = datetime.now(UTC)
+        sub = SimpleNamespace(
+            subscription_id=1,
+            user_id=123,
+            panel_user_uuid="panel-1",
+            tariff_key="standard",
+            traffic_used_bytes=80 * gb,
+            traffic_limit_bytes=100 * gb,
+            status_from_panel="ACTIVE",
+            start_date=now - timedelta(days=40),
+            end_date=now + timedelta(days=60),
+            period_start_at=None,
+            tier_baseline_bytes=50 * gb,
+            topup_balance_bytes=50 * gb,
+            regular_bonus_bytes=0,
+            regular_unlimited_override=False,
+            traffic_period_lifetime_start_bytes=480 * gb,
+        )
+        result = MagicMock()
+        result.scalars.return_value.all.return_value = [sub]
+        session = AsyncMock()
+        session.execute.return_value = result
+
+        with (
+            patch(
+                "bot.services.tariff_worker_regular.commit_subscription_background_sync_batch",
+                AsyncMock(),
+            ),
+            patch(
+                "bot.services.regular_topup_settlement.tariff_dal."
+                "get_hwid_device_entitlement_summary",
+                AsyncMock(return_value={}),
+            ),
+        ):
+            await worker.traffic_period_tick(session)
+
+        # 50 GB of the 80 GB were the period's own allowance; 30 GB came from the pack.
+        self.assertEqual(sub.topup_balance_bytes, 20 * gb)
+        self.assertEqual(sub.traffic_period_lifetime_start_bytes, 560 * gb)

@@ -114,6 +114,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0096_user_device_names",
     "0096_advertiser_campaign_fields",
     "0097_advertising_evidence",
+    "0098_topup_period_lifetime",
 ]
 
 
