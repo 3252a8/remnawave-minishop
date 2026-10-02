@@ -34,7 +34,6 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
       loading={eager ? 'eager' : 'lazy'}
       decoding="async"
     />
-    <span class="preview-label">{project.cover ? 'Обложка проекта' : 'Превью темы'} <span aria-hidden="true">↗︎</span></span>
   </a>
   <div class="community-card-body">
     <div class="community-card-heading">
@@ -113,7 +112,6 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
     box-shadow: 0 8px 30px var(--awesome-soft);
   }
   .community-preview {
-    position: relative;
     display: block;
     overflow: hidden;
     aspect-ratio: 8 / 5;
@@ -128,20 +126,6 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
     transition: transform 220ms ease;
   }
   .community-preview:hover img { transform: scale(1.025); }
-  .preview-label {
-    position: absolute;
-    inset: auto 0.75rem 0.75rem auto;
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid #ffffff30;
-    border-radius: 0.45rem;
-    background: #070c16e8;
-    color: #f4f7fb;
-    font-size: 0.7rem;
-    font-weight: 500;
-  }
   .community-card-body { display: flex; flex: 1; flex-direction: column; gap: 1rem; padding: 1.25rem; }
   .community-card-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.3rem 0.75rem; }
   .community-card h3 { margin: 0; font-size: 1.2rem; line-height: 1.4; letter-spacing: -0.025em; }

@@ -39,7 +39,13 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
       <section class="awesome-section" aria-labelledby={category.id}>
         <div class="awesome-section-heading">
           <div>
-            <h2 id={category.id}><span class="section-number" aria-hidden="true">0{index + 1}</span> {category.title}<span class="section-count">{category.projects.length}</span></h2>
+            <h2 id={category.id}>
+              <picture class="section-symbol" aria-hidden="true">
+                <source media="(prefers-reduced-motion: reduce)" srcset={`/awesome/category-${category.icon}-static.webp`} />
+                <img src={`/awesome/category-${category.icon}.webp`} alt="" width="56" height="56" decoding="async" />
+              </picture>
+              {category.title}<span class="section-count">{category.projects.length}</span>
+            </h2>
             <p>{category.description}</p>
           </div>
           <a class="awesome-guide" href={category.guide.href}>{category.guide.label} <span aria-hidden="true">↗︎</span></a>
@@ -70,6 +76,7 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
 </script>
 
 <style>
+  :global(.main-pane:has(.awesome-catalog) .sl-container) { max-width: none; }
   .awesome-catalog { --awesome-accent: #00fe7a; --awesome-soft: color-mix(in srgb, var(--awesome-accent) 8%, transparent); }
   :global(:root[data-theme='light']) .awesome-catalog { --awesome-accent: #007a3d; }
   .awesome-intro { position: relative; overflow: hidden; border: 1px solid var(--sl-color-gray-5); border-radius: 1rem; padding: clamp(1.5rem, 4vw, 2.5rem); background: var(--sl-color-bg); }
@@ -89,8 +96,9 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
   .category-arrow { position: absolute; right: 0.8rem; bottom: 0.65rem; color: var(--sl-color-gray-2); }
   .awesome-section + .awesome-section { margin-top: 3.5rem; }
   .awesome-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; margin-bottom: 1.25rem; }
-  .awesome-section h2 { display: flex; align-items: center; gap: 0.65rem; margin: 0; color: var(--sl-color-white); font-size: 1.6rem; letter-spacing: -0.035em; scroll-margin-top: 6rem; }
-  .section-number { color: var(--awesome-accent); font-family: var(--sl-font-mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; }
+  .awesome-section h2 { display: flex; align-items: center; gap: 0.85rem; margin: 0; color: var(--sl-color-white); font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 750; line-height: 1.2; letter-spacing: -0.035em; scroll-margin-top: 6rem; }
+  .section-symbol { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; flex-shrink: 0; }
+  .section-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; }
   .section-count { display: grid; place-items: center; min-width: 1.5rem; height: 1.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.4rem; color: var(--sl-color-gray-2); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; }
   .awesome-section-heading p { margin: 0.55rem 0 0; color: var(--sl-color-gray-2); font-size: 0.85rem; line-height: 1.7; }
   .awesome-guide { color: var(--awesome-accent); font-size: 0.75rem; text-decoration: none; }
@@ -108,6 +116,8 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
   a:focus-visible { outline: 2px solid var(--awesome-accent); outline-offset: 4px; }
   @media (max-width: 48rem) {
     .awesome-grid { grid-template-columns: minmax(0, 1fr); }
+    .awesome-section h2 { gap: 0.6rem; }
+    .section-symbol { width: 2.5rem; height: 2.5rem; }
     .awesome-categories { gap: 0.5rem; }
     .awesome-categories a { gap: 0.5rem; padding: 1rem 0.5rem; }
     .category-name { font-size: 0.75rem; }
