@@ -2222,6 +2222,83 @@ test("checkout promo code is editable and applies its quoted discount", async ({
   await expect(dialog.locator(".checkout-promo-discount-marker")).toBeVisible();
 });
 
+test("user details keep facts adjacent and controls bounded across viewport sizes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(
+    "/demo/runtime/admin/users/ms_100000000000400080000000000de418?theme_preview=dark"
+  );
+  const card = page.locator(".admin-user-detail-page");
+  await expect(card).toBeVisible();
+  await expect(card.locator(".admin-user-extend-days-field")).toBeVisible();
+  await expect(card.locator(".admin-user-extend-tariff-field")).toBeVisible();
+  const widths = await card.evaluate((element) => {
+    const width = (selector: string) =>
+      element.querySelector(selector)!.getBoundingClientRect().width;
+    return {
+      card: element.getBoundingClientRect().width,
+      days: width(".admin-user-extend-days-field"),
+      tariff: width(".admin-user-extend-tariff-field"),
+      submit: width(".admin-user-extend-submit"),
+      tabs: width(".admin-user-detail-main"),
+    };
+  });
+  expect(widths.card).toBeLessThanOrEqual(1440);
+  expect(widths.tabs).toBeCloseTo(widths.card, 0);
+  expect(widths.days).toBeLessThanOrEqual(240);
+  expect(widths.tariff).toBeLessThanOrEqual(420);
+  expect(widths.submit).toBeLessThan(300);
+  const factGaps = await card.locator(".admin-user-facts > li").evaluateAll((items) =>
+    items.map((item) => {
+      const label = item.querySelector(":scope > span")!.getBoundingClientRect();
+      const value = item.querySelector(":scope > strong")!.getBoundingClientRect();
+      return value.top - label.bottom;
+    })
+  );
+  expect(factGaps.every((gap) => gap >= 0 && gap <= 8)).toBe(true);
+  const factRows = await card.locator(".admin-user-facts > li").evaluateAll((items) =>
+    items.map((item) => {
+      const rect = item.getBoundingClientRect();
+      return { top: Math.round(rect.top), height: rect.height };
+    })
+  );
+  for (const row of factRows) {
+    const neighbors = factRows.filter((item) => item.top === row.top);
+    expect(neighbors.every((item) => Math.abs(item.height - row.height) < 1)).toBe(true);
+  }
+  await card.getByRole("tab", { name: "Действия", exact: true }).click();
+  await expect(card.locator(".admin-user-actions-grid")).toBeVisible();
+  const actionRows = await card
+    .locator(
+      ".admin-user-actions-grid > section, .balance-section-block--adjustment, .balance-section-block--conversion"
+    )
+    .evaluateAll((items) =>
+      items.map((item) => {
+        const rect = item.getBoundingClientRect();
+        return { top: Math.round(rect.top), height: rect.height };
+      })
+    );
+  expect(actionRows.length).toBeGreaterThan(2);
+  for (const row of actionRows) {
+    const neighbors = actionRows.filter((item) => item.top === row.top);
+    expect(neighbors.every((item) => Math.abs(item.height - row.height) < 1)).toBe(true);
+  }
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.reload();
+    await expect(card).toBeVisible();
+    for (const tab of ["Подписка", "Действия", "Платежи", "Логи", "Сообщение"]) {
+      await card.getByRole("tab", { name: tab, exact: true }).click();
+      const overflow = await card.evaluate((element) => ({
+        width: element.clientWidth,
+        scroll: element.scrollWidth,
+      }));
+      expect(overflow.scroll).toBeLessThanOrEqual(overflow.width + 1);
+    }
+  }
+});
+
 test("admin deep links do not pin the first opened record", async ({ page }) => {
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.goto(`${APP_URL}?screen=admin&admin_section=payments`);

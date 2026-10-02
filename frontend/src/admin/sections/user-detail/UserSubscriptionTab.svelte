@@ -34,7 +34,7 @@
 
 <Tabs.Content value="subscription" class="admin-tabs-content">
   {#if openedUserDetail.active_subscription}
-    <ul class="admin-meta-list">
+    <ul class="admin-meta-list admin-user-subscription-facts">
       <li>
         <span>{at("user_label_active_until", {}, "Active until")}</span><strong
           >{fmtDate(openedUserDetail.active_subscription.end_date)}</strong
@@ -141,7 +141,7 @@
   {@render quickActions?.()}
 
   {#if openedUserDetail?.trial}
-    <ul class="admin-meta-list">
+    <ul class="admin-meta-list admin-user-trial-facts">
       <li>
         <span>{at("user_label_trial", {}, "Trial")}</span><strong
           >{trialSummaryText(openedUserDetail.trial)}</strong

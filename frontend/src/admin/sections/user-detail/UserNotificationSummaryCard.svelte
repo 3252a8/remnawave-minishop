@@ -48,9 +48,6 @@
 
 <section class="admin-user-notifications-summary">
   <div class="admin-subsection-title">{at("user_tab_notifications", {}, "Notifications")}</div>
-  <AdminButton size="sm" variant="ghost" onclick={onEditNotifications}>
-    {at("user_notifications_edit", {}, "Edit")}
-  </AdminButton>
   <div class="admin-user-preference-row">
     <span>{at("user_notifications_marketing_short", {}, "Marketing")}</span>
     <AdminBadge variant={marketingSummary.variant}>{marketingSummary.label}</AdminBadge>
@@ -59,4 +56,7 @@
     <span>{at("user_notifications_system_short", {}, "System")}</span>
     <AdminBadge variant={systemSummary.variant}>{systemSummary.label}</AdminBadge>
   </div>
+  <AdminButton size="sm" variant="ghost" onclick={onEditNotifications}>
+    {at("user_notifications_edit", {}, "Edit")}
+  </AdminButton>
 </section>

@@ -108,97 +108,99 @@
   {/if}
 
   {#if activeSubscription}
-    {#if periodTariffItems.length}
+    <div class="admin-user-actions-grid">
+      {#if periodTariffItems.length}
+        <AdminExtensionPoint
+          target="admin.users.detail.tariff"
+          context={{ user: openedUser, userDetail: openedUserDetail }}
+        >
+          <UserTariffActionCard
+            {at}
+            {userActionBusy}
+            {periodTariffItems}
+            {tariffActionDirty}
+            {tariffHwidLimitChangeAvailable}
+            {currentSubscriptionTariffLabel}
+            {userTariffActionKey}
+            {selectTariffAction}
+          />
+        </AdminExtensionPoint>
+      {/if}
+
       <AdminExtensionPoint
-        target="admin.users.detail.tariff"
+        target="admin.users.detail.traffic-strategy"
         context={{ user: openedUser, userDetail: openedUserDetail }}
       >
-        <UserTariffActionCard
+        <UserTrafficStrategyActionCard
           {at}
           {userActionBusy}
-          {periodTariffItems}
-          {tariffActionDirty}
-          {tariffHwidLimitChangeAvailable}
-          {currentSubscriptionTariffLabel}
-          {userTariffActionKey}
-          {selectTariffAction}
+          {trafficStrategyItems}
+          {trafficStrategyDirty}
+          {trafficStrategyDraftValid}
+          {trafficStrategyEditable}
+          {trafficStrategyCurrentLabel}
+          {trafficStrategyLockMessage}
+          {selectTrafficStrategy}
         />
       </AdminExtensionPoint>
-    {/if}
 
-    <AdminExtensionPoint
-      target="admin.users.detail.traffic-strategy"
-      context={{ user: openedUser, userDetail: openedUserDetail }}
-    >
-      <UserTrafficStrategyActionCard
-        {at}
-        {userActionBusy}
-        {trafficStrategyItems}
-        {trafficStrategyDirty}
-        {trafficStrategyDraftValid}
-        {trafficStrategyEditable}
-        {trafficStrategyCurrentLabel}
-        {trafficStrategyLockMessage}
-        {selectTrafficStrategy}
-      />
-    </AdminExtensionPoint>
+      <AdminExtensionPoint
+        target="admin.users.detail.premium-traffic"
+        context={{ user: openedUser, userDetail: openedUserDetail }}
+      >
+        <UserTrafficOverrideActionCard
+          {at}
+          kind="premium"
+          {activeSubscription}
+          {userActionBusy}
+          dirty={premiumOverrideDirty}
+          draftValid={premiumOverrideDraftValid}
+          unlimitedDraft={premiumUnlimitedDraft}
+        />
+      </AdminExtensionPoint>
 
-    <AdminExtensionPoint
-      target="admin.users.detail.premium-traffic"
-      context={{ user: openedUser, userDetail: openedUserDetail }}
-    >
-      <UserTrafficOverrideActionCard
-        {at}
-        kind="premium"
-        {activeSubscription}
-        {userActionBusy}
-        dirty={premiumOverrideDirty}
-        draftValid={premiumOverrideDraftValid}
-        unlimitedDraft={premiumUnlimitedDraft}
-      />
-    </AdminExtensionPoint>
+      <AdminExtensionPoint
+        target="admin.users.detail.regular-traffic"
+        context={{ user: openedUser, userDetail: openedUserDetail }}
+      >
+        <UserTrafficOverrideActionCard
+          {at}
+          kind="regular"
+          {activeSubscription}
+          {userActionBusy}
+          dirty={regularOverrideDirty}
+          draftValid={regularOverrideDraftValid}
+          unlimitedDraft={regularUnlimitedDraft}
+        />
+      </AdminExtensionPoint>
 
-    <AdminExtensionPoint
-      target="admin.users.detail.regular-traffic"
-      context={{ user: openedUser, userDetail: openedUserDetail }}
-    >
-      <UserTrafficOverrideActionCard
-        {at}
-        kind="regular"
-        {activeSubscription}
-        {userActionBusy}
-        dirty={regularOverrideDirty}
-        draftValid={regularOverrideDraftValid}
-        unlimitedDraft={regularUnlimitedDraft}
-      />
-    </AdminExtensionPoint>
+      <AdminExtensionPoint
+        target="admin.users.detail.hwid"
+        context={{ user: openedUser, userDetail: openedUserDetail }}
+      >
+        <UserHwidLimitActionCard
+          {at}
+          {activeSubscription}
+          {userActionBusy}
+          {hwidLimitDirty}
+          {hwidLimitDraftValid}
+          {hwidUnlimitedDraft}
+          {hwidLimitLabel}
+        />
+      </AdminExtensionPoint>
 
-    <AdminExtensionPoint
-      target="admin.users.detail.hwid"
-      context={{ user: openedUser, userDetail: openedUserDetail }}
-    >
-      <UserHwidLimitActionCard
-        {at}
-        {activeSubscription}
-        {userActionBusy}
-        {hwidLimitDirty}
-        {hwidLimitDraftValid}
-        {hwidUnlimitedDraft}
-        {hwidLimitLabel}
-      />
-    </AdminExtensionPoint>
-
-    <AdminExtensionPoint
-      target="admin.users.detail.traffic-grant"
-      context={{ user: openedUser, userDetail: openedUserDetail }}
-    >
-      <UserTrafficGrantActionCard
-        {at}
-        {userActionBusy}
-        {grantTrafficGbValid}
-        {selectGrantTrafficKind}
-      />
-    </AdminExtensionPoint>
+      <AdminExtensionPoint
+        target="admin.users.detail.traffic-grant"
+        context={{ user: openedUser, userDetail: openedUserDetail }}
+      >
+        <UserTrafficGrantActionCard
+          {at}
+          {userActionBusy}
+          {grantTrafficGbValid}
+          {selectGrantTrafficKind}
+        />
+      </AdminExtensionPoint>
+    </div>
   {/if}
 
   <AdminExtensionPoint

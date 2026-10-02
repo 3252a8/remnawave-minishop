@@ -577,6 +577,9 @@
     border-radius: 10px;
     background: color-mix(in srgb, var(--admin-surface-2) 88%, var(--admin-surface-1));
   }
+  .balance-section-block {
+    align-content: start;
+  }
   .balance-summary-tile {
     width: 100%;
     appearance: none;
@@ -649,6 +652,7 @@
     align-items: end;
     gap: 12px;
     min-width: 0;
+    max-width: 880px;
   }
   .balance-control-row--adjustment :global(.balance-operation-submit) {
     grid-column: 1 / -1;
@@ -663,8 +667,9 @@
     min-height: 36px;
   }
   .balance-control-row :global(.balance-operation-submit) {
-    width: 100%;
-    white-space: nowrap;
+    width: auto;
+    justify-self: start;
+    white-space: normal;
   }
   .balance-amount-input-wrap {
     position: relative;
@@ -768,6 +773,9 @@
     .balance-control-row--adjustment :global(.balance-operation-submit) {
       grid-column: auto;
     }
+    .balance-control-row :global(.balance-operation-submit) {
+      width: 100%;
+    }
     .balance-block-heading {
       align-items: flex-start;
       flex-direction: column;
@@ -777,6 +785,16 @@
     }
     .balance-history-row {
       align-items: flex-start;
+    }
+  }
+  @container user-detail (min-width: 1100px) {
+    .balance-card-body {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+    }
+    .balance-section-block--summary,
+    .balance-history {
+      grid-column: 1 / -1;
     }
   }
 </style>
