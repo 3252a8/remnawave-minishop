@@ -156,6 +156,7 @@ def get_tariff_catalog_keyboard(
     promo_enabled: bool = True,
     promo_toggle_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
+    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
     default_currency = default_currency_key_for_settings(settings) if settings else "rub"
@@ -169,7 +170,8 @@ def get_tariff_catalog_keyboard(
             else:
                 min_price = None
             if min_price is not None:
-                label = f"{label} from {min_price:g}"
+                price_label = _("wa_checkout_price_from", price=f"{min_price:g}")
+                label = f"{label} {price_label}"
         else:
             if hasattr(tariff, "min_traffic_package"):
                 package = tariff.min_traffic_package(default_currency)
@@ -178,7 +180,8 @@ def get_tariff_catalog_keyboard(
             else:
                 package = None
             if package:
-                label = f"{label} from {package.price:g} / {package.gb:g} GB"
+                price_label = _("wa_checkout_price_from", price=f"{package.price:g}")
+                label = f"{label} {price_label} / {package.gb:g} GB"
         builder.row(
             InlineKeyboardButton(
                 text=label,
@@ -186,7 +189,6 @@ def get_tariff_catalog_keyboard(
                 f"{callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)}",
             )
         )
-    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     _add_promo_toggle(
         builder,
         _,

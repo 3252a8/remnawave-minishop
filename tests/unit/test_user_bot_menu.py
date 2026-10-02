@@ -26,7 +26,7 @@ from bot.keyboards.inline.user_keyboards import (
     payment_options_back_callback,
     tariff_purchase_back_callback,
 )
-from bot.middlewares.i18n import LOCALE_KEY_ALIASES
+from bot.middlewares.i18n import LOCALE_KEY_ALIASES, JsonI18n
 from bot.utils.install_links import bot_install_guides_enabled, install_guide_share_links_enabled
 from config.tariffs_config import TariffsConfig
 from tests.support.settings_stub import settings_stub
@@ -550,6 +550,38 @@ class UserBotMenuTests(unittest.TestCase):
             "pay_yk_saved_list:1:100:0:subscription@basic|hwid_renewal",
             self._callback_data(markup),
         )
+
+    def test_tariff_catalog_localizes_minimum_prices(self):
+        i18n = JsonI18n(path="locales")
+        package = SimpleNamespace(price=70.5, gb=10.5)
+        for lang, prefix in (("ru", "от"), ("en", "from")):
+            for billing_model in ("period", "traffic"):
+                for legacy in (False, True):
+                    with self.subTest(lang=lang, billing_model=billing_model, legacy=legacy):
+                        prices = (
+                            {
+                                "min_period_price_rub": lambda: 70.5,
+                                "min_traffic_package_rub": lambda: package,
+                            }
+                            if legacy
+                            else {
+                                "min_period_price": lambda _currency: 70.5,
+                                "min_traffic_package": lambda _currency: package,
+                            }
+                        )
+                        tariff = SimpleNamespace(
+                            key="basic",
+                            billing_model=billing_model,
+                            name=lambda _lang: "Plan",
+                            **prices,
+                        )
+                        keyboard = get_tariff_catalog_keyboard(
+                            [tariff], lang, i18n, callback_context="bot"
+                        )
+                        button = keyboard.inline_keyboard[0][0]
+                        suffix = " / 10.5 GB" if billing_model == "traffic" else ""
+                        self.assertEqual(button.text, f"Plan {prefix} 70.5{suffix}")
+                        self.assertEqual(button.callback_data, "tariff:select:basic:bot")
 
     def test_tariff_back_buttons_return_to_previous_level(self):
         tariff = SimpleNamespace(
