@@ -3021,6 +3021,8 @@
   "admin_settings_field_trial_traffic_limit_gb_label": "Trial Traffic Limit Gb",
   "admin_settings_field_trial_premium_traffic_limit_gb_label": "Trial Premium Traffic Limit Gb",
   "admin_settings_field_trial_premium_traffic_limit_gb_description": "Separate premium traffic limit for trial subscriptions. 0 disables premium traffic enforcement.",
+  "admin_settings_field_trial_premium_title_label": "Trial premium section title",
+  "admin_settings_field_trial_premium_title_description": "Custom title on the trial subscription's home screen. Empty uses the default in the user's language.",
   "admin_settings_field_trial_hwid_device_limit_label": "Trial HWID Device Limit",
   "admin_settings_field_trial_hwid_device_limit_description": "Hardware device limit for trial subscriptions. Empty keeps the panel/default limit; 0 means unlimited.",
   "admin_settings_field_trial_days_strategy_label": "Trial Days Purchase Strategy",

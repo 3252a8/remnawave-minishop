@@ -1,11 +1,11 @@
 <script lang="ts">
+  import TariffTrialGeneralSettings from "./TariffTrialGeneralSettings.svelte";
   import { getSettingsStore, getTariffsStore } from "$lib/admin/context";
   import { Input } from "$components/ui/index.js";
   import { ChevronRight, Save, X } from "$components/ui/icons.js";
   import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import {
-    TRIAL_GENERAL_KEYS,
     TRIAL_PAYMENT_KEYS,
     TRIAL_PURCHASE_KEYS,
     TRIAL_RESET_KEYS,
@@ -526,185 +526,13 @@
               </div>
             </section>
 
-            <section
-              class="admin-settings-field-group"
-              class:is-dirty={dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty)}
-            >
-              <header class="admin-settings-field-group-head">
-                <div class="admin-settings-field-group-head-copy">
-                  <strong>{at("tariffs_trial_group_general", {}, "General settings")}</strong>
-                  <small>
-                    {at(
-                      "tariffs_trial_group_general_hint",
-                      {},
-                      "Trial duration, traffic volume, and device limit granted to the user."
-                    )}
-                  </small>
-                </div>
-                {#if dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty)}
-                  <AdminBadge variant="warning">
-                    {at(
-                      "settings_dirty_count",
-                      { count: dirtyCount(TRIAL_GENERAL_KEYS, settingsDirty) },
-                      "Changes: {count}"
-                    )}
-                  </AdminBadge>
-                {/if}
-              </header>
-              <div class="admin-settings-field-group-body">
-                <div
-                  class="admin-setting admin-trial-setting-row"
-                  class:is-dirty={isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
-                >
-                  <div class="admin-setting-meta">
-                    <strong>
-                      {at("tariffs_trial_days", {}, "Duration, days")}
-                      {#if isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
-                        <AdminBadge variant="warning"
-                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                        >
-                      {/if}
-                    </strong>
-                    <code>TRIAL_DURATION_DAYS</code>
-                  </div>
-                  <div class="admin-setting-control">
-                    <Input
-                      class="input"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={inputValueForKey("TRIAL_DURATION_DAYS")}
-                      oninput={settingInputHandler("TRIAL_DURATION_DAYS")}
-                    />
-                    {#if isSettingDirty("TRIAL_DURATION_DAYS", settingsDirty)}
-                      <AdminButton
-                        size="sm"
-                        variant="ghost"
-                        onclick={() => resetSetting("TRIAL_DURATION_DAYS")}
-                      >
-                        <X size={12} />
-                        {at("reset", {}, "Reset")}
-                      </AdminButton>
-                    {/if}
-                  </div>
-                </div>
-                <div
-                  class="admin-setting admin-trial-setting-row"
-                  class:is-dirty={isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
-                >
-                  <div class="admin-setting-meta">
-                    <strong>
-                      {at("tariffs_trial_traffic", {}, "Traffic limit, GB")}
-                      {#if isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
-                        <AdminBadge variant="warning"
-                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                        >
-                      {/if}
-                    </strong>
-                    <code>TRIAL_TRAFFIC_LIMIT_GB</code>
-                  </div>
-                  <div class="admin-setting-control">
-                    <Input
-                      class="input"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={inputValueForKey("TRIAL_TRAFFIC_LIMIT_GB")}
-                      oninput={settingInputHandler("TRIAL_TRAFFIC_LIMIT_GB")}
-                    />
-                    {#if isSettingDirty("TRIAL_TRAFFIC_LIMIT_GB", settingsDirty)}
-                      <AdminButton
-                        size="sm"
-                        variant="ghost"
-                        onclick={() => resetSetting("TRIAL_TRAFFIC_LIMIT_GB")}
-                      >
-                        <X size={12} />
-                        {at("reset", {}, "Reset")}
-                      </AdminButton>
-                    {/if}
-                  </div>
-                </div>
-                <div
-                  class="admin-setting admin-trial-setting-row"
-                  class:is-dirty={isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
-                >
-                  <div class="admin-setting-meta">
-                    <strong>
-                      {at("tariffs_trial_premium_traffic", {}, "Premium traffic limit, GB")}
-                      {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
-                        <AdminBadge variant="warning"
-                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                        >
-                      {/if}
-                    </strong>
-                    <code>TRIAL_PREMIUM_TRAFFIC_LIMIT_GB</code>
-                  </div>
-                  <div class="admin-setting-control">
-                    <Input
-                      class="input"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={inputValueForKey("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
-                      oninput={settingInputHandler("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
-                    />
-                    {#if isSettingDirty("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB", settingsDirty)}
-                      <AdminButton
-                        size="sm"
-                        variant="ghost"
-                        onclick={() => resetSetting("TRIAL_PREMIUM_TRAFFIC_LIMIT_GB")}
-                      >
-                        <X size={12} />
-                        {at("reset", {}, "Reset")}
-                      </AdminButton>
-                    {/if}
-                  </div>
-                </div>
-                <div
-                  class="admin-setting admin-trial-setting-row"
-                  class:is-dirty={isSettingDirty("TRIAL_HWID_DEVICE_LIMIT", settingsDirty)}
-                >
-                  <div class="admin-setting-meta">
-                    <strong>
-                      {at("tariffs_trial_devices", {}, "Device limit")}
-                      {#if isSettingDirty("TRIAL_HWID_DEVICE_LIMIT", settingsDirty)}
-                        <AdminBadge variant="warning"
-                          >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                        >
-                      {/if}
-                    </strong>
-                    <code>TRIAL_HWID_DEVICE_LIMIT</code>
-                    <small>
-                      {at(
-                        "tariffs_trial_devices_hint",
-                        {},
-                        "Device top-ups are unavailable during the trial. They become available after switching to a tariff with configured device packages."
-                      )}
-                    </small>
-                  </div>
-                  <div class="admin-setting-control">
-                    <Input
-                      class="input"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={inputValueForKey("TRIAL_HWID_DEVICE_LIMIT")}
-                      oninput={settingInputHandler("TRIAL_HWID_DEVICE_LIMIT")}
-                    />
-                    {#if isSettingDirty("TRIAL_HWID_DEVICE_LIMIT", settingsDirty)}
-                      <AdminButton
-                        size="sm"
-                        variant="ghost"
-                        onclick={() => resetSetting("TRIAL_HWID_DEVICE_LIMIT")}
-                      >
-                        <X size={12} />
-                        {at("reset", {}, "Reset")}
-                      </AdminButton>
-                    {/if}
-                  </div>
-                </div>
-              </div>
-            </section>
+            <TariffTrialGeneralSettings
+              {at}
+              {settingsDirty}
+              {settingsFieldMap}
+              {setSetting}
+              {resetSetting}
+            />
 
             <section
               class="admin-settings-field-group"
@@ -845,7 +673,7 @@
                       </AdminButton>
                     {/if}
                     <div class="admin-chip-list">
-                      {#each csvList("TRIAL_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid}
+                      {#each csvList("TRIAL_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid (uuid)}
                         <button
                           type="button"
                           class="admin-chip"
@@ -912,7 +740,7 @@
                       </AdminButton>
                     {/if}
                     <div class="admin-chip-list">
-                      {#each csvList("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid}
+                      {#each csvList("TRIAL_PREMIUM_SQUAD_UUIDS", settingsDirty, settingsFieldMap) as uuid (uuid)}
                         <button
                           type="button"
                           class="admin-chip"

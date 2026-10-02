@@ -3280,6 +3280,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
                 tmpdir,
                 TRIAL_TRAFFIC_LIMIT_GB=9,
                 TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_PREMIUM_TITLE="Trial fast lane",
                 TRIAL_SQUAD_UUIDS="main-squad",
                 TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
             )
@@ -3338,6 +3339,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["traffic_used_bytes"], 5 * GIB)
         self.assertEqual(result["premium_used_bytes"], 2 * GIB)
         self.assertEqual(result["premium_limit_bytes"], 3 * GIB)
+        self.assertEqual(result["premium_title"], "Trial fast lane")
         self.assertTrue(result["premium_traffic_limited"])
         self.assertTrue(
             any(
@@ -3352,6 +3354,7 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
                 _tariffs_config_payload(),
                 tmpdir,
                 TRIAL_PREMIUM_TRAFFIC_LIMIT_GB=3,
+                TRIAL_PREMIUM_TITLE="Trial fast lane",
                 TRIAL_PREMIUM_SQUAD_UUIDS="premium-squad",
             )
             service = _make_service(settings)
@@ -3374,6 +3377,72 @@ class SubscriptionServiceActiveDetailsTests(unittest.IsolatedAsyncioTestCase):
                     )
                     self.assertEqual(result["premium_limit_bytes"], limit)
                     self.assertEqual(result["premium_traffic_limited"], expected)
+                    self.assertEqual(
+                        result["premium_title"],
+                        "Trial fast lane" if provider == "trial" or status == "TRIAL" else None,
+                    )
+
+    async def test_trial_premium_title_survives_fast_profile_and_panel_failure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(), tmpdir, TRIAL_PREMIUM_TITLE="Trial fast lane"
+            )
+            db_user = SimpleNamespace(
+                user_id=42, panel_user_uuid="panel-user", language_code="en", username="alice"
+            )
+            for prefer_local in (True, False):
+                with self.subTest(prefer_local=prefer_local):
+                    service = _make_service(settings)
+                    service.panel_service.get_user_by_uuid_lookup = AsyncMock(
+                        return_value={"ok": False, "user": None, "not_found": False}
+                    )
+                    service.panel_service.get_user_by_uuid = AsyncMock(return_value=None)
+                    local_sub = self._local_active_sub()
+                    local_sub.provider = "trial"
+                    with (
+                        patch(
+                            "bot.services.subscription_service_impl.lifecycle_details.user_dal.get_user_by_id",
+                            AsyncMock(return_value=db_user),
+                        ),
+                        patch(
+                            "bot.services.subscription_service_impl.lifecycle_details.subscription_dal.get_active_subscription_by_user_id",
+                            AsyncMock(return_value=local_sub),
+                        ),
+                        patch(
+                            "bot.services.subscription_service_impl.lifecycle_details.tariff_dal.get_hwid_device_entitlement_summary",
+                            AsyncMock(return_value={"active_devices": 0}),
+                        ),
+                    ):
+                        result = await service.get_active_subscription_details(
+                            AsyncMock(), user_id=42, prefer_local=prefer_local
+                        )
+                    self.assertEqual(result["premium_title"], "Trial fast lane")
+                    if prefer_local:
+                        service.panel_service.get_user_by_uuid_lookup.assert_not_awaited()
+                    else:
+                        service.panel_service.get_user_by_uuid_lookup.assert_awaited_once()
+
+    async def test_trial_premium_title_does_not_override_bound_tariff_title(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = _tariffs_config_payload()
+            payload["tariffs"][0]["premium_names"] = {"en": "Paid fast lane"}
+            settings = _make_settings(payload, tmpdir, TRIAL_PREMIUM_TITLE="Trial fast lane")
+            service = _make_service(settings)
+            local_sub = self._local_active_sub()
+            local_sub.provider = "trial"
+            local_sub.tariff_key = "standard"
+            result = await service._local_active_subscription_details_fallback(
+                SimpleNamespace(
+                    user_id=42,
+                    panel_user_uuid="panel-user",
+                    language_code="en",
+                    username="alice",
+                ),
+                local_sub,
+                refresh_metadata=False,
+                panel_lookup_failed=True,
+            )
+            self.assertEqual(result["premium_title"], "Paid fast lane")
 
     async def test_get_active_subscription_details_preserves_local_subscription_on_panel_error(
         self,

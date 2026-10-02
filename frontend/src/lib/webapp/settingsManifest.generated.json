@@ -14293,6 +14293,25 @@
         "updated_at": null
       },
       {
+        "key": "TRIAL_PREMIUM_TITLE",
+        "type": "string",
+        "section": "pricing",
+        "section_order": 11,
+        "subsection": "trial",
+        "label": "Trial premium section title",
+        "description": "Custom premium section title for trial subscriptions. Empty uses the localized default.",
+        "i18n_label_key": "admin_settings_field_trial_premium_title_label",
+        "i18n_description_key": "admin_settings_field_trial_premium_title_description",
+        "i18n_subsection_key": "admin_settings_subsection_trial",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "TRIAL_HWID_DEVICE_LIMIT",
         "type": "int",
         "section": "pricing",

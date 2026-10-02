@@ -74,6 +74,14 @@ TRIAL_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         subsection="trial",
     ),
     SettingField(
+        "TRIAL_PREMIUM_TITLE",
+        "string",
+        "pricing",
+        "Trial premium section title",
+        "Custom premium section title for trial subscriptions. Empty uses the localized default.",
+        subsection="trial",
+    ),
+    SettingField(
         "TRIAL_HWID_DEVICE_LIMIT",
         "int",
         "pricing",

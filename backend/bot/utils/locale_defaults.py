@@ -35,6 +35,14 @@ def tariff_premium_title(tariff: Tariff, lang: str) -> str:
     )
 
 
+def trial_premium_title(settings: Settings, lang: str) -> str:
+    """Trial premium section title honoring the operator's override."""
+    title = str(settings.TRIAL_PREMIUM_TITLE or "").strip()
+    return (
+        title or localized_default_text(lang, TARIFF_PREMIUM_NAME_DEFAULT_KEY) or "Premium servers"
+    )
+
+
 def subscription_purchase_description_text(settings: Settings, lang: str | None) -> str:
     """Purchase description honoring operator overrides.
 

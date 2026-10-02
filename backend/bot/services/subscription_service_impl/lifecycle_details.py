@@ -10,7 +10,7 @@ from bot.services.panel_activity import (
 )
 from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.config_link import prepare_config_links
-from bot.utils.locale_defaults import tariff_premium_title
+from bot.utils.locale_defaults import tariff_premium_title, trial_premium_title
 from bot.utils.mini_app_url import subscription_public_install_url
 from bot.utils.traffic_reset import (
     next_traffic_reset_after,
@@ -20,6 +20,7 @@ from bot.utils.traffic_reset import (
 from db.dal import subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import subscription_is_trial
 from .hwid_limits import resolve_hwid_base_limit
 
 logger = logging.getLogger(__name__)
@@ -384,7 +385,14 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 db_user.language_code or self.settings.DEFAULT_LANGUAGE,
             )
             if tariff
-            else None,
+            else (
+                trial_premium_title(
+                    self.settings,
+                    db_user.language_code or self.settings.DEFAULT_LANGUAGE,
+                )
+                if subscription_is_trial(local_active_sub)
+                else None
+            ),
             "billing_model": billing_model_display,
             "tier_baseline_bytes": local_active_sub.tier_baseline_bytes
             if local_active_sub

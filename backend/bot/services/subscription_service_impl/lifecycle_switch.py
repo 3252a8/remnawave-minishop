@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.subscription_order_terms import gift_tariff
 from bot.utils.config_link import prepare_config_links
-from bot.utils.locale_defaults import tariff_premium_title
+from bot.utils.locale_defaults import tariff_premium_title, trial_premium_title
 from bot.utils.mini_app_url import subscription_public_install_url
 from bot.utils.traffic_reset import next_traffic_reset_after, traffic_accounting_period_start
 from config.tariffs_config import default_currency_key_for_settings
@@ -18,6 +18,7 @@ from ._typing import SubscriptionServiceMixinContract
 from .entitlement_helpers import (
     record_tariff_change_best_effort,
     record_traffic_topup_best_effort,
+    subscription_is_trial,
 )
 from .hwid_limits import resolve_hwid_base_limit
 from .sale_mode import parse_sale_mode_context
@@ -174,7 +175,13 @@ class SubscriptionLifecycleSwitchMixin(SubscriptionServiceMixinContract):
             "tariff_key": local_active_sub.tariff_key,
             "tariff_name": tariff.name(language) if tariff else None,
             "tariff_description": tariff.description(language) if tariff else None,
-            "premium_title": tariff_premium_title(tariff, language) if tariff else None,
+            "premium_title": tariff_premium_title(tariff, language)
+            if tariff
+            else (
+                trial_premium_title(self.settings, language)
+                if subscription_is_trial(local_active_sub)
+                else None
+            ),
             "billing_model": billing_model_display,
             "tier_baseline_bytes": local_active_sub.tier_baseline_bytes,
             "topup_balance_bytes": local_active_sub.topup_balance_bytes,

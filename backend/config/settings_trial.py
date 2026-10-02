@@ -32,6 +32,13 @@ class TrialSettings(BaseSettings):
             "0 disables premium traffic enforcement for trials."
         ),
     )
+    TRIAL_PREMIUM_TITLE: str | None = Field(
+        default=None,
+        description=(
+            "Custom premium section title for trial subscriptions. "
+            "Empty value uses the localized default."
+        ),
+    )
     TRIAL_HWID_DEVICE_LIMIT: int | None = Field(
         default=None,
         ge=0,

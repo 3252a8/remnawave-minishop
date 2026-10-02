@@ -3021,6 +3021,8 @@
   "admin_settings_field_trial_traffic_limit_gb_label": "Лимит трафика триала (ГБ)",
   "admin_settings_field_trial_premium_traffic_limit_gb_label": "Лимит premium-трафика триала (ГБ)",
   "admin_settings_field_trial_premium_traffic_limit_gb_description": "Отдельный лимит premium-трафика для триала. 0 отключает контроль premium-трафика.",
+  "admin_settings_field_trial_premium_title_label": "Название premium-раздела триала",
+  "admin_settings_field_trial_premium_title_description": "Название на главном экране пробной подписки. Если пусто, используется название по умолчанию на языке пользователя.",
   "admin_settings_field_trial_hwid_device_limit_label": "Лимит устройств триала",
   "admin_settings_field_trial_hwid_device_limit_description": "Лимит HWID-устройств для триала. Пустое значение сохраняет лимит панели или значение по умолчанию, 0 означает безлимит.",
   "admin_settings_field_trial_days_strategy_label": "Начисление дней при покупке из триала",
