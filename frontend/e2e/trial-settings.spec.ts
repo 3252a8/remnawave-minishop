@@ -25,6 +25,7 @@ for (const width of [1280, 390]) {
       .filter({ has: page.locator("code", { hasText: "TRIAL_DURATION_DAYS" }) })
       .getByRole("spinbutton");
     const save = content.getByRole("button", { name: "Сохранить", exact: true });
+    const saveRow = content.locator(".admin-tariff-settings-save-row");
 
     await expect(input).toBeVisible();
     await expect(input).toHaveValue("");
@@ -41,7 +42,7 @@ for (const width of [1280, 390]) {
     await input.fill(title);
     await duration.fill(String(Number(originalDuration) + 1));
     await save.click();
-    await expect(save).toHaveCount(0);
+    await expect(saveRow).toHaveCount(0);
     await expect(input).toHaveValue(title);
     await trigger.click();
     await expect(content).toHaveCount(0);
@@ -60,20 +61,19 @@ for (const width of [1280, 390]) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     ).toBeLessThanOrEqual(2);
-    await page.screenshot({
-      path: testInfo.outputPath(`trial-settings-${width}.png`),
-      fullPage: true,
-    });
-
     await input.fill("");
     await duration.fill(originalDuration);
     await save.click();
-    await expect(save).toHaveCount(0);
+    await expect(saveRow).toHaveCount(0);
     await trigger.click();
     await expect(content).toHaveCount(0);
     await trigger.click();
     await expect(input).toHaveValue("");
     await expect(duration).toHaveValue(originalDuration);
+    await page.screenshot({
+      path: testInfo.outputPath(`trial-settings-${width}.png`),
+      fullPage: true,
+    });
     expect(errors).toEqual([]);
   });
 }

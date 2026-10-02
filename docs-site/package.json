@@ -20,7 +20,7 @@
     "typescript": "^6.0.3"
   },
   "overrides": {
-    "devalue": "5.9.2",
+    "devalue": "5.9.3",
     "esbuild": "0.28.2",
     "js-yaml": "4.3.2",
     "smol-toml": "1.7.1",
