@@ -183,6 +183,7 @@ export default defineConfig({
             { label: 'Runes QA', slug: 'development/runes-migration-qa' },
           ],
         },
+        { label: 'Awesome Minishop', link: '/awesome-minishop/' },
         { label: 'Список изменений', slug: 'changelog' },
       ],
     }),

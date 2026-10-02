@@ -1,0 +1,117 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import CommunityProjectCard from '../components/CommunityProjectCard.astro';
+import { communityCategories } from '../data/awesomeMinishop';
+
+const projectCount = communityCategories.reduce((count, category) => count + category.projects.length, 0);
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Awesome Minishop',
+    description: 'Темы, плагины и инструменты от сообщества Remnawave Minishop. Превью, авторы, установка и ссылки на проекты.',
+    tableOfContents: false,
+    editUrl: 'https://gitlab.com/3252a8/remnawave-minishop/-/edit/dev/docs-site/src/data/awesomeMinishop.ts',
+  }}
+>
+  <div class="awesome-catalog not-content">
+    <div class="awesome-intro">
+      <div class="awesome-eyebrow"><span aria-hidden="true">✦</span> Создано сообществом</div>
+      <p class="awesome-lead">Сделайте Minishop <span>своим.</span></p>
+      <p class="awesome-subtitle">Темы с характером, новые возможности и полезные инструменты от людей, которые развивают Minishop вместе с нами.</p>
+      <div class="awesome-meta"><span class="awesome-dot" aria-hidden="true"></span> {projectCount} проектов <span aria-hidden="true">·</span> 3 категории <span aria-hidden="true">·</span> Сделано для Minishop</div>
+    </div>
+
+    <nav class="awesome-categories" aria-label="Категории Awesome Minishop">
+      {communityCategories.map((category) => (
+        <a href={`#${category.id}`}>
+          <picture class="category-symbol" aria-hidden="true">
+            <source media="(prefers-reduced-motion: reduce)" srcset={`/awesome/category-${category.icon}-static.webp`} />
+            <img src={`/awesome/category-${category.icon}.webp`} alt="" width="64" height="64" decoding="async" />
+          </picture>
+          <span class="category-name">{category.title}<small>{category.projects.length} {category.id === 'themes' ? 'тем' : 'проект'}</small></span>
+          <span class="category-arrow" aria-hidden="true">↓</span>
+        </a>
+      ))}
+    </nav>
+
+    {communityCategories.map((category, index) => (
+      <section class="awesome-section" aria-labelledby={category.id}>
+        <div class="awesome-section-heading">
+          <div>
+            <h2 id={category.id}><span class="section-number" aria-hidden="true">0{index + 1}</span> {category.title}<span class="section-count">{category.projects.length}</span></h2>
+            <p>{category.description}</p>
+          </div>
+          <a class="awesome-guide" href={category.guide.href}>{category.guide.label} <span aria-hidden="true">↗︎</span></a>
+        </div>
+        <div class:list={['awesome-grid', { 'awesome-grid-single': category.projects.length === 1 }]}>
+          {category.projects.map((project, projectIndex) => <CommunityProjectCard project={project} wide={category.projects.length === 1} eager={index === 0 && projectIndex < 2} />)}
+        </div>
+      </section>
+    ))}
+
+    <aside class="awesome-contribute" aria-labelledby="add-project">
+      <div class="contribute-symbol" aria-hidden="true">✳</div>
+      <div>
+        <h2 id="add-project">Ваш проект тоже может быть здесь</h2>
+        <p>Создали тему, плагин или инструмент для Minishop? Предложите его через issue или PR в ветку <code>dev</code>: добавьте ссылку, краткое описание и превью.</p>
+        <div class="contribute-links">
+          <a href="https://github.com/3252a8/remnawave-minishop/issues/new" target="_blank" rel="noopener noreferrer">Предложить проект ↗︎</a>
+          <a href="https://gitlab.com/3252a8/remnawave-minishop/-/tree/dev" target="_blank" rel="noopener noreferrer">Репозиторий Minishop ↗︎</a>
+        </div>
+      </div>
+    </aside>
+    <p class="awesome-note">Спасибо авторам за вклад в сообщество. Проекты поддерживают их разработчики; актуальные инструкции и совместимость указаны в репозиториях.</p>
+  </div>
+</StarlightPage>
+
+<script>
+  import '../scripts/communityProjects';
+</script>
+
+<style>
+  .awesome-catalog { --awesome-accent: #00fe7a; --awesome-soft: color-mix(in srgb, var(--awesome-accent) 8%, transparent); }
+  :global(:root[data-theme='light']) .awesome-catalog { --awesome-accent: #007a3d; }
+  .awesome-intro { position: relative; overflow: hidden; border: 1px solid var(--sl-color-gray-5); border-radius: 1rem; padding: clamp(1.5rem, 4vw, 2.5rem); background: var(--sl-color-bg); }
+  .awesome-eyebrow { display: flex; gap: 0.5rem; align-items: center; color: var(--awesome-accent); font-size: 0.75rem; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; }
+  .awesome-lead { margin: 1rem 0; color: var(--sl-color-white); font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 750; letter-spacing: -0.05em; line-height: 1.2; }
+  .awesome-lead span { color: var(--awesome-accent); }
+  .awesome-subtitle { max-width: 38rem; margin: 0; color: var(--sl-color-gray-2); font-size: 1rem; line-height: 1.75; }
+  .awesome-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 1.5rem; color: var(--sl-color-gray-2); font-size: 0.75rem; }
+  .awesome-dot { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--awesome-accent); }
+  .awesome-categories { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin: 1rem 0 3rem; }
+  .awesome-categories a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.65rem; min-width: 0; border: 1px solid var(--sl-color-gray-5); border-radius: 0.8rem; padding: 1.25rem 1rem; color: var(--sl-color-white); text-align: center; text-decoration: none; }
+  .awesome-categories a:hover { border-color: var(--awesome-accent); background: var(--awesome-soft); }
+  .category-symbol { display: grid; place-items: center; width: 4rem; height: 4rem; flex-shrink: 0; }
+  .category-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .category-name { display: grid; gap: 0.15rem; font-size: 0.95rem; font-weight: 650; }
+  .category-name small { color: var(--sl-color-gray-2); font-size: 0.7rem; font-weight: 400; }
+  .category-arrow { position: absolute; right: 0.8rem; bottom: 0.65rem; color: var(--sl-color-gray-2); }
+  .awesome-section + .awesome-section { margin-top: 3.5rem; }
+  .awesome-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; margin-bottom: 1.25rem; }
+  .awesome-section h2 { display: flex; align-items: center; gap: 0.65rem; margin: 0; color: var(--sl-color-white); font-size: 1.6rem; letter-spacing: -0.035em; scroll-margin-top: 6rem; }
+  .section-number { color: var(--awesome-accent); font-family: var(--sl-font-mono); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; }
+  .section-count { display: grid; place-items: center; min-width: 1.5rem; height: 1.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.4rem; color: var(--sl-color-gray-2); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; }
+  .awesome-section-heading p { margin: 0.55rem 0 0; color: var(--sl-color-gray-2); font-size: 0.85rem; line-height: 1.7; }
+  .awesome-guide { color: var(--awesome-accent); font-size: 0.75rem; text-decoration: none; }
+  .awesome-guide:hover { text-decoration: underline; }
+  .awesome-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+  .awesome-grid-single { grid-template-columns: minmax(0, 1fr); }
+  .awesome-contribute { display: flex; gap: 1.25rem; align-items: flex-start; border: 1px solid color-mix(in srgb, var(--awesome-accent) 40%, var(--sl-color-gray-5)); border-radius: 1rem; margin-top: 3.5rem; padding: 1.75rem; background: var(--awesome-soft); }
+  .contribute-symbol { color: var(--awesome-accent); font-size: 2rem; line-height: 1; }
+  .awesome-contribute h2 { margin: 0; color: var(--sl-color-white); font-size: 1.15rem; line-height: 1.4; scroll-margin-top: 6rem; }
+  .awesome-contribute p { margin: 0.65rem 0 1rem; color: var(--sl-color-gray-2); font-size: 0.85rem; line-height: 1.75; }
+  .contribute-links { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; }
+  .contribute-links a { color: var(--awesome-accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; }
+  .contribute-links a:hover { text-decoration: underline; }
+  .awesome-note { margin: 1.25rem 0 0; color: var(--sl-color-gray-2); font-size: 0.75rem; line-height: 1.7; }
+  a:focus-visible { outline: 2px solid var(--awesome-accent); outline-offset: 4px; }
+  @media (max-width: 48rem) {
+    .awesome-grid { grid-template-columns: minmax(0, 1fr); }
+    .awesome-categories { gap: 0.5rem; }
+    .awesome-categories a { gap: 0.5rem; padding: 1rem 0.5rem; }
+    .category-name { font-size: 0.75rem; }
+    .category-arrow { display: none; }
+    .awesome-contribute { padding: 1.25rem; gap: 0.75rem; }
+  }
+</style>

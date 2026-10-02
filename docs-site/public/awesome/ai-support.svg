@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="750" viewBox="0 0 1200 750" role="img" aria-labelledby="title desc">
+  <title id="title">AI Support — Центр поддержки</title><desc id="desc">Обложка проекта: обращения и AI-помощник на бирюзовом фоне. Это иллюстрация, а не снимок интерфейса.</desc>
+  <defs><radialGradient id="bg"><stop stop-color="#153f45"/><stop offset="1" stop-color="#0c1721"/></radialGradient><linearGradient id="accent" x2="1" y2="1"><stop stop-color="#5eead4"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+  <rect width="1200" height="750" fill="url(#bg)"/>
+  <g fill="none" stroke="#5eead4" opacity=".12"><circle cx="880" cy="375" r="300"/><circle cx="880" cy="375" r="250"/><path d="M0 125h1200M0 625h1200"/></g>
+  <g transform="translate(660 175)">
+    <rect width="440" height="365" rx="25" fill="#112832" stroke="#3d626a" stroke-width="2"/>
+    <circle cx="30" cy="29" r="5" fill="#5eead4"/><circle cx="48" cy="29" r="5" fill="#41727a"/><circle cx="66" cy="29" r="5" fill="#41727a"/>
+    <path d="M0 58h440" stroke="#34525c"/>
+    <rect x="25" y="84" width="270" height="73" rx="14" fill="#203d49"/><rect x="43" y="107" width="160" height="7" rx="3" fill="#80a8b0"/><rect x="43" y="127" width="210" height="7" rx="3" fill="#4e7580"/>
+    <rect x="116" y="179" width="296" height="94" rx="14" fill="#1a5958"/><path d="m143 201 4 10 11 4-11 4-4 10-4-10-11-4 11-4Z" fill="#5eead4"/><rect x="171" y="208" width="160" height="7" rx="3" fill="#94dbd2"/><rect x="139" y="239" width="230" height="7" rx="3" fill="#4a9993"/>
+    <rect x="25" y="297" width="386" height="42" rx="10" fill="#0c1c26" stroke="#34525c"/><path d="M45 318h170" stroke="#3b616d" stroke-width="6" stroke-linecap="round"/><path d="m379 309 12 9-12 9Z" fill="#5eead4"/>
+  </g>
+  <g font-family="Arial,sans-serif"><text x="85" y="245" font-size="22" letter-spacing="5" fill="#77c7c4">MINISHOP / TOOL</text><text x="80" y="355" font-size="73" font-weight="700" fill="#f1fcfc">AI Support</text><text x="85" y="413" font-size="31" fill="#a4c9cd">Центр поддержки</text><rect x="85" y="455" width="180" height="45" rx="22" fill="#184348"/><text x="111" y="484" font-size="18" fill="#9be9dc">@tagashi666</text></g>
+</svg>

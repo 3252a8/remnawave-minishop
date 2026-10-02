@@ -14,7 +14,6 @@ import options from 'virtual:starlight-theme-nova/user-config'
 const { hasSidebar } = Astro.locals.starlightRoute
 const nav = options.nav ?? []
 const route = Astro.locals.starlightRoute
-const changelogItem = nav.find((item) => getI18nText(item.href, route) === '/changelog/')
 
 function getI18nText(
   value: string | Record<string, string>,
@@ -79,7 +78,7 @@ function isDocsVersionLink(href: string) {
     <SiteTitle />
   </div>
   <nav
-    class="hidden flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium md:flex xl:gap-6 xl:pl-6"
+    class="minishop-desktop-nav hidden flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium md:flex xl:gap-6 xl:pl-6"
   >
     {
       nav.map((item) => {
@@ -92,7 +91,7 @@ function isDocsVersionLink(href: string) {
         return (
           <a
             class:list={[
-              '-m-1.5 rounded-md p-1.5 text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) focus-visible:outline-offset-0',
+              'minishop-nav-item -m-1.5 rounded-md p-1.5 text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) focus-visible:outline-offset-0',
               (icon || proLink || docsVersionLink) &&
                 'minishop-header-link inline-flex items-center',
               proLink && 'minishop-pro-link',
@@ -116,17 +115,7 @@ function isDocsVersionLink(href: string) {
       })
     }
   </nav>
-  {
-    changelogItem && (
-      <a
-        class="ml-auto text-xs font-medium text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) md:hidden"
-        href={getI18nText(changelogItem.href, route)}
-      >
-        {getI18nText(changelogItem.label, route)}
-      </a>
-    )
-  }
-  <div class="minishop-header-search flex md:max-w-60 md:flex-1 print:hidden">
+  <div class="minishop-header-search ml-auto flex md:max-w-60 md:flex-1 print:hidden">
     <Search />
   </div>
   {
@@ -185,3 +174,49 @@ function isDocsVersionLink(href: string) {
     )
   }
 </div>
+
+<style>
+  .minishop-desktop-nav {
+    min-width: 0;
+    scrollbar-width: none;
+  }
+
+  .minishop-desktop-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .minishop-nav-item {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  @media (min-width: 48rem) and (max-width: 90rem) {
+    .minishop-desktop-nav {
+      column-gap: 0.75rem;
+      font-size: 0.8125rem;
+    }
+
+    .minishop-header-search {
+      flex: 0 0 auto;
+      width: 2.25rem;
+    }
+
+    .minishop-header-search :global(site-search) {
+      display: block;
+      width: 2.25rem;
+    }
+
+    .minishop-header-search :global(button[data-open-modal]) {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-color: transparent;
+      padding: 0.5rem;
+    }
+
+    .minishop-header-search :global(button[data-open-modal] > :is(span, kbd)) {
+      display: none !important;
+    }
+  }
+</style>
