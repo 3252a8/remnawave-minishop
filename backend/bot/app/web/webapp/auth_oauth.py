@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import logging
 import secrets
 from datetime import datetime
@@ -49,6 +50,7 @@ from .auth_panel import (
     _sync_merged_panel_identity_for_user,
 )
 from .auth_referral import (
+    _apply_ad_attribution_if_needed,
     _apply_referral_to_existing_user,
     _apply_referral_welcome_bonus_if_needed,
     _ensure_user_from_telegram,
@@ -322,6 +324,13 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
                         db_user,
                         str(state.get("referral_code") or "") or telegram_user.get("start_param"),
                     )
+                await _apply_ad_attribution_if_needed(
+                    session,
+                    int(db_user.user_id),
+                    telegram_user.get("start_param") or str(state.get("start_param") or ""),
+                    event_key=f"oauth:{state.get('nonce', '')}:{telegram_user.get('id')}",
+                    is_new_user=bool(getattr(db_user, "_webapp_created", False)),
+                )
 
             if db_user.is_banned:
                 await session.rollback()
@@ -470,6 +479,13 @@ async def auth_token_route(request: web.Request) -> web.Response:
                     db_user,
                     referral_param or telegram_user.get("start_param"),
                 )
+            await _apply_ad_attribution_if_needed(
+                session,
+                int(db_user.user_id),
+                telegram_user.get("start_param") or auth_payload.start_param,
+                event_key="auth:" + hashlib.sha256(str(payload).encode()).hexdigest(),
+                is_new_user=bool(getattr(db_user, "_webapp_created", False)),
+            )
             authenticated_user_id = int(db_user.user_id)
             await session.commit()
         except RegistrationInviteRequiredError:

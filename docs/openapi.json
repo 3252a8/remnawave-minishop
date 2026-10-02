@@ -1,14 +1,365 @@
 {
   "components": {
     "schemas": {
+      "AdAssignBody": {
+        "properties": {
+          "advertiser_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Advertiser Id"
+          }
+        },
+        "title": "AdAssignBody",
+        "type": "object"
+      },
+      "AdAuditOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "actor_id",
+          "created_at"
+        ],
+        "title": "AdAuditOut",
+        "type": "object"
+      },
+      "AdBindingBody": {
+        "properties": {
+          "link_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Link Id"
+          },
+          "promo_code_id": {
+            "minimum": 1,
+            "title": "Promo Code Id",
+            "type": "integer"
+          },
+          "purpose": {
+            "default": "offer",
+            "enum": [
+              "offer",
+              "manual_code_source"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "promo_code_id"
+        ],
+        "title": "AdBindingBody",
+        "type": "object"
+      },
+      "AdBindingOut": {
+        "properties": {
+          "activations": {
+            "default": 0,
+            "title": "Activations",
+            "type": "integer"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "effects": {
+            "additionalProperties": true,
+            "title": "Effects",
+            "type": "object"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ends At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "link_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Link Id"
+          },
+          "pending": {
+            "default": 0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "promo_code_id": {
+            "title": "Promo Code Id",
+            "type": "integer"
+          },
+          "purchases": {
+            "default": 0,
+            "title": "Purchases",
+            "type": "integer"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "refunded": {
+            "default": 0,
+            "title": "Refunded",
+            "type": "integer"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "promo_code_id",
+          "code",
+          "purpose",
+          "starts_at",
+          "version",
+          "is_active"
+        ],
+        "title": "AdBindingOut",
+        "type": "object"
+      },
+      "AdCandidateDecisionBody": {
+        "properties": {
+          "status": {
+            "enum": [
+              "confirmed_by_operator",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AdCandidateDecisionBody",
+        "type": "object"
+      },
+      "AdCandidateOut": {
+        "properties": {
+          "batch_id": {
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "bot_id": {
+            "title": "Bot Id",
+            "type": "string"
+          },
+          "delta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delta Seconds"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "method_version": {
+            "title": "Method Version",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "touchpoint_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Touchpoint Id"
+          },
+          "window_seconds": {
+            "title": "Window Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "batch_id",
+          "status",
+          "reason",
+          "window_seconds",
+          "bot_id",
+          "method_version"
+        ],
+        "title": "AdCandidateOut",
+        "type": "object"
+      },
+      "AdCandidatesBody": {
+        "properties": {
+          "bot_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Bot Id",
+            "type": "string"
+          },
+          "window_seconds": {
+            "maximum": 3600,
+            "minimum": 1,
+            "title": "Window Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bot_id",
+          "window_seconds"
+        ],
+        "title": "AdCandidatesBody",
+        "type": "object"
+      },
+      "AdCaptureBody": {
+        "properties": {
+          "code": {
+            "default": "",
+            "maxLength": 64,
+            "title": "Code",
+            "type": "string"
+          },
+          "event_id": {
+            "default": "",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_-]*$",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "utm": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Utm",
+            "type": "object"
+          }
+        },
+        "title": "AdCaptureBody",
+        "type": "object"
+      },
+      "AdCaptureOut": {
+        "properties": {
+          "captured": {
+            "title": "Captured",
+            "type": "boolean"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdPublicContextOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "captured"
+        ],
+        "title": "AdCaptureOut",
+        "type": "object"
+      },
       "AdCreateBody": {
         "properties": {
+          "advertiser_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Advertiser Id"
+          },
           "cost": {
             "default": 0.0,
+            "maximum": 100000000,
+            "minimum": 0,
             "title": "Cost",
             "type": "number"
           },
           "source": {
+            "maxLength": 160,
+            "minLength": 1,
             "title": "Source",
             "type": "string"
           },
@@ -24,8 +375,582 @@
         "title": "AdCreateBody",
         "type": "object"
       },
+      "AdDetailOut": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Archived At"
+          },
+          "attribution_window_days": {
+            "title": "Attribution Window Days",
+            "type": "integer"
+          },
+          "audit": {
+            "items": {
+              "$ref": "#/components/schemas/AdAuditOut"
+            },
+            "title": "Audit",
+            "type": "array"
+          },
+          "available_codes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Available Codes",
+            "type": "object"
+          },
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/AdBindingOut"
+            },
+            "title": "Bindings",
+            "type": "array"
+          },
+          "campaign": {
+            "$ref": "#/components/schemas/AdOut"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/AdCandidateOut"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "imports": {
+            "items": {
+              "$ref": "#/components/schemas/AdImportOut"
+            },
+            "title": "Imports",
+            "type": "array"
+          },
+          "legacy_urls": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Legacy Urls",
+            "type": "object"
+          },
+          "legacy_warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Legacy Warning"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/AdLinkOut"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/AdvertisingReportOut"
+          },
+          "report_currency": {
+            "title": "Report Currency",
+            "type": "string"
+          },
+          "spend_source": {
+            "title": "Spend Source",
+            "type": "string"
+          },
+          "spends": {
+            "items": {
+              "$ref": "#/components/schemas/AdSpendOut"
+            },
+            "title": "Spends",
+            "type": "array"
+          },
+          "touch_total": {
+            "title": "Touch Total",
+            "type": "integer"
+          },
+          "touches": {
+            "items": {
+              "$ref": "#/components/schemas/AdTouchOut"
+            },
+            "title": "Touches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "campaign",
+          "name",
+          "description",
+          "report_currency",
+          "attribution_window_days",
+          "spend_source",
+          "report",
+          "links",
+          "bindings",
+          "spends",
+          "touches",
+          "touch_total",
+          "imports",
+          "candidates",
+          "audit",
+          "available_codes"
+        ],
+        "title": "AdDetailOut",
+        "type": "object"
+      },
+      "AdEditBody": {
+        "properties": {
+          "attribution_window_days": {
+            "default": 30,
+            "maximum": 365,
+            "minimum": 1,
+            "title": "Attribution Window Days",
+            "type": "integer"
+          },
+          "cost": {
+            "default": 0,
+            "maximum": 100000000,
+            "minimum": 0,
+            "title": "Cost",
+            "type": "number"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "report_currency": {
+            "default": "RUB",
+            "pattern": "^[A-Z]{3,8}$",
+            "title": "Report Currency",
+            "type": "string"
+          },
+          "spend_source": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "manual",
+              "import"
+            ],
+            "title": "Spend Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AdEditBody",
+        "type": "object"
+      },
+      "AdImportConfirmBody": {
+        "properties": {
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          }
+        },
+        "title": "AdImportConfirmBody",
+        "type": "object"
+      },
+      "AdImportOut": {
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "granularity": {
+            "title": "Granularity",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "account",
+          "timezone",
+          "fingerprint",
+          "rows",
+          "granularity",
+          "created_at"
+        ],
+        "title": "AdImportOut",
+        "type": "object"
+      },
+      "AdImportPreviewBody": {
+        "properties": {
+          "account": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Account",
+            "type": "string"
+          },
+          "csv": {
+            "maxLength": 1048576,
+            "title": "Csv",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Z]{3,8}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currency"
+          },
+          "delimiter": {
+            "default": ",",
+            "enum": [
+              ",",
+              ";",
+              "\t"
+            ],
+            "title": "Delimiter",
+            "type": "string"
+          },
+          "granularity": {
+            "default": "daily",
+            "enum": [
+              "daily",
+              "minute",
+              "interval",
+              "cumulative",
+              "event"
+            ],
+            "title": "Granularity",
+            "type": "string"
+          },
+          "mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Mapping",
+            "type": "object"
+          },
+          "timezone": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "csv",
+          "mapping",
+          "timezone",
+          "account"
+        ],
+        "title": "AdImportPreviewBody",
+        "type": "object"
+      },
+      "AdImportPreviewOut": {
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/AdImportOut"
+          },
+          "preview": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Preview",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch",
+          "preview"
+        ],
+        "title": "AdImportPreviewOut",
+        "type": "object"
+      },
+      "AdLinkBody": {
+        "properties": {
+          "destination": {
+            "default": "web",
+            "enum": [
+              "web",
+              "bot",
+              "miniapp"
+            ],
+            "title": "Destination",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Label",
+            "type": "string"
+          },
+          "landing_path": {
+            "default": "/",
+            "title": "Landing Path",
+            "type": "string"
+          },
+          "utm": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Utm",
+            "type": "object"
+          }
+        },
+        "title": "AdLinkBody",
+        "type": "object"
+      },
+      "AdLinkOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "destination": {
+            "title": "Destination",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "landing_path": {
+            "title": "Landing Path",
+            "type": "string"
+          },
+          "urls": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Urls",
+            "type": "object"
+          },
+          "utm": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Utm",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "label",
+          "destination",
+          "landing_path",
+          "utm",
+          "urls",
+          "is_active"
+        ],
+        "title": "AdLinkOut",
+        "type": "object"
+      },
+      "AdMoneyOut": {
+        "properties": {
+          "average_order_minor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Average Order Minor"
+          },
+          "cac_minor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cac Minor"
+          },
+          "cash_minor": {
+            "title": "Cash Minor",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "d30_minor": {
+            "title": "D30 Minor",
+            "type": "string"
+          },
+          "d7_minor": {
+            "title": "D7 Minor",
+            "type": "string"
+          },
+          "d90_minor": {
+            "title": "D90 Minor",
+            "type": "string"
+          },
+          "first_purchase_minor": {
+            "title": "First Purchase Minor",
+            "type": "string"
+          },
+          "net_minor": {
+            "title": "Net Minor",
+            "type": "string"
+          },
+          "product_minor": {
+            "title": "Product Minor",
+            "type": "string"
+          },
+          "purchases": {
+            "title": "Purchases",
+            "type": "integer"
+          },
+          "refund_minor": {
+            "title": "Refund Minor",
+            "type": "string"
+          },
+          "repeat_purchase_minor": {
+            "title": "Repeat Purchase Minor",
+            "type": "string"
+          },
+          "roas": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Roas"
+          },
+          "scale": {
+            "title": "Scale",
+            "type": "integer"
+          },
+          "spend_minor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spend Minor"
+          }
+        },
+        "required": [
+          "currency",
+          "scale",
+          "cash_minor",
+          "product_minor",
+          "refund_minor",
+          "net_minor",
+          "first_purchase_minor",
+          "repeat_purchase_minor",
+          "spend_minor",
+          "purchases",
+          "d7_minor",
+          "d30_minor",
+          "d90_minor"
+        ],
+        "title": "AdMoneyOut",
+        "type": "object"
+      },
       "AdOut": {
         "properties": {
+          "advertiser_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Advertiser Id"
+          },
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Archived At"
+          },
           "cost": {
             "title": "Cost",
             "type": "number"
@@ -50,6 +975,18 @@
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
           },
           "source": {
             "anyOf": [
@@ -77,6 +1014,19 @@
           },
           "stats": {
             "$ref": "#/components/schemas/AdStatsOut"
+          },
+          "stats_reset_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stats Reset At"
           }
         },
         "required": [
@@ -85,6 +1035,271 @@
           "is_active"
         ],
         "title": "AdOut",
+        "type": "object"
+      },
+      "AdPublicContextOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "landing_path": {
+            "title": "Landing Path",
+            "type": "string"
+          },
+          "offer_available": {
+            "default": false,
+            "title": "Offer Available",
+            "type": "boolean"
+          },
+          "offer_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Offer Code"
+          },
+          "offer_mode": {
+            "default": "none",
+            "title": "Offer Mode",
+            "type": "string"
+          },
+          "utm": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Utm",
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "landing_path",
+          "utm"
+        ],
+        "title": "AdPublicContextOut",
+        "type": "object"
+      },
+      "AdPurchaseItem": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "evidence": {
+            "default": "legacy_bot_start",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "first_product_purchase": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Product Purchase"
+          },
+          "funding_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Funding Source"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "sale_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sale Mode"
+          },
+          "status": {
+            "default": "succeeded",
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "payment_id",
+          "user_id",
+          "amount",
+          "currency"
+        ],
+        "title": "AdPurchaseItem",
+        "type": "object"
+      },
+      "AdPurchasesListOut": {
+        "properties": {
+          "page": {
+            "default": 0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/AdPurchaseItem"
+            },
+            "title": "Purchases",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "purchases"
+        ],
+        "title": "AdPurchasesListOut",
+        "type": "object"
+      },
+      "AdSpendBody": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "currency": {
+            "default": "RUB",
+            "pattern": "^[A-Z]{3,8}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 256,
+            "title": "Note",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "occurred_at"
+        ],
+        "title": "AdSpendBody",
+        "type": "object"
+      },
+      "AdSpendOut": {
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "scale": {
+            "title": "Scale",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "amount_minor",
+          "currency",
+          "scale",
+          "occurred_at",
+          "source",
+          "note"
+        ],
+        "title": "AdSpendOut",
         "type": "object"
       },
       "AdStatsOut": {
@@ -98,6 +1313,13 @@
             "default": 0.0,
             "title": "Revenue",
             "type": "number"
+          },
+          "revenue_by_currency": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Revenue By Currency",
+            "type": "object"
           },
           "starts": {
             "default": 0,
@@ -117,10 +1339,140 @@
         "properties": {
           "is_active": {
             "default": true,
-            "title": "Is Active"
+            "title": "Is Active",
+            "type": "boolean"
           }
         },
         "title": "AdToggleBody",
+        "type": "object"
+      },
+      "AdTouchOut": {
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_new_user": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is New User"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "original_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Original User Id"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          },
+          "utm": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Utm",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "evidence",
+          "occurred_at",
+          "received_at",
+          "utm"
+        ],
+        "title": "AdTouchOut",
+        "type": "object"
+      },
+      "AdUnassignedBody": {
+        "properties": {
+          "campaign_id": {
+            "minimum": 1,
+            "title": "Campaign Id",
+            "type": "integer"
+          },
+          "utm": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Utm",
+            "type": "object"
+          }
+        },
+        "required": [
+          "campaign_id",
+          "utm"
+        ],
+        "title": "AdUnassignedBody",
+        "type": "object"
+      },
+      "AdUnassignedOut": {
+        "properties": {
+          "campaigns": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Campaigns",
+            "type": "object"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "touches": {
+            "items": {
+              "$ref": "#/components/schemas/AdTouchOut"
+            },
+            "title": "Touches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "touches"
+        ],
+        "title": "AdUnassignedOut",
         "type": "object"
       },
       "AdminAdsListOut": {
@@ -131,6 +1483,28 @@
             },
             "title": "Campaigns",
             "type": "array"
+          },
+          "page": {
+            "default": 0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 50,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "revenue_by_currency": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Revenue By Currency",
+            "type": "object"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           },
           "totals": {
             "additionalProperties": {
@@ -6647,6 +8021,119 @@
           "is_banned"
         ],
         "title": "AdminUserWithAvatarOut",
+        "type": "object"
+      },
+      "AdvertisingReportOut": {
+        "properties": {
+          "attributed_users": {
+            "title": "Attributed Users",
+            "type": "integer"
+          },
+          "contacts": {
+            "title": "Contacts",
+            "type": "integer"
+          },
+          "ctr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ctr"
+          },
+          "currencies": {
+            "items": {
+              "$ref": "#/components/schemas/AdMoneyOut"
+            },
+            "title": "Currencies",
+            "type": "array"
+          },
+          "first_payers": {
+            "title": "First Payers",
+            "type": "integer"
+          },
+          "legacy_payment_count": {
+            "title": "Legacy Payment Count",
+            "type": "integer"
+          },
+          "mature_cohorts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Mature Cohorts",
+            "type": "object"
+          },
+          "payers": {
+            "title": "Payers",
+            "type": "integer"
+          },
+          "period_mode": {
+            "title": "Period Mode",
+            "type": "string"
+          },
+          "platform": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Platform",
+            "type": "object"
+          },
+          "purchases": {
+            "title": "Purchases",
+            "type": "integer"
+          },
+          "registration_conversion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Conversion"
+          },
+          "registrations": {
+            "title": "Registrations",
+            "type": "integer"
+          },
+          "returning_users": {
+            "title": "Returning Users",
+            "type": "integer"
+          },
+          "trials": {
+            "title": "Trials",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contacts",
+          "attributed_users",
+          "registrations",
+          "returning_users",
+          "trials",
+          "payers",
+          "first_payers",
+          "purchases",
+          "currencies",
+          "platform",
+          "legacy_payment_count",
+          "period_mode",
+          "mature_cohorts"
+        ],
+        "title": "AdvertisingReportOut",
         "type": "object"
       },
       "Author": {
@@ -17333,6 +18820,101 @@
         ]
       }
     },
+    "/api/admin/ads/unassigned": {
+      "get": {
+        "operationId": "get_admin_ad_unassigned_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdUnassignedOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Unassigned",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/unassigned/assign": {
+      "post": {
+        "operationId": "post_admin_ad_unassigned_assign_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdUnassignedBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Unassigned Assign",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/ads/{campaign_id}": {
       "delete": {
         "operationId": "delete_admin_ad_delete_route",
@@ -17377,6 +18959,1006 @@
           }
         ],
         "summary": "Admin Ad Delete",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/archive": {
+      "post": {
+        "operationId": "post_admin_ad_archive_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Archive",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/assign": {
+      "post": {
+        "operationId": "post_admin_ad_assign_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdAssignBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Assign",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/bindings": {
+      "post": {
+        "operationId": "post_admin_ad_binding_create_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdBindingBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Binding Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/bindings/{binding_id}/end": {
+      "post": {
+        "operationId": "post_admin_ad_binding_end_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "binding_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Binding End",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/candidates/{candidate_id}": {
+      "post": {
+        "operationId": "post_admin_ad_candidate_decide_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdCandidateDecisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Candidate Decide",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/detail": {
+      "get": {
+        "operationId": "get_admin_ad_detail_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdDetailOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Detail",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/edit": {
+      "post": {
+        "operationId": "post_admin_ad_edit_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdEditBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Edit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/export": {
+      "get": {
+        "operationId": "get_admin_ad_export_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Export",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/imports/preview": {
+      "post": {
+        "operationId": "post_admin_ad_import_preview_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdImportPreviewBody"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdImportPreviewOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Import Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/imports/{batch_id}/candidates": {
+      "post": {
+        "operationId": "post_admin_ad_candidates_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "pattern": "[0-9a-f]{32}",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdCandidatesBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Candidates",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/imports/{batch_id}/confirm": {
+      "post": {
+        "operationId": "post_admin_ad_import_confirm_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "pattern": "[0-9a-f]{32}",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdImportConfirmBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Import Confirm",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/imports/{batch_id}/revert": {
+      "post": {
+        "operationId": "post_admin_ad_import_revert_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "pattern": "[0-9a-f]{32}",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Import Revert",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/links": {
+      "post": {
+        "operationId": "post_admin_ad_link_create_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdLinkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Link Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/links/{link_id}/toggle": {
+      "post": {
+        "operationId": "post_admin_ad_link_toggle_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "link_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdToggleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Link Toggle",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/purchases": {
+      "get": {
+        "operationId": "get_admin_ad_purchases_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdPurchasesListOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Purchases",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/reset-stats": {
+      "post": {
+        "operationId": "post_admin_ad_reset_stats_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Reset Stats",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/ads/{campaign_id}/spend": {
+      "post": {
+        "operationId": "post_admin_ad_spend_create_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaign_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdSpendBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Ad Spend Create",
         "tags": [
           "admin"
         ]
@@ -26653,6 +29235,94 @@
         "summary": "Admin User Traffic Strategy",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/advertising/capture": {
+      "post": {
+        "operationId": "post_advertising_capture_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdCaptureBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdCaptureOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [],
+        "summary": "Advertising Capture",
+        "tags": [
+          "advertising"
+        ]
+      }
+    },
+    "/api/advertising/context": {
+      "get": {
+        "operationId": "get_advertising_context_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdCaptureOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [],
+        "summary": "Advertising Context",
+        "tags": [
+          "advertising"
         ]
       }
     },

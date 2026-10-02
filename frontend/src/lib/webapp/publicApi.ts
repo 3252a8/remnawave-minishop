@@ -694,9 +694,49 @@ export function buildAdminPromoActivationsPath(
   );
 }
 
-export type AdminAdsPath = "/admin/ads";
-export function buildAdminAdsPath(): AdminAdsPath {
-  return "/admin/ads";
+const advertisingTemplates = {
+  detail: "/api/admin/ads/{campaign_id}/detail",
+  edit: "/api/admin/ads/{campaign_id}/edit",
+  archive: "/api/admin/ads/{campaign_id}/archive",
+  links: "/api/admin/ads/{campaign_id}/links",
+  linkToggle: "/api/admin/ads/{campaign_id}/links/{link_id}/toggle",
+  bindings: "/api/admin/ads/{campaign_id}/bindings",
+  endBinding: "/api/admin/ads/{campaign_id}/bindings/{binding_id}/end",
+  spend: "/api/admin/ads/{campaign_id}/spend",
+  preview: "/api/admin/ads/{campaign_id}/imports/preview",
+  confirm: "/api/admin/ads/{campaign_id}/imports/{batch_id}/confirm",
+  revert: "/api/admin/ads/{campaign_id}/imports/{batch_id}/revert",
+  candidates: "/api/admin/ads/{campaign_id}/imports/{batch_id}/candidates",
+  decide: "/api/admin/ads/{campaign_id}/candidates/{candidate_id}",
+} as const;
+
+export function buildAdvertisingPath<K extends keyof typeof advertisingTemplates>(
+  kind: K,
+  campaignId: number,
+  childId: string | number = "",
+  query?: URLSearchParams
+): BuiltApiPath<(typeof advertisingTemplates)[K]> {
+  const path = advertisingTemplates[kind]
+    .replace("/api", "")
+    .replace("{campaign_id}", encodeURIComponent(String(campaignId)))
+    .replace(
+      /\{(?:binding_id|batch_id|candidate_id|link_id)\}/g,
+      encodeURIComponent(String(childId))
+    );
+  return builtApiPath<(typeof advertisingTemplates)[K]>(query?.size ? `${path}?${query}` : path);
+}
+
+export type AdminAdsPath = BuiltApiPath<"/api/admin/ads">;
+export function buildAdvertisingExportPath(
+  campaignId: number,
+  query?: URLSearchParams
+): BuiltApiPath<"/api/admin/ads/{campaign_id}/export"> {
+  return builtApiPath<"/api/admin/ads/{campaign_id}/export">(
+    `/admin/ads/${campaignId}/export${query?.size ? `?${query}` : ""}`
+  );
+}
+export function buildAdminAdsPath(query?: URLSearchParams): AdminAdsPath {
+  return builtApiPath<"/api/admin/ads">(query?.size ? `/admin/ads?${query}` : "/admin/ads");
 }
 
 export type AdminAdPath = BuiltApiPath<"/api/admin/ads/{campaign_id}">;
@@ -711,6 +751,30 @@ export function buildAdminAdTogglePath(campaignId: string | number): AdminAdTogg
   return builtApiPath<"/api/admin/ads/{campaign_id}/toggle">(
     `/admin/ads/${encodeURIComponent(String(campaignId))}/toggle`
   );
+}
+
+export type AdminAdAssignPath = BuiltApiPath<"/api/admin/ads/{campaign_id}/assign">;
+export function buildAdminAdAssignPath(campaignId: string | number): AdminAdAssignPath {
+  return builtApiPath<"/api/admin/ads/{campaign_id}/assign">(
+    `/admin/ads/${encodeURIComponent(String(campaignId))}/assign`
+  );
+}
+
+export type AdminAdResetStatsPath = BuiltApiPath<"/api/admin/ads/{campaign_id}/reset-stats">;
+export function buildAdminAdResetStatsPath(campaignId: string | number): AdminAdResetStatsPath {
+  return builtApiPath<"/api/admin/ads/{campaign_id}/reset-stats">(
+    `/admin/ads/${encodeURIComponent(String(campaignId))}/reset-stats`
+  );
+}
+
+export type AdminAdPurchasesPath = BuiltApiPath<"/api/admin/ads/{campaign_id}/purchases">;
+export function buildAdminAdPurchasesPath(
+  campaignId: string | number,
+  params?: URLSearchParams
+): AdminAdPurchasesPath {
+  const base = `/admin/ads/${encodeURIComponent(String(campaignId))}/purchases`;
+  const query = params?.toString();
+  return builtApiPath<"/api/admin/ads/{campaign_id}/purchases">(query ? `${base}?${query}` : base);
 }
 
 export type AdminSupportStatsPath = "/admin/support/stats";
@@ -836,6 +900,7 @@ export function createApiClient({
     if (mockApi) {
       const value = await mockApi(path, options, getMockContext());
       if (typeof Blob !== "undefined" && value instanceof Blob) return value;
+      if (typeof value === "string") return new Blob([value], { type: "text/csv;charset=utf-8" });
       throw new Error("mock_binary_response_unavailable");
     }
 

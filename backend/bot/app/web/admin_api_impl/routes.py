@@ -1,8 +1,11 @@
 from aiohttp import web
 
 from .ads import (
+    admin_ad_assign_route,
     admin_ad_create_route,
     admin_ad_delete_route,
+    admin_ad_purchases_route,
+    admin_ad_reset_stats_route,
     admin_ad_toggle_route,
     admin_ads_list_route,
 )
@@ -379,8 +382,14 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/sync", admin_sync_route)
 
     router.add_get("/api/admin/ads", admin_ads_list_route)
+    from .advertising import setup_advertising_routes
+
+    setup_advertising_routes(router)
     router.add_post("/api/admin/ads", admin_ad_create_route)
     router.add_post("/api/admin/ads/{campaign_id:\\d+}/toggle", admin_ad_toggle_route)
+    router.add_post("/api/admin/ads/{campaign_id:\\d+}/assign", admin_ad_assign_route)
+    router.add_post("/api/admin/ads/{campaign_id:\\d+}/reset-stats", admin_ad_reset_stats_route)
+    router.add_get("/api/admin/ads/{campaign_id:\\d+}/purchases", admin_ad_purchases_route)
     router.add_delete("/api/admin/ads/{campaign_id:\\d+}", admin_ad_delete_route)
 
     router.add_get("/api/admin/settings", admin_settings_get_route)

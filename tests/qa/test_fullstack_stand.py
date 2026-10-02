@@ -413,3 +413,96 @@ def test_remnawave_versions_are_pinned_and_healthy(client: httpx.Client) -> None
 
     remnawave = httpx.get(REMNAWAVE_HEALTH_URL, timeout=10.0)
     assert remnawave.status_code == 200, remnawave.text
+
+
+def test_advertising_guest_auth_import_revision_export_and_archive(client: httpx.Client) -> None:
+    admin = login_email(client, "runes.admin@example.com")
+    headers = admin.headers()
+    created = _ok(
+        client.post(
+            "/api/admin/ads",
+            headers=headers,
+            json={
+                "source": "QA HTTP advertising",
+                "start_param": "qa_" + uuid.uuid4().hex,
+                "cost": 0,
+            },
+        )
+    )
+    campaign_id = created["campaign"]["id"]
+    path = f"/api/admin/ads/{campaign_id}"
+    _ok(
+        client.post(
+            path + "/links",
+            headers=headers,
+            json={
+                "label": "QA guest",
+                "destination": "web",
+                "landing_path": "/",
+                "utm": {"utm_source": "qa_http", "utm_medium": "paid"},
+            },
+        )
+    )
+    code = _ok(client.get(path + "/detail", headers=headers))["links"][0]["code"]
+    with httpx.Client(base_url=API_BASE_URL, timeout=25) as guest:
+        captured = _ok(
+            guest.post(
+                "/api/advertising/capture",
+                json={
+                    "code": code,
+                    "event_id": uuid.uuid4().hex,
+                    "user_id": admin.user_id,
+                },
+            )
+        )
+        assert captured["captured"] and captured["context"]["code"] == code
+        assert guest.get(path + "/detail").status_code in {401, 403}
+        signed_in = login_email(guest, f"qa-ads-{uuid.uuid4().hex}@example.com")
+        detail = _ok(client.get(path + "/detail", headers=headers))
+        assert detail["report"]["contacts"] == 1 and detail["report"]["registrations"] == 1
+        assert detail["touches"][0]["user_id"] == signed_in.user_id
+        assert detail["touches"][0]["user_id"] != admin.user_id
+        assert detail["report"]["platform"]["clicks"] is None
+    mapping = {
+        "start": "date",
+        "advertisement": "ad",
+        "impressions": "views",
+        "clicks": "clicks",
+        "starts": "starts",
+        "cost": "cost",
+    }
+    preview = _ok(
+        client.post(
+            path + "/imports/preview",
+            headers=headers,
+            json={
+                "csv": "date,ad,views,clicks,starts,cost\n2026-09-01T00:00:00Z,qa,100,5,1,10\n",
+                "mapping": mapping,
+                "timezone": "UTC",
+                "account": "QA " + uuid.uuid4().hex,
+                "granularity": "daily",
+                "currency": "RUB",
+            },
+        )
+    )
+    batch = preview["batch"]["id"]
+    _ok(client.post(path + f"/imports/{batch}/confirm", headers=headers, json={"replace": False}))
+    _ok(
+        client.post(
+            path + "/edit",
+            headers=headers,
+            json={"name": "QA HTTP advertising", "spend_source": "import"},
+        )
+    )
+    detail = _ok(client.get(path + "/detail", headers=headers))
+    assert detail["report"]["platform"]["clicks"] == 5
+    assert detail["report"]["currencies"][0]["spend_minor"] == "1000"
+    exported = client.get(path + "/export?kind=contacts", headers=headers)
+    assert exported.status_code == 200 and "text/csv" in exported.headers["content-type"]
+    assert str(signed_in.user_id) in exported.text and "rw_ad_visit" not in exported.text
+    _ok(client.post(path + f"/imports/{batch}/revert", headers=headers, json={}))
+    detail = _ok(client.get(path + "/detail", headers=headers))
+    assert detail["report"]["platform"]["clicks"] is None
+    _ok(client.post(path + "/archive", headers=headers, json={}))
+    detail = _ok(client.get(path + "/detail", headers=headers))
+    assert detail["archived_at"] and detail["report"]["contacts"] == 1

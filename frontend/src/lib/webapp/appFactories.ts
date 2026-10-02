@@ -674,7 +674,8 @@ export function createShellAppActions({
     getPartnerProgramEnabled: () => getShellView().appDataView.partnerProgramEnabled,
     getReferralProgramEnabled: () => getShellView().appDataView.referralProgramEnabled,
     getPlans: () => getShellView().appDataView.plans,
-    getSuggestedPromoCode: () => getShellView().appDataView.suggestedPromoCode,
+    getSuggestedPromoCode: () =>
+      advertisingCheckoutCode() || getShellView().appDataView.suggestedPromoCode,
     getPreloadHost: () => (typeof window !== "undefined" ? asWebappRecord(window) : null),
     getRoutePathname,
     getSelectedPlan,
@@ -764,3 +765,4 @@ export function buildAppAdminPanelProps({
     t,
   });
 }
+import { advertisingCheckoutCode } from "./advertising";

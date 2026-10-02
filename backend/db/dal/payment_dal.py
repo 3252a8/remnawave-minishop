@@ -184,6 +184,9 @@ async def create_payment_record(session: AsyncSession, payment_data: dict[str, A
     from .extension_dal import bind_payment
 
     await bind_payment(session, new_payment)
+    from bot.services.advertising.capture import record_payment_created
+
+    await record_payment_created(session, new_payment)
     logger.info(
         "Payment record %s created for user %s", new_payment.payment_id, new_payment.user_id
     )
@@ -247,6 +250,9 @@ async def create_or_get_payment_record_by_idempotence_key(
             f"Failed to load payment after claiming its idempotence key {idempotence_key!r}."
         )
     if created:
+        from bot.services.advertising.capture import record_payment_created
+
+        await record_payment_created(session, payment)
         logger.info(
             "Payment record %s created with idempotence key %s",
             payment.payment_id,
@@ -408,6 +414,9 @@ async def ensure_payment_with_provider_id(
         checkout_bundle_hash=checkout_bundle_hash,
     )
     if created:
+        from bot.services.advertising.capture import record_payment_created
+
+        await record_payment_created(session, payment)
         logger.info(
             "Payment record %s created with provider payment id %s",
             payment.payment_id,
@@ -778,6 +787,9 @@ async def update_payment_status_by_db_id(
         await session.flush()
         await session.refresh(payment)
         if not preserve_succeeded:
+            from bot.services.advertising.capture import record_payment_state
+
+            await record_payment_state(session, payment)
             logger.info("Payment record %s status updated to %s.", payment.payment_id, new_status)
     else:
         logger.warning("Payment record with DB ID %s not found for status update.", payment_db_id)

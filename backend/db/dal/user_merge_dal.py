@@ -575,6 +575,9 @@ async def merge_users(
         recurring_state=recurring_state,
     )
 
+    from bot.services.advertising.capture import merge_evidence
+
+    await merge_evidence(session, source_user_id, target_user_id)
     target_has_attribution = (
         await session.execute(
             select(AdAttribution.user_id).where(AdAttribution.user_id == target_user_id)
@@ -946,6 +949,9 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     await session.execute(
         update(MessageLog).where(MessageLog.target_user_id == user_id).values(target_user_id=None)
     )
+    from bot.services.advertising.accounts import delete_account_evidence
+
+    await delete_account_evidence(session, user_id)
     await session.execute(
         delete(PromoCodeActivation).where(
             or_(

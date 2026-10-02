@@ -12,6 +12,7 @@ import {
   resolveAdminSectionId,
   type AdminSectionDescriptor,
 } from "./registry";
+import { ADMIN_SECTION_EXTENSIONS } from "./extensionRegistry";
 
 function section(overrides: Partial<AdminSectionDescriptor>): AdminSectionDescriptor {
   return {
@@ -67,7 +68,9 @@ describe("admin navigation groups", () => {
 
   it("keeps the core marketing and support sections in their navigation groups", () => {
     const byGroup = (groupId: string) =>
-      ADMIN_SECTIONS.filter((section) => section.group === groupId)
+      ADMIN_SECTIONS.filter(
+        (section) => section.group === groupId && !ADMIN_SECTION_EXTENSIONS.includes(section)
+      )
         .sort((a, b) => a.order - b.order)
         .map((section) => section.id);
     expect(byGroup("marketing")).toEqual(["broadcast", "partners", "promos", "ads"]);

@@ -73,7 +73,9 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
             "async_session_factory": self._AsyncSessionFactory(),
             **app_values,
         }
-        return SimpleNamespace(app=app, json=AsyncMock(return_value=payload), query=query or {})
+        return SimpleNamespace(
+            app=app, json=AsyncMock(return_value=payload), query=query or {}, cookies={}
+        )
 
     async def test_gift_invite_is_read_only_and_does_not_require_referral_program(self):
         settings = self._settings(referral_program_enabled=False)
@@ -166,7 +168,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
             settings,
             {"email": "new@example.com", "code": "123456", "referral_code": "gift_" + "G" * 43},
             email_auth_service=SimpleNamespace(
-                verify_code=AsyncMock(return_value=SimpleNamespace(ok=True))
+                verify_code=AsyncMock(return_value=SimpleNamespace(ok=True, operation_key=None))
             ),
         )
         with (
@@ -478,6 +480,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
             request_code=AsyncMock(
                 return_value=SimpleNamespace(
                     ok=True,
+                    operation_key=None,
                     code=None,
                     magic_link="https://app.example.com/?login_token=token&ref=ABC123",
                 )
@@ -507,7 +510,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_email_verify_existing_user_without_ref_is_allowed(self):
         settings = self._settings(invite_only=True)
         email_service = SimpleNamespace(
-            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True)),
+            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True, operation_key=None)),
         )
         user = SimpleNamespace(
             user_id=42,
@@ -546,7 +549,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_email_verify_requires_invite_for_new_user(self):
         settings = self._settings(invite_only=True)
         email_service = SimpleNamespace(
-            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True)),
+            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True, operation_key=None)),
         )
         request = self._request(
             settings,
@@ -577,7 +580,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
     async def test_email_verify_creates_new_user_with_valid_invite(self):
         settings = self._settings(invite_only=True)
         email_service = SimpleNamespace(
-            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True)),
+            verify_code=AsyncMock(return_value=SimpleNamespace(ok=True, operation_key=None)),
         )
         created_user = SimpleNamespace(
             user_id=100,
@@ -645,7 +648,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         settings = self._settings(invite_only=True)
         email_service = SimpleNamespace(
             verify_magic_token=AsyncMock(
-                return_value=SimpleNamespace(ok=True, email="new@example.com")
+                return_value=SimpleNamespace(ok=True, operation_key=None, email="new@example.com")
             ),
         )
         request = self._request(
@@ -678,7 +681,7 @@ class InviteOnlyRegistrationTests(unittest.IsolatedAsyncioTestCase):
         settings = self._settings(invite_only=True)
         email_service = SimpleNamespace(
             verify_magic_token=AsyncMock(
-                return_value=SimpleNamespace(ok=True, email="new@example.com")
+                return_value=SimpleNamespace(ok=True, operation_key=None, email="new@example.com")
             ),
         )
         created_user = SimpleNamespace(

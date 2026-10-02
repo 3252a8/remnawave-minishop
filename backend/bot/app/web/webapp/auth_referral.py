@@ -118,6 +118,28 @@ async def _apply_referral_welcome_bonus_if_needed(
     return await _grant_referral_welcome_bonus_if_eligible(request, session, user)
 
 
+async def _apply_ad_attribution_if_needed(
+    session: AsyncSession,
+    user_id: int,
+    raw_start_param: str | None,
+    *,
+    event_key: str | None = None,
+    is_new_user: bool | None = None,
+) -> None:
+    if not raw_start_param:
+        return
+    from bot.services.advertising.capture import capture_contact
+
+    await capture_contact(
+        session,
+        code=raw_start_param,
+        user_id=user_id,
+        channel="telegram",
+        event_key=event_key,
+        is_new_user=is_new_user,
+    )
+
+
 async def _grant_referral_welcome_bonus_if_eligible(
     request: web.Request,
     session: AsyncSession,

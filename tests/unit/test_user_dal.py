@@ -20,6 +20,9 @@ class FakeResult:
     def scalar_one(self):
         return self._scalar_value
 
+    def __iter__(self):
+        return iter(self.all())
+
     def scalars(self):
         return self
 
@@ -168,6 +171,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         subscription_uuid = "22222222-2222-4222-8222-222222222222"
         user = SimpleNamespace(user_id=42, panel_user_uuid=main_uuid)
         session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
             execute=AsyncMock(
                 return_value=FakeResult(
                     [
@@ -198,6 +202,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
     async def test_delete_user_and_relations_cleans_dependent_tables_before_parents(self):
         user = SimpleNamespace(user_id=42)
         session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
             execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
             delete=AsyncMock(),
             flush=AsyncMock(),
@@ -251,6 +256,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_user_ids_without_active_subscription_uses_left_join_null_check(self):
         session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
             execute=AsyncMock(return_value=FakeResult([2, 3])),
         )
 
@@ -347,6 +353,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             flush_states.append((source.panel_user_uuid, target.panel_user_uuid))
 
         session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
             execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
             add=Mock(),
             delete=AsyncMock(),
@@ -461,6 +468,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             events.append("delete_source_row")
 
         session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
             execute=AsyncMock(side_effect=_execute),
             add=Mock(),
             delete=AsyncMock(side_effect=_delete),
@@ -605,6 +613,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             panel_user_uuid="panel-telegram",
         )
         session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
             execute=AsyncMock(side_effect=lambda stmt: FakeResult()),
             add=Mock(),
             delete=AsyncMock(),

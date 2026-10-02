@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick, untrack } from "svelte";
+  import { captureAdvertising } from "./lib/webapp/advertising";
   import { Toaster, toast as sonnerToast } from "svelte-sonner";
   import { Tooltip } from "$components/ui/primitives.js";
 
@@ -650,8 +651,16 @@
     const onPopState = popstateLifecycle.handlePopstate;
     window.addEventListener("popstate", onPopState);
     const cleanupResumeLifecycle = resumeLifecycle.mount();
-    bootRuntime.boot();
+    let disposed = false;
+    void captureAdvertising(api).then((context) => {
+      if (disposed) return;
+      if (context?.offer_available && context.offer_mode === "activation") {
+        actionsStore.setPromoCode(context.offer_code || "");
+      }
+      bootRuntime.boot();
+    });
     return () => {
+      disposed = true;
       window.removeEventListener("popstate", onPopState);
       cleanupResumeLifecycle();
       authStore.stopTelegramLoginWatchdog();

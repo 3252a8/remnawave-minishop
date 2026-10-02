@@ -74,6 +74,7 @@ class Settings(
     DB_POOL_RECYCLE_SECONDS: int = Field(default=1800)
 
     REDIS_URL: str | None = Field(default=None)
+    ADVERTISING_ENABLED: bool = Field(default=True)
     REDIS_KEY_PREFIX: str = Field(default="remnawave-tg-shop")
     WEBAPP_ME_CACHE_TTL_SECONDS: int = Field(default=15)
     WEBAPP_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)

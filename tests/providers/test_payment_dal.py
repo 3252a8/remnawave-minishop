@@ -11,6 +11,12 @@ from db.dal import message_log_dal, payment_dal
 
 
 class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.ad_created = AsyncMock()
+        guard = patch("bot.services.advertising.capture.record_payment_created", self.ad_created)
+        guard.start()
+        self.addCleanup(guard.stop)
+
     async def test_create_or_get_uses_unique_idempotence_key_conflict_clause(self):
         payment = SimpleNamespace(payment_id=17)
         session = SimpleNamespace(
@@ -44,6 +50,7 @@ class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
 
         self.assertIs(result, payment)
         self.assertTrue(created)
+        self.ad_created.assert_awaited_once_with(session, payment)
         statement = session.execute.await_args.args[0]
         rendered = str(statement.compile(dialect=postgresql.dialect()))
         self.assertIn("ON CONFLICT (idempotence_key) DO NOTHING", rendered)
@@ -51,6 +58,12 @@ class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
 
 
 class PaymentDalStatusUpdateTests(IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.ad_state = AsyncMock()
+        guard = patch("bot.services.advertising.capture.record_payment_state", self.ad_state)
+        guard.start()
+        self.addCleanup(guard.stop)
+
     async def test_provider_payment_lookup_filters_by_provider_and_external_id(self):
         payment = SimpleNamespace(payment_id=1)
         session = SimpleNamespace(

@@ -49,6 +49,7 @@ class EmailCodeVerifyResult:
     ok: bool
     error: str | None = None
     retry_after: int | None = None
+    operation_key: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class EmailMagicVerifyResult:
     email: str | None = None
     purpose: str | None = None
     target_user_id: int | None = None
+    operation_key: str | None = None
 
 
 def normalize_email(value: str) -> str:
@@ -203,6 +205,7 @@ class EmailAuthService:
         target_user_id: int | None = None,
         referral_param: str | None = None,
         tariff_access_code: str | None = None,
+        advertising_visit_id: str | None = None,
     ) -> EmailCodeRequestResult:
         normalized_email = normalize_email(email)
         if not self.settings.email_auth_configured:
@@ -278,6 +281,22 @@ class EmailAuthService:
         )
         session.add(code_model)
         await session.flush()
+        if purpose == "login" and advertising_visit_id:
+            from bot.services.advertising.capture import insert_once, utc
+            from db.advertising_models import AdAuthContext, AdVisit
+
+            visit = await session.get(AdVisit, advertising_visit_id)
+            if visit is not None and utc(visit.expires_at) > now:
+                await insert_once(
+                    session,
+                    AdAuthContext,
+                    {
+                        "operation_key": f"email:{code_model.code_id}",
+                        "visit_id": visit.id,
+                        "expires_at": code_model.expires_at,
+                    },
+                    [AdAuthContext.operation_key],
+                )
 
         qa_auth_enabled = bool(getattr(self.settings, "qa_auth_enabled", False))
         if not qa_auth_enabled:
@@ -418,7 +437,7 @@ class EmailAuthService:
             identifier=throttle_identifier,
         )
         await session.flush()
-        return EmailCodeVerifyResult(ok=True)
+        return EmailCodeVerifyResult(ok=True, operation_key=f"email:{latest_code.code_id}")
 
     async def _get_latest_code(
         self,
@@ -499,6 +518,7 @@ class EmailAuthService:
             email=record.email,
             purpose=record.purpose,
             target_user_id=record.target_user_id,
+            operation_key=f"email:{record.code_id}",
         )
 
     async def _send_code_email(

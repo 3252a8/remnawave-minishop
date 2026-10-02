@@ -138,6 +138,7 @@ Disallow: /
 """
 _APP_VERSION_CACHE: str | None = None
 WEBAPP_CSRF_EXEMPT_PATHS = {
+    "/api/advertising/capture",
     "/api/auth/telegram/nonce",
     "/api/auth/token",
     "/api/auth/email/request",

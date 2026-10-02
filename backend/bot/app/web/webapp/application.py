@@ -30,6 +30,7 @@ from bot.services.server_status import ServerStatusService
 from config.settings import Settings
 
 from .action_audit import webapp_action_audit_middleware
+from .advertising import advertising_identity_middleware
 from .assets import (
     _close_shared_http_session,
     _csrf_protection_middleware,
@@ -65,6 +66,7 @@ def create_subscription_webapp_application(
             api_resource_middleware,
             checkout_resource_middleware,
             admin_auth_middleware,
+            advertising_identity_middleware,
             webapp_action_audit_middleware,
         ],
     )

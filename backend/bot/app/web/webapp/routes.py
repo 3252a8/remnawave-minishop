@@ -432,6 +432,9 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/payments/{payment_id}", payment_status_route)
     app.router.add_post("/api/payments/{payment_id}/cancel", cancel_payment_route)
     app.router.add_post("/api/payments/{payment_id}/qa/complete", complete_qa_payment_route)
+    from .advertising import setup_advertising_public_routes
+
+    setup_advertising_public_routes(app.router)
     setup_admin_routes(app)
     # This must remain last: only existing data-backed information pages should
     # receive the Mini App shell. It resolves managed documents first, including

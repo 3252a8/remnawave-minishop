@@ -4,6 +4,7 @@ export { default as Button } from "./button.svelte";
 export { default as Checkbox } from "./checkbox.svelte";
 export { default as ColorInput } from "./color-input.svelte";
 export { default as Dialog } from "./dialog.svelte";
+export { default as DateInput } from "./date-input.svelte";
 export { default as FileInput } from "./file-input.svelte";
 export { default as ImageAttachment } from "./image-attachment.svelte";
 export { default as ImageViewer } from "./image-viewer.svelte";

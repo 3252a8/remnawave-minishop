@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
@@ -19,6 +20,9 @@ from db.dal.user_merge_entitlements import RecurringMergeState
 class _Result:
     def __init__(self, values: list[object] | None = None) -> None:
         self._values = values or []
+
+    def __iter__(self) -> Iterator[object]:
+        return iter(self._values)
 
     def scalars(self) -> _Result:
         return self
@@ -71,6 +75,7 @@ async def _merge(
     source: SimpleNamespace, target: SimpleNamespace
 ) -> tuple[object, SimpleNamespace]:
     session = SimpleNamespace(
+        get=AsyncMock(return_value=None),
         execute=AsyncMock(return_value=_Result()),
         scalar=AsyncMock(return_value=None),
         add=Mock(),
@@ -221,6 +226,7 @@ async def _merge_reports_the_conflicting_external_provider() -> None:
     source = _user(-10)
     target = _user(42, telegram_id=42)
     session = SimpleNamespace(
+        get=AsyncMock(return_value=None),
         execute=AsyncMock(
             side_effect=[_Result(), _Result(), _Result(["google"]), _Result(["google"])]
         ),
@@ -275,6 +281,7 @@ async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None
         auto_renew_enabled=True,
     )
     session = SimpleNamespace(
+        get=AsyncMock(return_value=None),
         execute=AsyncMock(return_value=_Result()),
         add=Mock(),
         delete=AsyncMock(),
