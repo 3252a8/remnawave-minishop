@@ -82,7 +82,7 @@
   {#if activeDescriptor}
     {@const TabComponent = activeDescriptor.component}
     {@const requiredFeature = requiredFeatureForDescriptor(activeDescriptor)}
-    <Tabs.Content value={activeDescriptor.id}>
+    <Tabs.Content value={activeDescriptor.id} class="admin-section-content">
       {#key `${activeDescriptor.id}:${activeDescriptor.runtimeDigest || ""}`}
         <TabComponent
           runtimeViewId={activeDescriptor.runtimeViewId}
@@ -100,7 +100,7 @@
       {/key}
     </Tabs.Content>
   {:else}
-    <Tabs.Content value="">
+    <Tabs.Content value="" class="admin-section-content">
       <AdminExtensionPoint target={`admin.${sectionId}.content`}
         >{@render section()}</AdminExtensionPoint
       >
@@ -109,6 +109,13 @@
 </Tabs.Root>
 
 <style>
+  :global(.admin-section-content) {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+
   :global(.admin-section-tabs) {
     margin-bottom: 14px;
   }
