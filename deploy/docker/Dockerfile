@@ -136,6 +136,7 @@ RUN --mount=type=cache,target=/root/.npm \
     if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 COPY frontend ./
+COPY backend/config/defaults/svg_policy.json ../backend/config/defaults/svg_policy.json
 RUN mkdir -p ../backend/bot/app/web/templates
 
 RUN npm run build:webapp

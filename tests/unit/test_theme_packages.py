@@ -41,6 +41,7 @@ from config.theme_packages.registry import (
 )
 from config.webapp_themes_models import ThemeTokens, WebappTheme, WebappThemesConfig
 from config.webapp_themes_store import load_webapp_theme_dir, write_webapp_theme_dir
+from tests.support.svg_examples import SAFE_SVG_EXAMPLES, UNSAFE_SVG_EXAMPLES
 
 
 def package(
@@ -401,6 +402,20 @@ def test_safe_svg_asset_is_accepted_and_can_be_referenced_from_css(tmp_path: Pat
 
     assert not candidate.error
     assert candidate.files == 4
+
+
+@pytest.mark.parametrize("svg", SAFE_SVG_EXAMPLES)
+def test_static_svg_exports_are_accepted_in_theme_packages(tmp_path: Path, svg: str) -> None:
+    files = package()
+    files["ocean/icons/mark.svg"] = svg.encode()
+    assert not ready(tmp_path, files).candidates[0].error
+
+
+@pytest.mark.parametrize("svg", UNSAFE_SVG_EXAMPLES)
+def test_active_svg_exports_are_rejected_in_theme_packages(tmp_path: Path, svg: str) -> None:
+    files = package()
+    files["ocean/icons/mark.svg"] = svg.encode()
+    assert ready(tmp_path, files).candidates[0].error == "unsafe_svg"
 
 
 @pytest.mark.parametrize(

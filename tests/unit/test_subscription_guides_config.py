@@ -15,6 +15,7 @@ from config.subscription_guides_config import (
     validate_subscription_guides_config_text,
 )
 from tests.support.settings_stub import settings_stub
+from tests.support.svg_examples import SAFE_SVG_EXAMPLES, UNSAFE_SVG_EXAMPLES
 
 BASE_TRANSLATION_KEYS = (
     "active",
@@ -230,6 +231,26 @@ def test_unsafe_svg_is_rejected():
 
     with pytest.raises(SubscriptionGuidesConfigError, match="unsafe SVG"):
         validate_subscription_guides_config(config)
+
+
+@pytest.mark.parametrize("svg", SAFE_SVG_EXAMPLES)
+def test_panel_safe_svg_exports_preserve_instructions(svg: str) -> None:
+    config = _config()
+    config["svgLibrary"]["App"] = svg
+    result = validate_panel_subscription_guides_config({"response": {"config": config}})
+    assert result["svgLibrary"]["App"] == svg
+    assert result["platforms"] == config["platforms"]
+
+
+@pytest.mark.parametrize("svg", (*UNSAFE_SVG_EXAMPLES, "", "not an SVG", "<svg>\ud800</svg>"))
+def test_panel_invalid_icon_is_replaced_without_disabling_instructions(svg: str) -> None:
+    config = _config()
+    config["svgLibrary"]["App"] = svg
+    result = validate_panel_subscription_guides_config({"response": {"config": config}})
+    assert result["svgLibrary"]["App"] != svg
+    assert result["svgLibrary"]["Copy"] == config["svgLibrary"]["Copy"]
+    assert result["platforms"] == config["platforms"]
+    assert validate_subscription_guides_config(result) == result
 
 
 def test_unsafe_external_link_is_rejected():

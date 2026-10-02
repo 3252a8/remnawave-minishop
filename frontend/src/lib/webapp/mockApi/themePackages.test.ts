@@ -44,6 +44,26 @@ describe("documentation theme ZIP import", () => {
       )
     ).toThrow();
   });
+  it("accepts static inline SVG styles and rejects concealed URLs or page layout", () => {
+    const archive = (style: string) =>
+      zipSync({
+        "one/theme.json": strToU8('{"key":"one"}'),
+        "one/icons/mark.svg": strToU8(`<svg><path style="${style}"/></svg>`),
+      });
+    expect(
+      readDemoZip(
+        archive("fill:url('#paint');vector-effect:non-scaling-stroke;paint-order:stroke fill")
+      )[0].files["icons/mark.svg"]
+    ).toBeDefined();
+    for (const style of [
+      "fill:u&#114;l(https://evil.test/a)",
+      "fill:u/**/rl(https://evil.test/a)",
+      "fill:u\\72l(https://evil.test/a)",
+      "position:fixed",
+      "fill:expression(alert(1))",
+    ])
+      expect(() => readDemoZip(archive(style))).toThrow();
+  });
   it("rejects broken archives and duplicate case-insensitive paths", () => {
     expect(() => readDemoZip(strToU8("not a zip"))).toThrow();
     expect(() =>

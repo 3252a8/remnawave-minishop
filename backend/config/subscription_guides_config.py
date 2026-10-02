@@ -6,6 +6,7 @@ import base64
 import copy
 import hashlib
 import json
+import logging
 import os
 import re
 import stat
@@ -113,12 +114,9 @@ DATA_IMAGE_URL_RE = re.compile(
     r"(?:;charset=[a-z0-9._-]+)?(?P<base64>;base64)?,",
     re.IGNORECASE,
 )
-UNSAFE_SVG_RE = re.compile(
-    r"(<\s*/?\s*(?:script|foreignObject|iframe|object|embed|image|use|style|a)\b)"
-    r"|(\son[a-z]+\s*=)"
-    r"|(javascript\s*:)"
-    r"|(data\s*:)",
-    re.IGNORECASE,
+logger = logging.getLogger(__name__)
+FALLBACK_SVG_ICON = (
+    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>'
 )
 _CONFIG_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
 PANEL_CONFIG_KEYS = (
@@ -241,7 +239,7 @@ def validate_panel_subscription_guides_config(
             default_text = default_subscription_guides_config_text()
             return validate_subscription_guides_config_text(default_text)
         raise SubscriptionGuidesConfigError("Panel response does not contain a v1 config")
-    return validate_subscription_guides_config(config)
+    return validate_subscription_guides_config(config, tolerate_invalid_icons=True)
 
 
 def panel_subscription_page_allowed(payload: Any) -> bool:
@@ -249,7 +247,9 @@ def panel_subscription_page_allowed(payload: Any) -> bool:
     return bool(candidate and candidate.get("webpageAllowed") is True)
 
 
-def validate_subscription_guides_config(payload: Any) -> dict[str, Any]:
+def validate_subscription_guides_config(
+    payload: Any, *, tolerate_invalid_icons: bool = False
+) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise SubscriptionGuidesConfigError("Config root must be an object")
     if payload.get("version") != "1":
@@ -258,7 +258,9 @@ def validate_subscription_guides_config(payload: Any) -> dict[str, Any]:
         )
 
     locales = _validate_locales(payload.get("locales"))
-    svg_library = _validate_svg_library(payload.get("svgLibrary"))
+    svg_library = _validate_svg_library(
+        payload.get("svgLibrary"), tolerate_invalid_icons=tolerate_invalid_icons
+    )
     branding = _validate_branding(payload.get("brandingSettings"))
     ui_config = _validate_ui_config(payload.get("uiConfig"))
     base_settings = _validate_base_settings(payload.get("baseSettings"))
@@ -427,7 +429,7 @@ def _validate_base_translations(value: Any, locales: Iterable[str]) -> dict[str,
     return result
 
 
-def _validate_svg_library(value: Any) -> dict[str, str]:
+def _validate_svg_library(value: Any, *, tolerate_invalid_icons: bool = False) -> dict[str, str]:
     data = _require_object(value, "svgLibrary")
     if not data:
         raise SubscriptionGuidesConfigError("svgLibrary must not be empty")
@@ -436,7 +438,13 @@ def _validate_svg_library(value: Any) -> dict[str, str]:
         svg_key = str(key or "").strip()
         if not SVG_KEY_RE.fullmatch(svg_key):
             raise SubscriptionGuidesConfigError(f"Invalid svgLibrary key: {svg_key}")
-        result[svg_key] = _sanitize_svg(raw_svg, f"svgLibrary.{svg_key}")
+        try:
+            result[svg_key] = _sanitize_svg(raw_svg, f"svgLibrary.{svg_key}")
+        except SubscriptionGuidesConfigError:
+            if not tolerate_invalid_icons:
+                raise
+            logger.warning("Replacing unsupported Panel subscription guide SVG icon: %s", svg_key)
+            result[svg_key] = FALLBACK_SVG_ICON
     return result
 
 
@@ -677,9 +685,7 @@ def _sanitize_svg(value: Any, path: str) -> str:
     if not svg:
         raise SubscriptionGuidesConfigError(f"{path} is required")
     trimmed = svg.strip()
-    if not trimmed.lower().startswith("<svg"):
-        raise SubscriptionGuidesConfigError(f"{path} must be an SVG document")
-    if UNSAFE_SVG_RE.search(trimmed) or not inert_svg(trimmed):
+    if not inert_svg(trimmed):
         raise SubscriptionGuidesConfigError(f"{path} contains unsafe SVG markup")
     return trimmed
 

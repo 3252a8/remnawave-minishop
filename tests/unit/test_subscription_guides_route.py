@@ -1,5 +1,6 @@
 import asyncio
 import json
+import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -8,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 from bot.app.web import subscription_webapp as guides
 from bot.app.web.webapp import guides_public
 from config.subscription_guides_config import default_subscription_guides_config_text
+from config.svg_icons import inert_svg
 from tests.support.settings_stub import settings_stub
 
 
@@ -142,6 +144,32 @@ class SubscriptionGuidesRouteTests(unittest.IsolatedAsyncioTestCase):
             body["config"]["platforms"]["windows"]["svgIconKey"],
             body["config"]["svgLibrary"],
         )
+
+    async def test_unsupported_panel_icon_keeps_guides_enabled_without_local_config(self):
+        default_uuid = "00000000-0000-0000-0000-000000000000"
+        panel_config = json.loads(default_subscription_guides_config_text())
+        icon_key = panel_config["platforms"]["windows"]["svgIconKey"]
+        panel_config["svgLibrary"][icon_key] = '<svg onload="alert(1)"/>'
+        panel_service = SimpleNamespace(
+            get_subscription_page_config_list=AsyncMock(
+                return_value={"configs": [{"uuid": default_uuid, "viewPosition": 1}]}
+            ),
+            get_subscription_page_config_by_uuid=AsyncMock(
+                return_value={"uuid": default_uuid, "config": panel_config}
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            request = self._request(
+                self._settings(SUBSCRIPTION_PAGE_CONFIG_PATH=f"{directory}/missing.json"),
+                panel_service,
+            )
+            with self._auth_patch():
+                response = await guides.subscription_guides_route(request)
+        body = json.loads(response.text)
+        self.assertTrue(body["enabled"])
+        self.assertEqual(body["source"], "panel")
+        self.assertTrue(inert_svg(body["config"]["svgLibrary"][icon_key]))
+        self.assertNotIn("onload", response.text)
 
     async def test_uses_resolved_panel_config_for_active_user_subscription(self):
         default_uuid = "00000000-0000-0000-0000-000000000000"

@@ -1,5 +1,6 @@
 /** The documentation demo keeps packages in memory and never downloads Git repositories. */
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import svgPolicy from "../../../../../backend/config/defaults/svg_policy.json";
 import type { ThemeEntry } from "../../admin/appearanceOptions";
 import type { components } from "../../api/openapi.generated";
 import { DEV_MOCK } from "../previewMock";
@@ -62,12 +63,46 @@ function assertSafeSvg(bytes: Uint8Array) {
     !/^\s*(?:<\?xml[^?]*\?>\s*)?<svg(?:\s|>)/i.test(svg) ||
     /<!\s*(?:doctype|entity)\b|<\?(?!xml(?:\s|\?>))/i.test(svg) ||
     /<\s*(?:script|foreignObject|iframe|object|embed|image|style|a)\b/i.test(svg) ||
-    /\son[a-z]+\s*=|\sstyle\s*=/i.test(svg) ||
+    /\son[a-z]+\s*=/i.test(svg) ||
     /(?:javascript|vbscript|data)\s*:/i.test(svg) ||
     /\b(?:href|xlink:href)\s*=\s*["'](?!\s*#)/i.test(svg) ||
-    /url\(\s*["']?(?!\s*#)/i.test(svg)
+    /url\s*\(/i.test(svg.replace(/url\s*\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/gi, ""))
   )
     throw { error: "unsafe_svg", detail: "SVG contains unsafe markup" };
+  const elements = new Set(svgPolicy.elements);
+  for (const match of svg.replace(/<!--[\s\S]*?-->/g, "").matchAll(/<\s*([A-Za-z][\w:.-]*)\b/g)) {
+    if (!elements.has(match[1]))
+      throw { error: "unsafe_svg", detail: "SVG contains an unsupported element" };
+  }
+  const properties = new Set(svgPolicy.presentationProperties);
+  for (const match of svg.matchAll(/\sstyle\s*=\s*(["'])(.*?)\1/gs)) {
+    const style = match[2]
+      .replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (_, hex: string, decimal: string) => {
+        const codePoint = Number.parseInt(hex || decimal, hex ? 16 : 10);
+        return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : "\ufffd";
+      })
+      .replace(
+        /&(quot|apos|amp|lt|gt);/g,
+        (_, entity: string) =>
+          (({ quot: '"', apos: "'", amp: "&", lt: "<", gt: ">" }) as Record<string, string>)[
+            entity
+          ] || ""
+      );
+    const withoutLocalUrls = style.replace(/url\s*\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/gi, "");
+    if (
+      /\\|\/\*|\*\/|expression\s*\(|-moz-binding|behavior\s*:/i.test(style) ||
+      /(?:javascript|vbscript|data):/i.test(style.replace(/\s+/g, "")) ||
+      /url\s*\(/i.test(withoutLocalUrls) ||
+      style.split(";").some((declaration) => {
+        if (!declaration.trim()) return false;
+        const separator = declaration.indexOf(":");
+        const property = declaration.slice(0, separator).trim().toLowerCase();
+        const value = declaration.slice(separator + 1).trim();
+        return separator < 0 || !properties.has(property) || !value || /[{}@<>]/.test(value);
+      })
+    )
+      throw { error: "unsafe_svg", detail: "SVG contains unsafe inline CSS" };
+  }
 }
 export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
   if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw { error: "archive_too_large" };
