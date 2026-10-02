@@ -1,61 +1,170 @@
-# Public subscription gateway
+# Публичный шлюз подписки
 
-`/s/<token>` has two representations. Browser navigation and preview crawlers receive the existing
-installation page; subscription applications receive the raw bytes from Core's delivery service.
-`?view=page` and `?view=subscription` select explicitly. The optional format suffix is restricted
-to `stash`, `singbox`, `mihomo`, `json`, `v2ray-json`, and `clash`. `HEAD` is not supported.
-The `/api/subscription-guides/public/<token>` JSON endpoint retains its `config` field and adds
-`guide_document` with `schemaVersion: 1`. The document is built from the validated Remnawave v1
-input. It has ordered platform IDs and typed button targets; resource resolution remains separate
-from its shared content. Client delivery never reads the instruction document.
+Шлюз позволяет выдавать ссылку подключения на домене магазина вместо прямой ссылки
+Remnawave Panel. Одна ссылка вида `https://app.example.com/s/<token>` открывает
+инструкции в браузере и отдаёт профиль подписки VPN-приложению. Пользователь может
+импортировать её в приложение и получать обновления через тот же адрес.
 
-The delivery service accepts a server-resolved resource binding and a client request. Its first
-source adapter calls the configured Remnawave `/api/sub/<shortUuid>` endpoint. Core forwards
-the response bytes, status, and safe headers without an API envelope. It does not send the
-administrative bearer token. The adapter does not follow redirects, share user cookies, cache
-profiles, or accept upstream URLs from public requests. The panel still chooses format and
-applies HWID and Response Rules.
+Minishop получает профиль из Remnawave Panel: формат ответа, лимиты HWID-устройств
+и правила выдачи **Response Rules** по-прежнему задаются в панели. Для работы
+импорта и обновлений должны быть доступны и магазин, и панель.
 
-## Rollout
+## Как работает ссылка
 
-1. Apply migration `0088_bind_install_share_to_panel_link` before routing traffic to the new
-   backend. The nullable column is compatible with the preceding backend version.
-2. From a trusted operator environment, run
-   `PYTHONPATH=backend python -m scripts.bind_install_share_tokens` and inspect `verified` and
-   `skipped`. Run the same command
-   with `--apply` to bind existing active tokens to the *current* panel link. Resolve skipped
-   records explicitly; a public request never binds an old token. Existing historical token
-   exposure cannot be inferred or repaired automatically.
-3. Deploy the frontend Nginx configuration with its dedicated `/s/` route and the backend. Confirm
-   that an upstream failure remains a 5xx through the actual public ingress. For a split
-   deployment, the frontend injects `MINISHOP_EDGE_TOKEN`; direct access to the protected
-   backend `/s/` route must be denied.
-4. The gateway is enabled by default. In **System → Settings → Install guides**, confirm that
-   **Public subscription gateway** is enabled; an explicit older environment or saved admin
-   override may keep it off. Keep `SUBSCRIPTION_LINK_MODE=panel` while verifying a browser,
-   Telegram preview, initial client import, repeated update, HWID device behavior,
-   format suffixes, panel Response Rules, link reissue, and failure handling through the
-   public address. Compare controlled direct-panel and gateway responses for the same headers.
-5. After the client matrix is green, set `SUBSCRIPTION_LINK_MODE=minishop` to issue the canonical
-   `/s/` URL. Existing directly imported panel URLs continue to work; users must reimport to
-   change the saved URL. `SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL` is optional and defaults
-   to false so panel-admin page choices remain intact.
+| Обращение | Ответ |
+| --- | --- |
+| Открытие `/s/<token>` в браузере | Страница инструкций подключения. |
+| Предпросмотр ссылки в Telegram и других поддерживаемых сервисах | Та же страница инструкций. |
+| Импорт или обновление `/s/<token>` в VPN-приложении | Профиль подписки без JSON-обёртки API. |
+| `/s/<token>?view=page` | Явный выбор страницы инструкций. |
+| `/s/<token>?view=subscription` | Явный выбор профиля подписки. |
+| `/s/<token>/<format>` | Профиль в формате `stash`, `singbox`, `mihomo`, `json`, `v2ray-json` или `clash`. |
 
-The raw route is intentionally outside the JSON OpenAPI envelope; its response depends on the
-client and panel. The JSON instructions API remains in OpenAPI. The configured
-`SUBSCRIPTION_MINI_APP_URL` supplies the public origin; forwarded `Host` does not select it.
-The frontend proxy turns off access logs for `/s/` so tokens are not written to that log.
+Без явного выбора шлюз определяет ответ по заголовкам запроса, включая `User-Agent`
+и `Accept`. Запрос профиля требует непустой `User-Agent`; запросы `HEAD` не
+поддерживаются. Суффикс формата нельзя сочетать с `?view=page`.
 
-## Reissue and rollback
+## Настройка
 
-User and admin reissue clear every local public grant for the panel user and commit that change
-before calling the panel. A failed panel call leaves old tokens revoked. An authenticated account
-request issues a fresh token bound to the current short UUID. A panel-side short UUID change also
-invalidates the former token on the next request. Public JSON and raw delivery both check the
-current database grant and a fresh panel user lookup; neither uses the former 300-second public
-payload cache.
+В админке откройте **Система → Настройки → Инструкции подключения**. Сначала
+проверьте выдачу профиля, затем переключите ссылки, которые магазин выдаёт пользователям.
 
-Switching `SUBSCRIPTION_LINK_MODE` back to `panel` affects new links only. Keep the gateway
-available while issued `/s/` URLs may still be stored in client apps. If emergency shutdown is
-required, client requests must receive 503 and users must reimport a direct panel URL. Reverting
-to a backend without the gateway will break updates for imported `/s/` profiles.
+| Настройка | По умолчанию | Назначение |
+| --- | --- | --- |
+| `SUBSCRIPTION_GATEWAY_ENABLED` | `True` | Переключатель **«Выдавать подписку по публичной ссылке»** разрешает приложениям импортировать и обновлять профиль через `/s/`. Отключение сохраняет страницу инструкций, но прекращает выдачу профиля. |
+| `SUBSCRIPTION_LINK_MODE` | `panel` | Переключатель **«Использовать встроенную в Minishop ссылку подписки»** выбирает `minishop` вместо `panel` для ссылок в боте и инструкциях подключения. Требуется включённый шлюз. |
+| `SUBSCRIPTION_MINI_APP_URL` | Не задан | Публичный базовый адрес вашего Web App для формирования `/s/`-ссылок. Шлюз не берёт его из присланного клиентом `Host`. |
+| `SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL` | `False` | Заменяет заголовок `profile-web-page-url` ответа панели ссылкой на инструкции Minishop с `?view=page`. Без этой настройки сохраняется адрес, заданный в панели. |
+
+Пример настроек `.env` после проверки шлюза:
+
+```env
+SUBSCRIPTION_MINI_APP_URL=https://app.example.com
+SUBSCRIPTION_GATEWAY_ENABLED=True
+SUBSCRIPTION_LINK_MODE=minishop
+SUBSCRIPTION_GATEWAY_REWRITE_PROFILE_PAGE_URL=False
+```
+
+После изменения `.env` пересоздайте контейнеры по
+[инструкции развёртывания](../getting-started/deployment.md). Сохранённые настройки
+админки могут переопределять значения `.env`; проверьте фактические переключатели.
+
+Режим `minishop` не заменяет автоматически адреса, уже импортированные в приложения.
+Прямые ссылки панели продолжают работать; для перехода на домен магазина пользователь
+должен заново импортировать выданную `/s/`-ссылку.
+
+## Включение на существующей установке
+
+При обновлении установки, которая выдавала публичные инструкции до появления шлюза:
+
+1. Примените миграцию `0088_bind_install_share_to_panel_link` до передачи запросов
+   новой версии backend. Добавляемое поле допускает пустое значение и совместимо
+   с предыдущей версией backend.
+2. Из доверенного окружения оператора с доступом к БД и панели выполните проверку:
+
+   ```bash
+   PYTHONPATH=backend python -m scripts.bind_install_share_tokens
+   ```
+
+   Проверьте счётчики `verified` и `skipped`. Для сохранения проверенных привязок
+   выполните ту же команду с `--apply`. Она связывает существующие активные токены
+   с **текущей** ссылкой панели. Пропущенные записи разбирайте вручную: публичный
+   запрос не привязывает старый токен. Утилита не определяет, кому ранее могла стать
+   известна ссылка; при сомнениях перевыпустите доступ.
+3. Обновите backend и конфигурацию Nginx во frontend с отдельным маршрутом `/s/`.
+   При раздельном размещении frontend передаёт `MINISHOP_EDGE_TOKEN`; прямой доступ
+   к защищённому маршруту backend должен быть закрыт. См.
+   [раздельное размещение frontend и backend](../getting-started/deployment.md#раздельное-размещение-frontend-и-backend).
+4. Убедитесь, что выдача подписки по публичной ссылке включена. Пока оставьте
+   `SUBSCRIPTION_LINK_MODE=panel` и выполните проверки ниже. Старое значение `.env`
+   или сохранённая настройка админки могут отключать шлюз, несмотря на `True` по умолчанию.
+5. После успешных проверок включите режим `minishop` в админке или `.env`.
+
+Для новой установки перенос старых токенов не нужен.
+
+## Проверка перед переключением ссылок
+
+Используйте действующую ссылку своей тестовой подписки и настоящий публичный адрес
+магазина, чтобы проверить всю цепочку прокси:
+
+1. Откройте ссылку в браузере и проверьте предпросмотр в Telegram: должны открываться
+   инструкции подключения.
+2. Импортируйте ссылку в используемые VPN-приложения, затем обновите профиль повторно.
+   Проверьте нужные форматы, учёт HWID-устройств и Response Rules панели.
+3. Сравните ответы прямой ссылки панели и шлюза с одинаковыми заголовками клиента:
+   содержимое профиля и разрешённые заголовки должны соответствовать ответу панели.
+4. На тестовой подписке перевыпустите доступ: старая публичная ссылка должна
+   перестать работать, новая — успешно импортироваться.
+5. Проверьте сбой связи с панелью через внешний адрес: клиент должен получить ошибку
+   `5xx`, а не HTML-страницу прокси со статусом `200`.
+
+Для ручного запроса профиля используйте `GET`, а не `curl -I`:
+
+```bash
+curl --fail-with-body -A 'Happ/1.0' \
+  'https://app.example.com/s/<token>?view=subscription'
+```
+
+Замените адрес и `<token>` своими значениями. Ссылка даёт доступ к подписке:
+не публикуйте её в отчётах, скриншотах и сообщениях поддержки.
+
+## Ошибки и диагностика
+
+| Статус | Что проверить |
+| --- | --- |
+| `400` | Для профиля нужен `User-Agent`; `view` допускает одно значение `page` или `subscription`. Нельзя запрашивать страницу вместе с суффиксом формата. |
+| `404` | Токен отсутствует, отозван или больше не соответствует текущей активной подписке и ссылке панели. Получите новую ссылку из аккаунта. |
+| `429` | Превышена общая квота запросов публичных инструкций и подписки. Повторите запрос с учётом `Retry-After`. |
+| `502` | Ошибка связи с источником или недопустимый ответ панели: перенаправление, HTML, пустой успешный профиль либо профиль больше 8 МиБ. Проверьте `PANEL_API_URL` и доступность `/api/sub/<shortUuid>`. |
+| `503` | Шлюз отключён, проверка доступа временно недоступна, исчерпан лимит одновременных обращений или недоступен настроенный Redis для общих квот. |
+| `504` | Истекло время ожидания ответа панели. Проверьте её доступность из backend. |
+
+Панель также может вернуть свой статус ошибки. Для диагностики используйте
+[логи backend и прокси](../troubleshooting/logs.md),
+[справочник переменных](../configuration/env-vars.md) и
+[настройки инструкций](../features/admin-panel.md#инструкции-подключения).
+
+## Перевыпуск и отзыв доступа
+
+При перевыпуске пользователем или администратором Minishop отзывает все локальные
+публичные разрешения этого пользователя панели и сохраняет отзыв **до** обращения
+к панели. Даже если панель вернёт ошибку, прежние токены остаются отозванными.
+Запрос из авторизованного аккаунта выдаёт новый токен, связанный с текущим `shortUuid`.
+Изменение `shortUuid` непосредственно в панели также делает старый токен недействительным
+при следующем обращении.
+
+Публичный JSON API и выдача профиля проверяют разрешение в БД и актуальную запись
+пользователя панели при каждом запросе. Прежний публичный кеш на 300 секунд
+не используется.
+
+## Откат
+
+Возврат `SUBSCRIPTION_LINK_MODE=panel` меняет только вновь выдаваемые ссылки.
+Оставьте шлюз включённым, пока пользователи могут хранить `/s/`-адреса в приложениях.
+
+Для экстренной остановки выключите `SUBSCRIPTION_GATEWAY_ENABLED`: запросы профиля
+будут получать `503`, а пользователям потребуется заново импортировать прямую ссылку
+панели. Откат backend на версию без шлюза также нарушит обновления уже импортированных
+`/s/`-профилей.
+
+## Технический контракт
+
+Сервис доставки получает привязку ресурса, разрешённую сервером, и запрос клиента.
+Адаптер Remnawave обращается к настроенному `/api/sub/<shortUuid>` и передаёт
+содержимое, статус и безопасные заголовки ответа без стандартной JSON-обёртки
+`{"ok": …}`. Он не отправляет административный Bearer-токен, не следует
+перенаправлениям, не пересылает пользовательские cookies, не кеширует профили
+и не принимает адрес источника из публичного запроса. Если оператор настроил
+`PANEL_API_COOKIE` для защищённого прокси панели, используется именно этот cookie.
+
+Маршрут выдачи профиля не входит в JSON-контракт OpenAPI: его ответ зависит
+от клиента и панели. JSON-маршрут `/api/subscription-guides/public/<token>`
+остаётся в OpenAPI, сохраняет поле `config` и возвращает `guide_document`
+с `schemaVersion: 1`. Документ строится из проверенного конфига Remnawave v1,
+содержит упорядоченные идентификаторы платформ и типизированные цели кнопок.
+Разрешение конкретной подписки выполняется отдельно; сервис доставки профиля
+не читает документ инструкций.
+
+Ответы шлюза запрещают кеширование и индексацию. В стандартной конфигурации
+frontend отключён журнал доступа для `/s/`, чтобы токены не попадали в этот лог.
+При настройке собственного внешнего прокси исключите их и из его журнала.

@@ -624,15 +624,15 @@ Minishop создает invoice в валюте, которую PayKilla при�
 
 Перед созданием invoice Minishop читает `GET /api/v2/currency` и проверяет `invoiceMin`/`invoiceMax` для валюты инвойса. Этот endpoint также показывает актуальные currency/payment-method ограничения конкретного merchant account.
 
-### Payload invoice
+### Данные счёта
 
-Payload создания invoice содержит обязательные поля `type`, `purpose`, `currency`, `totalPrice` и `paymentCurrencies`.
+Запрос на создание счёта содержит обязательные поля `type`, `purpose`, `currency`, `totalPrice` и `paymentCurrencies`.
 
 Дополнительно отправляются `clientOrderId`, `description`, `expiredAt`, `userPaysServiceFee` и `userPaysNetworkFee`.
 
 Redirect URLs в PayKilla не отправляются. Завершение платежа обрабатывается через webhook.
 
-### API key
+### Ключ API
 
 1. В PayKilla Dashboard откройте **Settings -> API keys**.
 2. Создайте ключ типа **HMAC**.
@@ -641,7 +641,7 @@ Redirect URLs в PayKilla не отправляются. Завершение п
 5. Сохраните `publicKey` в `PAYKILLA_API_KEY`.
 6. Сохраните `secretKey` в `PAYKILLA_SECRET_KEY`.
 
-### Webhook
+### Вебхук
 
 1. В PayKilla Dashboard откройте **Settings -> Webhooks**.
 2. Скопируйте URL вебхука из админ-панели и укажите его в PayKilla.

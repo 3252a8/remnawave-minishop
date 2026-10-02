@@ -424,7 +424,7 @@ docker compose logs -f backend worker frontend
 
 Корневой `docker-compose.yml` оставлен для локальной сборки из исходников. Примеры в `deploy/examples` используют готовые Docker Hub-образы и не требуют указывать `-f`.
 
-## Split frontend/backend
+## Раздельное размещение frontend и backend
 
 В split-схеме браузер не обращается к backend напрямую. `WEBAPP_API_BASE_URL` остается `/api`, а frontend nginx проксирует server-side upstream:
 

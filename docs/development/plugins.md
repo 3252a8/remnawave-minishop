@@ -212,7 +212,7 @@ class ExamplePlugin(Plugin):
 Для новых ключей используйте префикс плагина, например `example_title` или
 `admin_example_section_title`.
 
-## Feature Flags
+## Флаги возможностей
 
 Плагин может опубликовать feature flags, вернув `EntitlementsProvider` из
 `entitlements_provider()`. Активный provider отвечает на `has_feature(name)` и
@@ -300,7 +300,7 @@ export const userDetailPanels = {
 };
 ```
 
-### Composing an outbound message
+### Составление исходящего сообщения
 
 `bot.services.message_composition` — нейтральный контракт авторского сообщения, общий для
 рассылки, сообщения одному пользователю и цепочек плагина. Плагин собирает кнопки из простых
@@ -359,9 +359,9 @@ Extension-компонент полной секции получает `feature
 `visibleWhenLocked` имеют ту же семантику discovery, что и для секций. Серверная route остаётся
 обязательной границей авторизации и доступности функции.
 
-## Release Images
+## Релизные образы
 
-Release images публикуются в Docker Hub через GitLab CI только для стабильных git-тегов вида
+Релизные образы публикуются в Docker Hub через GitLab CI только для стабильных git-тегов вида
 `vX.Y.Z`. Перед публикацией синхронизируйте `main` и создайте тег на его текущем commit:
 
 ```bash

@@ -111,6 +111,7 @@ export default defineConfig({
               collapsed: false,
               items: [
                 { label: 'Тарифы и подписки', slug: 'features/subscriptions' },
+                { label: 'Публичный шлюз подписки', slug: 'architecture/subscription-gateway' },
                 { label: 'Настройка тарифов', slug: 'features/tariffs' },
                 { label: 'Платежи', slug: 'features/payments' },
                 { label: 'Подарочные подписки', slug: 'features/gifts' },
@@ -166,7 +167,6 @@ export default defineConfig({
             { label: 'Обзор API', slug: 'api' },
             { label: 'Интерактивная спецификация', link: '/api/reference/' },
             { label: 'HTTP-контракты', slug: 'architecture/http-api' },
-            { label: 'Публичный шлюз подписки', slug: 'architecture/subscription-gateway' },
             {
               label: 'Совместимость Remnawave API',
               slug: 'architecture/remnawave-api-compatibility',

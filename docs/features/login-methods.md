@@ -22,7 +22,7 @@ Minishop поддерживает семь способов входа:
 | [Google](#google) | Включён `GOOGLE_OIDC_ENABLED` | OAuth client ID, secret и callback |
 | [Yandex ID](#yandex-id) | Включён `YANDEX_OIDC_ENABLED` | OAuth client ID, secret и callback |
 | [Discord](#discord) | Включён `DISCORD_OIDC_ENABLED` | OAuth2 application ID, secret и callback |
-| [Passkey](#passkey) | Включён `PASSKEY_LOGIN_ENABLED` | HTTPS, RP ID и разрешённые origins |
+| [Ключи доступа (passkey)](#ключи-доступа-passkey) | Включён `PASSKEY_LOGIN_ENABLED` | HTTPS, RP ID и разрешённые origins |
 
 У каждого доступного провайдера есть отдельный переключатель **Рекомендуемый способ входа**.
 Если он включён, Minishop показывает красный индикатор внимания в настройках, пока пользователь
@@ -399,7 +399,7 @@ Minishop использует серверный Authorization Code Flow и за
 кешированные данные кабинета также обновляются после сохранения. Если админка сообщает, что ключ
 «сохранён, но не применён», он не считается активным до перезапуска.
 
-## Passkey
+## Ключи доступа (passkey)
 
 Passkey работает через WebAuthn и требует HTTPS. Исключение браузеров для локального `localhost`
 не следует использовать как production-настройку.

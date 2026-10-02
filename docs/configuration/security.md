@@ -55,7 +55,7 @@ openssl rand -hex 32
 - `SUBSCRIPTION_MINI_APP_URL` должен вести на frontend/Mini App-домен.
 - Не добавляйте `/api`, `/auth` или webhook-пути в `SUBSCRIPTION_MINI_APP_URL`.
 
-## Split frontend/backend
+## Раздельное размещение frontend и backend
 
 - Браузер пользователя должен ходить только на frontend origin: `https://app.example.com/api/...`.
 - `WEBAPP_API_BASE_URL` оставляйте `/api`; отдельный backend origin в frontend JS не является защитой и делает WebApp API напрямую видимым пользователю.

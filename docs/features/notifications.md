@@ -162,7 +162,7 @@ Remnawave webhook и локальный `SubscriptionNotificationWorker` исп�
 
 Если webhook от Remnawave приходит по пользователю без локальной подписки, используется legacy fallback: отправляется только Telegram по `telegram_id` из payload, без email и без канальной дедупликации.
 
-## Torrent Blocker
+## Блокировка торрентов (Torrent Blocker)
 
 MiniShop обрабатывает подписанный webhook `torrent_blocker.report` из Remnawave Panel 2.7+.
 Уведомление отправляется только когда `actionReport.blocked=true`: отчёты без фактической

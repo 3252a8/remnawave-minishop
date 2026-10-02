@@ -12,7 +12,7 @@
 
 | Категория | Разделы |
 | --- | --- |
-| Запуск и инфраструктура | [Минимальный bootstrap](#минимальный-bootstrap) · [Инфраструктура и Compose](#инфраструктура-и-compose) · [Dev / QA only](#dev--qa-only) · [Кеши, rate limits и worker](#кеши-rate-limits-и-worker) |
+| Запуск и инфраструктура | [Минимальный bootstrap](#минимальный-bootstrap) · [Инфраструктура и Compose](#инфраструктура-и-compose) · [Разработка и проверка качества](#разработка-и-проверка-качества) · [Кеши, rate limits и worker](#кеши-rate-limits-и-worker) |
 | Продукт | [Общие настройки](#общие-настройки) · [Remnawave](#remnawave) · [Веб-приложение и внешний вид](#веб-приложение-внешний-вид-и-telegram-login) · [SMTP и вход по email](#smtp-и-вход-по-email) |
 | Продажи | [Платежи](#платежи) · [Тарифы и legacy-цены](#тарифы-и-legacy-цены) · [Промокоды](#промокоды) · [Пробный период, рефералы и уведомления](#пробный-период-рефералы-и-уведомления) |
 | Эксплуатация | [Поддержка](#поддержка) · [Логирование](#логирование) · [Чеки, ссылки подключения и inline](#чеки-ссылки-подключения-и-inline) |
@@ -108,7 +108,7 @@ rollback OAuth установите `TELEGRAM_OAUTH_USE_BOT_PROXY=False` и пе
 полного возврата всех Telegram-запросов на прямой маршрут удалите или очистите
 `TELEGRAM_BOT_PROXY_URL` и пересоздайте `backend` и `worker`.
 
-### Local Telegram Bot API
+### Локальный сервер Telegram Bot API
 
 Для отправки больших файлов через собственный сервер Telegram Bot API задайте его базовый URL:
 
@@ -166,7 +166,7 @@ docker compose up -d --force-recreate backend worker
 | `NEWT_ID` / `NEWT_SECRET` | Dev Compose | Доступы Newt в dev-compose. |
 | `DEV_POSTGRES_PORT` | Dev Compose | Хостовый порт PostgreSQL единого dev stand для full-stack QA. По умолчанию `6768`. |
 
-## Dev / QA only
+## Разработка и проверка качества
 
 Эти переменные предназначены для локального dev stand и CI full-stack QA. Не
 включайте их в production `.env`.
@@ -378,7 +378,7 @@ Remnashop/Bedolaga или конфигурации Remnawave, а адрес бр
 Само событие появится только при полностью настроенном Node Plugin: Remnawave Panel и Node 2.7+,
 Xray-Core 26.3.27+, `NET_ADMIN`, nftables, корректный sniffing и включённый Torrent Blocker.
 Также проверьте, что webhook-канал `torrent_blocker.report` не отключён в конфигурации уведомлений
-панели. Подробный checklist: [уведомления](../features/notifications.md#torrent-blocker).
+панели. Подробный список проверок: [уведомления](../features/notifications.md#блокировка-торрентов-torrent-blocker).
 
 | Переменная | Назначение |
 | --- | --- |

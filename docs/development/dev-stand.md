@@ -306,7 +306,7 @@ docker compose --env-file .env.remnawave-dev `
   down -v
 ```
 
-## URL
+## Адреса сервисов
 
 - Mini Shop frontend: `http://127.0.0.1:8082`
 - Mini Shop backend health: `http://127.0.0.1:8080/healthz`
