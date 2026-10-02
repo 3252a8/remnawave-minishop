@@ -100,6 +100,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   backup_list_failed: "error_backup_list_failed",
   backup_restore_failed: "error_backup_restore_failed",
   backup_upload_failed: "error_backup_upload_failed",
+  invalid_backup_parts: "error_invalid_backup_parts",
   bot_username_unavailable: "error_bot_username_unavailable",
   broadcast_schedule_future: "broadcast_schedule_future",
   button_kind_invalid: "error_invalid_payload",

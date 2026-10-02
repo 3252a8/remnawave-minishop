@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from aiohttp import web
-from aiohttp.multipart import BodyPartReader
 
 from bot.app.web.context import (
     get_optional_bot,
@@ -24,6 +23,7 @@ from bot.app.web.route_contracts import (
 )
 from bot.infra.redis import redis_lock
 from bot.plugins.package_backup import prepare_package_restore
+from bot.services.backup_parts import BackupPartsError
 from bot.services.backup_restore_job import (
     ACTIVE_STATES,
     public_job,
@@ -32,13 +32,13 @@ from bot.services.backup_restore_job import (
     valid_token,
 )
 from bot.services.backup_restore_service import (
-    BACKUP_UPLOAD_MAX_BYTES,
     BackupArchiveError,
     BackupArchiveInfo,
     BackupRestoreError,
     BackupRestoreResult,
     BackupRestoreService,
 )
+from bot.services.backup_upload import read_uploaded_backup
 from bot.services.backup_worker import BackupResult, BackupWorker
 from bot.services.panel_identity_match import panel_origin_url
 from config.settings import Settings
@@ -69,7 +69,15 @@ logger = logging.getLogger(__name__)
 _BACKUP_UPLOAD_BODY_SCHEMA = {
     "type": "object",
     "required": ["file"],
-    "properties": {"file": BINARY_RESPONSE_SCHEMA},
+    "properties": {
+        "file": {
+            "oneOf": [
+                BINARY_RESPONSE_SCHEMA,
+                {"type": "array", "items": BINARY_RESPONSE_SCHEMA},
+            ],
+            "description": "One ZIP, or a parts manifest and all parts in repeated file fields.",
+        }
+    },
 }
 register_contract(
     "admin_backups_list_route",
@@ -146,44 +154,7 @@ def _backup_restore_result_payload(result: BackupRestoreResult) -> dict[str, Any
 
 
 async def _read_uploaded_backup_file(request: web.Request) -> BackupArchiveInfo:
-    settings: Settings = get_settings(request)
-    service = BackupRestoreService(settings)
-    backup_dir = service.backup_dir()
-    temp_path: Path | None = None
-
-    reader = await request.multipart()
-    try:
-        async for part in reader:
-            if not isinstance(part, BodyPartReader):
-                continue
-            if part.name != "file":
-                continue
-
-            original_filename = part.filename or "backup.zip"
-            temp_path = backup_dir / f".upload-{secrets.token_urlsafe(12)}.zip.tmp"
-            size = 0
-            with temp_path.open("wb") as handle:
-                while True:
-                    chunk = await part.read_chunk(size=1024 * 1024)
-                    if not chunk:
-                        break
-                    size += len(chunk)
-                    if size > BACKUP_UPLOAD_MAX_BYTES:
-                        raise BackupArchiveError("Backup archive is too large")
-                    handle.write(chunk)
-            if size <= 0:
-                raise BackupArchiveError("Uploaded archive is empty")
-            archive = service.import_uploaded_archive(temp_path, original_filename)
-            temp_path = None
-            return archive
-    finally:
-        if temp_path is not None and temp_path.exists():
-            try:
-                temp_path.unlink()
-            except OSError:
-                logger.warning("Failed to remove temporary backup upload %s", temp_path)
-
-    raise BackupArchiveError("file field is required")
+    return await read_uploaded_backup(request, get_settings(request))
 
 
 async def admin_backups_list_route(request: web.Request) -> web.Response:
@@ -251,7 +222,9 @@ async def admin_backups_upload_route(request: web.Request) -> web.Response:
         return _error(400, "invalid_backup_archive", "multipart file upload is required")
     try:
         archive = await _read_uploaded_backup_file(request)
-    except BackupArchiveError as exc:
+    except BackupPartsError as exc:
+        return _error(400, "invalid_backup_parts", str(exc))
+    except (BackupArchiveError, ValueError) as exc:
         return _error(400, "invalid_backup_archive", str(exc))
     except OSError as exc:
         logger.exception("Failed to save uploaded backup archive")
@@ -283,7 +256,9 @@ async def admin_backups_create_route(request: web.Request) -> web.Response:
             if not acquired:
                 return _error(409, "backup_create_busy", "Backup or restore is already running")
             await worker.refresh_settings()
-            result = await worker.create_and_send_backup(backup_type="manual")
+            result = await worker.create_and_send_backup(
+                backup_type="manual", tolerate_delivery_failure=True
+            )
             archive = BackupRestoreService(settings).inspect_archive(result.archive_path)
     except BackupArchiveError as exc:
         return _error(400, "invalid_backup_archive", str(exc))

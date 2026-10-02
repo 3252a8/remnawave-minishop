@@ -1,4 +1,5 @@
 import { adminErrorMessage } from "../errors.js";
+import { validateBackupUpload } from "../backupUpload.js";
 import {
   unwrap,
   type ApiClient,
@@ -58,7 +59,9 @@ export type BackupsStore = BackupsState & {
   loadArchives: () => Promise<void>;
   inspectArchive: (name: string) => Promise<BackupArchive | null>;
   createBackup: () => Promise<BackupArchive | null>;
-  uploadArchive: (file: File | null | undefined) => Promise<BackupArchive | null>;
+  uploadArchive: (
+    files: File | readonly File[] | null | undefined
+  ) => Promise<BackupArchive | null>;
   downloadArchive: (name: string) => Promise<void>;
   resumeRestore: () => Promise<void>;
   restoreArchive: (options: {
@@ -194,8 +197,10 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
       });
       if (isOkResponse(data)) {
         const result = unwrap(data);
-        updateState((s) => ({ ...s, lastCreated: normalizeRestoreResult(result.result) }));
+        const createdResult = normalizeRestoreResult(result.result);
+        updateState((s) => ({ ...s, lastCreated: createdResult }));
         onToast(at("backups_create_done", {}, "Backup created"));
+        for (const warning of asStringArray(createdResult?.warnings)) onToast(warning);
         await loadArchives();
         return normalizeArchive(result.archive);
       }
@@ -208,12 +213,21 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
     }
   }
 
-  async function uploadArchive(file: File | null | undefined): Promise<BackupArchive | null> {
-    if (!file) return null;
+  async function uploadArchive(
+    input: File | readonly File[] | null | undefined
+  ): Promise<BackupArchive | null> {
+    if (!input || state.backupsUploading) return null;
+    const files = input instanceof File ? [input] : Array.from(input);
+    if (!files.length) return null;
     updateState((s) => ({ ...s, backupsUploading: true }));
     try {
+      const problem = await validateBackupUpload(files);
+      if (problem) {
+        onToast(at(problem.key, problem.params, problem.fallback));
+        return null;
+      }
       const body = new FormData();
-      body.append("file", file);
+      for (const file of files) body.append("file", file);
       const data = await api(buildAdminBackupsUploadPath(), {
         method: "POST",
         body,
@@ -227,6 +241,9 @@ export function createBackupsStore({ api, onToast, at }: BackupsStoreOptions): B
       onToast(
         adminErrorMessage(data, at, at("backups_upload_failed", {}, "Failed to upload archive"))
       );
+      return null;
+    } catch {
+      onToast(at("backups_upload_failed", {}, "Failed to upload archive"));
       return null;
     } finally {
       updateState((s) => ({ ...s, backupsUploading: false }));

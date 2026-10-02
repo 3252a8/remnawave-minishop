@@ -13378,8 +13378,8 @@ export interface operations {
     requestBody: {
       content: {
         "multipart/form-data": {
-          /** Format: binary */
-          file: string;
+          /** @description One ZIP, or a parts manifest and all parts in repeated file fields. */
+          file: string | string[];
         };
       };
     };

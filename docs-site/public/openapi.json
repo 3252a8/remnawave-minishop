@@ -20440,8 +20440,20 @@
               "schema": {
                 "properties": {
                   "file": {
-                    "format": "binary",
-                    "type": "string"
+                    "description": "One ZIP, or a parts manifest and all parts in repeated file fields.",
+                    "oneOf": [
+                      {
+                        "format": "binary",
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "type": "array"
+                      }
+                    ]
                   }
                 },
                 "required": [

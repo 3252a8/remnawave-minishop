@@ -185,16 +185,19 @@
     backupsTable.setPage(1);
   }
 
-  async function uploadSelectedFile(event: Event): Promise<void> {
+  async function uploadSelectedFiles(event: Event): Promise<void> {
     const input = event.currentTarget as HTMLInputElement | null;
-    const file = input?.files?.[0];
-    if (!file) return;
-    const archive = await backupsStore.uploadArchive(file);
-    if (archive?.name) {
-      selectArchive(archive.name, archive);
-      focusArchivePage(archive.name);
+    const files = Array.from(input?.files || []);
+    if (!input || !files.length) return;
+    try {
+      const archive = await backupsStore.uploadArchive(files);
+      if (archive?.name) {
+        selectArchive(archive.name, archive);
+        focusArchivePage(archive.name);
+      }
+    } finally {
+      input.value = "";
     }
-    input.value = "";
   }
 
   async function createManualBackup(): Promise<void> {
@@ -239,7 +242,11 @@
           ? at("backups_creating", {}, "Creating...")
           : at("backups_create", {}, "Create backup")}
       </AdminButton>
-      <AdminButton onclick={() => fileInput?.click()} disabled={backupsUploading}>
+      <AdminButton
+        onclick={() => fileInput?.click()}
+        disabled={backupsUploading || backupsRestoring}
+        aria-describedby="backups-upload-help"
+      >
         <Upload size={14} />
         {backupsUploading
           ? at("backups_uploading", {}, "Uploading...")
@@ -255,8 +262,11 @@
       <FileInput
         bind:element={fileInput}
         class="backups-file-input"
-        accept=".zip,application/zip"
-        onchange={uploadSelectedFile}
+        multiple
+        disabled={backupsUploading || backupsRestoring}
+        aria-label={at("backups_upload_files", {}, "Select ZIP or backup parts")}
+        aria-describedby="backups-upload-help"
+        onchange={uploadSelectedFiles}
       />
     {/snippet}
     {#snippet metadata()}
@@ -267,6 +277,14 @@
       </div>
     {/snippet}
   </AdminListToolbar>
+
+  <p id="backups-upload-help" class="backups-upload-help">
+    {at(
+      "backups_upload_help",
+      {},
+      "Select one ZIP, or the .zip.parts.json manifest and all .zip.partNNNN files together. The server joins and verifies the parts. Maximum archive size: 2 GiB."
+    )}
+  </p>
 
   <article class="admin-card backups-restore-card">
     <header class="admin-card-head">
@@ -303,7 +321,7 @@
             <AdminBadge variant="muted">{at("backups_badge_compose", {}, "Compose")}</AdminBadge>
           {/if}
         </span>
-        {#each selectedArchive.warnings as warning}
+        {#each selectedArchive.warnings as warning, index (index)}
           <p><TriangleAlert size={12} /> {warning}</p>
         {/each}
       </div>
@@ -548,6 +566,14 @@
   .backups-layout {
     display: grid;
     gap: 12px;
+  }
+
+  .backups-upload-help {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   .backups-dir-meta {

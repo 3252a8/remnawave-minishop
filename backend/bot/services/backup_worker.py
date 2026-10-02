@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramEntityTooLarge
 from aiogram.types import FSInputFile
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -29,6 +30,7 @@ from bot.services.backup_archive import (
     write_zip_from_directory,
 )
 from bot.services.backup_restore_db import applied_migration_ids
+from bot.services.backup_telegram import needs_backup_parts, send_backup_parts
 from bot.utils.app_version import resolve_app_version
 from config.settings import Settings
 from db.database_setup import DB_INIT_ADVISORY_LOCK_ID
@@ -147,10 +149,23 @@ class BackupWorker:
                 logger.exception("Backup worker tick failed")
                 await self._notify_failure(exc)
 
-    async def create_and_send_backup(self, *, backup_type: str = "scheduled") -> BackupResult:
+    async def create_and_send_backup(
+        self, *, backup_type: str = "scheduled", tolerate_delivery_failure: bool = False
+    ) -> BackupResult:
         result = await self.create_backup(backup_type=backup_type)
         try:
             await self.send_backup(result)
+        except Exception:
+            if not tolerate_delivery_failure:
+                raise
+            from bot.middlewares.i18n import get_i18n_instance
+
+            logger.exception("Backup created but Telegram delivery failed")
+            result.warnings.append(
+                get_i18n_instance().gettext(
+                    self.settings.DEFAULT_LANGUAGE, "backup_created_delivery_failed"
+                )
+            )
         finally:
             self.prune_old_backups()
         return result
@@ -420,7 +435,9 @@ class BackupWorker:
 
     def _compose_excluded_dirs(self) -> set[str]:
         configured = self._split_csv(self.settings.BACKUP_COMPOSE_EXCLUDE_DIRS)
-        return DEFAULT_COMPOSE_EXCLUDED_DIRS | set(configured)
+        # Package snapshots already preserve the exact active releases. Keep restore's
+        # shared exclusions unchanged so older compose-only snapshots remain usable.
+        return DEFAULT_COMPOSE_EXCLUDED_DIRS | {"plugin-store"} | set(configured)
 
     @staticmethod
     def _split_csv(value: str | None) -> list[str]:
@@ -440,11 +457,28 @@ class BackupWorker:
             )
             return
 
-        await self.bot.send_document(
+        part_bytes: int | None = None
+        if not needs_backup_parts(result.archive_path):
+            try:
+                await self.bot.send_document(
+                    chat_id=chat_id,
+                    document=FSInputFile(result.archive_path),
+                    caption=self._caption(result),
+                    message_thread_id=self._target_thread_id(),
+                    request_timeout=180,
+                )
+                return
+            except TelegramEntityTooLarge:
+                logger.warning("Telegram rejected backup ZIP; sending checksummed parts")
+                part_bytes = max(1, result.archive_path.stat().st_size // 2)
+        await send_backup_parts(
+            self.bot,
+            result.archive_path,
             chat_id=chat_id,
-            document=FSInputFile(result.archive_path),
+            thread_id=self._target_thread_id(),
             caption=self._caption(result),
-            message_thread_id=self._target_thread_id(),
+            language=self.settings.DEFAULT_LANGUAGE,
+            part_bytes=part_bytes,
         )
 
     def prune_old_backups(self) -> None:

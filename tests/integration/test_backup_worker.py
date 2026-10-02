@@ -16,6 +16,7 @@ from config.settings import Settings
 class _FakeBot:
     def __init__(self):
         self.send_document = AsyncMock()
+        self.send_media_group = AsyncMock()
         self.send_message = AsyncMock()
 
 
@@ -64,6 +65,12 @@ def test_backup_worker_creates_archive_with_db_dump_and_compose_snapshot(tmp_pat
     (compose_dir / "Caddyfile").write_text("example.com\n", encoding="utf-8")
     (compose_dir / "node_modules").mkdir()
     (compose_dir / "node_modules" / "ignored.txt").write_text("ignored", encoding="utf-8")
+    history = compose_dir / "data" / "plugin-store" / "releases" / "example" / "old"
+    history.mkdir(parents=True)
+    (history / "package.so").write_bytes(b"historical package")
+    images = compose_dir / "data" / "message-images"
+    images.mkdir()
+    (images / "welcome.png").write_bytes(b"image bytes")
     tariffs_path = tmp_path / "tariffs.json"
     tariffs_path.write_text('{"default_tariff":"standard","tariffs":[]}\n', encoding="utf-8")
 
@@ -81,7 +88,7 @@ def test_backup_worker_creates_archive_with_db_dump_and_compose_snapshot(tmp_pat
 
     assert result.archive_path.is_file()
     assert result.db_dump_included is True
-    assert result.compose_files_count == 3
+    assert result.compose_files_count == 4
     assert re.fullmatch(r"minishop-\d{8}-\d{2}-\d{2}\.zip", result.archive_path.name)
     assert not old_archive.exists()
     bot.send_document.assert_awaited_once()
@@ -101,13 +108,15 @@ def test_backup_worker_creates_archive_with_db_dump_and_compose_snapshot(tmp_pat
     assert "compose/.env" in names
     assert "compose/Caddyfile" in names
     assert all("node_modules" not in name for name in names)
+    assert all("compose/data/plugin-store" not in name for name in names)
+    assert "compose/data/message-images/welcome.png" in names
     assert manifest["postgres"]["database"] == "shop"
     assert manifest["tariffs_config"] == {
         "source_path": str(tariffs_path),
         "archive_path": "database/tariffs.json",
         "included": True,
     }
-    assert manifest["compose"]["files_count"] == 3
+    assert manifest["compose"]["files_count"] == 4
 
 
 def test_backup_worker_falls_back_to_log_chat_and_thread(tmp_path):
@@ -276,3 +285,84 @@ def test_backup_settings_refresh_restores_env_default_when_override_is_deleted(m
 
     assert applied == 0
     assert settings.BACKUP_ENABLED is False
+
+
+def test_backup_preserves_only_active_package_once_and_retains_legacy_restore(
+    tmp_path, monkeypatch
+):
+    from bot.plugins import packages
+    from bot.services.backup_restore_service import BackupRestoreService
+
+    compose_dir = tmp_path / "compose"
+    compose_dir.mkdir()
+    (compose_dir / "docker-compose.yml").write_text("services: {}\n")
+    store = compose_dir / "data" / "plugin-store"
+    for digest in ("a" * 64, "b" * 64):
+        release = store / "releases" / "example" / digest
+        release.mkdir(parents=True)
+        (release / "package.so").write_bytes(digest.encode())
+    (store / "state.json").write_text(
+        json.dumps({"generation": 1, "installations": {"example": {"digest": "a" * 64}}})
+    )
+    (store / "trusted-publishers.json").write_text("{}")
+    monkeypatch.setattr(packages, "package_root", lambda: store)
+    settings = _settings(tmp_path, compose_dir)
+    result = asyncio.run(_FakePgDumpBackupWorker(settings, _FakeBot()).create_backup())
+
+    with zipfile.ZipFile(result.archive_path) as archive:
+        names = set(archive.namelist())
+        active = "config/plugin-store/releases/example/" + "a" * 64 + "/package.so"
+        assert archive.read(active) == b"a" * 64
+        assert "config/plugin-store/state.json" in names
+        assert "config/plugin-store/trusted-publishers.json" in names
+        assert not any(name.startswith("compose/data/plugin-store/") for name in names)
+        assert not any("b" * 64 in name for name in names)
+    assert "plugin-store" not in BackupRestoreService(settings)._compose_excluded_dirs()
+
+
+def test_backup_worker_routes_large_archives_to_telegram_album(tmp_path, monkeypatch):
+    from bot.services import backup_telegram
+
+    monkeypatch.setattr(backup_telegram, "BACKUP_PART_BYTES", 17)
+    settings = _settings(tmp_path, tmp_path / "compose", BACKUP_COMPOSE_ENABLED=False)
+    bot = _FakeBot()
+    result = asyncio.run(_FakePgDumpBackupWorker(settings, bot).create_and_send_backup())
+
+    bot.send_document.assert_not_awaited()
+    assert bot.send_media_group.await_count >= 1
+    assert result.archive_path.is_file()
+    assert not list(Path(settings.BACKUP_DIR).glob("telegram-parts-*"))
+
+
+def test_backup_worker_splits_smaller_after_size_rejection(tmp_path):
+    from aiogram.exceptions import TelegramEntityTooLarge
+    from aiogram.methods import SendDocument
+
+    settings = _settings(tmp_path, tmp_path / "compose", BACKUP_COMPOSE_ENABLED=False)
+    bot = _FakeBot()
+    bot.send_document.side_effect = TelegramEntityTooLarge(
+        method=SendDocument(chat_id=123, document="backup"), message="Request Entity Too Large"
+    )
+    result = asyncio.run(_FakePgDumpBackupWorker(settings, bot).create_and_send_backup())
+
+    bot.send_document.assert_awaited_once()
+    bot.send_media_group.assert_awaited_once()
+    assert len(bot.send_media_group.await_args.kwargs["media"]) >= 3
+    assert result.archive_path.is_file()
+
+
+def test_manual_backup_survives_telegram_failure_but_scheduled_backup_reports_it(tmp_path):
+    import pytest
+
+    settings = _settings(tmp_path, tmp_path / "compose", BACKUP_COMPOSE_ENABLED=False)
+    bot = _FakeBot()
+    bot.send_document.side_effect = RuntimeError("Telegram unavailable")
+    worker = _FakePgDumpBackupWorker(settings, bot)
+    result = asyncio.run(
+        worker.create_and_send_backup(backup_type="manual", tolerate_delivery_failure=True)
+    )
+    assert result.archive_path.is_file()
+    assert any("Telegram" in warning for warning in result.warnings)
+    with pytest.raises(RuntimeError, match="Telegram unavailable"):
+        asyncio.run(worker.create_and_send_backup())
+    assert len(list(Path(settings.BACKUP_DIR).glob("minishop-*.zip"))) == 1
