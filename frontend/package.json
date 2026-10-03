@@ -41,7 +41,6 @@
     "@neodrag/svelte": "^2.3.3",
     "@playwright/test": "^1.63.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tailwindcss/cli": "4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/svelte-query": "^6.3.0",
     "@tiptap/core": "^3.31.3",
