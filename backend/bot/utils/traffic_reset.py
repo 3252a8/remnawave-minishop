@@ -220,6 +220,28 @@ def advance_traffic_reset(value: datetime, strategy: str) -> datetime:
     return add_months(value, 1)
 
 
+def traffic_periods_between(
+    previous_start: datetime | None,
+    current_start: datetime | None,
+    strategy: str,
+) -> int:
+    """How many counter periods ended between two period starts; at least one."""
+    previous = aware_utc(previous_start)
+    current = aware_utc(current_start)
+    normalized = normalize_traffic_limit_strategy(strategy, default="MONTH")
+    if previous is None or current is None or current <= previous or normalized == "NO_RESET":
+        return 1
+    days = (current.date() - previous.date()).days
+    if normalized == "DAY":
+        return max(1, days)
+    if normalized == "WEEK":
+        return max(1, (days + 6) // 7)
+    # Reset jobs can finish a few seconds later each month. Counting elapsed
+    # calendar months avoids manufacturing another quota for scheduler latency,
+    # and preserves rolling Jan 31 -> Feb 28 -> Mar 31 boundaries.
+    return max(1, (current.year - previous.year) * 12 + current.month - previous.month)
+
+
 def previous_traffic_reset(value: datetime, strategy: str) -> datetime | None:
     normalized = normalize_traffic_limit_strategy(strategy, default="MONTH")
     anchor = aware_utc(value)

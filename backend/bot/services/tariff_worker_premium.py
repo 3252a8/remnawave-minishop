@@ -15,6 +15,7 @@ from bot.services.message_audit import (
 )
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.traffic_topup_accounting import consume_topup_overflow
 from bot.utils.date_utils import month_start
 from bot.utils.traffic_reset import previous_traffic_reset, traffic_period_starts_match
 from config.settings import Settings
@@ -290,16 +291,15 @@ class TariffWorkerPremiumMixin(
         )
 
         if not premium_unlimited_override and not unmetered_premium_access:
-            # Consume paid top-up balance only for overflow beyond baseline+bonus.
-            # Admin-granted bonus is "spent" against usage first along with baseline,
-            # so the user's paid top-up survives longer.
-            free_quota = premium_baseline + premium_bonus
-            overflow = max(0, int(premium_used) - free_quota)
-            delta_overflow = max(0, overflow - premium_topup_used)
-            consume_from_topup = min(premium_topup_balance, delta_overflow)
-            if consume_from_topup > 0:
-                premium_topup_balance -= consume_from_topup
-                premium_topup_used += consume_from_topup
+            consumption = consume_topup_overflow(
+                balance_bytes=premium_topup_balance,
+                used_bytes=premium_topup_used,
+                traffic_used_bytes=int(premium_used),
+                allowance_bytes=premium_baseline + premium_bonus,
+            )
+            if consumption.consumed_bytes > 0:
+                premium_topup_balance = consumption.balance_bytes
+                premium_topup_used = consumption.used_bytes
                 premium_limit = (
                     premium_baseline + premium_topup_balance + premium_topup_used + premium_bonus
                 )

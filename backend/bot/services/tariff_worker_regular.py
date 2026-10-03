@@ -18,6 +18,10 @@ from bot.services.message_audit import (
 from bot.services.panel_api_compat import PanelUserIdMode, numeric_panel_user_id
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_user_snapshot import should_use_full_panel_user_scan
+from bot.services.regular_topup_settlement import (
+    regular_accounting_traffic_limit,
+    settle_regular_topup,
+)
 from bot.services.subscription_order_terms import gift_tariff
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
@@ -310,15 +314,18 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                         previous_period_start_at=previous_regular_period_start,
                         panel_user_data=panel_data,
                     )
-                    await self._maybe_send_regular_reset_notice(
+                    await settle_regular_topup(
                         session,
                         sub,
                         tariff,
-                        used,
-                        limit,
-                        warning_period_start,
+                        subscription_service=self.subscription_service,
+                        used_bytes=used,
+                        panel_user_data=panel_data,
                         previous_period_start=previous_regular_period_start,
+                        period_start=warning_period_start,
                         traffic_strategy=effective_strategy,
+                        now=now,
+                        usage_source=self.panel_service,
                     )
                     sub.period_start_at = warning_period_start
                 else:
@@ -330,6 +337,18 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                         fallback_strategy=effective_strategy,
                     )
                     await self._sync_hwid_device_limit(session, sub, tariff, panel_data)
+                    limit = getattr(sub, "traffic_limit_bytes", limit)
+                    if warning_period_start is not None:
+                        await self._maybe_send_regular_reset_notice(
+                            session,
+                            sub,
+                            tariff,
+                            used,
+                            limit,
+                            warning_period_start,
+                            previous_period_start=previous_regular_period_start,
+                            traffic_strategy=effective_strategy,
+                        )
                     await self._maybe_warn_or_throttle(
                         session,
                         sub,
@@ -619,6 +638,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     )
                 ),
             )
+            traffic_limit_for_panel = regular_accounting_traffic_limit(sub, traffic_limit_for_panel)
             try:
                 panel_traffic_limit = panel_data.get("trafficLimitBytes")
                 panel_traffic_limit_int = (

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.infra.grants import GrantContext, resolve_effective_grant
 from bot.services.payment_promo import consume_payment_promo, load_payment_promo_effects
 from bot.services.subscription_order_terms import gift_tariff
+from bot.services.traffic_topup_accounting import consume_topup_overflow
 from db.dal import payment_dal, subscription_dal, tariff_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
@@ -114,12 +115,14 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
             )
             premium_bonus = max(0, int(getattr(sub, "premium_bonus_bytes", 0) or 0))
             premium_topup_balance = int(sub.premium_topup_balance_bytes or 0) + premium_bytes
-            overflow_to_cover = max(
-                0, premium_used - premium_baseline - premium_topup_used - premium_bonus
+            consumption = consume_topup_overflow(
+                balance_bytes=premium_topup_balance,
+                used_bytes=premium_topup_used,
+                traffic_used_bytes=premium_used,
+                allowance_bytes=premium_baseline + premium_bonus,
             )
-            consume_now = min(premium_topup_balance, overflow_to_cover)
-            premium_topup_balance -= consume_now
-            premium_topup_used += consume_now
+            premium_topup_balance = consumption.balance_bytes
+            premium_topup_used = consumption.used_bytes
             premium_limit = self._premium_effective_limit_bytes(
                 premium_baseline,
                 premium_topup_balance,
@@ -561,12 +564,14 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         premium_baseline = int(tariff.premium_monthly_bytes or sub.premium_baseline_bytes or 0)
         premium_bonus = max(0, int(getattr(sub, "premium_bonus_bytes", 0) or 0))
         premium_topup_balance = int(sub.premium_topup_balance_bytes or 0) + purchase_bytes
-        overflow_to_cover = max(
-            0, premium_used - premium_baseline - previous_topup_used - premium_bonus
+        consumption = consume_topup_overflow(
+            balance_bytes=premium_topup_balance,
+            used_bytes=previous_topup_used,
+            traffic_used_bytes=premium_used,
+            allowance_bytes=premium_baseline + premium_bonus,
         )
-        consume_now = min(premium_topup_balance, overflow_to_cover)
-        premium_topup_balance -= consume_now
-        premium_topup_used = previous_topup_used + consume_now
+        premium_topup_balance = consumption.balance_bytes
+        premium_topup_used = consumption.used_bytes
         premium_limit = self._premium_effective_limit_bytes(
             premium_baseline,
             premium_topup_balance,
@@ -798,12 +803,14 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         premium_baseline = int(tariff.premium_monthly_bytes or sub.premium_baseline_bytes or 0)
         premium_bonus = max(0, int(getattr(sub, "premium_bonus_bytes", 0) or 0))
         premium_topup_balance = int(sub.premium_topup_balance_bytes or 0) + purchase_bytes
-        overflow_to_cover = max(
-            0, premium_used - premium_baseline - previous_topup_used - premium_bonus
+        consumption = consume_topup_overflow(
+            balance_bytes=premium_topup_balance,
+            used_bytes=previous_topup_used,
+            traffic_used_bytes=premium_used,
+            allowance_bytes=premium_baseline + premium_bonus,
         )
-        consume_now = min(premium_topup_balance, overflow_to_cover)
-        premium_topup_balance -= consume_now
-        premium_topup_used = previous_topup_used + consume_now
+        premium_topup_balance = consumption.balance_bytes
+        premium_topup_used = consumption.used_bytes
         premium_limit = self._premium_effective_limit_bytes(
             premium_baseline,
             premium_topup_balance,

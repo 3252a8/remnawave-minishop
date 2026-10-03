@@ -434,14 +434,20 @@ def test_offer_versions_keep_checkout_terms_and_free_product_identity() -> None:
         from db.models import PromoCode
 
         async with factory() as session:
-            await capture_contact(session, code="channel_a", user_id=1)
+            checkout_at = datetime.now(UTC)
+            # Keep this versioning scenario independent of app/database clock skew.
+            offered_at = checkout_at - timedelta(minutes=1)
+            await capture_contact(session, code="channel_a", user_id=1, occurred_at=offered_at)
             promo = PromoCode(
                 code="ADS_FREE", bonus_days=0, discount_percent=100, max_activations=100
             )
             session.add(promo)
             await session.flush()
             original = AdPromoBinding(
-                campaign_id=1, promo_code_id=promo.promo_code_id, **binding_terms(promo)
+                campaign_id=1,
+                promo_code_id=promo.promo_code_id,
+                starts_at=offered_at,
+                **binding_terms(promo),
             )
             session.add(original)
             await session.flush()
@@ -456,7 +462,7 @@ def test_offer_versions_keep_checkout_terms_and_free_product_identity() -> None:
             )
             session.add(payment)
             await session.flush()
-            await snapshot_purchase(session, payment, checkout_at=datetime.now(UTC))
+            await snapshot_purchase(session, payment, checkout_at=checkout_at)
             promo.discount_percent = 50
             await version_bindings(session, promo)
             versions = list(

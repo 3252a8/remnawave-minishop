@@ -16,6 +16,7 @@ from bot.services.payment_promo import (
     consume_payment_promo,
     load_payment_promo_effects,
 )
+from bot.services.traffic_topup_accounting import consume_topup_overflow
 from bot.services.trial_days import paid_subscription_period_start
 from bot.utils.date_utils import add_months
 from config.subscription_periods import (
@@ -582,16 +583,14 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             premium_baseline_bytes = selected_premium_bytes
         premium_bonus_carry = int(getattr(current_active_sub, "premium_bonus_bytes", 0) or 0)
         if promo_premium_traffic_bytes > 0 or legacy_checkout_premium_bytes > 0:
-            premium_overflow_to_cover = max(
-                0,
-                premium_used_bytes
-                - premium_baseline_bytes
-                - premium_topup_used_bytes
-                - premium_bonus_carry,
+            consumption = consume_topup_overflow(
+                balance_bytes=premium_topup_balance_bytes,
+                used_bytes=premium_topup_used_bytes,
+                traffic_used_bytes=premium_used_bytes,
+                allowance_bytes=premium_baseline_bytes + premium_bonus_carry,
             )
-            premium_consume_now = min(premium_topup_balance_bytes, premium_overflow_to_cover)
-            premium_topup_balance_bytes -= premium_consume_now
-            premium_topup_used_bytes += premium_consume_now
+            premium_topup_balance_bytes = consumption.balance_bytes
+            premium_topup_used_bytes = consumption.used_bytes
         premium_limit_bytes = self._premium_effective_limit_bytes(
             premium_baseline_bytes,
             premium_topup_balance_bytes,

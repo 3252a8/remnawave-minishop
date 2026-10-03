@@ -5,15 +5,23 @@ import os
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_snapshot import capture_subscription_snapshot
+from bot.services.panel_api_service import PanelApiService
+from bot.services.regular_topup_settlement import RegularTopupPeriod, settle_regular_topup
+from bot.services.subscription_service_impl.core import SubscriptionService
+from config.settings import Settings
 from db.dal import subscription_dal, tariff_dal, user_panel_squad_override_dal
 from db.dal.tariff_read_batch import clear_tariff_read_batch, prefetch_tariff_read_batch
+from db.migrator.chain_0098_topup_period_lifetime import CHAIN_0098_TOPUP_PERIOD_LIFETIME
+from db.migrator.chain_0099_regular_topup_accounting import CHAIN_0099_REGULAR_TOPUP_ACCOUNTING
 from db.models import (
     Base,
     FlexibleTrafficLimit,
@@ -247,5 +255,120 @@ def test_full_sync_does_not_overwrite_a_concurrent_extension() -> None:
             sub = await verify.get(Subscription, 1)
             assert sub.end_date == original_end + timedelta(days=30)
             assert sub.is_active
+
+    run_scenario(scenario)
+
+
+@pytest.mark.parametrize("days", [1, 2])
+def test_regular_missed_resets_use_expired_flexible_and_device_entitlements(days: int) -> None:
+    async def scenario(factory: Any) -> None:
+        gb = 1024**3
+        start = datetime(2026, 9, 1, tzinfo=UTC)
+        end = start + timedelta(days=days)
+        settings = Settings(HWID_DEVICE_TRAFFIC_BONUS_GB=0)
+        service = SubscriptionService(settings, PanelApiService(settings))
+        source = SimpleNamespace(
+            get_user_bandwidth_stats=AsyncMock(
+                return_value={
+                    "categories": ["2026-09-01", "2026-09-02"],
+                    "sparklineData": [80 * gb, 80 * gb],
+                }
+            )
+        )
+        async with factory() as session:
+            sub = await session.get(Subscription, 1)
+            sub.tier_baseline_bytes = 50 * gb
+            sub.topup_balance_bytes = 50 * gb
+            sub.traffic_topup_accounting_state = RegularTopupPeriod(
+                period_start_at=start,
+                lifetime_start_bytes=480 * gb,
+                allowance_bytes=50 * gb,  # the worker last ran before the purchases
+                observed_used_bytes=0,
+                observed_overflow_bytes=0,
+                panel_user_uuid="panel-1",
+                traffic_strategy="DAY",
+                tariff_baseline_bytes=50 * gb,
+                regular_bonus_bytes=0,
+                unlimited=False,
+            ).model_dump_json()
+            session.add_all(
+                [
+                    FlexibleTrafficLimit(
+                        subscription_id=1,
+                        kind="traffic",
+                        tariff_key="standard",
+                        limit_bytes=100 * gb,
+                        valid_from=start,
+                        valid_until=start + timedelta(days=1),
+                    ),
+                    HwidDevicePurchase(
+                        subscription_id=1,
+                        purchased_devices=1,
+                        traffic_bonus_bytes=15 * gb,
+                        valid_from=start,
+                        valid_until=start + timedelta(days=1),
+                    ),
+                ]
+            )
+            await session.commit()
+            await prefetch_tariff_read_batch(session, [sub])
+            consumed = await settle_regular_topup(
+                session,
+                sub,
+                SimpleNamespace(monthly_bytes=50 * gb),
+                subscription_service=service,
+                used_bytes=0,
+                panel_user_data={
+                    "userTraffic": {"lifetimeUsedTrafficBytes": (480 + 80 * days) * gb}
+                },
+                previous_period_start=start,
+                period_start=end,
+                traffic_strategy="DAY",
+                now=end,
+                usage_source=source,
+            )
+            await session.commit()
+            # Day one had 115 GB; day two had 50 GB and spent 30 GB of the pack.
+            expected = 30 * gb if days == 2 else 0
+            assert (consumed, sub.topup_balance_bytes) == (expected, 50 * gb - expected)
+            await session.refresh(sub)
+            state = RegularTopupPeriod.model_validate_json(sub.traffic_topup_accounting_state)
+            assert (state.allowance_bytes, state.lifetime_start_bytes) == (
+                50 * gb,
+                (480 + 80 * days) * gb,
+            )
+            clear_tariff_read_batch(session)
+        if days == 2:
+            source.get_user_bandwidth_stats.assert_awaited_once_with(
+                "panel-1", start="2026-09-01", end="2026-09-02"
+            )
+        else:
+            source.get_user_bandwidth_stats.assert_not_awaited()
+
+    run_scenario(scenario)
+
+
+def test_regular_accounting_migrations_are_nullable_and_idempotent() -> None:
+    async def scenario(factory: Any) -> None:
+        async with factory() as session:
+            await session.execute(
+                text("ALTER TABLE subscriptions DROP COLUMN traffic_period_lifetime_start_bytes")
+            )
+            await session.execute(
+                text("ALTER TABLE subscriptions DROP COLUMN traffic_topup_accounting_state")
+            )
+            connection = await session.connection()
+            migrations = [*CHAIN_0098_TOPUP_PERIOD_LIFETIME, *CHAIN_0099_REGULAR_TOPUP_ACCOUNTING]
+            for _ in range(2):
+                for migration in migrations:
+                    await connection.run_sync(migration.upgrade)
+            values = await session.execute(
+                text(
+                    "SELECT traffic_period_lifetime_start_bytes, "
+                    "traffic_topup_accounting_state FROM subscriptions ORDER BY subscription_id"
+                )
+            )
+            assert values.all() == [(None, None), (None, None)]
+            await session.commit()
 
     run_scenario(scenario)
