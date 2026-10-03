@@ -394,6 +394,12 @@ class BackupWorker:
             )
 
         excluded_dirs = self._compose_excluded_dirs()
+        from bot.plugins.packages import package_root
+
+        package_roots = (
+            Path(self.settings.WEBAPP_THEMES_DIR).expanduser().resolve(),
+            package_root().resolve(),
+        )
         files_count = 0
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -402,6 +408,8 @@ class BackupWorker:
             if any(part in excluded_dirs for part in relative.parts):
                 continue
             if path.is_dir() or path.is_symlink():
+                continue
+            if any(path.resolve().is_relative_to(root) for root in package_roots):
                 continue
             if path.name.startswith(f"{BACKUP_FILENAME_PREFIX}") and path.suffix == ".zip":
                 continue
@@ -435,9 +443,9 @@ class BackupWorker:
 
     def _compose_excluded_dirs(self) -> set[str]:
         configured = self._split_csv(self.settings.BACKUP_COMPOSE_EXCLUDE_DIRS)
-        # Package snapshots already preserve the exact active releases. Keep restore's
+        # Dedicated snapshots already preserve installed themes and selected plugins. Keep restore's
         # shared exclusions unchanged so older compose-only snapshots remain usable.
-        return DEFAULT_COMPOSE_EXCLUDED_DIRS | {"plugin-store"} | set(configured)
+        return DEFAULT_COMPOSE_EXCLUDED_DIRS | {"plugin-store", "themes"} | set(configured)
 
     @staticmethod
     def _split_csv(value: str | None) -> list[str]:

@@ -58,6 +58,47 @@ def test_grace_period_and_garbage_collection(tmp_path: Path) -> None:
     assert not (tmp_path / "_packages" / digest).exists()
 
 
+def test_snapshot_excludes_deleted_legacy_and_orphan_packages(tmp_path: Path) -> None:
+    root = tmp_path / "source"
+    root.mkdir()
+    for name, content in {**package(), **package("forest")}.items():
+        file = root / name
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_bytes(content)
+    install(root, ready(root), action="adopt")
+    install(root, ready(root, package(version="2.0.0")), action="update")
+    deleted = read_registry(root).entries["ocean"]
+    remove_theme(root, "ocean", read_registry(root).generation, "dark")
+    install(root, ready(root, package("forest")), action="adopt", keys=("forest",))
+    install(
+        root, ready(root, package("forest", version="2.0.0")), action="update", keys=("forest",)
+    )
+    orphan = root / "_packages" / ("a" * 64)
+    orphan.mkdir()
+    (orphan / "unused.webp").write_bytes(b"orphaned package")
+    (root / "_registry/before-effects-v2.json").write_bytes(b"old registry")
+    generation = read_registry(root).generation
+    snapshot = tmp_path / "snapshot"
+
+    assert snapshot_themes(root, snapshot)
+    state = read_registry(snapshot)
+    assert state.generation == generation
+    assert set(state.entries) == {"forest"}
+    assert state.removed == ["ocean"]
+    assert not state.retired
+    assert read_registry(root).retired
+    entry = state.entries["forest"]
+    assert {path.name for path in (snapshot / "_packages").iterdir()} == {
+        version.digest for version in [entry, *entry.history]
+    }
+    assert not (snapshot / "ocean").exists()
+    assert (snapshot / "forest/theme.json").is_file()
+    assert {path.name for path in (snapshot / "_registry").iterdir()} == {"current.json"}
+    for version in [deleted, *deleted.history]:
+        assert (root / "_packages" / version.digest / "theme.json").is_file()
+        assert not (snapshot / "_packages" / version.digest).exists()
+
+
 def test_failed_atomic_commit_does_not_publish_partial_collection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

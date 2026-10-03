@@ -16,6 +16,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from bot.plugins.package_backup import snapshot_packages
 from bot.plugins.packages import (
     PluginPackageError,
     activate_staged,
@@ -124,6 +125,9 @@ def test_signed_package_requires_trust_then_activates_exact_generation(tmp_path:
     )
     assert state["installations"]["sample-plugin"]["enabled"] is False
     assert managed_entry_points(tmp_path) == []
+    snapshot = tmp_path / "disabled-snapshot"
+    assert snapshot_packages(tmp_path, snapshot)
+    assert (snapshot / "releases/sample-plugin" / operation["digest"] / "plugin.json").is_file()
     state = set_enabled(tmp_path, "sample-plugin", True, 7, 1)
     assert state["generation"] == 2
     assert set_enabled(tmp_path, "sample-plugin", True, 7, 2)["generation"] == 2
@@ -142,6 +146,9 @@ def test_signed_package_requires_trust_then_activates_exact_generation(tmp_path:
     assert "sample-plugin" not in state["installations"]
     assert (tmp_path / "releases" / "sample-plugin" / operation["digest"]).is_dir()
     assert remove_plugin(tmp_path, "sample-plugin", 7, 3)["generation"] == 3
+    snapshot = tmp_path / "removed-snapshot"
+    assert not snapshot_packages(tmp_path, snapshot)
+    assert not snapshot.exists()
 
 
 def test_portable_source_package_accepts_newer_core_revision(

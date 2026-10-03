@@ -10,22 +10,34 @@ from pathlib import Path
 
 from .archive import content_digest, inspect_theme
 from .models import PackageError
-from .paths import atomic_bytes, confined, registry_lock
+from .paths import atomic_bytes, atomic_model, confined, registry_lock
 from .registry import read_registry, write_registry
 
 BACKUP_PREFIX = "config/themes/"
 
 
 def snapshot_themes(source: Path, target: Path) -> bool:
+    """Preserve installed themes and rollback versions without retired package files."""
     source = source.expanduser()
     if not source.is_dir():
         return False
     with registry_lock(source):
+        state = read_registry(source)
+        referenced = {
+            version.digest
+            for entry in state.entries.values()
+            for version in [entry, *entry.history]
+        }
         for path in source.rglob("*"):
             relative = path.relative_to(source)
             if (
-                relative.parts[0] in {"_imports", "_restore"}
-                or relative.as_posix() == "_registry/lock"
+                relative.parts[0] in {"_imports", "_restore", "_registry", *state.removed}
+                or (
+                    relative.parts[0] == "_packages"
+                    and len(relative.parts) > 1
+                    and relative.parts[1] not in referenced
+                )
+                or (relative.parts[0] == "_previews" and path.stem in state.removed)
             ):
                 continue
             if path.is_symlink():
@@ -34,6 +46,8 @@ def snapshot_themes(source: Path, target: Path) -> bool:
                 destination = confined(target, relative.as_posix())
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, destination)
+        state.retired.clear()
+        atomic_model(confined(target, "_registry/current.json"), state)
     return True
 
 

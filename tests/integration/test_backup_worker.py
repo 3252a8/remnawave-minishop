@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+
 from bot.services.backup_worker import BACKUP_FILENAME_PREFIX, BackupWorker
 from bot.services.settings_override_service import refresh_overrides_from_db
 from config.settings import Settings
@@ -287,26 +289,50 @@ def test_backup_settings_refresh_restores_env_default_when_override_is_deleted(m
     assert settings.BACKUP_ENABLED is False
 
 
-def test_backup_preserves_only_active_package_once_and_retains_legacy_restore(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize(
+    "store_name,theme_name", [("plugin-store", "themes"), ("extensions", "appearance")]
+)
+def test_backup_preserves_only_installed_packages_once_and_retains_legacy_restore(
+    tmp_path, monkeypatch, store_name, theme_name
 ):
     from bot.plugins import packages
     from bot.services.backup_restore_service import BackupRestoreService
+    from config.theme_packages.operations import remove_theme
+    from config.theme_packages.registry import read_registry
+    from tests.unit.test_theme_packages import install, package, ready
 
     compose_dir = tmp_path / "compose"
     compose_dir.mkdir()
     (compose_dir / "docker-compose.yml").write_text("services: {}\n")
-    store = compose_dir / "data" / "plugin-store"
+    store = compose_dir / "data" / store_name
     for digest in ("a" * 64, "b" * 64):
         release = store / "releases" / "example" / digest
         release.mkdir(parents=True)
         (release / "package.so").write_bytes(digest.encode())
+    removed_release = store / "releases" / "removed-plugin" / ("c" * 64)
+    removed_release.mkdir(parents=True)
+    (removed_release / "package.so").write_bytes(b"removed plugin package")
     (store / "state.json").write_text(
-        json.dumps({"generation": 1, "installations": {"example": {"digest": "a" * 64}}})
+        json.dumps(
+            {
+                "generation": 1,
+                "installations": {
+                    "example": {"digest": "a" * 64},
+                    "removed-plugin": {"digest": "c" * 64},
+                },
+            }
+        )
     )
+    packages.remove_plugin(store, "removed-plugin", 7, 1)
     (store / "trusted-publishers.json").write_text("{}")
     monkeypatch.setattr(packages, "package_root", lambda: store)
-    settings = _settings(tmp_path, compose_dir)
+    themes = compose_dir / "data" / theme_name
+    install(themes, ready(themes))
+    removed_digest = read_registry(themes).entries["ocean"].digest
+    remove_theme(themes, "ocean", read_registry(themes).generation, "dark")
+    install(themes, ready(themes, package("forest")), keys=("forest",))
+    active_digest = read_registry(themes).entries["forest"].digest
+    settings = _settings(tmp_path, compose_dir, WEBAPP_THEMES_DIR=str(themes))
     result = asyncio.run(_FakePgDumpBackupWorker(settings, _FakeBot()).create_backup())
 
     with zipfile.ZipFile(result.archive_path) as archive:
@@ -315,9 +341,16 @@ def test_backup_preserves_only_active_package_once_and_retains_legacy_restore(
         assert archive.read(active) == b"a" * 64
         assert "config/plugin-store/state.json" in names
         assert "config/plugin-store/trusted-publishers.json" in names
-        assert not any(name.startswith("compose/data/plugin-store/") for name in names)
+        assert not any(name.startswith(f"compose/data/{store_name}/") for name in names)
+        assert not any(name.startswith(f"compose/data/{theme_name}/") for name in names)
         assert not any("b" * 64 in name for name in names)
+        assert not any("removed-plugin" in name for name in names)
+        assert not any(removed_digest in name for name in names)
+        assert archive.read(f"config/themes/_packages/{active_digest}/theme.css")
+        assert removed_release.is_dir()
+        assert (themes / "_packages" / removed_digest).is_dir()
     assert "plugin-store" not in BackupRestoreService(settings)._compose_excluded_dirs()
+    assert "themes" not in BackupRestoreService(settings)._compose_excluded_dirs()
 
 
 def test_backup_worker_routes_large_archives_to_telegram_album(tmp_path, monkeypatch):
