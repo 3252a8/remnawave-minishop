@@ -39,6 +39,7 @@ from .activation_topups import record_activation_topups
 from .entitlement_helpers import active_subscription_tariff_key as active_tariff_key
 from .sale_mode import parse_sale_mode_context
 from .traffic import resolve_main_traffic_baseline
+from .trial_traffic_reset import reset_trial_traffic_for_paid_activation
 
 logger = logging.getLogger(__name__)
 
@@ -700,6 +701,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         override_detection_managed_squads = list(
             dict.fromkeys([*previous_managed_squads, *(managed_squads or [])])
         )
+        reset_trial_traffic = (
+            not panel_user_created_now
+            and entitlement_helpers.subscription_is_trial(previous_squad_subscription)
+            and getattr(previous_squad_subscription, "panel_user_uuid", panel_user_uuid)
+            == panel_user_uuid
+        )
         # Older releases could persist trial squads as panel-discovered manual
         # overrides during this transition. Remove only those automatic rows;
         # explicit admin overrides remain active.
@@ -914,34 +921,24 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         if tariff_tag_plan is not None:
             panel_update_payload.update(tariff_tag_plan.verification_payload)
 
-        if panel_user_created_now and previous_panel_user_uuid is None and not current_active_sub:
-            # CREATE already requested the exact entitlement. Verify it with an
-            # uncached GET instead of fabricating a successful PATCH response.
-            panel_update_result = None
-        else:
-            panel_update_result = await self.panel_service.update_user_details_on_panel(
-                panel_user_uuid, panel_update_payload
-            )
-        updated_panel_user = await self._confirmed_panel_entitlement(
-            panel_user_uuid,
-            panel_update_result,
-            panel_update_payload,
-            source="paid_activation",
+        if reset_trial_traffic:
+            reset_update = await reset_trial_traffic_for_paid_activation(self, panel_user_uuid)
+            if reset_update is None:
+                return None
+            for field_name, value in reset_update.items():
+                setattr(new_or_updated_sub, field_name, value)
+            await session.flush()
+
+        updated_panel_user = await self._apply_paid_panel_entitlement(
+            session,
+            user_id=user_id,
+            panel_user_uuid=panel_user_uuid,
+            previous_panel_user_uuid=previous_panel_user_uuid,
+            panel_user_created_now=panel_user_created_now,
+            had_active_subscription=bool(current_active_sub),
+            panel_update_payload=panel_update_payload,
         )
         if updated_panel_user is None:
-            logger.warning(
-                "Panel entitlement verification FAILED for paid sub user %s. Response: %s",
-                panel_user_uuid,
-                panel_update_result,
-            )
-            await self._compensate_failed_panel_user_creation(
-                session,
-                user_id=user_id,
-                panel_user_uuid=panel_user_uuid,
-                previous_panel_user_uuid=previous_panel_user_uuid,
-                panel_user_created_now=panel_user_created_now,
-                source="paid entitlement verification",
-            )
             return None
         if tariff_tag_plan is not None:
             self._remember_confirmed_panel_tariff_tag(

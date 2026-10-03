@@ -3,6 +3,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from config.traffic_strategy import normalize_traffic_limit_strategy
 
 from ._typing import SubscriptionServiceMixinContract
@@ -322,6 +324,51 @@ class SubscriptionLifecyclePanelMixin(SubscriptionServiceMixinContract):
             ",".join(persisted_mismatches),
         )
         return None
+
+    async def _apply_paid_panel_entitlement(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        panel_user_uuid: str,
+        previous_panel_user_uuid: str | None,
+        panel_user_created_now: bool,
+        had_active_subscription: bool,
+        panel_update_payload: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        if (
+            panel_user_created_now
+            and previous_panel_user_uuid is None
+            and not had_active_subscription
+        ):
+            # CREATE already requested the exact entitlement. Verify it with an
+            # uncached GET instead of fabricating a successful PATCH response.
+            panel_update_result = None
+        else:
+            panel_update_result = await self.panel_service.update_user_details_on_panel(
+                panel_user_uuid, panel_update_payload
+            )
+        updated_panel_user = await self._confirmed_panel_entitlement(
+            panel_user_uuid,
+            panel_update_result,
+            panel_update_payload,
+            source="paid_activation",
+        )
+        if updated_panel_user is None:
+            logger.warning(
+                "Panel entitlement verification FAILED for paid sub user %s. Response: %s",
+                panel_user_uuid,
+                panel_update_result,
+            )
+            await self._compensate_failed_panel_user_creation(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                previous_panel_user_uuid=previous_panel_user_uuid,
+                panel_user_created_now=panel_user_created_now,
+                source="paid entitlement verification",
+            )
+        return updated_panel_user
 
     async def _panel_update_confirms_expiry(
         self,

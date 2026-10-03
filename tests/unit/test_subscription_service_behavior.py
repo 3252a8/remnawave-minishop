@@ -133,8 +133,14 @@ def _configure_persisted_panel_echo(
     async def get_user(_panel_uuid, *_args, **_kwargs):
         return dict(persisted) if persisted else None
 
+    async def reset_traffic(_panel_uuid):
+        persisted["userTraffic"] = {"usedTrafficBytes": 0}
+        persisted["lastTrafficResetAt"] = datetime.now(UTC).isoformat()
+        return True
+
     service.panel_service.update_user_details_on_panel = AsyncMock(side_effect=update_user)
     service.panel_service.get_user_by_uuid = AsyncMock(side_effect=get_user)
+    service.panel_service.reset_user_traffic = AsyncMock(side_effect=reset_traffic)
 
 
 class SubscriptionServiceCalculationTests(unittest.TestCase):
