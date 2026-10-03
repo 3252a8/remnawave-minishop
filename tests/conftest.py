@@ -14,6 +14,10 @@ that publish ``minishop.plugins`` entry points. Core tests must be deterministic
 regardless of those globally installed extensions, so discovery is empty by
 default for the whole test session. Loader tests override the isolated seam when
 they exercise production entry-point discovery explicitly.
+
+Tests that reach lazy application settings also need the same minimal placeholder
+credentials as CI. Supply only missing environment variables so configured database
+connections and tests of explicit settings retain their own values.
 """
 
 from __future__ import annotations
@@ -22,6 +26,18 @@ import os
 from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _default_required_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    defaults = {
+        "POSTGRES_USER": "app_user",
+        "POSTGRES_PASSWORD": "app_password",
+        "BOT_TOKEN": "1234567890:AA_secret_bot_token_value",
+    }
+    for key, value in defaults.items():
+        if key not in os.environ:
+            monkeypatch.setenv(key, value)
 
 
 @pytest.fixture
