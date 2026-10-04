@@ -5,6 +5,8 @@ export type BroadcastHistoryButton = {
   promoCode: string;
   section: string;
   labels: Record<string, string>;
+  iconCustomEmojiId: string | null;
+  iconEmoji: string;
 };
 
 export type BroadcastHistoryItem = {
@@ -57,6 +59,9 @@ export function historyItemFromWire(value: unknown): BroadcastHistoryItem | null
           promoCode: String(button.promo_code || ""),
           section: String(button.section || ""),
           labels: record(button.labels),
+          iconCustomEmojiId:
+            typeof button.icon_custom_emoji_id === "string" ? button.icon_custom_emoji_id : null,
+          iconEmoji: String(button.icon_emoji || ""),
         };
       })
     : [];

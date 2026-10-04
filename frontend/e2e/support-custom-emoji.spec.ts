@@ -17,10 +17,24 @@ declare global {
   }
 }
 
-async function installFixture(page: Page, admin: boolean) {
+async function installFixture(
+  page: Page,
+  admin: boolean,
+  paging: { holdNextPage?: boolean; failNextPage?: boolean } | null = null
+) {
   const requestedMedia: string[] = [];
   const unsafeRequests: string[] = [];
   const errors: string[] = [];
+  const catalogRequests: { offset: number; q: string }[] = [];
+  let releaseNextPage = () => {};
+  const nextPageReleased = new Promise<void>((resolve) => {
+    releaseNextPage = resolve;
+  });
+  let markNextPageHandled = () => {};
+  const nextPageHandled = new Promise<void>((resolve) => {
+    markNextPageHandled = resolve;
+  });
+  let failedNextPage = false;
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("request", (request) => {
     if (request.url().startsWith("https://evil.test/")) unsafeRequests.push(request.url());
@@ -71,11 +85,20 @@ async function installFixture(page: Page, admin: boolean) {
     body_format: "html",
     is_internal_note: false,
     image_id: null,
-    buttons: [],
+    buttons: [
+      {
+        label: "Custom button",
+        url: "https://example.test/custom",
+        icon_custom_emoji_id: emojiIds.image,
+        icon_emoji: "👩🏽‍💻",
+      },
+      { label: "Unicode button", url: "https://example.test/unicode", icon_emoji: "🚀" },
+    ],
     created_at: "2026-10-04T10:00:00Z",
   }));
   await page.route("**/api/**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const requestUrl = new URL(route.request().url());
+    const path = requestUrl.pathname;
     const media = path.match(
       /^\/api\/(?:admin\/telegram-emoji\/media|support\/tickets\/7\/emoji)\/([1-9][0-9]*)$/
     );
@@ -94,6 +117,41 @@ async function installFixture(page: Page, admin: boolean) {
       });
     }
     let response: Record<string, unknown> = { ok: true };
+    if (path === "/api/admin/me") response = { ok: true, user_id: 42 };
+    if (paging && path === "/api/admin/telegram-emoji/library")
+      response = {
+        ok: true,
+        library: { schema_version: 1, sets: ["fixture"], manual_ids: [] },
+        revision: "fixture",
+        sets: [{ name: "fixture", title: "Fixture", count: 120, state: "ready" }],
+      };
+    if (paging && path === "/api/admin/telegram-emoji/catalog") {
+      const offset = Number(requestUrl.searchParams.get("offset") || 0);
+      const q = requestUrl.searchParams.get("q") || "";
+      catalogRequests.push({ offset, q });
+      if (offset > 0 && !q && paging.holdNextPage) await nextPageReleased;
+      if (offset > 0 && !q && paging.failNextPage && !failedNextPage) {
+        failedNextPage = true;
+        return route.fulfill({
+          status: 503,
+          json: { ok: false, error: "telegram_emoji_load_failed" },
+        });
+      }
+      const items = Array.from({ length: 120 }, (_, index) => ({
+        id: String(BigInt(emojiIds.image) + BigInt(index)),
+        fallback: index % 2 ? "💎" : "🚀",
+        set_name: "fixture",
+        thumbnail_url: null,
+        format: "static",
+      })).filter((item) => !q || item.fallback.includes(q));
+      response = {
+        ok: true,
+        items: items.slice(offset, offset + 60),
+        total: items.length,
+        offset,
+        limit: 60,
+      };
+    }
     if (path === "/api/auth/session")
       response = { ok: true, authenticated: true, csrf_token: "fixture-csrf" };
     if (path.startsWith("/api/i18n")) response = { ok: true, i18n: { ru: {}, en: {} } };
@@ -116,9 +174,25 @@ async function installFixture(page: Page, admin: boolean) {
     if (path === "/api/admin/support/stats")
       response = { ok: true, stats: { active: 1, total: 1 } };
     if (path === "/api/support/unread") response = { ok: true, unread: 0 };
-    await route.fulfill({ json: response });
+    try {
+      await route.fulfill({ json: response });
+    } finally {
+      if (
+        paging?.holdNextPage &&
+        path === "/api/admin/telegram-emoji/catalog" &&
+        Number(requestUrl.searchParams.get("offset")) > 0
+      )
+        markNextPageHandled();
+    }
   });
-  return { requestedMedia, unsafeRequests, errors };
+  return {
+    requestedMedia,
+    unsafeRequests,
+    errors,
+    catalogRequests,
+    releaseNextPage,
+    nextPageHandled,
+  };
 }
 
 for (const admin of [false, true]) {
@@ -169,6 +243,15 @@ for (const admin of [false, true]) {
         })
       ).toBe("👩🏽‍💻");
     }
+    for (const row of await conversation.locator(".ticket-message-row").all()) {
+      const customButton = row.getByRole("link", { name: "Custom button", exact: true });
+      await customButton.scrollIntoViewIfNeeded();
+      await expect(customButton.locator("img")).toBeVisible();
+      await expect(customButton.locator("img")).toHaveAttribute("src", /^blob:/);
+      const ordinaryButton = row.getByRole("link", { name: "Unicode button", exact: true });
+      await expect(ordinaryButton).toBeVisible();
+      await expect(ordinaryButton.locator(".emoji-glyph")).toHaveText("🚀");
+    }
     const prefix = admin ? "/api/admin/telegram-emoji/media/" : "/api/support/tickets/7/emoji/";
     expect(new Set(fixture.requestedMedia).size).toBe(4);
     expect(fixture.requestedMedia.filter((path) => path.endsWith(emojiIds.image))).toHaveLength(1);
@@ -182,7 +265,143 @@ for (const admin of [false, true]) {
     else await page.locator(".support-back-button").click();
     await expect(messages).toHaveCount(0);
     const urls = await page.evaluate(() => window.supportEmojiMediaUrls);
-    expect(urls.created).toHaveLength(4);
+    expect(urls.created).toHaveLength(6);
     expect(urls.created.every((url) => urls.revoked.includes(url))).toBe(true);
   });
 }
+
+async function openButtonEmojiPicker(page: Page) {
+  await page.goto("/demo/runtime/admin/support/7");
+  await page
+    .locator(".support-admin-composer-buttons")
+    .getByRole("button", { name: /Add button|Добавить кнопку/ })
+    .click();
+  await page.locator(".message-button-emoji-trigger").click();
+  const dialog = page.locator(".telegram-emoji-dialog");
+  await expect(dialog.locator(".picker-tabs button").first()).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await dialog.locator(".picker-tabs button").nth(1).click();
+  await expect(dialog.locator(".picker-cell")).toHaveCount(60);
+  return dialog;
+}
+
+test("emoji catalog automatically loads in the dialog and discards a page after search changes", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page, true, { holdNextPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dialog = await openButtonEmojiPicker(page);
+  const viewport = dialog.locator(".dialog-body-scroll .scroll-area__viewport");
+  await expect(dialog.locator(".picker-pagination button")).toHaveCount(0);
+  await viewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(() => fixture.catalogRequests.some(({ offset, q }) => offset === 60 && !q))
+    .toBe(true);
+  await dialog.locator('input[type="search"]').fill("💎");
+  await expect(dialog.locator(".picker-cell")).toHaveCount(60);
+  await expect(dialog.locator(".picker-cell").first()).toHaveAttribute("aria-label", /^💎 /);
+  fixture.releaseNextPage();
+  await fixture.nextPageHandled;
+  await expect(dialog.locator(".picker-cell")).toHaveCount(60);
+  await expect(dialog.locator('.picker-cell[aria-label^="🚀 "]')).toHaveCount(0);
+  await expect(viewport).toBeInViewport();
+  expect(
+    await dialog.evaluate((element) => element.scrollWidth - element.clientWidth)
+  ).toBeLessThanOrEqual(2);
+  expect(fixture.errors).toEqual([]);
+});
+
+test("support button icons choose Unicode/custom, clear, restore focus and serialize without changing captions", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page, true, {});
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/demo/runtime/admin/support/7");
+  const composer = page.locator(".support-admin-composer");
+  const add = composer.getByRole("button", { name: /Add button|Добавить кнопку/ });
+  await add.click();
+  const rows = composer.locator(".message-button-row");
+  const customRow = rows.first();
+  await customRow.locator(".message-button-caption").fill("Plain custom caption");
+  await customRow.locator(".message-button-target").fill("https://example.test/custom");
+  const trigger = customRow.locator(".message-button-emoji-trigger");
+  await trigger.click();
+  const dialog = page.locator(".telegram-emoji-dialog");
+  await expect(dialog.locator(".picker-tabs button").first()).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await dialog.locator('.picker-cell[aria-label^="🚀 "]').click();
+  await dialog.locator(".picker-footer-actions button").last().click();
+  await expect(trigger).toBeFocused();
+  await expect(customRow.locator(".message-button-caption")).toHaveValue("Plain custom caption");
+  await expect(trigger.locator(".emoji-glyph")).toHaveText("🚀");
+  await customRow.locator(".message-button-emoji > button").nth(1).click();
+  await expect(trigger.locator(".emoji-glyph")).toHaveCount(0);
+  await trigger.click();
+  await dialog.locator(".picker-tabs button").nth(1).click();
+  await dialog.locator(".picker-cell").first().click();
+  await dialog.locator(".picker-footer-actions button").last().click();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(dialog.locator(".picker-tabs button").nth(1)).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  await add.click();
+  const ordinaryRow = rows.nth(1);
+  await ordinaryRow.locator(".message-button-caption").fill("Plain ordinary caption");
+  await ordinaryRow.locator(".message-button-target").fill("https://example.test/ordinary");
+  await ordinaryRow.locator(".message-button-emoji-trigger").click();
+  await dialog.locator('.picker-cell[aria-label^="❤️ "]').click();
+  await dialog.locator(".picker-footer-actions button").last().click();
+  await composer.locator('[contenteditable="true"]').fill("Hello");
+  const requestPromise = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/api/admin/support/tickets/7/messages"
+  );
+  await composer
+    .locator(".support-admin-composer-actions")
+    .getByRole("button", { name: /Send|Отправить/ })
+    .click();
+  const payload = (await requestPromise).postDataJSON();
+  expect(payload.buttons).toEqual([
+    expect.objectContaining({
+      label: "Plain custom caption",
+      icon_custom_emoji_id: emojiIds.image,
+      icon_emoji: "🚀",
+    }),
+    expect.objectContaining({
+      label: "Plain ordinary caption",
+      icon_custom_emoji_id: null,
+      icon_emoji: "❤️",
+    }),
+  ]);
+  expect(fixture.errors).toEqual([]);
+});
+
+test("emoji pagination preserves loaded results after failure and retries only on request", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page, true, { failNextPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const dialog = await openButtonEmojiPicker(page);
+  await dialog.locator(".dialog-body-scroll .scroll-area__viewport").evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(dialog.locator(".picker-error[role=alert]")).toBeVisible();
+  await expect(dialog.locator(".picker-cell")).toHaveCount(60);
+  expect(fixture.catalogRequests.filter(({ offset }) => offset === 60)).toHaveLength(1);
+  await dialog.locator(".picker-pagination button").click();
+  await expect(dialog.locator(".picker-cell")).toHaveCount(120);
+  await expect(dialog.locator(".picker-error[role=alert]")).toHaveCount(0);
+  expect(fixture.catalogRequests.filter(({ offset }) => offset === 60)).toHaveLength(2);
+  expect(fixture.errors).toEqual([]);
+});

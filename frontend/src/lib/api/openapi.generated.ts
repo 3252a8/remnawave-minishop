@@ -5469,6 +5469,16 @@ export interface components {
      */
     AdminBroadcastButtonBody: {
       /**
+       * Icon Custom Emoji Id
+       * @default null
+       */
+      icon_custom_emoji_id: string | null;
+      /**
+       * Icon Emoji
+       * @default
+       */
+      icon_emoji: string;
+      /**
        * Kind
        * @default url
        */
@@ -5500,6 +5510,16 @@ export interface components {
     };
     /** AdminBroadcastButtonOut */
     AdminBroadcastButtonOut: {
+      /**
+       * Icon Custom Emoji Id
+       * @default null
+       */
+      icon_custom_emoji_id: string | null;
+      /**
+       * Icon Emoji
+       * @default
+       */
+      icon_emoji: string;
       /** Kind */
       kind: string;
       /**
@@ -10717,6 +10737,16 @@ export interface components {
      * @description A button the admin attached, already resolved to the link it opens.
      */
     SupportMessageButtonOut: {
+      /**
+       * Icon Custom Emoji Id
+       * @default null
+       */
+      icon_custom_emoji_id: string | null;
+      /**
+       * Icon Emoji
+       * @default
+       */
+      icon_emoji: string;
       /** Kind */
       kind: string;
       /** Label */

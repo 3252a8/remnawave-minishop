@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { controlSizeClass, type ControlSize } from "$components/ui/controlSize";
 
   import { Combobox } from "$components/ui/primitives.js";
   import { Check, ChevronDown } from "$components/ui/icons.js";
@@ -24,6 +25,7 @@
     onValueChange?: (value: string) => void;
     onInputChange?: (value: string) => void;
     class?: string;
+    controlSize?: ControlSize;
   };
 
   let {
@@ -40,6 +42,7 @@
     onValueChange = () => {},
     onInputChange = () => {},
     class: className = "",
+    controlSize,
   }: Props = $props();
 
   let open = $state(false);
@@ -99,9 +102,13 @@
   bind:open
   onValueChange={handleValueChange}
 >
-  <div class={`admin-combobox ${className}`.trim()}>
+  <div
+    class={`admin-combobox ${controlSizeClass(controlSize)} ${className}`.trim()}
+    data-control-size={controlSize}
+  >
     <Combobox.Input
-      class="admin-combobox-input"
+      class={`admin-combobox-input ${controlSizeClass(controlSize)}`.trim()}
+      data-control-size={controlSize}
       aria-label={ariaLabel || placeholder}
       {placeholder}
       maxlength={maxLength}
@@ -166,7 +173,7 @@
     display: block;
     width: 100%;
     height: 36px;
-    padding: 0 36px 0 12px;
+    padding: 0 var(--ui-control-height, 36px) 0 12px;
     border: 1px solid var(--admin-border-strong);
     border-radius: 10px;
     background: color-mix(in srgb, var(--admin-bg) 82%, var(--admin-surface-2));
@@ -188,7 +195,7 @@
     position: absolute;
     inset: 0 0 0 auto;
     display: grid;
-    width: 36px;
+    width: var(--ui-control-height, 36px);
     place-items: center;
     border: 0;
     background: transparent;
@@ -207,6 +214,11 @@
   @media (max-width: 639px) {
     :global(.admin-combobox-content) {
       width: var(--bits-combobox-anchor-width);
+    }
+  }
+  @media (max-width: 560px) {
+    .admin-combobox :global(.admin-combobox-input[data-control-size]) {
+      font-size: 16px;
     }
   }
 

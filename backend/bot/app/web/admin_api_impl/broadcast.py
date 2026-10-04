@@ -548,6 +548,10 @@ def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
                 labels={
                     str(key): str(value) for key, value in dict(button.get("labels") or {}).items()
                 },
+                icon_custom_emoji_id=str(button["icon_custom_emoji_id"])
+                if button.get("icon_custom_emoji_id")
+                else None,
+                icon_emoji=str(button.get("icon_emoji") or ""),
             )
             for button in raw_buttons
             if isinstance(button, dict)

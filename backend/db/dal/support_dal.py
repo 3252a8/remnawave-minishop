@@ -432,7 +432,7 @@ async def user_can_access_image(session: AsyncSession, user_id: int, image_id: s
 async def user_can_access_ticket_emoji(
     session: AsyncSession, user_id: int, ticket_id: int, emoji_id: str
 ) -> bool:
-    """Only canonical entities in the owner's public HTML messages authorize media."""
+    """Only entities or button icons in the owner's public messages authorize media."""
     from config.telegram_menu import CUSTOM_EMOJI_ID_RE
 
     if not CUSTOM_EMOJI_ID_RE.fullmatch(emoji_id):
@@ -443,9 +443,16 @@ async def user_can_access_ticket_emoji(
         .where(
             SupportTicket.user_id == user_id,
             SupportTicket.ticket_id == ticket_id,
-            SupportTicketMessage.body_format == "html",
             SupportTicketMessage.is_internal_note.is_(False),
-            SupportTicketMessage.body.contains(f'<tg-emoji emoji-id="{emoji_id}">'),
+            or_(
+                and_(
+                    SupportTicketMessage.body_format == "html",
+                    SupportTicketMessage.body.contains(f'<tg-emoji emoji-id="{emoji_id}">'),
+                ),
+                # IDs are validated decimal strings; the writer's canonical JSON
+                # distinguishes this property from escaped text in a caption.
+                SupportTicketMessage.buttons.contains(f'"icon_custom_emoji_id": "{emoji_id}"'),
+            ),
         )
         .limit(1)
     )

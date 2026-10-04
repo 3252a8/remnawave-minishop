@@ -1,4 +1,5 @@
 import asyncio
+import json
 import sqlite3
 from contextlib import closing
 from types import SimpleNamespace
@@ -24,14 +25,26 @@ def ticket_media(monkeypatch):
         connection.execute("CREATE TABLE support_tickets (ticket_id INTEGER, user_id INTEGER)")
         connection.execute(
             "CREATE TABLE support_ticket_messages (message_id INTEGER, ticket_id INTEGER, "
-            "body TEXT, body_format TEXT, is_internal_note BOOLEAN)"
+            "body TEXT, body_format TEXT, is_internal_note BOOLEAN, buttons TEXT)"
         )
         connection.executemany(
             "INSERT INTO support_tickets VALUES (?, ?)",
-            [(7, 42), (8, 99), (9, 42), (10, 42), (11, 42), (12, 42)],
+            [
+                (7, 42),
+                (8, 99),
+                (9, 42),
+                (10, 42),
+                (11, 42),
+                (12, 42),
+                (13, 42),
+                (14, 42),
+                (15, 99),
+                (16, 42),
+            ],
         )
         connection.executemany(
-            "INSERT INTO support_ticket_messages VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO support_ticket_messages "
+            "(message_id, ticket_id, body, body_format, is_internal_note) VALUES (?, ?, ?, ?, ?)",
             [
                 (1, 7, BODY, "html", False),
                 (2, 8, BODY, "html", False),
@@ -39,6 +52,35 @@ def ticket_media(monkeypatch):
                 (4, 10, BODY, "html", True),
                 (5, 11, '<tg-emoji emoji-id="123">📁</tg-emoji>', "html", False),
                 (6, 12, BODY.replace("<", "&lt;").replace(">", "&gt;"), "html", False),
+            ],
+        )
+        button = json.dumps(
+            [
+                {
+                    "label": "Files",
+                    "url": "https://example.com",
+                    "kind": "url",
+                    "icon_custom_emoji_id": EMOJI_ID,
+                    "icon_emoji": "📁",
+                }
+            ]
+        )
+        escaped_caption = json.dumps(
+            [
+                {
+                    "label": f'"icon_custom_emoji_id": "{EMOJI_ID}"',
+                    "url": "https://example.com",
+                    "kind": "url",
+                }
+            ]
+        )
+        connection.executemany(
+            "INSERT INTO support_ticket_messages VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (7, 13, "Files", "text", False, button),
+                (8, 14, "Files", "text", True, button),
+                (9, 15, "Files", "text", False, button),
+                (10, 16, "Files", "text", False, escaped_caption),
             ],
         )
 
@@ -84,7 +126,13 @@ def test_ticket_owner_gets_cached_custom_emoji_without_bot_urls(ticket_media):
     ticket_media[1].assert_awaited_once_with(ticket_media[0], EMOJI_ID)
 
 
-@pytest.mark.parametrize("ticket_id", [8, 9, 10, 11, 12, 999, 0, 9223372036854775808])
+def test_public_button_icon_authorizes_its_owner_even_with_plain_text_body(ticket_media):
+    response = asyncio.run(support_routes.support_ticket_emoji_route(_request(ticket_id=13)))
+    assert response.status == 200 and response.body == b"cached-webp"
+    ticket_media[1].assert_awaited_once_with(ticket_media[0], EMOJI_ID)
+
+
+@pytest.mark.parametrize("ticket_id", [8, 9, 10, 11, 12, 14, 15, 16, 999, 0, 9223372036854775808])
 def test_other_owners_internal_notes_plain_text_and_absent_entities_do_not_authorize_media(
     ticket_id, ticket_media
 ):

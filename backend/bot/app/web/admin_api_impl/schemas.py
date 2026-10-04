@@ -27,6 +27,7 @@ from pydantic import ConfigDict, Field, field_validator, model_validator
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.payment_providers.base import PaymentProviderPresentation, PaymentProviderSpec
 from bot.services.activation_code_input import IssuedCodeString
+from bot.services.message_button_icons import validate_button_icon
 from bot.services.promo_effects import (
     PROMO_TRAFFIC_GRANT_MAX_GB,
     PromoEffects,
@@ -402,6 +403,13 @@ class AdminBroadcastButtonBody(HttpBodyModel):
     promo_code: str = ""
     section: str = ""
     labels: dict[str, str] = Field(default_factory=dict)
+    icon_custom_emoji_id: str | None = None
+    icon_emoji: str = ""
+
+    @model_validator(mode="after")
+    def _validate_icon(self) -> AdminBroadcastButtonBody:
+        validate_button_icon(self.icon_custom_emoji_id, self.icon_emoji)
+        return self
 
     @field_validator("labels", mode="before")
     @classmethod

@@ -113,6 +113,8 @@ class SupportMessageButtonOut(HttpResponseModel):
     kind: str
     promo_code: str = ""
     section: str = ""
+    icon_custom_emoji_id: str | None = None
+    icon_emoji: str = ""
 
 
 class SupportMessageOut(HttpResponseModel):

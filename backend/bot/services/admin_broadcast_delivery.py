@@ -161,6 +161,10 @@ class AdminBroadcastDeliveryService:
                 labels={
                     str(key): str(value) for key, value in dict(item.get("labels") or {}).items()
                 },
+                icon_custom_emoji_id=str(item["icon_custom_emoji_id"])
+                if item.get("icon_custom_emoji_id")
+                else None,
+                icon_emoji=str(item.get("icon_emoji") or ""),
             )
             for item in list(broadcast.buttons or [])
             if isinstance(item, dict)

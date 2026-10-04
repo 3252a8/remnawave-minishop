@@ -16,12 +16,17 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
+from bot.services.message_button_icons import (
+    email_button_label,
+    unicode_button_label,
+    validate_button_icon,
+)
 from config.link_targets import normalize_button_link
 
 MESSAGE_CHANNELS = ("telegram", "email")
@@ -119,6 +124,8 @@ class MessageButtonInput:
     promo_code: str = ""
     section: str = ""
     labels: Mapping[str, str] = field(default_factory=dict)
+    icon_custom_emoji_id: str | None = None
+    icon_emoji: str = ""
 
 
 def message_button_label_key(kind: str, section: str = "") -> str:
@@ -214,6 +221,8 @@ class MessageButton:
     promo_code: str = ""
     section: str = ""
     telegram_web_app_url: str | None = None
+    icon_custom_emoji_id: str | None = None
+    icon_emoji: str = ""
 
 
 def normalize_message_channels(raw: list[str] | None) -> list[str]:
@@ -436,9 +445,24 @@ def resolve_message_buttons(
             raise MessageValidationError("button_label_required")
         if len(label) > MAX_BUTTON_LABEL_LENGTH:
             raise MessageValidationError("button_label_too_long", label)
+        try:
+            identifier, emoji = validate_button_icon(
+                getattr(button, "icon_custom_emoji_id", None), getattr(button, "icon_emoji", "")
+            )
+        except ValueError as exc:
+            raise MessageValidationError(str(exc)) from exc
+        if (
+            not identifier
+            and len(unicode_button_label(label, identifier, emoji)) > MAX_BUTTON_LABEL_LENGTH
+        ):
+            raise MessageValidationError("button_label_too_long", label)
         resolved.append(
-            _resolve_button(
-                button, label=label, mini_app_url=mini_app_url, bot_username=bot_username
+            replace(
+                _resolve_button(
+                    button, label=label, mini_app_url=mini_app_url, bot_username=bot_username
+                ),
+                icon_custom_emoji_id=identifier,
+                icon_emoji=emoji,
             )
         )
     return resolved
@@ -450,12 +474,20 @@ def message_promo_codes(buttons: list[MessageButton]) -> list[str]:
 
 
 def _telegram_button(button: MessageButton) -> InlineKeyboardButton:
+    text = (
+        button.label
+        if button.icon_custom_emoji_id
+        else unicode_button_label(button.label, None, button.icon_emoji)
+    )
     if button.telegram_web_app_url:
         return InlineKeyboardButton(
-            text=button.label,
+            text=text,
             web_app=WebAppInfo(url=button.telegram_web_app_url),
+            icon_custom_emoji_id=button.icon_custom_emoji_id,
         )
-    return InlineKeyboardButton(text=button.label, url=button.url)
+    return InlineKeyboardButton(
+        text=text, url=button.url, icon_custom_emoji_id=button.icon_custom_emoji_id
+    )
 
 
 def telegram_markup_for_buttons(
@@ -467,4 +499,10 @@ def telegram_markup_for_buttons(
 
 
 def email_links_for_buttons(buttons: list[MessageButton]) -> list[tuple[str, str]]:
-    return [(button.label, button.url) for button in buttons]
+    return [
+        (
+            email_button_label(button.label, button.icon_custom_emoji_id, button.icon_emoji),
+            button.url,
+        )
+        for button in buttons
+    ]

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { getAdminApiBlob } from "$lib/admin/context";
   import { Skeleton } from "$components/ui";
+  import { isCustomEmojiId } from "$lib/richtext/customEmoji";
+  import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
   import { defaultTelegramEmojiMediaApi, type TelegramEmojiMediaApi } from "./api";
   import { buildTelegramEmojiMediaUrlPath } from "./paths";
   import { isEmojiPreviewBlob, rejectEmojiPreviewBlob } from "./media";
@@ -18,12 +20,17 @@
     size = 28,
     fillContainer = false,
     loadMedia = contextMediaApi(),
+    customEmojiId = null,
+    loadCustomEmojiMedia,
   }: {
     fallback?: string;
     url?: string | null;
     size?: number;
     fillContainer?: boolean;
     loadMedia?: TelegramEmojiMediaApi;
+    /** ID-based media stays in the host's authenticated scope, including a single ticket. */
+    customEmojiId?: string | null;
+    loadCustomEmojiMedia?: CustomEmojiMediaLoader;
   } = $props();
   let element = $state<HTMLSpanElement | null>(null);
   let visible = $state(false);
@@ -32,7 +39,10 @@
   let decoded = $state(false);
   let loadedBlob: Blob | null = null;
   const mediaPath = $derived(url ? buildTelegramEmojiMediaUrlPath(url) : null);
-  const loading = $derived(Boolean(mediaPath) && !failed && !decoded);
+  const mediaId = $derived(
+    customEmojiId && loadCustomEmojiMedia && isCustomEmojiId(customEmojiId) ? customEmojiId : null
+  );
+  const loading = $derived(Boolean(mediaPath || mediaId) && !failed && !decoded);
 
   $effect(() => {
     const node = element;
@@ -56,14 +66,22 @@
   $effect(() => {
     const path = mediaPath;
     const loader = loadMedia;
+    const id = mediaId;
+    const entityLoader = loadCustomEmojiMedia;
     objectUrl = "";
     failed = false;
     decoded = false;
     loadedBlob = null;
-    if (!path || !visible) return;
+    if (!visible || (!path && (!id || !entityLoader))) return;
     const controller = new AbortController();
     let resolved = "";
-    void loader(path, { signal: controller.signal })
+    const request = path
+      ? loader(path, { signal: controller.signal })
+      : id && entityLoader
+        ? entityLoader(id, controller.signal)
+        : null;
+    if (!request) return;
+    void request
       .then((blob) => {
         if (controller.signal.aborted) return;
         if (!isEmojiPreviewBlob(blob)) {

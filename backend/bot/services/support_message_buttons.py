@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
+from typing import TypedDict
 
+from bot.services.message_button_icons import validate_button_icon
 from bot.services.message_composition import (
     MAX_MESSAGE_BUTTONS,
     MESSAGE_BUTTON_KINDS,
@@ -25,6 +27,16 @@ from bot.services.message_composition import (
 MAX_SUPPORT_MESSAGE_BUTTONS = MAX_MESSAGE_BUTTONS
 _MAX_STORED_LABEL = 64
 _MAX_STORED_URL = 2048
+
+
+class SupportButtonPayload(TypedDict):
+    label: str
+    url: str
+    kind: str
+    promo_code: str
+    section: str
+    icon_custom_emoji_id: str | None
+    icon_emoji: str
 
 
 def encode_support_buttons(buttons: Sequence[MessageButton]) -> str | None:
@@ -38,6 +50,8 @@ def encode_support_buttons(buttons: Sequence[MessageButton]) -> str | None:
             "promo_code": str(button.promo_code or ""),
             "section": str(button.section or ""),
             "web_app_url": str(button.telegram_web_app_url or "")[:_MAX_STORED_URL],
+            "icon_custom_emoji_id": button.icon_custom_emoji_id,
+            "icon_emoji": button.icon_emoji,
         }
         for button in list(buttons)[:MAX_SUPPORT_MESSAGE_BUTTONS]
     ]
@@ -69,6 +83,12 @@ def decode_support_buttons(raw: object) -> list[MessageButton]:
         if not label or not url or kind not in MESSAGE_BUTTON_KINDS:
             continue
         web_app_url = str(item.get("web_app_url") or "").strip()[:_MAX_STORED_URL]
+        try:
+            identifier, emoji = validate_button_icon(
+                item.get("icon_custom_emoji_id"), item.get("icon_emoji", "")
+            )
+        except ValueError:
+            identifier, emoji = None, ""
         buttons.append(
             MessageButton(
                 label=label,
@@ -77,12 +97,14 @@ def decode_support_buttons(raw: object) -> list[MessageButton]:
                 promo_code=str(item.get("promo_code") or "").strip(),
                 section=str(item.get("section") or "").strip(),
                 telegram_web_app_url=web_app_url or None,
+                icon_custom_emoji_id=identifier,
+                icon_emoji=emoji,
             )
         )
     return buttons
 
 
-def support_buttons_payload(raw: object) -> list[dict[str, str]]:
+def support_buttons_payload(raw: object) -> list[SupportButtonPayload]:
     """Buttons as the HTTP contract exposes them to the chat surfaces."""
 
     return [
@@ -92,6 +114,8 @@ def support_buttons_payload(raw: object) -> list[dict[str, str]]:
             "kind": button.kind,
             "promo_code": button.promo_code,
             "section": button.section,
+            "icon_custom_emoji_id": button.icon_custom_emoji_id,
+            "icon_emoji": button.icon_emoji,
         }
         for button in decode_support_buttons(raw)
     ]

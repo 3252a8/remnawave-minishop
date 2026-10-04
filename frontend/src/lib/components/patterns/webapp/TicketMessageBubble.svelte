@@ -12,6 +12,7 @@
   import { messageDisplayHtml } from "$lib/richtext/telegramHtml";
   import { customEmojiPreviews } from "$lib/richtext/customEmojiPreview";
   import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
+  import EmojiGlyph from "$lib/telegramEmoji/EmojiGlyph.svelte";
 
   import type { TicketMessageButtonLike } from "./types.js";
 
@@ -227,6 +228,16 @@
               target="_blank"
               rel="noopener noreferrer"
             >
+              {#if button.icon_emoji || button.icon_custom_emoji_id}
+                <span class="ticket-button-icon">
+                  <EmojiGlyph
+                    fallback={button.icon_emoji || "◻️"}
+                    customEmojiId={button.icon_custom_emoji_id}
+                    {loadCustomEmojiMedia}
+                    size={20}
+                  />
+                </span>
+              {/if}
               {button.label}
             </a>
           {/each}
@@ -247,3 +258,11 @@
   resetLabel={imageViewerLabels.reset}
   onclose={() => (imageViewerOpen = false)}
 />
+
+<style>
+  .ticket-button-icon {
+    display: inline-flex;
+    margin-inline-end: 4px;
+    vertical-align: middle;
+  }
+</style>

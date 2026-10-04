@@ -426,8 +426,8 @@ def _info_rows_html(rows: Sequence[tuple[str, str]]) -> str:
     )
 
 
-def _cta_button_html(*, label: str, url: str, accent: str) -> str:
-    safe_label = html.escape(label)
+def _cta_button_html(*, label: str, url: str, accent: str, label_html: str | None = None) -> str:
+    safe_label = html.escape(label) if label_html is None else label_html
     safe_url = html.escape(url, quote=True)
     # Accent green is light, so contrast text is dark; works for the default and similar light accents.  # noqa: E501
     return (

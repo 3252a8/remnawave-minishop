@@ -16,6 +16,8 @@ from bot.services.email_templates import (
     render_support_user_reply_admin,
 )
 from bot.services.email_templates_common import _telegram_html_to_email_html
+from bot.services.email_templates_notifications import render_broadcast_email
+from bot.services.message_composition import MessageButton, email_links_for_buttons
 from bot.services.telegram_emoji_catalog import TelegramEmojiError
 from config.settings import Settings
 
@@ -59,6 +61,47 @@ def _converted(identifiers):
     return _telegram_html_to_email_html(
         " ".join(f'<tg-emoji emoji-id="{identifier}">📁</tg-emoji>' for identifier in identifiers)
     )
+
+
+def test_email_button_custom_icon_uses_cid_without_rendering_caption_markup(previews):
+    button = MessageButton(
+        label='<img src="bad"> Files & folders',
+        url="https://example.com",
+        kind="url",
+        icon_custom_emoji_id=FOLDER_ID,
+        icon_emoji="📁",
+    )
+    settings = _settings()
+    content = render_broadcast_email(
+        settings,
+        language_code="en",
+        subject="Files",
+        message_text="Hello",
+        buttons=email_links_for_buttons([button]),
+    )
+    assert '<span data-telegram-emoji-id="' in content.html
+    assert "&lt;img src=&quot;bad&quot;&gt; Files &amp; folders" in content.html
+    assert '<img src="bad">' not in content.html
+    assert '📁 <img src="bad"> Files & folders: https://example.com' in content.text
+    assert "tg-emoji" not in content.text
+    service = EmailAuthService(settings)
+    service._send_custom_email_sync = MagicMock()
+    asyncio.run(
+        service.send_custom_email(
+            email="owner@example.com",
+            subject=content.subject,
+            body=content.text,
+            html_body=content.html,
+            inline_images=content.inline_images,
+        )
+    )
+    sent = service._send_custom_email_sync.call_args.kwargs
+    assert f"cid:telegram-emoji-{FOLDER_ID}@remnawave-minishop" in sent["html_body"]
+    assert any(
+        image.content_id.startswith(f"telegram-emoji-{FOLDER_ID}")
+        for image in sent["inline_images"]
+    )
+    assert "api.telegram.org" not in sent["html_body"]
 
 
 def test_email_sender_embeds_png_cids_and_preserves_plain_text_and_other_images(previews):

@@ -41,6 +41,71 @@ def _resolve(
 
 
 class MiniAppSectionButtonTests(unittest.TestCase):
+    def test_button_icons_preserve_native_targets_and_unicode_fallbacks(self) -> None:
+        identifier = "5368651601797984900"
+        for kind, fields in (
+            ("url", {"url": "https://example.com"}),
+            ("webapp", {"url": MINI_APP_HTTPS}),
+            ("webapp_section", {"section": "support"}),
+            ("promo_bot", {"promo_code": "SAVE10"}),
+            ("promo_webapp", {"promo_code": "SAVE10"}),
+        ):
+            with self.subTest(kind=kind):
+                [button] = _resolve(
+                    MessageButtonInput(
+                        kind=kind,
+                        label="Open",
+                        icon_custom_emoji_id=identifier,
+                        icon_emoji="📁",
+                        url=fields.get("url", ""),
+                        section=fields.get("section", ""),
+                        promo_code=fields.get("promo_code", ""),
+                    )
+                )
+                markup = telegram_markup_for_buttons([button])
+                assert markup is not None
+                native = markup.inline_keyboard[0][0]
+                self.assertEqual(native.icon_custom_emoji_id, identifier)
+                self.assertEqual(native.text, "Open")
+                self.assertEqual(
+                    native.web_app.url if native.web_app else native.url,
+                    button.telegram_web_app_url or button.url,
+                )
+                email_label, _ = email_links_for_buttons([button])[0]
+                self.assertIn(f'emoji-id="{identifier}"', email_label)
+
+    def test_ordinary_button_emoji_preserves_caption(self) -> None:
+        button = MessageButtonInput(
+            kind="url", label="Open", url="https://example.com", icon_emoji="👩🏽‍💻"
+        )
+        [resolved] = _resolve(button)
+        markup = telegram_markup_for_buttons([resolved])
+        assert markup is not None
+        self.assertEqual(resolved.label, "Open")
+        self.assertEqual(markup.inline_keyboard[0][0].text, "👩🏽‍💻 Open")
+        self.assertIsNone(markup.inline_keyboard[0][0].icon_custom_emoji_id)
+        self.assertEqual(email_links_for_buttons([resolved])[0][0], "👩🏽‍💻 Open")
+
+    def test_invalid_button_icons_are_rejected_before_delivery(self) -> None:
+        for identifier, emoji, code in (
+            ("0", "📁", "button_custom_emoji_invalid"),
+            ("1" * 21, "📁", "button_custom_emoji_invalid"),
+            ("5368651601797984900", "🙂🙂", "button_emoji_invalid"),
+            (None, "plain text", "button_emoji_invalid"),
+        ):
+            with self.subTest(identifier=identifier, emoji=emoji):
+                with self.assertRaises(MessageValidationError) as raised:
+                    _resolve(
+                        MessageButtonInput(
+                            kind="url",
+                            label="Open",
+                            url="https://example.com",
+                            icon_custom_emoji_id=identifier,
+                            icon_emoji=emoji,
+                        )
+                    )
+                self.assertEqual(raised.exception.code, code)
+
     def test_section_button_opens_the_screen_inside_telegram(self) -> None:
         [button] = _resolve(
             MessageButtonInput(kind="webapp_section", label="Invite", section="invite")

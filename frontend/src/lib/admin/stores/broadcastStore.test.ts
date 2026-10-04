@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createBroadcastStore } from "./broadcastStore.svelte";
+import { buttonsForPayload, createBroadcastStore } from "./broadcastStore.svelte";
+import { historyItemFromWire } from "./broadcastHistory";
 
 function makeSessionStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -23,6 +24,122 @@ function makeStore(api = vi.fn()) {
 describe("broadcastStore", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it.each(["render", "send_telegram", "send", "schedule", "single-user"] as const)(
+    "preserves ordinary/custom button icons and plain captions through %s",
+    async (mode) => {
+      const api = vi.fn().mockResolvedValue({
+        ok: true,
+        queued: 1,
+        failed: 0,
+        rendered_text: "Hello",
+        unknown_shortcodes: [],
+      });
+      const store = makeStore(api);
+      store.updateField({
+        broadcastText: "Hello",
+        broadcastTelegramEnabled: true,
+        broadcastEmailEnabled: true,
+        broadcastEmailSubject: "News",
+        broadcastScheduleEnabled: mode === "schedule",
+        broadcastScheduledAt: "2035-05-20T12:00",
+      });
+      store.addButton();
+      store.updateButton(0, {
+        label: "Open",
+        url: "https://example.com",
+        iconCustomEmojiId: null,
+        iconEmoji: "🚀",
+      });
+      store.addButton();
+      store.updateButton(1, {
+        kind: "webapp_section",
+        section: "home",
+        label: "Account",
+        iconCustomEmojiId: "5368324170671202286",
+        iconEmoji: "👩🏽‍💻",
+      });
+      if (mode === "render" || mode === "send_telegram") await store.sendPreview(mode);
+      else if (mode === "single-user") {
+        await store.sendToUser({
+          userId: 42,
+          text: "Hello",
+          channels: ["telegram", "email"],
+          emailSubject: "News",
+          buttons: store.broadcastButtons,
+        });
+      } else await store.runBroadcast();
+      const request = api.mock.calls.find(([, options]) => options?.method === "POST");
+      expect(request).toBeDefined();
+      const payload = JSON.parse(request![1].body);
+      expect(payload.buttons).toEqual([
+        expect.objectContaining({
+          label: "Open",
+          icon_custom_emoji_id: null,
+          icon_emoji: "🚀",
+        }),
+        expect.objectContaining({
+          label: "Account",
+          icon_custom_emoji_id: "5368324170671202286",
+          icon_emoji: "👩🏽‍💻",
+        }),
+      ]);
+      if (mode !== "render" && mode !== "send_telegram")
+        expect(payload.channels).toEqual(["telegram", "email"]);
+      if (mode === "schedule") expect(payload.scheduled_at).toBeTruthy();
+    }
+  );
+
+  it("keeps icon metadata on reordered support buttons and clears both icon fields", () => {
+    const store = makeStore();
+    store.addButton();
+    store.updateButton(0, {
+      url: "https://example.com",
+      iconCustomEmojiId: "5368324170671202286",
+      iconEmoji: "🔥",
+    });
+    store.addButton();
+    store.moveButton(0, 1);
+    expect(buttonsForPayload(store.broadcastButtons)[1]).toMatchObject({
+      icon_custom_emoji_id: "5368324170671202286",
+      icon_emoji: "🔥",
+    });
+    store.updateButton(1, { iconCustomEmojiId: null, iconEmoji: "" });
+    expect(buttonsForPayload(store.broadcastButtons)[1]).toMatchObject({
+      icon_custom_emoji_id: null,
+      icon_emoji: "",
+    });
+  });
+
+  it("preserves exact history icon IDs for replay and never converts numeric IDs", () => {
+    const history = historyItemFromWire({
+      broadcast_id: 12,
+      buttons: [
+        {
+          kind: "url",
+          label: "Open",
+          url: "https://example.com",
+          icon_custom_emoji_id: "5368324170671202286",
+          icon_emoji: "🔥",
+        },
+        { icon_custom_emoji_id: 5368324170671202000 },
+      ],
+    });
+    expect(history?.buttons[0]).toMatchObject({
+      iconCustomEmojiId: "5368324170671202286",
+      iconEmoji: "🔥",
+    });
+    expect(history?.buttons[1].iconCustomEmojiId).toBeNull();
+    const replayed = history!.buttons.map((button, index) => ({
+      ...button,
+      id: index,
+      kind: "url" as const,
+    }));
+    expect(buttonsForPayload(replayed)[0]).toMatchObject({
+      icon_custom_emoji_id: "5368324170671202286",
+      icon_emoji: "🔥",
+    });
   });
 
   it("refreshes old cached counts that do not carry email availability", async () => {
@@ -191,6 +308,8 @@ describe("broadcastStore", () => {
         url: "https://example.com",
         promo_code: "",
         section: "",
+        icon_custom_emoji_id: null,
+        icon_emoji: "",
       },
     ]);
   });

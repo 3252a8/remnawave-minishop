@@ -37,6 +37,7 @@
     api = contextApi(),
     apiBlob,
     allowOrdinary = true,
+    initialTab,
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -45,6 +46,7 @@
     api?: TelegramEmojiApi;
     apiBlob?: TelegramEmojiMediaApi;
     allowOrdinary?: boolean;
+    initialTab?: "ordinary" | "custom";
   } = $props();
 
   type PickerTab = "ordinary" | "custom" | "recent" | "favorites" | "library";
@@ -125,6 +127,7 @@
   let total = $state(0);
   let loading = $state(false);
   let loadingMore = $state(false);
+  let moreError = $state("");
   let error = $state("");
   let libraryError = $state("");
   let selected = $state<EmojiItem | null>(null);
@@ -132,6 +135,9 @@
   let preferences = $state<EmojiPreferences>({ recent: [], favorites: [] });
   let libraryGeneration = $state(0);
   let grid = $state<HTMLDivElement | null>(null);
+  let pagination = $state<HTMLDivElement | null>(null);
+  let moreController: AbortController | null = null;
+  const hasPaginationObserver = typeof IntersectionObserver !== "undefined";
   let requestSequence = 0;
   let catalogQuery: { pack: string; term: string; generation: number } | null = null;
   const selectedKey = $derived(selected ? emojiSelectionKey(selected) : "");
@@ -176,6 +182,7 @@
     if (!open) return;
     let canceled = false;
     selected = null;
+    if (initialTab) tab = allowOrdinary ? initialTab : "custom";
     void Promise.allSettled([getEmojiLibrary(api), getEmojiAdminId(api)]).then(
       ([packs, identity]) => {
         if (canceled) return;
@@ -207,9 +214,10 @@
     if (!showing) return;
     const sequence = ++requestSequence;
     const controller = new AbortController();
+    cancelMore();
     loading = true;
-    loadingMore = false;
     error = "";
+    moreError = "";
     let appliedItems: EmojiItem[] | null = null;
     const currentRequest = () =>
       !controller.signal.aborted && sequence === requestSequence && open && tab === "custom";
@@ -230,7 +238,11 @@
           );
         });
       appliedItems = result.items;
-      if (!unchanged) catalogItems = result.items;
+      if (!unchanged) {
+        cancelMore();
+        moreError = "";
+        catalogItems = result.items;
+      }
       total = result.total;
     };
     const load = () => {
@@ -258,26 +270,86 @@
     return () => {
       if (timer !== undefined) window.clearTimeout(timer);
       controller.abort();
+      cancelMore();
     };
   });
 
+  $effect(() => {
+    const sentinel = pagination;
+    if (
+      !sentinel ||
+      !open ||
+      tab !== "custom" ||
+      loading ||
+      loadingMore ||
+      moreError ||
+      catalogItems.length >= total ||
+      !hasPaginationObserver
+    )
+      return;
+    const root = sentinel.closest<HTMLElement>(".scroll-area__viewport");
+    if (!root) return;
+    let active = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (active && entries.some((entry) => entry.isIntersecting)) void loadMore();
+      },
+      { root, rootMargin: "0px 0px 160px 0px" }
+    );
+    observer.observe(sentinel);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  });
+
+  function cancelMore() {
+    moreController?.abort();
+    moreController = null;
+    loadingMore = false;
+  }
+
   async function loadMore() {
-    if (loading || loadingMore || catalogItems.length >= total) return;
+    if (!open || tab !== "custom" || loading || loadingMore || catalogItems.length >= total) return;
     const sequence = requestSequence;
+    const term = search;
+    const pack = set;
+    const controller = new AbortController();
+    moreController = controller;
+    const currentRequest = () =>
+      moreController === controller &&
+      !controller.signal.aborted &&
+      sequence === requestSequence &&
+      open &&
+      tab === "custom" &&
+      search === term &&
+      set === pack;
     loadingMore = true;
-    error = "";
+    moreError = "";
     try {
-      const result = await getEmojiCatalog(api, { set, q: search, offset: catalogItems.length });
-      if (sequence !== requestSequence || !open || tab !== "custom") return;
-      catalogItems = [
+      const result = await getEmojiCatalog(
+        api,
+        { set: pack, q: term, offset: catalogItems.length },
+        controller.signal
+      );
+      if (!currentRequest()) return;
+      const next = [
         ...new Map([...catalogItems, ...result.items].map((item) => [item.id, item])).values(),
       ];
+      if (next.length === catalogItems.length && result.total > next.length) {
+        moreError = "telegram_emoji_load_failed";
+        return;
+      }
+      catalogItems = next;
       total = result.total;
     } catch (failure) {
-      if (sequence === requestSequence)
-        error = telegramEmojiErrorCode(failure, "telegram_emoji_load_failed");
+      if (currentRequest())
+        moreError = telegramEmojiErrorCode(failure, "telegram_emoji_load_failed");
     } finally {
-      if (sequence === requestSequence) loadingMore = false;
+      if (moreController === controller) {
+        moreController = null;
+        loadingMore = false;
+      }
     }
   }
 
@@ -457,17 +529,31 @@
           {/each}
         </div>
         {#if tab === "custom"}
-          <div class="picker-pagination">
+          <div
+            bind:this={pagination}
+            class="picker-pagination"
+            aria-busy={loadingMore}
+            aria-live="polite"
+          >
             <span>{at("telegram_emoji_loaded", { count: catalogItems.length, total })}</span
-            >{#if catalogItems.length < total}<AdminButton
+            >{#if loadingMore}<span role="status">{at("loading")}</span
+              >{:else if catalogItems.length < total && (moreError || !hasPaginationObserver)}<AdminButton
                 size="sm"
                 controlSize="md"
                 disabled={loadingMore}
                 onclick={() => {
                   void loadMore();
-                }}>{loadingMore ? at("loading") : at("telegram_emoji_load_more")}</AdminButton
+                }}
+                >{loadingMore
+                  ? at("loading")
+                  : moreError
+                    ? at("retry")
+                    : at("telegram_emoji_load_more")}</AdminButton
               >{/if}
           </div>
+          {#if moreError}<p class="picker-error" role="alert">
+              {at(moreError, {}, at("telegram_emoji_load_failed"))}
+            </p>{/if}
         {/if}
       {:else if tab !== "custom" || (!error && !libraryError)}
         <div class="picker-empty">

@@ -159,6 +159,8 @@ def test_buttons_round_trip_through_storage():
                 kind="promo_webapp",
                 promo_code="SAVE",
                 telegram_web_app_url="https://app.example/?startapp=promo_SAVE",
+                icon_custom_emoji_id="5368651601797984900",
+                icon_emoji="📁",
             )
         ]
     )
@@ -167,6 +169,12 @@ def test_buttons_round_trip_through_storage():
 
     assert [button.promo_code for button in decoded] == ["SAVE"]
     assert decoded[0].telegram_web_app_url == "https://app.example/?startapp=promo_SAVE"
+    assert decoded[0].icon_custom_emoji_id == "5368651601797984900"
+    assert decoded[0].icon_emoji == "📁"
+    assert (
+        support_buttons_payload(encoded)[0]["icon_custom_emoji_id"]
+        == decoded[0].icon_custom_emoji_id
+    )
     assert support_buttons_payload(encoded)[0]["url"] == "https://t.me/bot?startapp=promo_SAVE"
 
 

@@ -89,6 +89,36 @@ def _delivery(**overrides: Any) -> AdminBroadcastDelivery:
 
 
 class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_scheduled_button_icon_survives_worker_deserialization(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        identifier = "5368651601797984900"
+        with (
+            patch.object(service, "_mark_queued", AsyncMock()),
+            patch.object(delivery_module.broadcast_dal, "refresh_broadcast_stats", AsyncMock()),
+        ):
+            result = await service._queue_deliveries(
+                _broadcast(
+                    texts={"en": "Hello"},
+                    buttons=[
+                        {
+                            "kind": "url",
+                            "label": "Files",
+                            "url": "https://example.com",
+                            "icon_custom_emoji_id": identifier,
+                            "icon_emoji": "📁",
+                        }
+                    ],
+                ),
+                [_delivery()],
+                [1],
+                ["telegram"],
+            )
+        self.assertEqual(result.queued, 1)
+        native = queue.messages[0]["reply_markup"].inline_keyboard[0][0]
+        self.assertEqual(native.icon_custom_emoji_id, identifier)
+        self.assertEqual(native.text, "Files")
+
     async def test_photo_is_prepared_once_and_reused_for_all_recipients(self) -> None:
         queue = _Queue()
         service = _service(queue)

@@ -5,6 +5,8 @@ from collections.abc import Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Protocol
 
+from bot.services.message_button_icons import email_button_label_parts
+
 if TYPE_CHECKING:
     from bot.middlewares.i18n import JsonI18n
     from config.settings import Settings
@@ -141,7 +143,10 @@ def render_broadcast_email(
         safe_url = (url or "").strip()
         if not safe_url:
             continue
-        body_parts.append(_cta_button_html(label=label, url=safe_url, accent=accent))
+        label_html, _ = email_button_label_parts(label)
+        body_parts.append(
+            _cta_button_html(label=label, label_html=label_html, url=safe_url, accent=accent)
+        )
 
     rendered = _layout(
         settings=settings,
@@ -158,7 +163,8 @@ def render_broadcast_email(
         safe_url = (url or "").strip()
         if not safe_url:
             continue
-        text_lines.extend(["", f"{label}: {safe_url}"])
+        _, plain_label = email_button_label_parts(label)
+        text_lines.extend(["", f"{plain_label}: {safe_url}"])
     if image is not None:
         rendered = replace(rendered, inline_images=(*rendered.inline_images, image))
     return _email_content(subject=final_subject, text="\n".join(text_lines), layout=rendered)

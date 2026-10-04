@@ -59,6 +59,8 @@ export type BroadcastButtonDraft = {
   promoCode: string;
   /** Web app screen a ``webapp_section`` button opens. */
   section: string;
+  iconCustomEmojiId?: string | null;
+  iconEmoji?: string;
   /**
    * Author's own caption per language code. Empty everywhere is the normal
    * case: the button then shows the prepared caption for its kind in the
@@ -180,6 +182,8 @@ export function buttonsForPayload(buttons: BroadcastButtonDraft[]) {
     promo_code:
       button.kind === "url" || button.kind === "webapp_section" ? "" : button.promoCode.trim(),
     section: button.kind === "webapp_section" ? button.section.trim() : "",
+    icon_custom_emoji_id: button.iconCustomEmojiId || null,
+    icon_emoji: button.iconEmoji || "",
   }));
 }
 

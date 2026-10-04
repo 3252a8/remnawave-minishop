@@ -13,4 +13,6 @@ export type TicketMessageButtonLike = {
   kind?: string;
   promo_code?: string;
   section?: string;
+  icon_custom_emoji_id?: string | null;
+  icon_emoji?: string;
 };

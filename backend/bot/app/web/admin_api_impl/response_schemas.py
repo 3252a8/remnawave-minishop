@@ -156,6 +156,8 @@ class AdminBroadcastButtonOut(HttpResponseModel):
     promo_code: str = ""
     section: str = ""
     labels: dict[str, str] = Field(default_factory=dict)
+    icon_custom_emoji_id: str | None = None
+    icon_emoji: str = ""
 
 
 class AdminBroadcastOut(HttpResponseModel):
