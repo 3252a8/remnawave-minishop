@@ -783,6 +783,11 @@ def telegram_html_error(text: str) -> str | None:
     Advisory-strict: unknown tags and non-``http(s)``/``tg`` literal ``<a href>``
     schemes fail; nesting mistakes are left to Telegram's own parser.
     """
+    from bot.utils.custom_emoji import custom_emoji_html_error
+
+    emoji_error = custom_emoji_html_error(str(text or ""))
+    if emoji_error:
+        return emoji_error
     linter = _TelegramHtmlLinter()
     try:
         linter.feed(str(text or ""))

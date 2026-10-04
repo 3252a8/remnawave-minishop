@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cva } from "class-variance-authority";
   import { cn } from "$lib/utils.js";
+  import { controlSizeClass, type ControlSize } from "$components/ui/controlSize";
   import type { Snippet } from "svelte";
   import type { HTMLButtonAttributes } from "svelte/elements";
 
@@ -15,6 +16,7 @@
     disabled?: boolean;
     onclick?: (event: MouseEvent) => void;
     size?: AdminButtonSize;
+    controlSize?: ControlSize;
     type?: HTMLButtonAttributes["type"];
     variant?: AdminButtonVariant;
   };
@@ -23,6 +25,7 @@
     type = "button",
     variant = "default",
     size = "default",
+    controlSize,
     disabled = false,
     onclick = undefined,
     class: className = "",
@@ -54,7 +57,8 @@
 </script>
 
 <button
-  class={cn(buttonVariants({ variant, size }), className)}
+  class={cn(buttonVariants({ variant, size }), controlSizeClass(controlSize), className)}
+  data-control-size={controlSize}
   {type}
   {disabled}
   {onclick}

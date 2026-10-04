@@ -128,6 +128,8 @@ export type SettingsStore = SettingsState & {
    * Save in the screen header instead of shipping a second Save button.
    */
   registerExtraSaver: (saver: () => void | Promise<void>) => () => void;
+  /** Notify separate editors before a successful settings save refreshes the screen. */
+  registerSavedListener: (listener: (payload: SettingsSavedPayload) => void) => () => void;
   reportExtraDirty: (sectionId: string, count: number) => void;
   markDirty: (key: string, value: unknown, deleted?: boolean) => void;
   clearDirty: (key: string) => void;
@@ -172,6 +174,7 @@ export function createSettingsStore({
     loadFeatures,
     loadSettings,
     registerExtraSaver,
+    registerSavedListener,
     reportExtraDirty,
     markDirty,
     clearDirty,
@@ -183,12 +186,20 @@ export function createSettingsStore({
   // Plain collections, deliberately outside `$state`: they must not make the
   // effect that registers a saver depend on its own write.
   const extraSavers = new Set<() => void | Promise<void>>();
+  const savedListeners = new Set<(payload: SettingsSavedPayload) => void>();
   const extraDirty = new Map<string, number>();
 
   function registerExtraSaver(saver: () => void | Promise<void>): () => void {
     extraSavers.add(saver);
     return () => {
       extraSavers.delete(saver);
+    };
+  }
+
+  function registerSavedListener(listener: (payload: SettingsSavedPayload) => void): () => void {
+    savedListeners.add(listener);
+    return () => {
+      savedListeners.delete(listener);
     };
   }
 
@@ -274,7 +285,9 @@ export function createSettingsStore({
         settingsSections: (s.settingsSections || []).map((section) => ({
           ...section,
           fields: (section.fields || []).map((field) =>
-            field.key === key ? { ...field, value, overridden: true } : field
+            field.key === key
+              ? { ...field, value, overridden: true, value_source: "database_override" }
+              : field
           ),
         })),
       };
@@ -368,6 +381,7 @@ export function createSettingsStore({
             : at("settings_saved", {}, "Settings saved")
         );
         applySavedSettings(updates, deletes);
+        for (const listener of savedListeners) listener({ updates, deletes });
         if (onSettingsSaved) await onSettingsSaved({ updates, deletes });
         await loadSettings({ refresh: true });
         return true;

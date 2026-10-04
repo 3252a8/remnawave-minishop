@@ -28,6 +28,27 @@ export function adminRichTextLabels(at: TranslateFn, overrides: Partial<RichText
     shortcodes: at("broadcast_insert_shortcode", {}, "{ } Shortcode"),
     shortcodesLoading: at("broadcast_shortcodes_loading", {}, "Loading..."),
     shortcodePanelBadge: at("broadcast_shortcode_panel_badge", {}, "panel"),
+    customEmoji: at("richtext_custom_emoji", {}, "Emoji"),
+    customEmojiSourceUnavailable: at(
+      "richtext_custom_emoji_source",
+      {},
+      "Switch to the editor to insert an emoji."
+    ),
+    customEmojiCodeFallback: at(
+      "richtext_custom_emoji_code",
+      {},
+      "Insert the Unicode fallback in code."
+    ),
+    customEmojiInvalid: at(
+      "richtext_custom_emoji_invalid",
+      {},
+      "Invalid custom emoji markup is shown as text. Check the ID and emoji fallback."
+    ),
+    customEmojiUnavailable: at(
+      "richtext_custom_emoji_unavailable",
+      {},
+      "The emoji picker could not be opened. Try again."
+    ),
     ...overrides,
   } satisfies RichTextLabels;
 }

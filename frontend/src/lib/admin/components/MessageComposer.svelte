@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { getAdminApi } from "$lib/admin/context";
+  import { createAdminEmojiPicker } from "$lib/admin/emojiPicker.svelte";
   import RichTextEditor from "$lib/richtext/RichTextEditor.svelte";
   import type { MessageShortcodeInfo } from "$lib/richtext/editorSchema";
+  import EmojiPicker from "$lib/telegramEmoji/EmojiPicker.svelte";
 
   import { adminRichTextLabels } from "../richTextLabels.js";
 
@@ -23,6 +26,8 @@
   } = $props();
 
   const labels = $derived(adminRichTextLabels(at));
+  const api = getAdminApi();
+  const emojiPicker = createAdminEmojiPicker();
 </script>
 
 <RichTextEditor
@@ -32,5 +37,15 @@
   {placeholder}
   {shortcodes}
   {onRequestShortcodes}
+  selectCustomEmoji={emojiPicker.select}
+  loadCustomEmojiMedia={emojiPicker.loadMedia}
   showSource
+/>
+
+<EmojiPicker
+  open={emojiPicker.open}
+  onOpenChange={emojiPicker.onOpenChange}
+  onSelect={emojiPicker.onSelect}
+  {at}
+  {api}
 />

@@ -1,0 +1,28 @@
+:is(input, button, a).ui-control.ui-control-md[data-control-size],
+:is(input, button, a).ui-control.ui-control-lg[data-control-size] {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  height: var(--ui-control-height);
+  min-height: var(--ui-control-height);
+  padding-block: 0;
+}
+
+.ui-control.ui-control-md[data-control-size] {
+  --ui-control-height: 36px;
+}
+
+.ui-control.ui-control-lg[data-control-size] {
+  --ui-control-height: 44px;
+}
+
+:is(button, a).ui-control.ui-control-md[data-control-size],
+:is(button, a).ui-control.ui-control-lg[data-control-size] {
+  min-width: var(--ui-control-height);
+}
+
+@media (max-width: 560px) {
+  .ui-control.ui-control-md[data-control-size] {
+    --ui-control-height: 44px;
+  }
+}

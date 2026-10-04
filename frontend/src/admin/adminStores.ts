@@ -18,6 +18,7 @@ import { createRoleApi } from "../lib/admin/roleApi.js";
 import {
   setAdsStore,
   setAdminApi,
+  setAdminApiBlob,
   setAdminSupportStore,
   setBackupsStore,
   setBroadcastStore,
@@ -149,6 +150,7 @@ export function createAdminStores({
 
   setPromosStore(promosStore);
   setAdminApi(api);
+  setAdminApiBlob(apiBlob);
   setAdsStore(adsStore);
   setHealthStore(healthStore);
   setBackupsStore(backupsStore);

@@ -30,5 +30,10 @@ export function webappRichTextLabels(t: TranslateFn): RichTextLabels {
     shortcodes: "",
     shortcodesLoading: "",
     shortcodePanelBadge: "",
+    customEmoji: "",
+    customEmojiSourceUnavailable: "",
+    customEmojiCodeFallback: "",
+    customEmojiInvalid: t("wa_format_custom_emoji_invalid"),
+    customEmojiUnavailable: "",
   };
 }

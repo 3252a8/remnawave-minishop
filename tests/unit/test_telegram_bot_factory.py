@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -27,10 +28,12 @@ def make_settings(**overrides) -> Settings:
 
 def test_factory_keeps_aiogram_default_session_without_proxy(monkeypatch) -> None:
     created_bots = []
+    middlewares: list[object] = []
 
     class FakeBot:
         def __init__(self, **kwargs):
             created_bots.append(kwargs)
+            self.session = SimpleNamespace(middleware=SimpleNamespace(register=middlewares.append))
 
     def unexpected_session(**_kwargs):
         raise AssertionError("A custom session must not be created in direct mode")
@@ -44,6 +47,8 @@ def test_factory_keeps_aiogram_default_session_without_proxy(monkeypatch) -> Non
     assert len(created_bots) == 1
     assert "session" not in created_bots[0]
     assert created_bots[0]["default"].parse_mode == ParseMode.HTML
+    assert len(middlewares) == 1
+    assert isinstance(middlewares[0], telegram_bot_factory.CustomEmojiFallbackMiddleware)
 
 
 def test_factory_uses_local_bot_api_server(monkeypatch, caplog) -> None:
@@ -75,7 +80,10 @@ def test_factory_uses_local_bot_api_server(monkeypatch, caplog) -> None:
     assert len(created_sessions) == 1
     assert created_sessions[0].api.base == "http://telegram-bot-api:8081/bot{token}/{method}"
     assert created_sessions[0].api.is_local is True
-    assert created_sessions[0].middlewares == []
+    assert len(created_sessions[0].middlewares) == 1
+    assert isinstance(
+        created_sessions[0].middlewares[0], telegram_bot_factory.CustomEmojiFallbackMiddleware
+    )
     assert created_bots[0]["session"] is created_sessions[0]
     assert "http://telegram-bot-api:8081" in caplog.text
 
@@ -112,10 +120,13 @@ def test_factory_creates_one_proxy_session_and_redacts_startup_log(monkeypatch, 
     assert len(created_sessions) == 1
     assert len(created_bots) == 1
     assert created_sessions[0].proxy == raw_url
-    assert len(created_sessions[0].middlewares) == 1
+    assert len(created_sessions[0].middlewares) == 2
     assert isinstance(
         created_sessions[0].middlewares[0],
         telegram_bot_factory.TelegramProxyErrorMiddleware,
+    )
+    assert isinstance(
+        created_sessions[0].middlewares[1], telegram_bot_factory.CustomEmojiFallbackMiddleware
     )
     assert created_bots[0]["session"] is created_sessions[0]
     assert created_bots[0]["default"].parse_mode == ParseMode.HTML

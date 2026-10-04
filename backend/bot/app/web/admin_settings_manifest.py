@@ -61,6 +61,11 @@ def manifest_keys() -> list[str]:
 def coerce_value(field: SettingField, raw: Any) -> Any:
     """Coerce a value coming from JSON to the type declared by the field."""
 
+    if field.type in {"telegram_menu", "telegram_emoji_library"}:
+        from config.telegram_menu import normalized_telegram_setting
+
+        return normalized_telegram_setting(field.key, raw)
+
     if field.type == "menu_buttons":
         return normalize_menu_buttons_json(raw)
 

@@ -35,6 +35,7 @@ export const demoAdminRoutes = [
 ];
 
 export const demoPublicRouteAliases = ["app"];
+const demoAdminDetailRoutes = ["admin/settings/menu-buttons"];
 
 export const demoPublicRoutes = [
   ...demoPublicRouteAliases,
@@ -42,10 +43,12 @@ export const demoPublicRoutes = [
   "emails",
   "admin",
   ...demoAdminRoutes.map((route) => `admin/${route}`),
+  ...demoAdminDetailRoutes,
 ];
 
 export const demoRuntimeRoutes = [
   ...demoUserRoutes,
   "admin",
   ...demoAdminRoutes.map((route) => `admin/${route}`),
+  ...demoAdminDetailRoutes,
 ];

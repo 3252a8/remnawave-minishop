@@ -14,6 +14,7 @@
 
 import { escapeHtml, unescapeHtml } from "./escape.js";
 import { linkifyToHtml } from "./linkify.js";
+import { isCustomEmoji, type CustomEmoji } from "./customEmoji.js";
 
 export type MarkType = "bold" | "italic" | "underline" | "strike" | "code" | "link";
 
@@ -22,7 +23,8 @@ export type Mark = { type: MarkType; attrs?: { href?: string } };
 export type InlineNode =
   | { type: "text"; text: string; marks?: Mark[] }
   | { type: "hardBreak" }
-  | { type: "shortcode"; attrs: { name: string } };
+  | { type: "shortcode"; attrs: { name: string } }
+  | { type: "customEmoji"; attrs: CustomEmoji; marks?: Mark[] };
 
 export type ParagraphNode = { type: "paragraph"; content?: InlineNode[] };
 export type CodeBlockNode = { type: "codeBlock"; content?: { type: "text"; text: string }[] };
@@ -93,6 +95,13 @@ function serializeInline(nodes: InlineNode[] | undefined): string {
       parts.push(`{${node.attrs.name}}`);
     } else if (node.type === "text") {
       parts.push(wrapMarks(escapeHtml(node.text), node.marks));
+    } else if (node.type === "customEmoji") {
+      const fallback = escapeHtml(node.attrs.fallback);
+      const html =
+        isCustomEmoji(node.attrs) && !node.marks?.some((mark) => mark.type === "code")
+          ? `<tg-emoji emoji-id="${escapeHtml(node.attrs.id).replace(/"/g, "&quot;")}">${fallback}</tg-emoji>`
+          : fallback;
+      parts.push(wrapMarks(html, node.marks));
     }
   }
   return parts.join("");
@@ -197,12 +206,24 @@ function toParagraphs(nodes: InlineNode[]): ParagraphNode[] {
   return paragraphs.filter((p) => (p.content || []).length > 0);
 }
 
-export type ParsedTelegramHtml = { doc: Doc; unknownTags: string[] };
+export type ParsedTelegramHtml = {
+  doc: Doc;
+  unknownTags: string[];
+  /** Invalid entities remain literal text; hosts can show an actionable warning. */
+  invalidCustomEmoji: string[];
+};
+
+function customEmojiIdFromAttrs(attrs: string): string {
+  // Accept exactly the Bot API attribute, never an extra HTML/event attribute.
+  const match = attrs.match(/^\s+emoji-id\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'<>`=]+))\s*$/i);
+  return match ? unescapeHtml(match[1] ?? match[2] ?? match[3] ?? "") : "";
+}
 
 export function parseTelegramHtml(html: string): ParsedTelegramHtml {
   const tokens = tokenize(html || "");
   const blocks: BlockNode[] = [];
   const unknownTags = new Set<string>();
+  const invalidCustomEmoji = new Set<string>();
   const markStack: Mark[] = [];
 
   let mode: "inline" | "pre" | "blockquote" = "inline";
@@ -235,8 +256,10 @@ export function parseTelegramHtml(html: string): ParsedTelegramHtml {
     inlineBuf = [];
   };
 
-  for (const token of tokens) {
+  for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+    const token = tokens[tokenIndex];
     if (token.kind === "text") {
+      if (/<\/?tg-emoji\b/i.test(token.value)) invalidCustomEmoji.add(token.value);
       const value = unescapeHtml(token.value);
       if (mode === "pre") preText += value;
       else addText(value);
@@ -244,6 +267,56 @@ export function parseTelegramHtml(html: string): ParsedTelegramHtml {
     }
 
     if (token.kind === "open") {
+      if (token.name === "tg-emoji") {
+        let closeIndex = tokenIndex + 1;
+        let depth = 1;
+        for (; closeIndex < tokens.length; closeIndex += 1) {
+          const child = tokens[closeIndex];
+          if (child.kind === "open" && child.name === "tg-emoji") depth += 1;
+          if (child.kind === "close" && child.name === "tg-emoji") depth -= 1;
+          if (depth === 0) break;
+        }
+        if (depth !== 0 || /\/\s*>$/.test(token.raw)) {
+          invalidCustomEmoji.add(token.raw);
+          if (mode === "pre") preText += token.raw;
+          else addText(token.raw);
+          continue;
+        }
+        const children = tokens.slice(tokenIndex + 1, closeIndex);
+        const raw = tokens
+          .slice(tokenIndex, closeIndex + 1)
+          .map((child) => (child.kind === "text" ? child.value : child.raw))
+          .join("");
+        const attrs = {
+          id: customEmojiIdFromAttrs(token.attrs),
+          fallback: children
+            .map((child) => (child.kind === "text" ? unescapeHtml(child.value) : ""))
+            .join(""),
+        };
+        const closing = tokens[closeIndex];
+        const valid =
+          children.every((child) => child.kind === "text") &&
+          closing.kind === "close" &&
+          /^<\/tg-emoji\s*>$/i.test(closing.raw) &&
+          isCustomEmoji(attrs);
+        tokenIndex = closeIndex;
+        if (!valid) {
+          invalidCustomEmoji.add(raw);
+          if (mode === "pre") preText += unescapeHtml(raw);
+          else addText(unescapeHtml(raw));
+        } else if (mode === "pre") {
+          preText += attrs.fallback;
+        } else if (markStack.some((mark) => mark.type === "code")) {
+          addText(attrs.fallback);
+        } else {
+          target().push({
+            type: "customEmoji",
+            attrs,
+            ...(markStack.length ? { marks: markStack.map((mark) => ({ ...mark })) } : {}),
+          });
+        }
+        continue;
+      }
       if (token.name === "pre" && mode === "inline") {
         flushInline();
         mode = "pre";
@@ -273,6 +346,12 @@ export function parseTelegramHtml(html: string): ParsedTelegramHtml {
     }
 
     // close tag
+    if (token.name === "tg-emoji") {
+      invalidCustomEmoji.add(token.raw);
+      if (mode === "pre") preText += token.raw;
+      else addText(token.raw);
+      continue;
+    }
     if (token.name === "pre" && mode === "pre") {
       blocks.push({
         type: "codeBlock",
@@ -304,9 +383,21 @@ export function parseTelegramHtml(html: string): ParsedTelegramHtml {
     }
   }
 
+  if (mode === "pre") {
+    blocks.push({ type: "codeBlock", content: preText ? [{ type: "text", text: preText }] : [] });
+  } else if (mode === "blockquote") {
+    blocks.push({
+      type: "blockquote",
+      content: [{ type: "paragraph", content: mergeAdjacentText(quoteBuf) }],
+    });
+  }
   flushInline();
   if (!blocks.length) blocks.push({ type: "paragraph" });
-  return { doc: { type: "doc", content: blocks }, unknownTags: [...unknownTags] };
+  return {
+    doc: { type: "doc", content: blocks },
+    unknownTags: [...unknownTags],
+    invalidCustomEmoji: [...invalidCustomEmoji],
+  };
 }
 
 export function telegramHtmlToDoc(html: string): Doc {
@@ -329,6 +420,8 @@ export function previewHtmlFromWire(html: string, samples: Record<string, string
           const value = samples[node.attrs.name] ?? `{${node.attrs.name}}`;
           return `<span class="broadcast-preview-chip">${escapeHtml(value)}</span>`;
         }
+        if (node.type === "customEmoji")
+          return wrapMarks(escapeHtml(node.attrs.fallback), node.marks);
         return wrapMarks(escapeHtml(node.text), node.marks);
       })
       .join("");
@@ -375,6 +468,8 @@ export function messageDisplayHtml(body: string, format: string): string {
         // A shortcode token that survived into a stored body was never
         // substituted, so it is literal text to the reader.
         if (node.type === "shortcode") return escapeHtml(`{${node.attrs.name}}`);
+        if (node.type === "customEmoji")
+          return wrapMarks(escapeHtml(node.attrs.fallback), node.marks);
         const authored = node.marks?.some((mark) => mark.type === "link");
         const text = authored ? escapeHtml(node.text) : linkifyToHtml(node.text);
         return wrapMarks(text, node.marks);
@@ -399,22 +494,24 @@ export function messageDisplayHtml(body: string, format: string): string {
 
 /**
  * Characters a reader actually sees, so a length counter measures the message
- * rather than the markup around it — the same thing the backend limits.
+ * rather than the markup around it. Count Unicode codepoints, matching the
+ * backend text limits; Telegram MessageEntity offsets separately use UTF-16.
  */
 export function wireTextLength(wire: string, format = "html"): number {
   const source = String(wire ?? "");
-  if (format !== "html") return source.length;
+  if (format !== "html") return [...source].length;
   let total = 0;
   const countInline = (nodes: InlineNode[] | undefined): void => {
     for (const node of nodes || []) {
-      if (node.type === "text") total += node.text.length;
+      if (node.type === "text") total += [...node.text].length;
       else if (node.type === "shortcode") total += node.attrs.name.length + 2;
+      else if (node.type === "customEmoji") total += [...node.attrs.fallback].length;
       else total += 1;
     }
   };
   for (const block of telegramHtmlToDoc(source).content) {
     if (block.type === "codeBlock") {
-      total += (block.content || []).map((n) => n.text).join("").length;
+      total += [...(block.content || []).map((n) => n.text).join("")].length;
     } else if (block.type === "blockquote") {
       for (const paragraph of block.content || []) countInline(paragraph.content);
     } else {

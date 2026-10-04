@@ -250,6 +250,8 @@ if TYPE_CHECKING:
         SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED: bool
         DEFAULT_LANGUAGE: str
         MENU_BUTTONS_JSON: str
+        TELEGRAM_MENU_APPEARANCE_JSON: str
+        TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_EN: str
         SUBSCRIPTION_PURCHASE_DESCRIPTION_RU: str
 
@@ -270,6 +272,15 @@ def _split_csv(value: str | None) -> list[str]:
 
 
 class SettingsComputedMixin(_SettingsComputedMixinBase):
+    @field_validator(
+        "TELEGRAM_MENU_APPEARANCE_JSON", "TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON", mode="before"
+    )
+    @classmethod
+    def validate_telegram_menu_setting(cls, value: Any, info: Any) -> str:
+        from config.telegram_menu import normalized_telegram_setting
+
+        return normalized_telegram_setting(info.field_name, value)
+
     @field_validator("MENU_BUTTONS_JSON", mode="before")
     @classmethod
     def validate_menu_buttons_json(cls, value: Any) -> str:

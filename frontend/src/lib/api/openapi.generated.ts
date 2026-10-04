@@ -2266,6 +2266,128 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/telegram-emoji/catalog": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Telegram Emoji Catalog */
+    get: operations["get_admin_telegram_emoji_catalog_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/telegram-emoji/library": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Telegram Emoji Library */
+    get: operations["get_admin_telegram_emoji_library_route"];
+    put?: never;
+    /** Admin Telegram Emoji Add */
+    post: operations["post_admin_telegram_emoji_add_route"];
+    /** Admin Telegram Emoji Remove */
+    delete: operations["delete_admin_telegram_emoji_remove_route"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/telegram-emoji/library/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Telegram Emoji Refresh */
+    post: operations["post_admin_telegram_emoji_refresh_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/telegram-emoji/media/{emoji_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Telegram Emoji Media */
+    get: operations["get_admin_telegram_emoji_media_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/telegram-menu": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Telegram Menu */
+    get: operations["get_admin_telegram_menu_route"];
+    /** Admin Telegram Menu Save */
+    put: operations["put_admin_telegram_menu_save_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/telegram-menu/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Telegram Menu Preview */
+    post: operations["post_admin_telegram_menu_preview_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/telegram-menu/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Telegram Menu Test */
+    post: operations["post_admin_telegram_menu_test_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/themes": {
     parameters: {
       query?: never;
@@ -7857,6 +7979,26 @@ export interface components {
       /** Name */
       name: string;
     };
+    /** ButtonAppearance */
+    ButtonAppearance: {
+      /**
+       * Icon Custom Emoji Id
+       * @default null
+       */
+      icon_custom_emoji_id: string | null;
+      /**
+       * Icon Mode
+       * @default inherit
+       * @enum {string}
+       */
+      icon_mode: "inherit" | "none" | "custom";
+      /**
+       * Style
+       * @default default
+       * @enum {string}
+       */
+      style: "default" | "primary" | "success" | "danger";
+    };
     /** Candidate */
     Candidate: {
       /**
@@ -7997,6 +8139,94 @@ export interface components {
       system_email: boolean;
       /** Token */
       token: string;
+    };
+    /** EmojiCapabilities */
+    EmojiCapabilities: {
+      icon?: components["schemas"]["EmojiCapability"];
+      text?: components["schemas"]["EmojiCapability"];
+    };
+    /** EmojiCapability */
+    EmojiCapability: {
+      /**
+       * State
+       * @default unknown
+       * @enum {string}
+       */
+      state: "unknown" | "supported" | "unavailable";
+      /**
+       * Tested At
+       * @default null
+       */
+      tested_at: string | null;
+    };
+    /** EmojiCatalogOut */
+    EmojiCatalogOut: {
+      /** Items */
+      items: components["schemas"]["EmojiItem"][];
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+      /** Total */
+      total: number;
+    };
+    /** EmojiItem */
+    EmojiItem: {
+      /** Fallback */
+      fallback: string;
+      /**
+       * Format
+       * @default static
+       * @enum {string}
+       */
+      format: "static" | "animated" | "video";
+      /** Id */
+      id: string;
+      /**
+       * Set Name
+       * @default null
+       */
+      set_name: string | null;
+      /**
+       * Thumbnail Url
+       * @default null
+       */
+      thumbnail_url: string | null;
+    };
+    /** EmojiLibraryBody */
+    EmojiLibraryBody: {
+      /** Expected Revision */
+      expected_revision: string;
+      /** Source */
+      source: string;
+    };
+    /** EmojiLibraryOut */
+    EmojiLibraryOut: {
+      library: components["schemas"]["TelegramEmojiLibrary"];
+      /** Revision */
+      revision: string;
+      /** Sets */
+      sets: components["schemas"]["EmojiSetInfo"][];
+    };
+    /** EmojiRefreshBody */
+    EmojiRefreshBody: {
+      /** Source */
+      source: string;
+    };
+    /** EmojiSetInfo */
+    EmojiSetInfo: {
+      /** Count */
+      count: number;
+      /** Name */
+      name: string;
+      /**
+       * State
+       * @default unknown
+       * @enum {string}
+       */
+      state: "ready" | "error" | "unknown";
+      /** Title */
+      title: string;
     };
     /** EmptyObjectOut */
     EmptyObjectOut: Record<string, never>;
@@ -8376,6 +8606,15 @@ export interface components {
       /** Tariff Title */
       tariff_title: string;
     };
+    /** HiddenMenuButton */
+    HiddenMenuButton: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Reason */
+      reason: string;
+    };
     /** HwidDevicePackage */
     HwidDevicePackage: {
       /** Count */
@@ -8567,6 +8806,81 @@ export interface components {
        * @default null
        */
       user_label: string | null;
+    };
+    /** MenuButtonInfo */
+    MenuButtonInfo: {
+      /**
+       * Emoji Fallback
+       * @default
+       */
+      emoji_fallback: string;
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Label Key */
+      label_key: string;
+      /** Screens */
+      screens: string[];
+    };
+    /** MenuLanguage */
+    MenuLanguage: {
+      /** Code */
+      code: string;
+      /** Name */
+      name: string;
+    };
+    /** MenuPreviewBody */
+    MenuPreviewBody: {
+      appearance: components["schemas"]["TelegramMenuAppearance"];
+      /**
+       * Language
+       * @default ru
+       */
+      language: string;
+      /**
+       * Scenario
+       * @default new
+       * @enum {string}
+       */
+      scenario: "new" | "active" | "trial_unavailable";
+      /**
+       * Screen
+       * @default main
+       * @enum {string}
+       */
+      screen: "main" | "bot" | "information";
+    };
+    /** MenuPreviewOut */
+    MenuPreviewOut: {
+      /**
+       * Available
+       * @default true
+       */
+      available: boolean;
+      /** Hidden */
+      hidden: components["schemas"]["HiddenMenuButton"][];
+      /** Rows */
+      rows: components["schemas"]["PreviewButton"][][];
+      /** Text */
+      text: string;
+    };
+    /** MenuSaveBody */
+    MenuSaveBody: {
+      appearance: components["schemas"]["TelegramMenuAppearance"];
+      /** Expected Revision */
+      expected_revision: string;
+    };
+    /** MenuTestOut */
+    MenuTestOut: {
+      capabilities: components["schemas"]["EmojiCapabilities"];
+      /**
+       * Message Id
+       * @default null
+       */
+      message_id: number | null;
+      /** Sent */
+      sent: boolean;
     };
     /** MutationOut */
     MutationOut: {
@@ -9416,6 +9730,41 @@ export interface components {
       scope: string | null;
       /** Unit */
       unit: string;
+    };
+    /** PreviewButton */
+    PreviewButton: {
+      /**
+       * Emoji Fallback
+       * @default
+       */
+      emoji_fallback: string;
+      /**
+       * Icon Custom Emoji Id
+       * @default null
+       */
+      icon_custom_emoji_id: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "callback" | "url" | "webapp";
+      /** Label */
+      label: string;
+      /**
+       * Style
+       * @default default
+       * @enum {string}
+       */
+      style: "default" | "primary" | "success" | "danger";
+      /** Target */
+      target: string;
+      /**
+       * Thumbnail Url
+       * @default null
+       */
+      thumbnail_url: string | null;
     };
     /** PreviewUploadOut */
     PreviewUploadOut: {
@@ -10489,6 +10838,43 @@ export interface components {
       catalog: unknown;
     } & {
       [key: string]: unknown;
+    };
+    /** TelegramEmojiLibrary */
+    TelegramEmojiLibrary: {
+      /** Manual Ids */
+      manual_ids?: string[];
+      /**
+       * Schema Version
+       * @default 1
+       * @constant
+       */
+      schema_version: 1;
+      /** Sets */
+      sets?: string[];
+    };
+    /** TelegramMenuAppearance */
+    TelegramMenuAppearance: {
+      /** Buttons */
+      buttons?: {
+        [key: string]: components["schemas"]["ButtonAppearance"];
+      };
+      /**
+       * Schema Version
+       * @default 1
+       * @constant
+       */
+      schema_version: 1;
+    };
+    /** TelegramMenuOut */
+    TelegramMenuOut: {
+      appearance: components["schemas"]["TelegramMenuAppearance"];
+      /** Buttons */
+      buttons: components["schemas"]["MenuButtonInfo"][];
+      capabilities: components["schemas"]["EmojiCapabilities"];
+      /** Languages */
+      languages: components["schemas"]["MenuLanguage"][];
+      /** Revision */
+      revision: string;
     };
     /** ThemeEffectsDescriptor */
     ThemeEffectsDescriptor: {
@@ -16147,6 +16533,259 @@ export interface operations {
             products: components["schemas"]["AdminTributeProductOut"][];
             subscriptions: components["schemas"]["AdminTributeSubscriptionOut"][];
           };
+        };
+      };
+    };
+  };
+  get_admin_telegram_emoji_catalog_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["EmojiCatalogOut"];
+        };
+      };
+    };
+  };
+  get_admin_telegram_emoji_library_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["EmojiLibraryOut"];
+        };
+      };
+    };
+  };
+  post_admin_telegram_emoji_add_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EmojiLibraryBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["EmojiLibraryOut"];
+        };
+      };
+    };
+  };
+  delete_admin_telegram_emoji_remove_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EmojiLibraryBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["EmojiLibraryOut"];
+        };
+      };
+    };
+  };
+  post_admin_telegram_emoji_refresh_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EmojiRefreshBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["EmojiLibraryOut"];
+        };
+      };
+    };
+  };
+  get_admin_telegram_emoji_media_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        emoji_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  get_admin_telegram_menu_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["TelegramMenuOut"];
+        };
+      };
+    };
+  };
+  put_admin_telegram_menu_save_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MenuSaveBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["TelegramMenuOut"];
+        };
+      };
+    };
+  };
+  post_admin_telegram_menu_preview_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MenuPreviewBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["MenuPreviewOut"];
+        };
+      };
+    };
+  };
+  post_admin_telegram_menu_test_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MenuPreviewBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["MenuTestOut"];
         };
       };
     };

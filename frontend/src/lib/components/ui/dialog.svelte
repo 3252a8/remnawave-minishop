@@ -33,6 +33,8 @@
     portal?: boolean;
     titleIcon?: Snippet;
     headerContent?: Snippet;
+    /** Fixed actions after the scrollable body. */
+    footer?: Snippet;
     children?: Snippet;
   };
 
@@ -49,6 +51,7 @@
     portal = false,
     titleIcon,
     headerContent,
+    footer,
     children,
   }: Props = $props();
 
@@ -127,7 +130,7 @@
       ></button>
       <section
         bind:this={card}
-        class={cn("dialog-card", className)}
+        class={cn("dialog-card", footer && "dialog-card-with-footer", className)}
         in:fly={cardIn()}
         out:fly={cardOut()}
       >
@@ -170,7 +173,19 @@
         >
           {@render children?.()}
         </ScrollArea>
+        {#if footer}
+          <div class="dialog-footer">{@render footer()}</div>
+        {/if}
       </section>
     </div>
   </Portal>
 {/if}
+
+<style>
+  .dialog-card-with-footer {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  .dialog-footer {
+    min-width: 0;
+  }
+</style>

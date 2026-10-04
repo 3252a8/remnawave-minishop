@@ -449,6 +449,7 @@ async def update_overrides(
     updates: dict[str, Any],
     deletes: list | None = None,
     actor_id: int | None = None,
+    expected_revisions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Persist + apply a batch of changes coming from the admin UI."""
 
@@ -525,6 +526,13 @@ async def update_overrides(
     async with async_session_factory() as raw_session:
         session: AsyncSession = raw_session
         async with session.begin():
+            from bot.services.telegram_settings_lock import lock_telegram_settings
+
+            conflict = await lock_telegram_settings(
+                session, (*coerced_updates, *valid_deletes), expected_revisions or {}
+            )
+            if conflict:
+                return {"ok": False, "errors": {conflict: "telegram_menu_conflict"}}
             methods_in_use = await partner_dal.active_withdrawal_methods_in_use(
                 session,
                 removed_partner_method_ids,

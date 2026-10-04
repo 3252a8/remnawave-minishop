@@ -788,6 +788,14 @@ class Settings(
             "the bot menu, Telegram Mini App, and web browser."
         ),
     )
+    TELEGRAM_MENU_APPEARANCE_JSON: str = Field(
+        default='{"schema_version":1,"buttons":{}}',
+        description="Telegram button styles and custom emoji icons, keyed by stable button ID.",
+    )
+    TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON: str = Field(
+        default='{"schema_version":1,"sets":[],"manual_ids":[]}',
+        description="Administrator-managed Telegram custom emoji sets and individual IDs.",
+    )
 
     START_COMMAND_DESCRIPTION: str | None = Field(default=None)
     DISABLE_WELCOME_MESSAGE: bool = Field(

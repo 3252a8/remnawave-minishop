@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cva } from "class-variance-authority";
   import { cn } from "$lib/utils.js";
+  import { controlSizeClass, type ControlSize } from "./controlSize";
   import type { Snippet } from "svelte";
   import type { HTMLAnchorAttributes, HTMLButtonAttributes } from "svelte/elements";
 
@@ -15,6 +16,7 @@
       href?: string;
       onclick?: ClickHandler;
       size?: ButtonSize;
+      controlSize?: ControlSize;
       type?: HTMLButtonAttributes["type"];
       variant?: ButtonVariant;
     };
@@ -23,6 +25,7 @@
     type = "button",
     variant = "default",
     size = "default",
+    controlSize,
     disabled = false,
     href = "",
     onclick = undefined,
@@ -62,7 +65,8 @@
 
 {#if href}
   <a
-    class={cn(buttonVariants({ variant, size }), className)}
+    class={cn(buttonVariants({ variant, size }), controlSizeClass(controlSize), className)}
+    data-control-size={controlSize}
     {href}
     onclick={forwardClick}
     {...rest}
@@ -71,7 +75,8 @@
   </a>
 {:else}
   <button
-    class={cn(buttonVariants({ variant, size }), className)}
+    class={cn(buttonVariants({ variant, size }), controlSizeClass(controlSize), className)}
+    data-control-size={controlSize}
     {type}
     {disabled}
     onclick={forwardClick}

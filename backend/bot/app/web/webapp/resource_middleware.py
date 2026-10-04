@@ -5,6 +5,7 @@ from aiohttp.typedefs import Handler
 
 from bot.app.web.context import get_settings
 from bot.app.web.session import extract_authenticated_user_id
+from config.telegram_menu import CUSTOM_EMOJI_ID_RE
 
 from .rate_limits import check_request_limits, client_ip, enforce_action_limit
 from .response_helpers import json_response
@@ -17,6 +18,7 @@ _CODE_ROUTES = {
     "/api/payments",
     "/api/tariffs/change-payment",
 }
+_EMOJI_MEDIA_PREFIX = "/api/admin/telegram-emoji/media/"
 
 
 @web.middleware
@@ -24,10 +26,23 @@ async def api_resource_middleware(request: web.Request, handler: Handler) -> web
     if request.path.startswith("/api/"):
         settings = get_settings(request)
         maximum = max(1, settings.WEBAPP_RATE_LIMIT_MAX_REQUESTS)
-        limits = [(f"api:ip:{client_ip(request)}", maximum * 8)]
         user_id = extract_authenticated_user_id(request)
+        quota = "api"
+        multiplier = 4
+        if (
+            user_id is not None
+            and request.method == "GET"
+            and request.path.startswith(_EMOJI_MEDIA_PREFIX)
+            and CUSTOM_EMOJI_ID_RE.fullmatch(request.path.removeprefix(_EMOJI_MEDIA_PREFIX))
+        ):
+            # A palette loads one protected image per emoji. Keep those bounded
+            # reads independent of account actions; admin authorization still
+            # runs in the downstream middleware and media route.
+            quota = "telegram-emoji-media"
+            multiplier = 16
+        limits = [(f"{quota}:ip:{client_ip(request)}", maximum * multiplier * 2)]
         if user_id is not None:
-            limits.append((f"api:user:{user_id}", maximum * 4))
+            limits.append((f"{quota}:user:{user_id}", maximum * multiplier))
         blocked = await check_request_limits(
             request, limits, window_seconds=settings.WEBAPP_RATE_LIMIT_TTL_SECONDS
         )

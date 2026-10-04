@@ -18,6 +18,8 @@ from config.settings_models import (
 from config.webapp_themes_config import WebappThemesConfig
 
 DEFAULT_SETTINGS_VALUES: dict[str, Any] = {
+    "TELEGRAM_MENU_APPEARANCE_JSON": '{"schema_version":1,"buttons":{}}',
+    "TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON": '{"schema_version":1,"sets":[],"manual_ids":[]}',
     "ADMIN_BROADCAST_AUDIENCE_COUNTS_CACHE_TTL_SECONDS": 30,
     "ADMIN_BROADCAST_EXCLUDE_BLOCKED_TELEGRAM": False,
     "ADMIN_DB_STATS_CACHE_TTL_SECONDS": 5,

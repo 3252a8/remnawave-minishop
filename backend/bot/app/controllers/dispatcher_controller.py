@@ -19,6 +19,7 @@ from bot.middlewares.db_session import DBSessionMiddleware
 from bot.middlewares.i18n import I18nMiddleware, JsonI18n
 from bot.middlewares.profile_sync import ProfileSyncMiddleware
 from bot.middlewares.registration_invite import RegistrationInviteMiddleware
+from bot.middlewares.telegram_menu_settings import TelegramMenuSettingsMiddleware
 from bot.middlewares.update_antiflood import UpdateAntiFloodMiddleware
 from config.settings import Settings
 
@@ -48,6 +49,7 @@ def build_dispatcher(
     )
 
     dp.update.outer_middleware(UpdateAntiFloodMiddleware(settings=settings))
+    dp.update.outer_middleware(TelegramMenuSettingsMiddleware(settings, async_session_factory))
     dp.update.outer_middleware(DBSessionMiddleware(async_session_factory))
     dp.update.outer_middleware(I18nMiddleware(i18n=i18n_instance, settings=settings))
     dp.update.outer_middleware(

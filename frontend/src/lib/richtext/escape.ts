@@ -12,11 +12,25 @@ export function escapeHtml(value: string): string {
 }
 
 export function unescapeHtml(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&");
+  const named: Record<string, string> = {
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+    amp: "&",
+  };
+  // Decode once: an escaped entity must stay literal, including numeric ampersands.
+  return value.replace(
+    /&(#(?:x[0-9a-f]+|[0-9]+)|lt|gt|quot|apos|nbsp|amp);/gi,
+    (entity: string, reference: string) => {
+      if (!reference.startsWith("#")) return named[reference.toLowerCase()];
+      const digits = reference.slice(1);
+      const codepoint =
+        digits[0].toLowerCase() === "x" ? parseInt(digits.slice(1), 16) : Number(digits);
+      return codepoint > 0 && codepoint <= 0x10ffff && !(codepoint >= 0xd800 && codepoint <= 0xdfff)
+        ? String.fromCodePoint(codepoint)
+        : entity;
+    }
+  );
 }

@@ -137,6 +137,20 @@ from .tariffs import (
 from .tariffs_tribute import (
     admin_tariffs_tribute_catalog_route,
 )
+from .telegram_emoji import (
+    admin_telegram_emoji_add_route,
+    admin_telegram_emoji_catalog_route,
+    admin_telegram_emoji_library_route,
+    admin_telegram_emoji_media_route,
+    admin_telegram_emoji_refresh_route,
+    admin_telegram_emoji_remove_route,
+)
+from .telegram_menu import (
+    admin_telegram_menu_preview_route,
+    admin_telegram_menu_route,
+    admin_telegram_menu_save_route,
+    admin_telegram_menu_test_route,
+)
 from .themes import (
     admin_appearance_favicon_upload_route,
     admin_appearance_logo_upload_route,
@@ -182,6 +196,16 @@ def setup_admin_routes(app: web.Application) -> None:
     setup_theme_library(app.router)
     setup_plugin_packages(app.router)
     router = app.router
+    router.add_get("/api/admin/telegram-menu", admin_telegram_menu_route)
+    router.add_put("/api/admin/telegram-menu", admin_telegram_menu_save_route)
+    router.add_post("/api/admin/telegram-menu/preview", admin_telegram_menu_preview_route)
+    router.add_post("/api/admin/telegram-menu/test", admin_telegram_menu_test_route)
+    router.add_get("/api/admin/telegram-emoji/library", admin_telegram_emoji_library_route)
+    router.add_post("/api/admin/telegram-emoji/library", admin_telegram_emoji_add_route)
+    router.add_delete("/api/admin/telegram-emoji/library", admin_telegram_emoji_remove_route)
+    router.add_post("/api/admin/telegram-emoji/library/refresh", admin_telegram_emoji_refresh_route)
+    router.add_get("/api/admin/telegram-emoji/catalog", admin_telegram_emoji_catalog_route)
+    router.add_get("/api/admin/telegram-emoji/media/{emoji_id}", admin_telegram_emoji_media_route)
     router.add_get("/api/admin/me", admin_me_route)
     router.add_get("/api/admin/roles", admin_roles_list_route)
     router.add_get("/api/admin/roles/candidates", admin_role_candidates_route)

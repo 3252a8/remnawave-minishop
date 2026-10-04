@@ -8151,6 +8151,46 @@
         "title": "Author",
         "type": "object"
       },
+      "ButtonAppearance": {
+        "additionalProperties": false,
+        "properties": {
+          "icon_custom_emoji_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon Custom Emoji Id"
+          },
+          "icon_mode": {
+            "default": "inherit",
+            "enum": [
+              "inherit",
+              "none",
+              "custom"
+            ],
+            "title": "Icon Mode",
+            "type": "string"
+          },
+          "style": {
+            "default": "default",
+            "enum": [
+              "default",
+              "primary",
+              "success",
+              "danger"
+            ],
+            "title": "Style",
+            "type": "string"
+          }
+        },
+        "title": "ButtonAppearance",
+        "type": "object"
+      },
       "Candidate": {
         "additionalProperties": false,
         "properties": {
@@ -8411,6 +8451,226 @@
           "system_email"
         ],
         "title": "EmailNotificationPreferencesPatchBody",
+        "type": "object"
+      },
+      "EmojiCapabilities": {
+        "properties": {
+          "icon": {
+            "$ref": "#/components/schemas/EmojiCapability"
+          },
+          "text": {
+            "$ref": "#/components/schemas/EmojiCapability"
+          }
+        },
+        "title": "EmojiCapabilities",
+        "type": "object"
+      },
+      "EmojiCapability": {
+        "properties": {
+          "state": {
+            "default": "unknown",
+            "enum": [
+              "unknown",
+              "supported",
+              "unavailable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "tested_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tested At"
+          }
+        },
+        "title": "EmojiCapability",
+        "type": "object"
+      },
+      "EmojiCatalogOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EmojiItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "EmojiCatalogOut",
+        "type": "object"
+      },
+      "EmojiItem": {
+        "properties": {
+          "fallback": {
+            "title": "Fallback",
+            "type": "string"
+          },
+          "format": {
+            "default": "static",
+            "enum": [
+              "static",
+              "animated",
+              "video"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "set_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Set Name"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thumbnail Url"
+          }
+        },
+        "required": [
+          "id",
+          "fallback"
+        ],
+        "title": "EmojiItem",
+        "type": "object"
+      },
+      "EmojiLibraryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Expected Revision",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "expected_revision"
+        ],
+        "title": "EmojiLibraryBody",
+        "type": "object"
+      },
+      "EmojiLibraryOut": {
+        "properties": {
+          "library": {
+            "$ref": "#/components/schemas/TelegramEmojiLibrary"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/EmojiSetInfo"
+            },
+            "title": "Sets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "library",
+          "revision",
+          "sets"
+        ],
+        "title": "EmojiLibraryOut",
+        "type": "object"
+      },
+      "EmojiRefreshBody": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "EmojiRefreshBody",
+        "type": "object"
+      },
+      "EmojiSetInfo": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "state": {
+            "default": "unknown",
+            "enum": [
+              "ready",
+              "error",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "title",
+          "count"
+        ],
+        "title": "EmojiSetInfo",
         "type": "object"
       },
       "EmptyObjectOut": {
@@ -9296,6 +9556,29 @@
         "title": "GiftView",
         "type": "object"
       },
+      "HiddenMenuButton": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "reason"
+        ],
+        "title": "HiddenMenuButton",
+        "type": "object"
+      },
       "HwidDevicePackage": {
         "properties": {
           "count": {
@@ -9717,6 +10000,186 @@
           "is_admin_event"
         ],
         "title": "LogOut",
+        "type": "object"
+      },
+      "MenuButtonInfo": {
+        "properties": {
+          "emoji_fallback": {
+            "default": "",
+            "title": "Emoji Fallback",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "label_key": {
+            "title": "Label Key",
+            "type": "string"
+          },
+          "screens": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Screens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label_key",
+          "label",
+          "screens"
+        ],
+        "title": "MenuButtonInfo",
+        "type": "object"
+      },
+      "MenuLanguage": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "title": "MenuLanguage",
+        "type": "object"
+      },
+      "MenuPreviewBody": {
+        "additionalProperties": false,
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/TelegramMenuAppearance"
+          },
+          "language": {
+            "default": "ru",
+            "maxLength": 24,
+            "minLength": 2,
+            "title": "Language",
+            "type": "string"
+          },
+          "scenario": {
+            "default": "new",
+            "enum": [
+              "new",
+              "active",
+              "trial_unavailable"
+            ],
+            "title": "Scenario",
+            "type": "string"
+          },
+          "screen": {
+            "default": "main",
+            "enum": [
+              "main",
+              "bot",
+              "information"
+            ],
+            "title": "Screen",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appearance"
+        ],
+        "title": "MenuPreviewBody",
+        "type": "object"
+      },
+      "MenuPreviewOut": {
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "hidden": {
+            "items": {
+              "$ref": "#/components/schemas/HiddenMenuButton"
+            },
+            "title": "Hidden",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/PreviewButton"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "rows",
+          "hidden"
+        ],
+        "title": "MenuPreviewOut",
+        "type": "object"
+      },
+      "MenuSaveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/TelegramMenuAppearance"
+          },
+          "expected_revision": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Expected Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appearance",
+          "expected_revision"
+        ],
+        "title": "MenuSaveBody",
+        "type": "object"
+      },
+      "MenuTestOut": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/EmojiCapabilities"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message Id"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sent",
+          "capabilities"
+        ],
+        "title": "MenuTestOut",
         "type": "object"
       },
       "MutationOut": {
@@ -11716,6 +12179,79 @@
           "unit"
         ],
         "title": "PaymentPurchaseOut",
+        "type": "object"
+      },
+      "PreviewButton": {
+        "properties": {
+          "emoji_fallback": {
+            "default": "",
+            "title": "Emoji Fallback",
+            "type": "string"
+          },
+          "icon_custom_emoji_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon Custom Emoji Id"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "callback",
+              "url",
+              "webapp"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "style": {
+            "default": "default",
+            "enum": [
+              "default",
+              "primary",
+              "success",
+              "danger"
+            ],
+            "title": "Style",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thumbnail Url"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind",
+          "target"
+        ],
+        "title": "PreviewButton",
         "type": "object"
       },
       "PreviewUploadOut": {
@@ -14212,6 +14748,93 @@
           }
         },
         "title": "TariffsSaveBody",
+        "type": "object"
+      },
+      "TelegramEmojiLibrary": {
+        "additionalProperties": false,
+        "properties": {
+          "manual_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Manual Ids",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sets": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Sets",
+            "type": "array"
+          }
+        },
+        "title": "TelegramEmojiLibrary",
+        "type": "object"
+      },
+      "TelegramMenuAppearance": {
+        "additionalProperties": false,
+        "properties": {
+          "buttons": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ButtonAppearance"
+            },
+            "maxProperties": 64,
+            "title": "Buttons",
+            "type": "object"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "title": "TelegramMenuAppearance",
+        "type": "object"
+      },
+      "TelegramMenuOut": {
+        "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/TelegramMenuAppearance"
+          },
+          "buttons": {
+            "items": {
+              "$ref": "#/components/schemas/MenuButtonInfo"
+            },
+            "title": "Buttons",
+            "type": "array"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/EmojiCapabilities"
+          },
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/MenuLanguage"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appearance",
+          "revision",
+          "buttons",
+          "languages",
+          "capabilities"
+        ],
+        "title": "TelegramMenuOut",
         "type": "object"
       },
       "ThemeEffectsDescriptor": {
@@ -26230,6 +26853,515 @@
           }
         ],
         "summary": "Admin Tariffs Tribute Catalog",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-emoji/catalog": {
+      "get": {
+        "operationId": "get_admin_telegram_emoji_catalog_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmojiCatalogOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Catalog",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-emoji/library": {
+      "delete": {
+        "operationId": "delete_admin_telegram_emoji_remove_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmojiLibraryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmojiLibraryOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Remove",
+        "tags": [
+          "admin"
+        ]
+      },
+      "get": {
+        "operationId": "get_admin_telegram_emoji_library_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmojiLibraryOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Library",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "operationId": "post_admin_telegram_emoji_add_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmojiLibraryBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmojiLibraryOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Add",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-emoji/library/refresh": {
+      "post": {
+        "operationId": "post_admin_telegram_emoji_refresh_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmojiRefreshBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmojiLibraryOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Refresh",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-emoji/media/{emoji_id}": {
+      "get": {
+        "operationId": "get_admin_telegram_emoji_media_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emoji_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Media",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-menu": {
+      "get": {
+        "operationId": "get_admin_telegram_menu_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TelegramMenuOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Menu",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_admin_telegram_menu_save_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuSaveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TelegramMenuOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Menu Save",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-menu/preview": {
+      "post": {
+        "operationId": "post_admin_telegram_menu_preview_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuPreviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MenuPreviewOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Menu Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-menu/test": {
+      "post": {
+        "operationId": "post_admin_telegram_menu_test_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuPreviewBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MenuTestOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Menu Test",
         "tags": [
           "admin"
         ]

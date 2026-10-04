@@ -379,6 +379,7 @@ async def main_action_callback_handler(
             i18n,
             privacy_url,
             user_agreement_url,
+            settings=settings,
             back_callback=(
                 "main_action:bot_interface"
                 if callback.data == "main_action:bot_info"

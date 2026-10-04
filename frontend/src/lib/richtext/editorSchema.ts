@@ -1,14 +1,106 @@
 /**
  * Tiptap schema + toolbar command helpers for the constrained Telegram editor
- * shared by broadcasts, one-off messages and support replies. The schema is
- * deliberately limited to the Telegram∩email tag set; the atomic `shortcode`
- * node renders personalization tokens as deletable chips and serializes back to
- * `{name}` via {@link ./telegramHtml}.
+ * shared by broadcasts, one-off messages and support replies. The schema
+ * retains Telegram custom emoji while display/email adapters use their Unicode
+ * fallback. Atomic nodes keep IDs and personalization tokens intact during
+ * clipboard, deletion and history operations.
  */
 
 import { type Editor, mergeAttributes, Node } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
+import { Plugin, type Transaction } from "@tiptap/pm/state";
+
+import { isCustomEmoji, isCustomEmojiFallback, type CustomEmoji } from "./customEmoji.js";
+import { createCustomEmojiNodeView } from "./customEmojiNodeView.js";
+import type { CustomEmojiMediaLoader } from "./types.js";
+
+export const CustomEmojiNode = Node.create<{ loadMedia?: CustomEmojiMediaLoader }>({
+  name: "customEmoji",
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+
+  addOptions() {
+    return { loadMedia: undefined };
+  },
+
+  addNodeView() {
+    return this.options.loadMedia ? createCustomEmojiNodeView(this.options.loadMedia) : null;
+  },
+
+  addAttributes() {
+    return {
+      id: { default: "", rendered: false },
+      fallback: { default: "", rendered: false },
+    };
+  },
+
+  parseHTML() {
+    return ["span[data-custom-emoji-id]", "tg-emoji"].map((tag) => ({
+      tag,
+      getAttrs: (element: HTMLElement) => {
+        const attrs = {
+          id:
+            element.getAttribute("data-custom-emoji-id") || element.getAttribute("emoji-id") || "",
+          fallback: element.textContent || "",
+        };
+        if (element.children.length || element.closest("pre,code") || !isCustomEmoji(attrs))
+          return false;
+        return attrs;
+      },
+    }));
+  },
+
+  renderHTML({ node }) {
+    return [
+      "span",
+      {
+        class: "rt-custom-emoji",
+        "data-custom-emoji-id": String(node.attrs.id || ""),
+      },
+      String(node.attrs.fallback || ""),
+    ];
+  },
+
+  renderText({ node }) {
+    return String(node.attrs.fallback || "");
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Alt-c": () => {
+        toggleCodeBlock(this.editor);
+        return true;
+      },
+    };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        appendTransaction(transactions, _oldState, state) {
+          if (!transactions.some((transaction) => transaction.docChanged)) return null;
+          const tr = state.tr;
+          state.doc.descendants((node, position) => {
+            if (
+              node.type.name !== "customEmoji" ||
+              !node.marks.some((mark) => mark.type.name === "code")
+            )
+              return;
+            tr.replaceWith(
+              tr.mapping.map(position),
+              tr.mapping.map(position + node.nodeSize),
+              state.schema.text(String(node.attrs.fallback || ""), node.marks)
+            );
+          });
+          return tr.docChanged ? tr : null;
+        },
+      }),
+    ];
+  },
+});
 
 export const ShortcodeNode = Node.create({
   name: "shortcode",
@@ -70,7 +162,12 @@ export function composerExtensions(
   {
     autolink = false,
     documentBlocks = false,
-  }: { autolink?: boolean; documentBlocks?: boolean } = {}
+    loadCustomEmojiMedia,
+  }: {
+    autolink?: boolean;
+    documentBlocks?: boolean;
+    loadCustomEmojiMedia?: CustomEmojiMediaLoader;
+  } = {}
 ) {
   return [
     StarterKit.configure({
@@ -90,6 +187,7 @@ export function composerExtensions(
     }),
     Placeholder.configure({ placeholder }),
     ShortcodeNode,
+    CustomEmojiNode.configure({ loadMedia: loadCustomEmojiMedia }),
     ...(documentBlocks ? [markdownSourceNode(true), markdownSourceNode(false)] : []),
   ];
 }
@@ -98,6 +196,18 @@ export function composerExtensions(
 export type MessageShortcodeInfo = { name: string; cost: string; description: string };
 
 export type ToolbarMark = "bold" | "italic" | "underline" | "strike" | "code";
+
+export function toolbarMarkButtons(
+  labels: Record<ToolbarMark, string>
+): { mark: ToolbarMark; label: string; icon: string }[] {
+  return [
+    { mark: "bold", label: labels.bold, icon: "B" },
+    { mark: "italic", label: labels.italic, icon: "I" },
+    { mark: "underline", label: labels.underline, icon: "U" },
+    { mark: "strike", label: labels.strike, icon: "S" },
+    { mark: "code", label: labels.code, icon: "</>" },
+  ];
+}
 
 export function toggleMark(editor: Editor, mark: ToolbarMark): void {
   const chain = editor.chain().focus();
@@ -115,13 +225,51 @@ export function toggleMark(editor: Editor, mark: ToolbarMark): void {
       chain.toggleStrike().run();
       break;
     case "code":
+      if (!editor.isActive("code"))
+        chain.command(({ tr }) => {
+          replaceSelectedCustomEmoji(tr);
+          return true;
+        });
       chain.toggleCode().run();
       break;
   }
 }
 
 export function toggleCodeBlock(editor: Editor): void {
-  editor.chain().focus().toggleCodeBlock().run();
+  const chain = editor.chain().focus();
+  if (!editor.isActive("codeBlock"))
+    chain.command(({ tr }) => {
+      replaceSelectedCustomEmoji(tr, true);
+      return true;
+    });
+  chain.toggleCodeBlock().run();
+}
+
+/** Code-block conversion would otherwise discard inline atoms outside the selection. */
+function replaceSelectedCustomEmoji(tr: Transaction, wholeTextblocks = false): void {
+  const replacements: { position: number; size: number; fallback: string }[] = [];
+  tr.doc.nodesBetween(tr.selection.from, tr.selection.to, (node, position) => {
+    if (wholeTextblocks && node.isTextblock) {
+      node.descendants((child, offset) => {
+        if (child.type.name === "customEmoji")
+          replacements.push({
+            position: position + 1 + offset,
+            size: child.nodeSize,
+            fallback: String(child.attrs.fallback || ""),
+          });
+      });
+      return false;
+    }
+    if (node.type.name === "customEmoji")
+      replacements.push({
+        position,
+        size: node.nodeSize,
+        fallback: String(node.attrs.fallback || ""),
+      });
+  });
+  for (const { position, size, fallback } of replacements.reverse()) {
+    tr.replaceWith(position, position + size, fallback ? tr.doc.type.schema.text(fallback) : []);
+  }
 }
 
 export function toggleBlockquote(editor: Editor): void {
@@ -130,6 +278,21 @@ export function toggleBlockquote(editor: Editor): void {
 
 export function insertShortcode(editor: Editor, name: string): void {
   editor.chain().focus().insertContent({ type: "shortcode", attrs: { name } }).run();
+}
+
+/** Both picker tabs use this boundary; ordinary emoji and code use plain text. */
+export function insertCustomEmoji(editor: Editor, emoji: CustomEmoji): void {
+  if (!isCustomEmojiFallback(emoji.fallback)) return;
+  if (!emoji.id || editor.isActive("code") || editor.isActive("codeBlock")) {
+    editor.chain().focus().insertContent({ type: "text", text: emoji.fallback }).run();
+    return;
+  }
+  if (!isCustomEmoji(emoji)) return;
+  const marks = (editor.state.storedMarks || editor.state.selection.$from.marks()).map((mark) => ({
+    type: mark.type.name,
+    attrs: mark.attrs,
+  }));
+  editor.chain().focus().insertContent({ type: "customEmoji", attrs: emoji, marks }).run();
 }
 
 /** Insert a ready-made link, leaving the caret outside the link mark. */
@@ -163,4 +326,17 @@ export function applyLink(editor: Editor, href: string): void {
 
 export function isMarkActive(editor: Editor, mark: string): boolean {
   return editor.isActive(mark);
+}
+
+export function editorActiveMarks(editor: Editor | null) {
+  return {
+    bold: editor?.isActive("bold") ?? false,
+    italic: editor?.isActive("italic") ?? false,
+    underline: editor?.isActive("underline") ?? false,
+    strike: editor?.isActive("strike") ?? false,
+    code: editor?.isActive("code") ?? false,
+    codeBlock: editor?.isActive("codeBlock") ?? false,
+    blockquote: editor?.isActive("blockquote") ?? false,
+    link: editor?.isActive("link") ?? false,
+  };
 }

@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { getSchema } from "@tiptap/core";
+import { EditorState, NodeSelection, TextSelection } from "@tiptap/pm/state";
+import { history, redo, undo } from "@tiptap/pm/history";
+
+import { composerExtensions } from "./editorSchema";
+import { isCustomEmojiFallback, isCustomEmojiId } from "./customEmoji";
 
 import {
   type Doc,
@@ -166,5 +172,162 @@ describe("wireTextLength", () => {
     expect(wireTextLength("<b>abcd</b>", "html")).toBe(4);
     expect(wireTextLength('<a href="https://very.long/url">ok</a>', "html")).toBe(2);
     expect(wireTextLength("<b>abcd</b>", "text")).toBe("<b>abcd</b>".length);
+  });
+});
+
+describe("Telegram custom emoji", () => {
+  const id = "5368324170671202286";
+  const entity = (fallback = "🙂", entityId = id) =>
+    `<tg-emoji emoji-id="${entityId}">${fallback}</tg-emoji>`;
+
+  it("retains an ID above the JavaScript integer range with neighboring tokens and links", () => {
+    const wire = `Hi {first_name} ${entity("👩🏽‍💻")} <a href="https://example.test">open</a>`;
+    const parsed = parseTelegramHtml(wire);
+    expect(parsed.unknownTags).toEqual([]);
+    expect(parsed.invalidCustomEmoji).toEqual([]);
+    expect(parsed.doc.content[0]).toMatchObject({
+      content: [
+        { type: "text", text: "Hi " },
+        { type: "shortcode", attrs: { name: "first_name" } },
+        { type: "text", text: " " },
+        { type: "customEmoji", attrs: { id, fallback: "👩🏽‍💻" } },
+        { type: "text", text: " " },
+        { type: "text", text: "open" },
+      ],
+    });
+    expect(roundtrip(wire)).toBe(wire);
+    expect(roundtrip(roundtrip(wire))).toBe(wire);
+  });
+
+  it("preserves supported surrounding marks and quote placement", () => {
+    const wire = `<blockquote><a href="https://example.test"><b><i>${entity("❤️")}</i></b></a></blockquote>`;
+    const schema = getSchema(composerExtensions(""));
+    const document = schema.nodeFromJSON(telegramHtmlToDoc(wire));
+    expect(docToTelegramHtml(document.toJSON() as Doc)).toBe(wire);
+  });
+
+  it.each(["🙂", "👩🏽‍💻", "👨‍👩‍👧‍👦", "❤️", "1️⃣", "🇷🇺", "🏳️‍🌈", "©", "®", "™", "☀"])(
+    "keeps a whole Unicode emoji fallback: %s",
+    (fallback) => {
+      expect(isCustomEmojiFallback(fallback)).toBe(true);
+      expect(roundtrip(entity(fallback))).toBe(entity(fallback));
+      expect(wireTextLength(entity(fallback))).toBe([...fallback].length);
+    }
+  );
+
+  it.each(["", "0", "01", "-1", "1.2", "1e18", "9007199254740993x", "123456789012345678901"])(
+    "shows an invalid ID as literal source with a warning: %s",
+    (invalidId) => {
+      expect(isCustomEmojiId(invalidId)).toBe(false);
+      const wire = entity("🙂", invalidId);
+      const parsed = parseTelegramHtml(wire);
+      expect(parsed.invalidCustomEmoji).toEqual([wire]);
+      expect(docToTelegramHtml(parsed.doc)).toBe(wire.replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+      expect(messageDisplayHtml(wire, "html")).not.toContain("<tg-emoji");
+    }
+  );
+
+  it.each([
+    "",
+    "ordinary text",
+    "🙂🙂",
+    " 🙂",
+    "<img src=x onerror=alert(1)>",
+    "🙂\n",
+    "😀́",
+    "😀‍",
+    "🇷",
+  ])("does not create an entity from an invalid fallback: %s", (fallback) => {
+    expect(isCustomEmojiFallback(fallback)).toBe(false);
+    expect(parseTelegramHtml(entity(fallback)).invalidCustomEmoji).not.toEqual([]);
+  });
+
+  it("rejects nested HTML, extra attributes, unclosed wrappers and orphan closing tags", () => {
+    for (const wire of [
+      `<tg-emoji emoji-id="${id}"><b>🙂</b></tg-emoji>`,
+      `<tg-emoji emoji-id="${id}" onclick="alert(1)">🙂</tg-emoji>`,
+      `<tg-emoji emoji-id="${id}">${entity()}</tg-emoji>`,
+      `<tg-emoji emoji-id="${id}">🙂`,
+      "🙂</tg-emoji>",
+    ]) {
+      const parsed = parseTelegramHtml(wire);
+      expect(parsed.invalidCustomEmoji.length).toBeGreaterThan(0);
+      expect(docToTelegramHtml(parsed.doc)).not.toContain("<tg-emoji");
+      expect(previewHtmlFromWire(wire)).not.toContain("<tg-emoji");
+    }
+  });
+
+  it("decodes numeric Unicode entities once and canonicalizes source attributes", () => {
+    expect(roundtrip(`<tg-emoji emoji-id='${id}'>&#x1f642;</tg-emoji>`)).toBe(entity());
+    expect(roundtrip(`<tg-emoji emoji-id=${id}>&#128578;</tg-emoji>`)).toBe(entity());
+    expect(roundtrip("&#38;lt;b&#38;gt;")).toBe("&amp;lt;b&amp;gt;");
+  });
+
+  it("uses plain fallback in code and pre without losing surrounding content", () => {
+    expect(roundtrip(`<code>a${entity("👩🏽‍💻")}b</code>`)).toBe("<code>a👩🏽‍💻b</code>");
+    expect(roundtrip(`<pre>a${entity("❤️")}\nb</pre>`)).toBe("<pre>a❤️\nb</pre>");
+    expect(roundtrip(`<pre>a${entity("❤️")}`)).toBe("<pre>a❤️</pre>");
+  });
+
+  it("renders Unicode fallback safely in both browser surfaces", () => {
+    const wire = `<b>${entity()}</b><img src=x onerror=alert(1)>`;
+    for (const html of [previewHtmlFromWire(wire), messageDisplayHtml(wire, "html")]) {
+      expect(html).toContain("<b>🙂</b>");
+      expect(html).not.toContain("<tg-emoji");
+      expect(html).not.toContain("<img");
+    }
+    const invalidDocument: Doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "customEmoji",
+              attrs: { id: '" onclick="alert(1)', fallback: "<script>alert(1)</script>" },
+            },
+          ],
+        },
+      ],
+    };
+    expect(docToTelegramHtml(invalidDocument)).toBe("&lt;script&gt;alert(1)&lt;/script&gt;");
+  });
+
+  it("counts fallback codepoints consistently with ordinary text", () => {
+    expect(wireTextLength(`A${entity("👩🏽‍💻")}Z`)).toBe(6);
+    expect(wireTextLength("A👩🏽‍💻Z", "text")).toBe(6);
+    expect(wireTextLength(`<pre>🙂${entity("❤️")}</pre>`)).toBe(3);
+  });
+
+  it("keeps the atom through copied slices, whole-node deletion, undo and redo", () => {
+    const schema = getSchema(composerExtensions(""));
+    let state = EditorState.create({
+      schema,
+      doc: schema.nodeFromJSON(telegramHtmlToDoc(`A${entity()}Z`)),
+      plugins: [history()],
+    });
+    const atom = state.doc.nodeAt(2);
+    expect(atom?.isAtom).toBe(true);
+    expect(atom?.nodeSize).toBe(1);
+    const copied = state.doc.slice(2, 3);
+    state = state.apply(
+      state.tr.setSelection(NodeSelection.create(state.doc, 2)).deleteSelection()
+    );
+    expect(docToTelegramHtml(state.doc.toJSON() as Doc)).toBe("AZ");
+    expect(
+      undo(state, (transaction) => {
+        state = state.apply(transaction);
+      })
+    ).toBe(true);
+    expect(docToTelegramHtml(state.doc.toJSON() as Doc)).toBe(`A${entity()}Z`);
+    expect(
+      redo(state, (transaction) => {
+        state = state.apply(transaction);
+      })
+    ).toBe(true);
+    state = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, 2)).replaceSelection(copied)
+    );
+    expect(docToTelegramHtml(state.doc.toJSON() as Doc)).toBe(`A${entity()}Z`);
   });
 });

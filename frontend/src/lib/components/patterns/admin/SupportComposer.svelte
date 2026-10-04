@@ -4,12 +4,15 @@
   import { Switch } from "$components/ui/primitives.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
   import MessageButtonsEditor from "$lib/admin/components/MessageButtonsEditor.svelte";
+  import { getAdminApi } from "$lib/admin/context";
+  import { createAdminEmojiPicker } from "$lib/admin/emojiPicker.svelte";
   import { adminRichTextLabels } from "$lib/admin/richTextLabels.js";
   import type { BroadcastButtonDraft } from "$lib/admin/stores/broadcastStore.svelte";
   import RichTextEditor from "$lib/richtext/RichTextEditor.svelte";
   import type { MessageShortcodeInfo } from "$lib/richtext/editorSchema";
   import { wireTextLength } from "$lib/richtext/telegramHtml";
   import type { RichTextQuickInsert } from "$lib/richtext/types";
+  import EmojiPicker from "$lib/telegramEmoji/EmojiPicker.svelte";
 
   import type { TranslateFn } from "./types";
 
@@ -54,6 +57,8 @@
   }: Props = $props();
 
   const MAX_BUTTONS = 4;
+  const api = getAdminApi();
+  const emojiPicker = createAdminEmojiPicker();
 
   const labels = $derived(
     adminRichTextLabels(at, { linkPlaceholder: at("support_link_placeholder", {}, "https://...") })
@@ -168,6 +173,8 @@
       {shortcodes}
       {onRequestShortcodes}
       {quickInserts}
+      selectCustomEmoji={emojiPicker.select}
+      loadCustomEmojiMedia={emojiPicker.loadMedia}
       placeholder={at("support_reply_placeholder", {}, "Reply")}
       minHeight="120px"
       autolink
@@ -254,6 +261,14 @@
     </div>
   </div>
 </div>
+
+<EmojiPicker
+  open={emojiPicker.open}
+  onOpenChange={emojiPicker.onOpenChange}
+  onSelect={emojiPicker.onSelect}
+  {at}
+  {api}
+/>
 
 <style>
   .support-admin-composer-buttons {

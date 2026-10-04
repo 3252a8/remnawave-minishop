@@ -1,5 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
-from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.middlewares.i18n import JsonI18n, locale_language_options
 from bot.services.legal_document_links import legal_document_links
@@ -8,20 +8,21 @@ from config.menu_buttons import configured_menu_buttons, telegram_menu_button_te
 from config.settings import Settings
 from config.support_links import normalize_support_link
 
+from .menu_appearance import MenuButton, MenuKeyboardBuilder, menu_button
 from .user_keyboards_context import telegram_bot_menu_enabled_for_user
 
 
-def _trial_activation_button(
-    lang: str, i18n_instance: JsonI18n, settings: Settings
-) -> InlineKeyboardButton:
+def _trial_activation_button(lang: str, i18n_instance: JsonI18n, settings: Settings) -> MenuButton:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     if settings.SUBSCRIPTION_MINI_APP_URL:
         trial_url = subscription_mini_app_trial_url(settings) or settings.SUBSCRIPTION_MINI_APP_URL
-        return InlineKeyboardButton(
+        return menu_button(
+            "trial",
             text=_(key="menu_activate_trial_button"),
             web_app=WebAppInfo(url=trial_url),
         )
-    return InlineKeyboardButton(
+    return menu_button(
+        "trial",
         text=_(key="menu_activate_trial_button"),
         callback_data="main_action:request_trial",
     )
@@ -35,9 +36,10 @@ def get_main_menu_inline_keyboard(
     *,
     user_id: int | None = None,
     is_admin: bool = False,
+    button_ids: list[list[str]] | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    builder = InlineKeyboardBuilder()
+    builder = MenuKeyboardBuilder(settings, button_ids)
     support_link = normalize_support_link(settings.support_settings.link)
 
     if show_trial_button and settings.TRIAL_ENABLED:
@@ -45,14 +47,16 @@ def get_main_menu_inline_keyboard(
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
         builder.row(
-            InlineKeyboardButton(
+            menu_button(
+                "personal_account",
                 text=_(key="menu_personal_account_button"),
                 web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
             )
         )
     else:
         builder.row(
-            InlineKeyboardButton(
+            menu_button(
+                "personal_account",
                 text=_(key="menu_personal_account_button"),
                 callback_data="main_action:my_subscription",
             )
@@ -60,25 +64,31 @@ def get_main_menu_inline_keyboard(
 
     if telegram_bot_menu_enabled_for_user(settings, user_id=user_id, is_admin=is_admin):
         builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_bot_interface_button"), callback_data="main_action:bot_interface"
+            menu_button(
+                "bot_interface",
+                text=_(key="menu_bot_interface_button"),
+                callback_data="main_action:bot_interface",
             )
         )
 
     if settings.server_status_external_url:
         builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_server_status_button"), url=settings.server_status_external_url
+            menu_button(
+                "server_status",
+                text=_(key="menu_server_status_button"),
+                url=settings.server_status_external_url,
             )
         )
 
     if support_link:
-        builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
+        builder.row(menu_button("support", text=_(key="menu_support_button"), url=support_link))
 
     privacy_url, user_agreement_url = legal_document_links(settings)
     if privacy_url or user_agreement_url:
         builder.row(
-            InlineKeyboardButton(text=_(key="menu_info_button"), callback_data="main_action:info")
+            menu_button(
+                "information", text=_(key="menu_info_button"), callback_data="main_action:info"
+            )
         )
 
     for button in configured_menu_buttons(settings.MENU_BUTTONS_JSON):
@@ -92,9 +102,13 @@ def get_main_menu_inline_keyboard(
         if button.kind in {"webapp", "page"}:
             target_url = subscription_mini_app_path_url(settings, button.target)
             if target_url:
-                builder.row(InlineKeyboardButton(text=text, web_app=WebAppInfo(url=target_url)))
+                builder.row(
+                    menu_button(
+                        f"custom:{button.id}", text=text, web_app=WebAppInfo(url=target_url)
+                    )
+                )
         else:
-            builder.row(InlineKeyboardButton(text=text, url=button.target))
+            builder.row(menu_button(f"custom:{button.id}", text=text, url=button.target))
 
     return builder.as_markup()
 
@@ -106,9 +120,10 @@ def get_bot_interface_inline_keyboard(
     show_trial_button: bool = False,
     *,
     referral_program_enabled: bool = True,
+    button_ids: list[list[str]] | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    builder = InlineKeyboardBuilder()
+    builder = MenuKeyboardBuilder(settings, button_ids)
     support_link = normalize_support_link(settings.support_settings.link)
 
     if show_trial_button and settings.TRIAL_ENABLED:
@@ -116,61 +131,73 @@ def get_bot_interface_inline_keyboard(
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
         builder.row(
-            InlineKeyboardButton(
+            menu_button(
+                "personal_account",
                 text=_(key="menu_personal_account_button"),
                 web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
             )
         )
 
     builder.row(
-        InlineKeyboardButton(
-            text=_(key="menu_subscribe_inline"), callback_data="main_action:bot_subscribe"
+        menu_button(
+            "subscribe",
+            text=_(key="menu_subscribe_inline"),
+            callback_data="main_action:bot_subscribe",
         )
     )
     builder.row(
-        InlineKeyboardButton(
+        menu_button(
+            "my_subscription",
             text=_(key="menu_my_subscription_inline"),
             callback_data="main_action:bot_my_subscription",
         )
     )
 
-    promo_button = InlineKeyboardButton(
-        text=_(key="menu_apply_promo_button"), callback_data="main_action:bot_apply_promo"
+    promo_button = menu_button(
+        "promo", text=_(key="menu_apply_promo_button"), callback_data="main_action:bot_apply_promo"
     )
     if referral_program_enabled:
         builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_referral_inline"), callback_data="main_action:bot_referral"
+            menu_button(
+                "referral",
+                text=_(key="menu_referral_inline"),
+                callback_data="main_action:bot_referral",
             )
         )
     builder.row(promo_button)
 
-    language_button = InlineKeyboardButton(
-        text=_(key="menu_language_settings_inline"), callback_data="main_action:bot_language"
+    language_button = menu_button(
+        "language",
+        text=_(key="menu_language_settings_inline"),
+        callback_data="main_action:bot_language",
     )
     builder.row(language_button)
 
     if settings.server_status_external_url:
         builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_server_status_button"), url=settings.server_status_external_url
+            menu_button(
+                "server_status",
+                text=_(key="menu_server_status_button"),
+                url=settings.server_status_external_url,
             )
         )
 
     if support_link:
-        builder.row(InlineKeyboardButton(text=_(key="menu_support_button"), url=support_link))
+        builder.row(menu_button("support", text=_(key="menu_support_button"), url=support_link))
 
     privacy_url, user_agreement_url = legal_document_links(settings)
     if privacy_url or user_agreement_url:
         builder.row(
-            InlineKeyboardButton(
-                text=_(key="menu_info_button"), callback_data="main_action:bot_info"
+            menu_button(
+                "information", text=_(key="menu_info_button"), callback_data="main_action:bot_info"
             )
         )
 
     builder.row(
-        InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data="main_action:back_to_main"
+        menu_button(
+            "back_to_main",
+            text=_(key="back_to_main_menu_button"),
+            callback_data="main_action:back_to_main",
         )
     )
 
@@ -183,19 +210,26 @@ def get_information_links_keyboard(
     privacy_policy_url: str | None,
     user_agreement_url: str | None,
     back_callback: str = "main_action:back_to_main",
+    *,
+    settings: Settings | None = None,
+    button_ids: list[list[str]] | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    builder = InlineKeyboardBuilder()
+    builder = MenuKeyboardBuilder(settings, button_ids)
     if privacy_policy_url:
         builder.row(
-            InlineKeyboardButton(text=_(key="privacy_policy_button"), url=privacy_policy_url)
+            menu_button("privacy", text=_(key="privacy_policy_button"), url=privacy_policy_url)
         )
     if user_agreement_url:
         builder.row(
-            InlineKeyboardButton(text=_(key="user_agreement_button"), url=user_agreement_url)
+            menu_button(
+                "user_agreement", text=_(key="user_agreement_button"), url=user_agreement_url
+            )
         )
     builder.row(
-        InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data=back_callback)
+        menu_button(
+            "back_to_main", text=_(key="back_to_main_menu_button"), callback_data=back_callback
+        )
     )
     return builder.as_markup()
 

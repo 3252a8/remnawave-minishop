@@ -35,6 +35,7 @@ docker-compose.yml
 deploy/compose/*.yml
 .dockerignore
 tmp/
+.tmp/
 
 # WebApp build artifacts (regenerated inside Docker)
 bot/app/web/templates/subscription_webapp.css

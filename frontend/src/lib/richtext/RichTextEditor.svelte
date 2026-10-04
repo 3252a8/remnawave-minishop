@@ -7,21 +7,37 @@
   import {
     applyLink,
     composerExtensions,
+    editorActiveMarks,
     insertLink,
     insertShortcode,
     insertText,
     toggleBlockquote,
     toggleCodeBlock,
     toggleMark,
+    toolbarMarkButtons,
     type MessageShortcodeInfo,
     type ToolbarMark,
   } from "./editorSchema.js";
-  import { type Doc, docToTelegramHtml, telegramHtmlToDoc } from "./telegramHtml.js";
-  import type { RichTextFormat, RichTextLabels, RichTextQuickInsert } from "./types.js";
+  import {
+    type Doc,
+    docToTelegramHtml,
+    parseTelegramHtml,
+    telegramHtmlToDoc,
+  } from "./telegramHtml.js";
+  import type { CustomEmoji } from "./customEmoji.js";
+  import { CustomEmojiSelection } from "./customEmojiSelection.js";
+  import RichTextLinkEntry from "./RichTextLinkEntry.svelte";
+  import type {
+    CustomEmojiMediaLoader,
+    RichTextFormat,
+    RichTextLabels,
+    RichTextQuickInsert,
+  } from "./types.js";
 
   const telegramHtmlFormat: RichTextFormat = {
     fromSource: telegramHtmlToDoc,
     toSource: docToTelegramHtml,
+    customEmoji: true,
   };
 
   let {
@@ -42,6 +58,8 @@
     format = telegramHtmlFormat,
     documentBlocks = false,
     autofocus = false,
+    selectCustomEmoji,
+    loadCustomEmojiMedia,
   }: {
     value: string;
     onInput: (value: string) => void;
@@ -67,6 +85,10 @@
     documentBlocks?: boolean;
     /** Focus the editable surface after Tiptap has mounted it. */
     autofocus?: boolean;
+    /** The host owns catalog access. The default shared editor has no palette. */
+    selectCustomEmoji?: () => Promise<CustomEmoji | null>;
+    /** Optional host-owned authenticated thumbnails, independent of palette access. */
+    loadCustomEmojiMedia?: CustomEmojiMediaLoader;
   } = $props();
 
   // Tiptap's JSON is structurally the subset each storage adapter serializes;
@@ -86,34 +108,21 @@
   let selectionTick = $state(0);
   let editorMounted = false;
   let lastEditorSyncValue = "";
+  let emojiPicking = $state(false);
+  let emojiPickerFailed = $state(false);
+  const emojiSelection = new CustomEmojiSelection();
 
   const hasShortcodes = $derived(Boolean(onRequestShortcodes));
   const hasQuickInserts = $derived(quickInserts.length > 0 || Boolean(onRequestQuickInserts));
+  const hasCustomEmojiPicker = $derived(format.customEmoji === true && Boolean(selectCustomEmoji));
+  const invalidEmojiMarkup = $derived(
+    format.customEmoji === true &&
+      parseTelegramHtml(sourceMode ? sourceText : value).invalidCustomEmoji.length > 0
+  );
 
   const active = $derived.by(() => {
     selectionTick;
-    if (!editor) {
-      return {
-        bold: false,
-        italic: false,
-        underline: false,
-        strike: false,
-        code: false,
-        codeBlock: false,
-        blockquote: false,
-        link: false,
-      };
-    }
-    return {
-      bold: editor.isActive("bold"),
-      italic: editor.isActive("italic"),
-      underline: editor.isActive("underline"),
-      strike: editor.isActive("strike"),
-      code: editor.isActive("code"),
-      codeBlock: editor.isActive("codeBlock"),
-      blockquote: editor.isActive("blockquote"),
-      link: editor.isActive("link"),
-    };
+    return editorActiveMarks(editor);
   });
 
   onMount(() => {
@@ -121,7 +130,11 @@
     editorMounted = true;
     const instance = new Editor({
       element: host,
-      extensions: composerExtensions(placeholder, { autolink, documentBlocks }),
+      extensions: composerExtensions(placeholder, {
+        autolink,
+        documentBlocks,
+        loadCustomEmojiMedia: format.customEmoji === true ? loadCustomEmojiMedia : undefined,
+      }),
       content: format.fromSource(value),
       editable: !disabled,
       onUpdate: ({ editor: current }) => {
@@ -133,7 +146,8 @@
       onSelectionUpdate: () => {
         selectionTick += 1;
       },
-      onTransaction: () => {
+      onTransaction: ({ editor: current, transaction }) => {
+        emojiSelection.map(current, transaction);
         selectionTick += 1;
       },
     });
@@ -150,6 +164,7 @@
     instance.view.dom.addEventListener("keydown", handleKeydown);
     return () => {
       editorMounted = false;
+      emojiSelection.cancel();
       if (editor === instance) editor = null;
       instance.view.dom.removeEventListener("keydown", handleKeydown);
       instance.destroy();
@@ -168,6 +183,7 @@
     }
     if (lastEditorSyncValue === value) return;
     lastEditorSyncValue = value;
+    emojiSelection.cancel();
     current.commands.setContent(format.fromSource(value), { emitUpdate: false });
   });
 
@@ -218,6 +234,7 @@
   }
 
   async function enterSourceMode(): Promise<void> {
+    emojiSelection.cancel();
     sourceText = format === telegramHtmlFormat && editor ? serialize(editor) : value;
     sourceMode = true;
     await tick();
@@ -253,6 +270,27 @@
     if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") return;
     event.preventDefault();
     onSubmit();
+  }
+
+  async function pickCustomEmoji(): Promise<void> {
+    const current = editor;
+    if (!current || disabled || sourceMode || emojiPicking || !selectCustomEmoji) return;
+    shortcodesOpen = false;
+    insertsOpen = false;
+    linkOpen = false;
+    emojiPicking = true;
+    emojiPickerFailed = false;
+    try {
+      await emojiSelection.select(
+        current,
+        selectCustomEmoji,
+        () => editorMounted && editor === current && !disabled && !sourceMode
+      );
+    } catch {
+      emojiPickerFailed = true;
+    } finally {
+      emojiPicking = false;
+    }
   }
 
   /** Insert `token` at the caret while the raw-markup textarea has focus. */
@@ -395,13 +433,7 @@
     linkHref = "";
   }
 
-  const markButtons: { mark: ToolbarMark; label: string; icon: string }[] = $derived([
-    { mark: "bold", label: labels.bold, icon: "B" },
-    { mark: "italic", label: labels.italic, icon: "I" },
-    { mark: "underline", label: labels.underline, icon: "U" },
-    { mark: "strike", label: labels.strike, icon: "S" },
-    { mark: "code", label: labels.code, icon: "</>" },
-  ]);
+  const markButtons = $derived(toolbarMarkButtons(labels));
   const sourceControlsVisible = $derived(!sourceMode || format.sourceModeControls !== false);
 </script>
 
@@ -460,6 +492,24 @@
       >
         🔗
       </button>
+    {/if}
+
+    {#if hasCustomEmojiPicker}
+      <button
+        type="button"
+        class="rt-tool"
+        data-rt-custom-emoji
+        aria-haspopup="dialog"
+        aria-label={labels.customEmoji}
+        title={sourceMode
+          ? labels.customEmojiSourceUnavailable
+          : active.code || active.codeBlock
+            ? labels.customEmojiCodeFallback
+            : labels.customEmoji}
+        disabled={disabled || sourceMode || emojiPicking}
+        onpointerdown={(event) => event.preventDefault()}
+        onclick={() => void pickCustomEmoji()}>🙂</button
+      >
     {/if}
 
     {#if hasQuickInserts}
@@ -567,24 +617,18 @@
     {/if}
   </div>
 
+  {#if invalidEmojiMarkup || emojiPickerFailed || (sourceMode && hasCustomEmojiPicker)}
+    <small class="rt-emoji-hint" role="status">
+      {invalidEmojiMarkup
+        ? labels.customEmojiInvalid
+        : emojiPickerFailed
+          ? labels.customEmojiUnavailable
+          : labels.customEmojiSourceUnavailable}
+    </small>
+  {/if}
+
   {#if linkOpen}
-    <div class="rt-link-row">
-      <input
-        class="input rt-link-input"
-        type="url"
-        placeholder={labels.linkPlaceholder}
-        bind:value={linkHref}
-        onkeydown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            confirmLink();
-          }
-        }}
-      />
-      <button type="button" class="rt-tool" onclick={confirmLink}>
-        {labels.linkApply}
-      </button>
-    </div>
+    <RichTextLinkEntry bind:value={linkHref} {labels} {disabled} onConfirm={confirmLink} />
   {/if}
 
   {#if sourceMode}
@@ -611,6 +655,7 @@
 
 <style>
   .rt-editor {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -741,16 +786,6 @@
     color: var(--rt-text-muted, var(--admin-text-muted, #9aa3b2));
   }
 
-  .rt-link-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .rt-link-input {
-    flex: 1;
-  }
-
   .rt-surface {
     min-height: var(--rt-min-height, 140px);
     padding: 10px 12px;
@@ -773,6 +808,7 @@
     font-size: 14px;
     line-height: 1.55;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .rt-surface :global(.ProseMirror p) {
@@ -815,7 +851,48 @@
 
   .rt-source {
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     font-family: "JetBrains Mono", ui-monospace, monospace;
     font-size: 13px;
+  }
+
+  .rt-surface :global(.rt-custom-emoji) {
+    display: inline-block;
+    font-size: 1.2em;
+    line-height: 1.2;
+    border-radius: 3px;
+  }
+
+  .rt-surface :global(.rt-custom-emoji.ProseMirror-selectednode) {
+    outline: 2px solid var(--rt-accent, var(--accent));
+  }
+
+  .rt-emoji-hint {
+    color: var(--rt-text-muted, var(--admin-text-muted, #9aa3b2));
+    font-size: 12px;
+  }
+
+  @media (max-width: 720px) {
+    .rt-toolbar {
+      position: relative;
+    }
+    .rt-tool {
+      min-width: 44px;
+      height: 44px;
+    }
+    .rt-menu {
+      position: static;
+    }
+    .rt-menu-list {
+      left: 0;
+      right: 0;
+      width: auto;
+      min-width: 0;
+    }
+    .rt-source,
+    .rt-surface :global(.ProseMirror) {
+      font-size: 16px;
+    }
   }
 </style>

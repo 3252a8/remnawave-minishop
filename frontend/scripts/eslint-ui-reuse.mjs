@@ -9,12 +9,6 @@ export const nativeFieldBaseline = [
   },
   {
     file: "src/lib/richtext/RichTextEditor.svelte",
-    control: "input:url",
-    count: 1,
-    reason: "Editor-owned link form",
-  },
-  {
-    file: "src/lib/richtext/RichTextEditor.svelte",
     control: "textarea",
     count: 1,
     reason: "Editor-owned HTML source surface",

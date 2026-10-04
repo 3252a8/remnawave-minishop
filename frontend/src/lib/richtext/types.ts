@@ -3,6 +3,9 @@
 import type { Doc } from "./telegramHtml.js";
 import type { ToolbarMark } from "./editorSchema.js";
 
+/** Hosts supply authenticated media; generic editor code knows only the entity ID. */
+export type CustomEmojiMediaLoader = (id: string, signal: AbortSignal) => Promise<Blob>;
+
 /**
  * Storage adapter for a shared rich-text surface.
  *
@@ -18,6 +21,8 @@ export type RichTextFormat = {
   sourceModeControls?: boolean;
   /** Omit marks with no safe source-format equivalent (for example underline in Markdown). */
   enabledMarks?: ToolbarMark[];
+  /** The storage format can retain Telegram custom emoji entities. */
+  customEmoji?: boolean;
 };
 
 /**
@@ -49,6 +54,11 @@ export type RichTextLabels = {
   shortcodes: string;
   shortcodesLoading: string;
   shortcodePanelBadge: string;
+  customEmoji: string;
+  customEmojiSourceUnavailable: string;
+  customEmojiCodeFallback: string;
+  customEmojiInvalid: string;
+  customEmojiUnavailable: string;
 };
 
 /** One entry of the host-supplied "insert" menu. */

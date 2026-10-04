@@ -181,6 +181,8 @@ function inlineMarkdown(nodes: EditorNode[] | undefined): string {
       if (node.type === "markdownInline")
         return markdownForMarks(String(node.attrs?.source || ""), node.marks, true);
       if (node.type === "shortcode") return `{${String(node.attrs?.name || "")}}`;
+      if (node.type === "customEmoji")
+        return markdownForMarks(String(node.attrs?.fallback || ""), node.marks);
       return markdownForMarks(String(node.text || ""), node.marks);
     })
     .join("");
@@ -263,5 +265,6 @@ export const markdownFormat: RichTextFormat = {
   fromSource: markdownDocument,
   toSource: editorDocToMarkdown,
   sourceModeControls: false,
+  customEmoji: false,
   enabledMarks: ["bold", "italic", "strike", "code"],
 };

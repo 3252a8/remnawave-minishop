@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
+  import { controlSizeClass, type ControlSize } from "./controlSize";
   import type { HTMLInputAttributes } from "svelte/elements";
 
   type InputProps = Omit<
@@ -29,6 +30,7 @@
     autocomplete?: HTMLInputAttributes["autocomplete"];
     disabled?: boolean;
     class?: string;
+    controlSize?: ControlSize;
     onkeydown?: HTMLInputAttributes["onkeydown"];
     oninput?: HTMLInputAttributes["oninput"];
     onfocus?: HTMLInputAttributes["onfocus"];
@@ -50,6 +52,7 @@
     autocomplete = undefined,
     disabled = false,
     class: className = "",
+    controlSize,
     onkeydown,
     oninput,
     onfocus,
@@ -81,7 +84,8 @@
 <input
   id={inputId}
   bind:value
-  class={cn("input", className)}
+  class={cn("input", controlSizeClass(controlSize), className)}
+  data-control-size={controlSize}
   onkeydown={forwardKeydown}
   oninput={forwardInput}
   onfocus={forwardFocus}
@@ -95,3 +99,18 @@
   {disabled}
   {...rest}
 />
+
+<style>
+  /* The admin context already specifies 36px height; the public input's 46px
+     minimum must not defeat that density. Explicit controlSize wins separately. */
+  :global(.admin-screen-wrap) .input:not([data-control-size]),
+  :global(.admin-dialog) .input:not([data-control-size]) {
+    min-height: 36px;
+  }
+
+  @media (max-width: 560px) {
+    .input[data-control-size] {
+      font-size: 16px;
+    }
+  }
+</style>

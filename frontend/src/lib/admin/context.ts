@@ -35,3 +35,4 @@ export const [getTariffsStore, setTariffsStore] = createContext<TariffsStore>();
 export const [getThemesStore, setThemesStore] = createContext<ThemesStore>();
 export const [getTranslationsStore, setTranslationsStore] = createContext<TranslationsStore>();
 export const [getAdminApi, setAdminApi] = createContext<ApiClient["api"]>();
+export const [getAdminApiBlob, setAdminApiBlob] = createContext<ApiClient["apiBlob"]>();

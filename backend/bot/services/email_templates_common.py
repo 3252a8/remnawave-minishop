@@ -507,6 +507,8 @@ class _TelegramEmailHtmlConverter(HTMLParser):
         self.parts.append(html.escape(data).replace("\n", "<br>"))
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tg-emoji":
+            return
         if tag == "a":
             href = next((value for key, value in attrs if key == "href"), None)
             if href and href.strip().lower().startswith(("http://", "https://")):
@@ -532,6 +534,8 @@ class _TelegramEmailHtmlConverter(HTMLParser):
         self.handle_endtag(tag)
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "tg-emoji":
+            return
         if tag == "a":
             if self._anchor_stack and self._anchor_stack.pop():
                 self.parts.append("</a>")

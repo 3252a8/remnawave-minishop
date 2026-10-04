@@ -1,6 +1,8 @@
 <script lang="ts">
   import { Check, ChevronDown, LockKeyhole } from "$components/ui/icons.js";
   import { Select } from "$components/ui/primitives.js";
+  import { controlSizeClass, type ControlSize } from "$components/ui/controlSize";
+  import { cn } from "$lib/utils.js";
   import { dynamicComponent } from "$lib/../admin/adminLazyComponents";
   import { SELECT_ITEM_ICONS, type SelectItemIcon } from "./selectItemIcons";
 
@@ -25,6 +27,7 @@
     collisionPadding?: number;
     onValueChange?: (value: string) => void;
     class?: string;
+    controlSize?: ControlSize;
   };
 
   let {
@@ -39,6 +42,7 @@
     collisionPadding = 12,
     onValueChange = () => {},
     class: className = "",
+    controlSize,
   }: Props = $props();
 
   const selected = $derived(items.find((item) => item.value === value));
@@ -93,7 +97,8 @@
   onValueChange={handleValueChange}
 >
   <Select.Trigger
-    class={`admin-select-trigger ${className}`.trim()}
+    class={cn("admin-select-trigger", controlSizeClass(controlSize), className)}
+    data-control-size={controlSize}
     aria-label={ariaLabel || placeholder}
   >
     {#if selectedIcon}

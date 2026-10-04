@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { ColorInput, FileInput, Input, Textarea } from "$components/ui/index.js";
   import {
     Check,
@@ -22,6 +23,9 @@
   import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
   import NotificationDeliveryMatrix from "./NotificationDeliveryMatrix.svelte";
   import MenuButtonsField from "./MenuButtonsField.svelte";
+  import TelegramMenuAppearance from "./TelegramMenuAppearance.svelte";
+  import { getAdminApi, getSettingsStore } from "$lib/admin/context";
+  import { createTelegramMenuSettingsAdapter } from "./telegramMenuSettings";
   import ProgramSettingsSections from "./marketing/ProgramSettingsSections.svelte";
   import {
     groupSectionFields,
@@ -41,6 +45,7 @@
   import {
     settingsDirtyCountLabel,
     settingsFieldsCountLabel,
+    settingsFieldValueSourceLabel,
     settingsOverriddenCountLabel,
     settingsParamsCountLabel,
   } from "./disclosureLabels";
@@ -60,6 +65,8 @@
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
   type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
+  const telegramMenuSettings = createTelegramMenuSettingsAdapter(getSettingsStore(), getAdminApi());
+  onMount(telegramMenuSettings.subscribeDraftInvalidation);
   let {
     at,
     appRepositoryUrl = "https://minishop.minidoc.cc/",
@@ -222,22 +229,6 @@
   function resetSettingsSearch(): void {
     clearSettingsSearch();
     settingsSearchOpen = false;
-  }
-
-  function fieldValueSourceLabel(field: AdminSettingField): string {
-    const dirty = settingsDirty[field.key];
-    const source = dirty?.deleted
-      ? "environment"
-      : dirty
-        ? "database_override"
-        : String(field.value_source || "").trim();
-    if (source === "database_override") {
-      return at("settings_source_database_override", {}, "Source: database override");
-    }
-    if (source === "environment") {
-      return at("settings_source_environment", {}, "Source: environment (.env)");
-    }
-    return "";
   }
 
   function configuredValue(key: string): boolean {
@@ -522,14 +513,14 @@
       {isOverridden}
     />
   {:else if fieldGroups.length === 1 && !fieldGroups[0].titleKey}
-    {#each fieldGroups[0].fields as field}
+    {#each fieldGroups[0].fields as field (field.key)}
       {#if field.key !== "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED" && field.key !== "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED"}
         {@render renderField(field)}
       {/if}
     {/each}
   {:else}
     <div class="admin-settings-field-groups">
-      {#each fieldGroups as fieldGroup}
+      {#each fieldGroups as fieldGroup (fieldGroup.id)}
         <section
           class="admin-settings-field-group"
           data-settings-anchor={fieldGroup.titleKey
@@ -545,7 +536,7 @@
             </header>
           {/if}
           <div class="admin-settings-field-group-body">
-            {#each fieldGroup.fields as field}
+            {#each fieldGroup.fields as field (field.key)}
               {#if field.key !== "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED" && field.key !== "TORRENT_BLOCKER_EMAIL_NOTIFICATIONS_ENABLED"}
                 {@render renderField(field)}
               {/if}
@@ -558,195 +549,210 @@
 {/snippet}
 
 {#snippet renderField(field: AdminSettingField)}
-  {@const dirtySecret = settingsDirty[field.key]}
-  {@const canRevealSecret = Boolean(
-    field.secret && !dirtySecret?.deleted && String(dirtySecret?.value ?? "")
-  )}
-  {@const revealed = canRevealSecret && isSecretRevealed(field.key)}
-  {@const valueSource = fieldValueSourceLabel(field)}
-  <div
-    class="admin-setting"
-    class:admin-setting--menu-buttons={field.type === "menu_buttons"}
-    class:admin-setting--payment-method-order={field.key === "PAYMENT_METHODS_ORDER"}
-    class:is-overridden={isOverridden(field)}
-    class:is-search-highlighted={highlightedSettingKey === field.key}
-    data-settings-anchor={settingsFieldAnchorKey(field.key)}
-    tabindex="-1"
-  >
-    <div class="admin-setting-meta">
-      <strong>
-        {fieldLabelText(field)}
-        {#if field.secret}
-          <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
-        {/if}
-        {#if isOverridden(field)}
-          <AdminBadge variant="success">{at("settings_badge_override", {}, "Override")}</AdminBadge>
-        {/if}
-      </strong>
-      <code>{field.key}</code>
-      {#if valueSource}
-        <small class="admin-setting-source">{valueSource}</small>
-      {/if}
-      {#if fieldDescriptionText(field)}
-        <small>{fieldDescriptionText(field)}</small>
-      {/if}
-    </div>
-    <div class="admin-setting-control">
-      {#if field.type === "bool" || field.key === "SUBSCRIPTION_LINK_MODE"}
-        <div class="admin-setting-switch">
-          <Switch.Root
-            aria-label={fieldLabelText(field)}
-            checked={Boolean(valueFor(field))}
-            onCheckedChange={(checked) => setBoolField(field, checked)}
-            class="admin-switch-root"
-          >
-            <Switch.Thumb class="admin-switch-thumb" />
-          </Switch.Root>
-          <span
-            >{valueFor(field) ? at("enabled", {}, "Enabled") : at("disabled", {}, "Disabled")}</span
-          >
-        </div>
-      {:else if field.type === "color"}
-        <ColorInput
-          class="admin-color"
-          translate={at}
-          value={fieldTextValue(field) || "#00fe7a"}
-          ariaLabel={fieldLabelText(field)}
-          oninput={fieldInputHandler(field)}
-        />
-        <Input
-          class="input"
-          type="text"
-          value={fieldInputValue(field)}
-          oninput={fieldInputHandler(field)}
-        />
-      {:else if field.type === "icon"}
-        {@const selectedIconName = iconValue(field)}
-        {@const SelectedIcon = iconComponent(selectedIconName)}
-        <AdminButton
-          class="admin-icon-picker-trigger"
-          variant="ghost"
-          onclick={() => openIconPicker(field)}
-        >
-          {#if SelectedIcon}
-            <SelectedIcon size={16} />
+  {#if field.key !== "TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON"}
+    {@const dirtySecret = settingsDirty[field.key]}
+    {@const canRevealSecret = Boolean(
+      field.secret && !dirtySecret?.deleted && String(dirtySecret?.value ?? "")
+    )}
+    {@const revealed = canRevealSecret && isSecretRevealed(field.key)}
+    {@const valueSource = settingsFieldValueSourceLabel(at, field, settingsDirty[field.key])}
+    <div
+      class="admin-setting"
+      class:admin-setting--menu-buttons={field.type === "menu_buttons"}
+      class:admin-setting--telegram-menu={field.type === "telegram_menu"}
+      class:admin-setting--payment-method-order={field.key === "PAYMENT_METHODS_ORDER"}
+      class:is-overridden={isOverridden(field)}
+      class:is-search-highlighted={highlightedSettingKey === field.key}
+      data-settings-anchor={settingsFieldAnchorKey(field.key)}
+      tabindex="-1"
+    >
+      <div class="admin-setting-meta">
+        <strong>
+          {fieldLabelText(field)}
+          {#if field.secret}
+            <AdminBadge variant="warning">{at("settings_badge_secret", {}, "Secret")}</AdminBadge>
           {/if}
-          <span>{iconLabel(field)}</span>
-        </AdminButton>
-        {#if !iconIsDefault(field)}
-          <AdminButton size="sm" variant="ghost" onclick={() => markFieldDirty(field.key, "")}>
-            <X size={12} />
-            {at("clear", {}, "Clear")}
-          </AdminButton>
+          {#if isOverridden(field)}
+            <AdminBadge variant="success"
+              >{at("settings_badge_override", {}, "Override")}</AdminBadge
+            >
+          {/if}
+        </strong>
+        <code>{field.key}</code>
+        {#if valueSource}
+          <small class="admin-setting-source">{valueSource}</small>
         {/if}
-      {:else if field.key === "PAYMENT_METHODS_ORDER" && field.payment_method_options?.length}
-        <PaymentMethodsOrderField
-          {at}
-          value={fieldTextValue(field)}
-          options={field.payment_method_options}
-          onValueChange={(value) => markFieldDirty(field.key, value)}
-        />
-      {:else if field.type === "menu_buttons"}
-        <MenuButtonsField
-          {at}
-          value={fieldTextValue(field)}
-          languages={menuButtonLanguages}
-          onValueChange={(value) => markFieldDirty(field.key, value)}
-        />
-      {:else if field.choices && field.choices.length > 0}
-        <AdminSelect
-          class="admin-setting-select"
-          value={fieldTextValue(field)}
-          items={choiceItems(field)}
-          ariaLabel={fieldLabelText(field)}
-          placeholder={fieldPlaceholderText(field) || fieldLabelText(field)}
-          onValueChange={fieldSelectHandler(field)}
-        />
-      {:else if field.type === "int" || field.type === "float"}
-        <Input
-          class="input"
-          type="number"
-          step={field.type === "float" ? "0.1" : "1"}
-          min={field.min ?? undefined}
-          max={field.max ?? undefined}
-          placeholder={fieldPlaceholderText(field)}
-          value={fieldInputValue(field)}
-          oninput={fieldInputHandler(field)}
-        />
-      {:else if field.type === "text"}
-        <Textarea
-          class="admin-setting-textarea"
-          rows={4}
-          placeholder={fieldPlaceholderText(field)}
-          value={fieldTextValue(field)}
-          oninput={fieldInputHandler(field)}
-        />
-      {:else if field.type === "json"}
-        <div class="admin-json-toolbar">
-          <FileInput
-            id={"json-file-" + field.key}
-            class="admin-json-file-input"
-            accept="application/json,.json"
-            onchange={jsonFileHandler(field)}
+        {#if fieldDescriptionText(field)}
+          <small>{fieldDescriptionText(field)}</small>
+        {/if}
+      </div>
+      <div class="admin-setting-control">
+        {#if field.type === "bool" || field.key === "SUBSCRIPTION_LINK_MODE"}
+          <div class="admin-setting-switch">
+            <Switch.Root
+              aria-label={fieldLabelText(field)}
+              checked={Boolean(valueFor(field))}
+              onCheckedChange={(checked) => setBoolField(field, checked)}
+              class="admin-switch-root"
+            >
+              <Switch.Thumb class="admin-switch-thumb" />
+            </Switch.Root>
+            <span
+              >{valueFor(field)
+                ? at("enabled", {}, "Enabled")
+                : at("disabled", {}, "Disabled")}</span
+            >
+          </div>
+        {:else if field.type === "color"}
+          <ColorInput
+            class="admin-color"
+            translate={at}
+            value={fieldTextValue(field) || "#00fe7a"}
+            ariaLabel={fieldLabelText(field)}
+            oninput={fieldInputHandler(field)}
           />
-          <label
-            class="admin-btn admin-btn-sm admin-btn-ghost admin-json-upload"
-            for={"json-file-" + field.key}
+          <Input
+            class="input"
+            type="text"
+            value={fieldInputValue(field)}
+            oninput={fieldInputHandler(field)}
+          />
+        {:else if field.type === "icon"}
+          {@const selectedIconName = iconValue(field)}
+          {@const SelectedIcon = iconComponent(selectedIconName)}
+          <AdminButton
+            class="admin-icon-picker-trigger"
+            variant="ghost"
+            onclick={() => openIconPicker(field)}
           >
-            <FileText size={13} />
-            {at("settings_json_upload", {}, "Load .json")}
-          </label>
-          {#if valueFor(field)}
+            {#if SelectedIcon}
+              <SelectedIcon size={16} />
+            {/if}
+            <span>{iconLabel(field)}</span>
+          </AdminButton>
+          {#if !iconIsDefault(field)}
             <AdminButton size="sm" variant="ghost" onclick={() => markFieldDirty(field.key, "")}>
               <X size={12} />
               {at("clear", {}, "Clear")}
             </AdminButton>
           {/if}
-        </div>
-        <Textarea
-          class="admin-setting-textarea admin-setting-json-textarea"
-          rows={10}
-          spellcheck="false"
-          placeholder={fieldPlaceholderText(field)}
-          value={fieldTextValue(field)}
-          oninput={fieldInputHandler(field)}
-        />
-      {:else if field.secret}
-        <Input
-          class="input"
-          type={revealed ? "text" : "password"}
-          placeholder={secretPlaceholder(field)}
-          autocomplete="off"
-          value={fieldInputValue(field)}
-          oninput={fieldInputHandler(field)}
-        />
-        {#if canRevealSecret}
-          <AdminButton
-            size="sm"
-            variant="ghost"
-            aria-label={revealed ? at("hide", {}, "Hide") : at("show", {}, "Show")}
-            onclick={() => toggleSecretReveal(field.key)}
-          >
-            {#if revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
+        {:else if field.key === "PAYMENT_METHODS_ORDER" && field.payment_method_options?.length}
+          <PaymentMethodsOrderField
+            {at}
+            value={fieldTextValue(field)}
+            options={field.payment_method_options}
+            onValueChange={(value) => markFieldDirty(field.key, value)}
+          />
+        {:else if field.type === "telegram_menu"}
+          <TelegramMenuAppearance
+            {at}
+            api={telegramMenuSettings.api}
+            onOpenCustomButtons={telegramMenuSettings.openCustomButtons}
+            onSaved={telegramMenuSettings.saveAppearance}
+            subscribeSettingsSaved={telegramMenuSettings.subscribeSettingsSaved}
+          />
+        {:else if field.type === "menu_buttons"}
+          <MenuButtonsField
+            {at}
+            value={fieldTextValue(field)}
+            languages={menuButtonLanguages}
+            onValueChange={(value) => markFieldDirty(field.key, value)}
+          />
+        {:else if field.choices && field.choices.length > 0}
+          <AdminSelect
+            class="admin-setting-select"
+            value={fieldTextValue(field)}
+            items={choiceItems(field)}
+            ariaLabel={fieldLabelText(field)}
+            placeholder={fieldPlaceholderText(field) || fieldLabelText(field)}
+            onValueChange={fieldSelectHandler(field)}
+          />
+        {:else if field.type === "int" || field.type === "float"}
+          <Input
+            class="input"
+            type="number"
+            step={field.type === "float" ? "0.1" : "1"}
+            min={field.min ?? undefined}
+            max={field.max ?? undefined}
+            placeholder={fieldPlaceholderText(field)}
+            value={fieldInputValue(field)}
+            oninput={fieldInputHandler(field)}
+          />
+        {:else if field.type === "text"}
+          <Textarea
+            class="admin-setting-textarea"
+            rows={4}
+            placeholder={fieldPlaceholderText(field)}
+            value={fieldTextValue(field)}
+            oninput={fieldInputHandler(field)}
+          />
+        {:else if field.type === "json"}
+          <div class="admin-json-toolbar">
+            <FileInput
+              id={"json-file-" + field.key}
+              class="admin-json-file-input"
+              accept="application/json,.json"
+              onchange={jsonFileHandler(field)}
+            />
+            <label
+              class="admin-btn admin-btn-sm admin-btn-ghost admin-json-upload"
+              for={"json-file-" + field.key}
+            >
+              <FileText size={13} />
+              {at("settings_json_upload", {}, "Load .json")}
+            </label>
+            {#if valueFor(field)}
+              <AdminButton size="sm" variant="ghost" onclick={() => markFieldDirty(field.key, "")}>
+                <X size={12} />
+                {at("clear", {}, "Clear")}
+              </AdminButton>
+            {/if}
+          </div>
+          <Textarea
+            class="admin-setting-textarea admin-setting-json-textarea"
+            rows={10}
+            spellcheck="false"
+            placeholder={fieldPlaceholderText(field)}
+            value={fieldTextValue(field)}
+            oninput={fieldInputHandler(field)}
+          />
+        {:else if field.secret}
+          <Input
+            class="input"
+            type={revealed ? "text" : "password"}
+            placeholder={secretPlaceholder(field)}
+            autocomplete="off"
+            value={fieldInputValue(field)}
+            oninput={fieldInputHandler(field)}
+          />
+          {#if canRevealSecret}
+            <AdminButton
+              size="sm"
+              variant="ghost"
+              aria-label={revealed ? at("hide", {}, "Hide") : at("show", {}, "Show")}
+              onclick={() => toggleSecretReveal(field.key)}
+            >
+              {#if revealed}<EyeOff size={13} />{:else}<Eye size={13} />{/if}
+            </AdminButton>
+          {/if}
+        {:else}
+          <Input
+            class="input"
+            type="text"
+            placeholder={fieldPlaceholderText(field)}
+            value={fieldInputValue(field)}
+            oninput={fieldInputHandler(field)}
+          />
+        {/if}
+        {#if isOverridden(field) || settingsDirty[field.key]}
+          <AdminButton size="sm" variant="ghost" onclick={() => resetField(field)}>
+            <X size={12} />
+            {at("reset", {}, "Reset")}
           </AdminButton>
         {/if}
-      {:else}
-        <Input
-          class="input"
-          type="text"
-          placeholder={fieldPlaceholderText(field)}
-          value={fieldInputValue(field)}
-          oninput={fieldInputHandler(field)}
-        />
-      {/if}
-      {#if isOverridden(field) || settingsDirty[field.key]}
-        <AdminButton size="sm" variant="ghost" onclick={() => resetField(field)}>
-          <X size={12} />
-          {at("reset", {}, "Reset")}
-        </AdminButton>
-      {/if}
+      </div>
     </div>
-  </div>
+  {/if}
 {/snippet}
 
 {#if settingsLoading || !visibleSettingsSections.length}
@@ -855,7 +861,7 @@
       {toggleSettingsSection}
       {onNavigateSection}
     />
-    {#each visibleSettingsSections as section}
+    {#each visibleSettingsSections as section (section.id)}
       {@const dirtyInSection = section.fields.filter((f) => Boolean(settingsDirty[f.key])).length}
       {@const overriddenInSection = section.fields.filter((f) => isOverridden(f)).length}
       {@const sectionIsOpen = settingsOpenSections.includes(section.id)}
@@ -899,7 +905,7 @@
               {/if}
               {#if labelGroups.length}
                 <div class="admin-subsection-accordion">
-                  {#each labelGroups as group}
+                  {#each labelGroups as group (group.id)}
                     {@const subDirty = group.fields.filter((f) =>
                       Boolean(settingsDirty[f.key])
                     ).length}
@@ -961,11 +967,13 @@
 
 <style>
   .admin-setting--menu-buttons,
+  .admin-setting--telegram-menu,
   .admin-setting--payment-method-order {
     grid-template-columns: 1fr;
   }
 
   .admin-setting--menu-buttons .admin-setting-control,
+  .admin-setting--telegram-menu .admin-setting-control,
   .admin-setting--payment-method-order .admin-setting-control {
     width: 100%;
   }
