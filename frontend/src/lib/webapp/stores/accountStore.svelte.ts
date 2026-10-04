@@ -486,7 +486,12 @@ export function createAccountStore({
       closeLinkEmailDialog();
       showToast(t("wa_settings_linked"));
     } catch (error: unknown) {
-      setLinkEmailStatus(emailError(error, t("wa_auth_invalid_code"), t), true);
+      if (stringField(asRecord(error).error) === "account_merge_required") {
+        closeLinkEmailDialog();
+        openTelegramMergeDialog();
+      } else {
+        setLinkEmailStatus(emailError(error, t("wa_auth_invalid_code"), t), true);
+      }
     } finally {
       updateState((s) => ({ ...s, linkEmailBusy: false }));
     }

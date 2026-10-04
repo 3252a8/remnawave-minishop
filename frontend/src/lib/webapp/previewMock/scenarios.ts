@@ -249,6 +249,11 @@ export function applyPreviewMock(kind: unknown): void {
     .trim()
     .toLowerCase();
 
+  if (mode === "future-providers") {
+    applyPreviewMock("auth");
+    return;
+  }
+
   if (mode === "legacy-themes") {
     for (const catalog of [DEV_MOCK.config.themesCatalog, DEV_MOCK.data.themes_catalog]) {
       if (!catalog.themes.some((theme) => theme.key === "CustomTheme"))
@@ -331,6 +336,20 @@ export function applyPreviewMock(kind: unknown): void {
     DEV_MOCK.data.settings.auth_providers = ["telegram", "email", "google"];
     DEV_MOCK.data.settings.trial_enabled = true;
     DEV_MOCK.data.settings.trial_available = true;
+    const previewSearch = new URLSearchParams(
+      typeof window === "undefined" ? "" : window.location.search
+    );
+    if (previewSearch.get("provider_demo") === "future") {
+      const providers = ["telegram", "email", "google", "yandex", "discord", "future-provider"];
+      DEV_MOCK.config.authProviders = providers;
+      DEV_MOCK.data.settings.auth_providers = providers;
+      DEV_MOCK.data.user.external_identities = [
+        { provider: "discord", display_name: "Discord user", can_unlink: true },
+        ...(previewSearch.get("future_linked") === "1"
+          ? [{ provider: "future-provider", display_name: "Future user", can_unlink: true }]
+          : []),
+      ];
+    }
     return;
   }
 

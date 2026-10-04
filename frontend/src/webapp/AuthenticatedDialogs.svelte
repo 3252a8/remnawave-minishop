@@ -11,7 +11,7 @@
   import PaymentDialogs from "./PaymentDialogs.svelte";
   import SubscriptionReissueDialog from "./payment-dialogs/SubscriptionReissueDialog.svelte";
   import DeviceRenameDialog from "./payment-dialogs/DeviceRenameDialog.svelte";
-  import TelegramMergeDialog from "./security/TelegramMergeDialog.svelte";
+  import AccountMergeDialog from "./security/AccountMergeDialog.svelte";
   import TributeCreatorCancelDialog from "./payment-dialogs/TributeCreatorCancelDialog.svelte";
   import QaPaymentDialog from "./payment-dialogs/QaPaymentDialog.svelte";
   import TariffDialogs from "./TariffDialogs.svelte";
@@ -141,10 +141,10 @@
 </script>
 
 <QaPaymentDialog {api} {loadData} {t} />
-<TelegramMergeDialog
+<AccountMergeDialog
   {api}
-  email={user?.email || ""}
-  open={emailAuthEnabled && accountStore.telegramMergeOpen}
+  currentLang={user.language_code || "ru"}
+  open={accountStore.telegramMergeOpen}
   onclose={accountStore.closeTelegramMergeDialog}
   onmerged={accountStore.completeTelegramMerge}
   {t}

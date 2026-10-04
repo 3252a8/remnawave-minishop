@@ -16,6 +16,7 @@ from .contract_schemas import (
     user_contract,
 )
 from .payloads import (
+    WebAppAccountMergePayload,
     WebAppEmailChangeConfirmPayload,
     WebAppEmailChangeCurrentPayload,
     WebAppEmailChangeNewPayload,
@@ -31,6 +32,32 @@ from .payloads import (
 )
 
 ACCOUNT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
+    "account_merge_passkey_options_route": user_contract(
+        response_schema=ok_envelope_with(
+            {"options": {"type": "object", "additionalProperties": True}}
+        )
+    ),
+    "account_merge_passkey_verify_route": user_contract(
+        request_model=WebAppPasskeyCredentialPayload,
+        response_schema=ok_envelope_with(),
+    ),
+    "account_merge_status_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "provider": STRING_SCHEMA,
+                "target_confirmed": BOOLEAN_SCHEMA,
+                "providers": {"type": "array", "items": STRING_SCHEMA},
+                "email_available": BOOLEAN_SCHEMA,
+                "email": STRING_SCHEMA,
+            }
+        )
+    ),
+    "account_merge_request_route": user_contract(response_schema=EMAIL_REQUEST_RESPONSE_SCHEMA),
+    "account_merge_confirm_route": user_contract(
+        request_model=WebAppAccountMergePayload,
+        response_schema=AUTH_RESPONSE_SCHEMA,
+    ),
+    "account_merge_cancel_route": user_contract(response_schema=ok_envelope_with()),
     "account_email_change_current_request_route": user_contract(
         response_schema=EMAIL_REQUEST_RESPONSE_SCHEMA
     ),

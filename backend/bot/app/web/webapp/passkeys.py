@@ -25,6 +25,7 @@ from db.models import (
     WebAuthnChallenge,
 )
 
+from .account_merge_proof import confirm_merge_target, read_merge_proof, write_merge_proof
 from .auth import _build_webapp_auth_response
 from .auth_common import _public_webapp_base_url
 from .common import (
@@ -151,6 +152,18 @@ async def _consume_challenge(
 
 
 async def passkey_auth_options_route(request: web.Request) -> web.Response:
+    return await _passkey_auth_options(request)
+
+
+async def account_merge_passkey_options_route(request: web.Request) -> web.Response:
+    return await _passkey_auth_options(request, merge=True)
+
+
+async def _passkey_auth_options(request: web.Request, *, merge: bool = False) -> web.Response:
+    user_id = _require_user_id(request) if merge else None
+    proof = read_merge_proof(request, user_id) if user_id is not None else None
+    if merge and not proof:
+        return _json_error(410, "account_merge_proof_expired", "Repeat account linking")
     settings: Settings = get_settings(request)
     if not settings.PASSKEY_LOGIN_ENABLED:
         return _json_error(404, "passkey_not_enabled", "Passkey login is not enabled")
@@ -176,17 +189,42 @@ async def passkey_auth_options_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         await _store_challenge(
-            session, settings, options.challenge, ceremony="authentication", user_id=None
+            session,
+            settings,
+            options.challenge,
+            ceremony="account_merge" if proof else "authentication",
+            user_id=user_id,
         )
         await session.commit()
-    return json_response({"ok": True, "options": json.loads(options_to_json(options))})
+    response = json_response({"ok": True, "options": json.loads(options_to_json(options))})
+    if proof:
+        write_merge_proof(
+            response,
+            settings,
+            {**proof, "passkey_challenge_hash": _challenge_hash(_b64url(options.challenge))},
+        )
+    return response
 
 
 async def passkey_auth_verify_route(request: web.Request) -> web.Response:
+    return await _passkey_auth_verify(request)
+
+
+async def account_merge_passkey_verify_route(request: web.Request) -> web.Response:
+    return await _passkey_auth_verify(request, merge=True)
+
+
+async def _passkey_auth_verify(request: web.Request, *, merge: bool = False) -> web.Response:
+    target_user_id = _require_user_id(request) if merge else None
+    proof = read_merge_proof(request, target_user_id) if target_user_id is not None else None
+    if merge and not proof:
+        return _json_error(410, "account_merge_proof_expired", "Repeat account linking")
     settings: Settings = get_settings(request)
     if not settings.PASSKEY_LOGIN_ENABLED:
         return _json_error(404, "passkey_not_enabled", "Passkey login is not enabled")
     payload = await _parse_model_payload(request, WebAppPasskeyCredentialPayload)
+    if proof and proof.get("passkey_challenge_hash") != _challenge_hash(payload.challenge):
+        return _json_error(400, "invalid_passkey", "Passkey challenge belongs to another attempt")
     api = _webauthn()
     if not api:
         return _json_error(503, "passkey_unavailable", "Passkey support is unavailable")
@@ -196,7 +234,10 @@ async def passkey_auth_verify_route(request: web.Request) -> web.Response:
     async with async_session_factory() as session:
         try:
             challenge = await _consume_challenge(
-                session, payload.challenge, ceremony="authentication"
+                session,
+                payload.challenge,
+                ceremony="account_merge" if proof else "authentication",
+                user_id=target_user_id,
             )
             credential = (
                 await session.execute(
@@ -205,7 +246,11 @@ async def passkey_auth_verify_route(request: web.Request) -> web.Response:
                     .with_for_update()
                 )
             ).scalar_one_or_none()
-            if not challenge or not credential:
+            if (
+                not challenge
+                or not credential
+                or (target_user_id is not None and int(credential.user_id) != target_user_id)
+            ):
                 await session.commit()
                 return _json_error(400, "invalid_passkey", "Invalid or expired passkey request")
             rp_id, _, origins = _rp_context(settings, request)
@@ -232,6 +277,13 @@ async def passkey_auth_verify_route(request: web.Request) -> web.Response:
             await session.commit()
             logger.exception("Passkey authentication failed")
             return _json_error(400, "invalid_passkey", "Passkey verification failed")
+    if proof:
+        response = json_response({"ok": True})
+        if not confirm_merge_target(
+            request, response, user_id=user_id, challenge=str(proof["challenge"])
+        ):
+            return _json_error(410, "account_merge_proof_expired", "Repeat account linking")
+        return response
     await _invalidate_webapp_user_caches(settings, user_id)
     token = create_webapp_session_token(settings, user_id)
     return _build_webapp_auth_response(settings, {"ok": True}, token=token)

@@ -174,6 +174,108 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/merge/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Merge Cancel */
+    post: operations["post_account_merge_cancel_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/merge/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Merge Confirm */
+    post: operations["post_account_merge_confirm_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/merge/passkey/options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Merge Passkey Options */
+    post: operations["post_account_merge_passkey_options_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/merge/passkey/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Merge Passkey Verify */
+    post: operations["post_account_merge_passkey_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/merge/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Merge Request */
+    post: operations["post_account_merge_request_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/merge/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Account Merge Status */
+    get: operations["get_account_merge_status_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/notification-preferences": {
     parameters: {
       query?: never;
@@ -11545,6 +11647,14 @@ export interface components {
         [key: string]: components["schemas"]["TributeProductConfig"];
       };
     };
+    /** WebAppAccountMergePayload */
+    WebAppAccountMergePayload: {
+      /**
+       * Email Code
+       * @default null
+       */
+      email_code: string | null;
+    };
     /** WebAppAutoRenewPayload */
     WebAppAutoRenewPayload: {
       /**
@@ -11761,11 +11871,8 @@ export interface components {
     };
     /** WebAppExternalIdentityPayload */
     WebAppExternalIdentityPayload: {
-      /**
-       * Provider
-       * @enum {string}
-       */
-      provider: "discord" | "google" | "yandex";
+      /** Provider */
+      provider: string;
     };
     /** WebAppLanguagePayload */
     WebAppLanguagePayload: {
@@ -12696,6 +12803,177 @@ export interface operations {
             language: string;
             /** @constant */
             ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_merge_cancel_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_merge_confirm_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppAccountMergePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            account_merge?: {
+              final_end_date: string | null;
+              final_end_date_text: string | null;
+              language: string;
+              merged: boolean;
+              primary_panel_user_uuid: string | null;
+              primary_user_id: number;
+              removed_panel_user_uuid: string | null;
+              removed_user_id: number;
+            };
+            csrf_token: string;
+            /** @constant */
+            ok: true;
+            telegram_id?: number | null;
+            token: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_merge_passkey_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            options: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  post_account_merge_passkey_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppPasskeyCredentialPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_account_merge_request_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            code?: string;
+            email_code?: string;
+            /** @constant */
+            ok: true;
+            retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  get_account_merge_status_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            email: string;
+            email_available: boolean;
+            /** @constant */
+            ok: true;
+            provider: string;
+            providers: string[];
+            target_confirmed: boolean;
           };
         };
       };

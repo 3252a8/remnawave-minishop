@@ -29,6 +29,7 @@ from db.dal import user_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import User
 
+from .account_merge_proof import confirm_merge_target, read_merge_proof, set_merge_proof
 from .assets import (
     _enforce_webapp_rate_limit,
 )
@@ -179,13 +180,22 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
         raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="not_configured"))
 
     purpose = str(request.query.get("purpose") or "login").strip().lower()
-    if purpose not in {"login", "link"}:
+    if purpose not in {"login", "link", "merge"}:
         purpose = "login"
 
     current_user_id = _extract_authenticated_user_id(request)
-    if purpose == "link" and not current_user_id:
+    if purpose in {"link", "merge"} and not current_user_id:
         raise web.HTTPFound(_telegram_oauth_redirect_url("/", status="unauthorized"))
 
+    merge_proof = (
+        read_merge_proof(request, int(current_user_id))
+        if purpose == "merge" and current_user_id
+        else None
+    )
+    if purpose == "merge" and not merge_proof:
+        raise web.HTTPFound(
+            _telegram_oauth_redirect_url("/settings/security", status="account_merge_proof_expired")
+        )
     code_verifier = secrets.token_urlsafe(32)
     code_challenge = _urlsafe_sha256(code_verifier)
     nonce = secrets.token_urlsafe(16)
@@ -193,6 +203,7 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
     state_payload = {
         "state": state,
         "purpose": purpose,
+        "merge_challenge": merge_proof["challenge"] if merge_proof else None,
         "user_id": int(current_user_id) if current_user_id else None,
         "referral_code": str(request.query.get("referral_code") or "")[:128],
         "code_verifier": code_verifier,
@@ -231,7 +242,7 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     tariff_access_code = normalize_tariff_access_code((state or {}).get("tariff_access_code"))
     redirect_path = (
         "/settings"
-        if purpose == "link"
+        if purpose in {"link", "merge"}
         else f"/checkout/{tariff_access_code}"
         if tariff_access_code
         else "/"
@@ -279,7 +290,29 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     link_merge_notice: dict[str, Any] | None = None
     async with async_session_factory() as session:
         try:
+            if purpose == "merge":
+                current_user_id = int(state.get("user_id") or 0)
+                current = await user_dal.get_user_by_id(session, current_user_id)
+                if (
+                    not current
+                    or current.is_banned
+                    or _extract_authenticated_user_id(request) != current_user_id
+                    or not current.telegram_id
+                    or int(current.telegram_id) != int(telegram_user["id"])
+                ):
+                    return redirect(status="account_merge_confirmation_required")
+                response = redirect(status="account_merge_ready")
+                if not confirm_merge_target(
+                    request,
+                    response,
+                    user_id=current_user_id,
+                    challenge=str(state.get("merge_challenge") or ""),
+                ):
+                    return redirect(status="account_merge_proof_expired")
+                return response
             if purpose == "link":
+                if _extract_authenticated_user_id(request) != int(state.get("user_id") or 0):
+                    return redirect(status="unauthorized")
                 current_user_id = int(state.get("user_id") or 0)
                 source_user_id_for_cache = current_user_id
                 current_user_before_link = await user_dal.get_user_by_id(session, current_user_id)
@@ -353,6 +386,16 @@ async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
                     user_id=int(state.get("user_id") or 0),
                     telegram_id=int(telegram_user["id"]),
                 )
+                source = await user_dal.get_user_by_telegram_id(session, int(telegram_user["id"]))
+                if source:
+                    set_merge_proof(
+                        response,
+                        settings,
+                        user_id=int(state.get("user_id") or 0),
+                        source_user_id=int(source.user_id),
+                        provider="telegram",
+                        subject=str(telegram_user["id"]),
+                    )
             raise response from None
         except Exception:
             await session.rollback()

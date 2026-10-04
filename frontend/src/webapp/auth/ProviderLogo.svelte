@@ -1,11 +1,9 @@
 <script lang="ts">
-  type Provider = "discord" | "google" | "telegram" | "yandex";
-
   let {
     provider,
     size = 18,
     bare = false,
-  }: { provider: Provider; size?: number; bare?: boolean } = $props();
+  }: { provider: string; size?: number; bare?: boolean } = $props();
 </script>
 
 {#if provider === "discord"}
@@ -63,7 +61,7 @@
       d="m34.7 14.4-3.2 18.5c-.2 1.3-1.1 1.6-2.2 1l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2l-11.5 7.2-5-1.6c-1.1-.3-1.1-1.1.2-1.6l19.5-7.5c.9-.3 1.7.2 1.5 1.6Z"
     />
   </svg>
-{:else}
+{:else if provider === "yandex"}
   <svg
     class="auth-provider-logo"
     data-provider-logo="yandex"
@@ -77,5 +75,20 @@
       fill={bare ? "#fc3f1d" : "#fff"}
       d="M27.3 35h4.4V13h-6.6c-6.1 0-9.3 3.1-9.3 7.8 0 3.7 1.8 6.1 5.5 8.7L15.2 35h5.2l6.8-6.2-2.4-1.6c-2.9-2-4.3-3.5-4.3-6.7 0-2.8 1.9-4.4 4.8-4.4h2V35Z"
     />
+  </svg>
+{:else}
+  <svg
+    class="auth-provider-logo"
+    data-provider-logo={provider}
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
   </svg>
 {/if}

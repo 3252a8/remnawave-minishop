@@ -143,4 +143,25 @@ describe("accountStore", () => {
     expect(deps.setToken).toHaveBeenCalledWith("session", "csrf");
     expect(deps.loadData).toHaveBeenCalledWith({ fresh: true, preserveView: true });
   });
+
+  it("opens explicit merge after a verified email belongs to another account", async () => {
+    const { store, deps } = makeAccountStore({
+      api: vi.fn().mockRejectedValue({ error: "account_merge_required" }),
+    });
+    store.openLinkEmailDialog("another@example.test");
+    store.linkEmailPending = "another@example.test";
+    store.linkEmailCode = "123456";
+
+    await store.verifyLinkEmailCode();
+
+    expect(deps.api).toHaveBeenCalledWith("/account/email/verify", {
+      method: "POST",
+      body: JSON.stringify({ email: "another@example.test", code: "123456" }),
+    });
+    expect(store.linkEmailOpen).toBe(false);
+    expect(store.telegramMergeOpen).toBe(true);
+    expect(deps.setToken).not.toHaveBeenCalled();
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(deps.showToast).not.toHaveBeenCalled();
+  });
 });

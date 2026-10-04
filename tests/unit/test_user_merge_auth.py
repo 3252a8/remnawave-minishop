@@ -222,13 +222,13 @@ def test_merge_keeps_established_password_when_both_accounts_have_one() -> None:
     asyncio.run(_merge_keeps_established_password_when_both_accounts_have_one())
 
 
-async def _merge_reports_the_conflicting_external_provider() -> None:
+async def _merge_reports_the_conflicting_external_provider(provider: str) -> None:
     source = _user(-10)
     target = _user(42, telegram_id=42)
     session = SimpleNamespace(
         get=AsyncMock(return_value=None),
         execute=AsyncMock(
-            side_effect=[_Result(), _Result(), _Result(["google"]), _Result(["google"])]
+            side_effect=[_Result(), _Result(), _Result([provider]), _Result([provider])]
         ),
     )
     with (
@@ -250,12 +250,18 @@ async def _merge_reports_the_conflicting_external_provider() -> None:
             target_user_id=42,
         )
 
-    assert raised.value.code == "account_merge_google_conflict"
-    assert raised.value.message_key == "account_merge_google_conflict"
+    expected = (
+        f"account_merge_{provider}_conflict"
+        if provider in {"google", "yandex"}
+        else "account_merge_provider_conflict"
+    )
+    assert raised.value.code == expected
+    assert raised.value.message_key == expected
 
 
-def test_merge_reports_the_conflicting_external_provider() -> None:
-    asyncio.run(_merge_reports_the_conflicting_external_provider())
+@pytest.mark.parametrize("provider", ["google", "yandex", "discord", "future_provider"])
+def test_merge_reports_the_conflicting_external_provider(provider: str) -> None:
+    asyncio.run(_merge_reports_the_conflicting_external_provider(provider))
 
 
 async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None:

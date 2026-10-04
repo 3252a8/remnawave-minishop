@@ -686,6 +686,12 @@ class AccountLinkingPanelTests(unittest.IsolatedAsyncioTestCase):
             "Explicit merge required", code="account_merge_required"
         )
         with (
+            patch.object(oauth_routes, "_extract_authenticated_user_id", return_value=-100),
+            patch.object(
+                oauth_routes.user_dal,
+                "get_user_by_telegram_id",
+                AsyncMock(return_value=SimpleNamespace(user_id=42)),
+            ),
             patch.object(oauth_routes, "_read_telegram_oauth_state_payload", return_value=state),
             patch.object(
                 oauth_routes,

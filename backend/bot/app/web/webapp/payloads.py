@@ -93,6 +93,12 @@ class WebAppTelegramMergePayload(WebAppTelegramAuthPayload):
     email_code: ShortCodeString
 
 
+class WebAppAccountMergePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email_code: ShortCodeString | None = None
+
+
 class WebAppPasskeyCredentialPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -110,7 +116,9 @@ class WebAppPasskeyDeletePayload(BaseModel):
 class WebAppExternalIdentityPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    provider: Literal["discord", "google", "yandex"]
+    provider: Annotated[
+        str, StringConstraints(min_length=1, max_length=64, pattern=r"^[a-z][a-z0-9_-]*$")
+    ]
 
 
 class WebAppEmailChangeCurrentPayload(BaseModel):

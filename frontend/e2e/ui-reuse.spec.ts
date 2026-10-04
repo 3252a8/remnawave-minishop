@@ -160,20 +160,136 @@ for (const [device, viewport] of [
     expect(errors).toEqual([]);
   });
 
-  test(`Telegram merge confirmation fits on ${device}`, async ({ page }) => {
+  test(`account merge with email confirmation fits on ${device}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     await page.goto(
       "/demo/runtime/app/?mock=checkout-addons&theme_preview=dark&telegram_auth=account_merge_required"
     );
-    const dialog = page.locator(".telegram-merge-dialog");
+    const dialog = page.locator(".account-merge-dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("heading", { name: "Объединение аккаунтов" })).toBeVisible();
-    await expect(dialog.locator(".telegram-merge-form input")).toBeVisible();
+    await expect(dialog.locator(".account-merge-form input")).toHaveValue("123456");
+    await expect(
+      dialog.getByRole("button", { name: "Подтвердить через Google", exact: true })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Подтвердить через Discord", exact: true })
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Подтвердить через Yandex", exact: true })
+    ).toBeVisible();
     await noOverflow(dialog);
     const bounds = await dialog.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+    await dialog.screenshot({ path: testInfo.outputPath(`account-merge-email-${device}.png`) });
+    await dialog.locator(".account-merge-form input").fill("000000");
+    await dialog.getByRole("button", { name: "Объединить аккаунты", exact: true }).click();
+    await expect(dialog).toContainText("Неверный код");
+    await dialog.locator(".account-merge-form input").fill("123456");
+    await dialog.getByRole("button", { name: "Объединить аккаунты", exact: true }).click();
+    await expect(dialog).toContainText("Аккаунты объединены");
+  });
+
+  test(`provider merge works with email disabled on ${device}`, async ({ page }, testInfo) => {
+    await page.setViewportSize(viewport);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(
+      "/demo/runtime/app/?mock=checkout-addons&theme_preview=dark&merge_demo=provider-only&external_auth=yandex:account_merge_required"
+    );
+    const dialog = page.locator(".account-merge-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("Подтверждённый профиль Yandex");
+    await expect(dialog.locator(".account-merge-form")).toHaveCount(0);
+    await expect(
+      dialog.getByRole("button", { name: "Подтвердить через Discord", exact: true })
+    ).toBeVisible();
+    await noOverflow(dialog);
+    await dialog.screenshot({ path: testInfo.outputPath(`account-merge-providers-${device}.png`) });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    expect(errors).toEqual([]);
+
+    await page.goto(
+      "/demo/runtime/app/?mock=checkout-addons&theme_preview=dark&merge_demo=provider-only&external_auth=google:account_merge_ready"
+    );
+    await expect(dialog).toContainText("Вход в текущий аккаунт подтверждён");
+    await expect(dialog.locator("input")).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Объединить аккаунты", exact: true }).click();
+    await expect(dialog).toContainText("Аккаунты объединены");
+    expect(errors).toEqual([]);
+  });
+
+  test(`future provider can reconfirm account ownership on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(
+      "/demo/runtime/app/?mock=checkout-addons&theme_preview=dark&merge_demo=future&external_auth=discord:account_merge_required"
+    );
+    const dialog = page.locator(".account-merge-dialog");
+    const button = dialog.getByRole("button", {
+      name: "Подтвердить через future-provider",
+      exact: true,
+    });
+    await expect(button).toBeVisible();
+    await noOverflow(dialog);
+    await page.route("**/auth/future-provider/start?*", (route) => route.fulfill({ body: "" }));
+    const request = page.waitForRequest("**/auth/future-provider/start?*");
+    await button.click();
+    const url = new URL((await request).url());
+    expect(url.searchParams.get("purpose")).toBe("merge");
+    expect(url.searchParams.get("return_to")).toBe("/settings/security");
+  });
+
+  test(`registered future providers can create and link accounts on ${device}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize(viewport);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto("/demo/runtime/login?mock=auth&provider_demo=future&theme_preview=dark");
+    const login = page.getByRole("button", { name: "Войти через future-provider", exact: true });
+    await expect(login).toBeVisible();
+    await expect(login.locator('[data-provider-logo="future-provider"]')).toBeVisible();
+    await expect(page.locator('[data-provider-logo="google"]')).toBeVisible();
+    await expect(page.locator('[data-provider-logo="yandex"]')).toBeVisible();
+    await expect(page.locator('[data-provider-logo="discord"]')).toBeVisible();
+    await noOverflow(page.locator(".auth-provider-stack"));
+    await page
+      .locator(".auth-provider-stack")
+      .screenshot({ path: testInfo.outputPath(`future-provider-login-${device}.png`) });
+    await page.route("**/auth/future-provider/start?*", (route) => route.fulfill({ body: "" }));
+    const loginRequest = page.waitForRequest("**/auth/future-provider/start?*");
+    await login.click();
+    expect(new URL((await loginRequest).url()).searchParams.get("purpose")).toBe("login");
+
+    await page.goto(
+      "/demo/runtime/settings/security?mock=future-providers&provider_demo=future&theme_preview=dark"
+    );
+    const methods = page.locator(".security-methods");
+    const row = methods
+      .locator(".settings-row")
+      .filter({ has: page.locator('[data-provider-logo="future-provider"]') });
+    await expect(row).toContainText("future-provider");
+    await expect(row).toContainText("Привязать аккаунт");
+    await expect(methods).toContainText("Discord user");
+    await noOverflow(methods);
+    await methods.screenshot({
+      path: testInfo.outputPath(`future-provider-security-${device}.png`),
+    });
+    const linkRequest = page.waitForRequest("**/auth/future-provider/start?*");
+    await row.click();
+    expect(new URL((await linkRequest).url()).searchParams.get("purpose")).toBe("link");
+
+    await page.goto(
+      "/demo/runtime/settings/security?mock=future-providers&provider_demo=future&future_linked=1&theme_preview=dark"
+    );
+    await expect(methods).toContainText("Future user");
+    await expect(
+      methods.getByRole("button", { name: "Отвязать future-provider", exact: true })
+    ).toBeVisible();
+    expect(errors).toEqual([]);
   });
 
   test(`gift navigation initializes from the profile on ${device}`, async ({ page }) => {

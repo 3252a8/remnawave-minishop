@@ -17,7 +17,12 @@
   import Input from "$components/ui/input.svelte";
   import Spinner from "$components/ui/spinner.svelte";
   import { StatusMessage } from "$components/patterns/webapp/index.js";
-  import { buildExternalOAuthStartUrl, shouldShowInviteOnlyHint } from "$lib/webapp/authHelpers.js";
+  import {
+    authProviderName,
+    buildExternalOAuthStartUrl,
+    orderAuthProviders,
+    shouldShowInviteOnlyHint,
+  } from "$lib/webapp/authHelpers.js";
   import { loginWithPasskey, passkeysSupported } from "$lib/webapp/passkeys.js";
   import ProviderLogo from "./ProviderLogo.svelte";
 
@@ -38,7 +43,6 @@
     { email: "runes.active@example.com", labelKey: "wa_dev_login_active" },
     { email: "runes.expired@example.com", labelKey: "wa_dev_login_expired" },
   ] as const;
-  const PROVIDER_ORDER = ["telegram", "email", "google", "yandex", "discord", "passkey"] as const;
 
   type Props = {
     authBusy?: boolean;
@@ -145,9 +149,11 @@
   );
   const compactEmail = $derived(isCompact("email"));
   const orderedProviders = $derived(
-    PROVIDER_ORDER.filter((provider) =>
-      provider === "email" ? emailAuthEnabled && compactEmail : authProviders.includes(provider)
-    ).sort((left, right) => Number(isCompact(left)) - Number(isCompact(right)))
+    orderAuthProviders([...authProviders, ...(emailAuthEnabled ? ["email"] : [])])
+      .filter((provider) =>
+        provider === "email" ? emailAuthEnabled && compactEmail : authProviders.includes(provider)
+      )
+      .sort((left, right) => Number(isCompact(left)) - Number(isCompact(right)))
   );
   const showEmailForm = $derived(emailAuthEnabled && (!compactEmail || emailFormOpen));
   const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
@@ -166,7 +172,7 @@
     if (languageClickGuardArmed) setLanguageMenuOpen(false);
   }
 
-  function openProvider(provider: "discord" | "google" | "yandex"): void {
+  function openProvider(provider: string): void {
     window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang));
   }
 
@@ -448,6 +454,22 @@
                           {},
                           "Sign in with passkey"
                         )}{/if}
+                    </Button>
+                  {/if}
+                  {#if !["telegram", "email", "google", "yandex", "discord", "passkey"].includes(provider)}
+                    {@const label = t("wa_login_provider", {
+                      provider: authProviderName(provider, t),
+                    })}
+                    <Button
+                      class={`${isCompact(provider) ? "auth-provider-compact" : "wide"} auth-provider-button`}
+                      variant="secondary"
+                      onclick={() => openProvider(provider)}
+                      disabled={authBusy || externalLoginBusy}
+                      aria-label={label}
+                      data-auth-provider={provider}
+                    >
+                      <ProviderLogo {provider} size={isCompact(provider) ? 26 : 18} />
+                      {#if !isCompact(provider)}{label}{/if}
                     </Button>
                   {/if}
                 {/each}

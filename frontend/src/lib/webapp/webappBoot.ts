@@ -1,4 +1,5 @@
 import {
+  accountMergeErrorMessage,
   readMagicLoginToken,
   readExternalAuthStatus,
   readTelegramAuthStatus,
@@ -31,19 +32,12 @@ function isTemporaryServiceFailure(error: unknown): boolean {
   return status === 429 || (status >= 500 && status < 600);
 }
 
-function accountMergeConflictMessage(status: string, t: WebappBootDeps["t"]): string {
-  const keyByStatus: Record<string, string> = {
-    account_merge_google_conflict: "account_merge_google_conflict",
-    account_merge_yandex_conflict: "account_merge_yandex_conflict",
-    account_merge_provider_conflict: "account_merge_provider_conflict",
-    account_merge_telegram_conflict: "account_merge_telegram_conflict",
-    account_merge_duplicate_promo_conflict: "account_merge_duplicate_promo_conflict",
-  };
-  return t(keyByStatus[status] || "account_merge_conflict");
+function isAccountMergeConflict(status: string): boolean {
+  return status === "provider_conflict" || status.startsWith("account_merge_");
 }
 
-function isAccountMergeConflict(status: string): boolean {
-  return status.startsWith("account_merge_");
+function isAccountMergePending(status: string | null | undefined): boolean {
+  return status === "account_merge_required" || status === "account_merge_ready";
 }
 
 export type WebappBootDeps = {
@@ -180,8 +174,11 @@ async function runWebappBootSequence({
   prepareTelegramMiniApp();
 
   if (MOCK) {
+    const mergePending =
+      isAccountMergePending(readTelegramAuthStatus()) ||
+      isAccountMergePending(readExternalAuthStatus()?.status);
     await loadData();
-    if (readTelegramAuthStatus() === "account_merge_required") {
+    if (mergePending) {
       clearAuthQuery();
       onTelegramMergeRequired?.();
     }
@@ -221,11 +218,22 @@ async function runWebappBootSequence({
     showLogin();
     await restorePendingExternalOauth();
     return;
+  } else if (externalAuth && isAccountMergePending(externalAuth.status)) {
+    clearAuthQuery();
+    try {
+      await loadData();
+      if (onTelegramMergeRequired) onTelegramMergeRequired();
+      else showAccountLinkStatus?.(t("wa_account_merge_required"));
+      return;
+    } catch (error) {
+      if (!isInvalidSession(error)) throw error;
+      clearToken();
+    }
   } else if (externalAuth && isAccountMergeConflict(externalAuth.status)) {
     clearAuthQuery();
     try {
       await loadData();
-      showAccountLinkStatus?.(accountMergeConflictMessage(externalAuth.status, t));
+      showAccountLinkStatus?.(accountMergeErrorMessage(externalAuth.status, t));
       return;
     } catch (error) {
       if (!isInvalidSession(error)) throw error;
@@ -256,12 +264,12 @@ async function runWebappBootSequence({
       if (!isInvalidSession(error)) throw error;
       clearToken();
     }
-  } else if (telegramAuthStatus === "account_merge_required") {
+  } else if (isAccountMergePending(telegramAuthStatus)) {
     clearAuthQuery();
     try {
       await loadData();
       if (onTelegramMergeRequired) onTelegramMergeRequired();
-      else showAccountLinkStatus?.(t("wa_telegram_merge_required"));
+      else showAccountLinkStatus?.(t("wa_account_merge_required"));
       return;
     } catch (error) {
       if (!isInvalidSession(error)) throw error;
@@ -271,7 +279,7 @@ async function runWebappBootSequence({
     clearAuthQuery();
     try {
       await loadData();
-      showAccountLinkStatus?.(accountMergeConflictMessage(telegramAuthStatus, t));
+      showAccountLinkStatus?.(accountMergeErrorMessage(telegramAuthStatus, t));
       return;
     } catch (error) {
       if (!isInvalidSession(error)) throw error;

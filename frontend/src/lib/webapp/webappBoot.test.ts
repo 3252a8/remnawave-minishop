@@ -139,9 +139,19 @@ describe("runWebappBoot", () => {
     await runWebappBoot(deps);
 
     expect(deps.loadData).toHaveBeenCalledOnce();
-    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("account_merge_yandex_conflict");
+    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("wa_account_merge_yandex_conflict");
     expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
     expect(deps.showLogin).not.toHaveBeenCalled();
+  });
+
+  it("explains a conflicting second identity of the same provider", async () => {
+    installBrowser("?external_auth=discord:provider_conflict");
+    const deps = makeDeps();
+    await runWebappBoot(deps);
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("wa_account_merge_provider_conflict");
+    expect(deps.showLogin).not.toHaveBeenCalled();
+    expect(deps.clearToken).not.toHaveBeenCalled();
   });
 
   it("keeps the authenticated account after a Telegram OAuth merge conflict", async () => {
@@ -151,7 +161,7 @@ describe("runWebappBoot", () => {
     await runWebappBoot(deps);
 
     expect(deps.loadData).toHaveBeenCalledOnce();
-    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("account_merge_google_conflict");
+    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("wa_account_merge_google_conflict");
     expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
     expect(deps.showLogin).not.toHaveBeenCalled();
   });
@@ -177,6 +187,43 @@ describe("runWebappBoot", () => {
     expect(deps.showLogin).toHaveBeenCalledOnce();
     expect(window.history.replaceState).toHaveBeenCalledOnce();
   });
+
+  it.each(["google", "yandex", "discord", "future-provider"])(
+    "opens merge confirmation for %s without changing the current account",
+    async (provider) => {
+      for (const status of ["account_merge_required", "account_merge_ready"]) {
+        installBrowser(`?external_auth=${provider}:${status}`);
+        const deps = makeDeps();
+        await runWebappBoot(deps);
+        expect(deps.loadData).toHaveBeenCalledOnce();
+        expect(deps.onTelegramMergeRequired).toHaveBeenCalledOnce();
+        expect(deps.clearToken).not.toHaveBeenCalled();
+        expect(deps.showLogin).not.toHaveBeenCalled();
+        expect(deps.finalizeTelegramAuth).not.toHaveBeenCalled();
+        expect(deps.linkTelegramAfterExternalAuth).not.toHaveBeenCalled();
+        expect(deps.showAccountLinkStatus).not.toHaveBeenCalled();
+      }
+    }
+  );
+
+  it("reopens confirmation after Telegram proves ownership of the current account", async () => {
+    installBrowser("?telegram_auth=account_merge_ready");
+    const deps = makeDeps();
+    await runWebappBoot(deps);
+    expect(deps.onTelegramMergeRequired).toHaveBeenCalledOnce();
+    expect(deps.clearToken).not.toHaveBeenCalled();
+  });
+
+  it.each(["?telegram_auth=account_merge_ready", "?external_auth=discord:account_merge_required"])(
+    "opens the merge dialog in the demo for %s",
+    async (query) => {
+      installBrowser(query);
+      const deps = makeDeps({ MOCK: true });
+      await runWebappBoot(deps);
+      expect(deps.loadData).toHaveBeenCalledOnce();
+      expect(deps.onTelegramMergeRequired).toHaveBeenCalledOnce();
+    }
+  );
 
   it("loads data when the backend refreshes an existing cookie session", async () => {
     installBrowser();

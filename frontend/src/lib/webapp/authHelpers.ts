@@ -22,6 +22,45 @@ function asTelegramWebApp(tg: unknown): TelegramWebAppLike {
 
 type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
 
+const AUTH_PROVIDER_ORDER = ["telegram", "email", "google", "yandex", "discord", "passkey"];
+
+export function orderAuthProviders(providers: readonly string[]): string[] {
+  const available = new Set(providers.filter(Boolean));
+  return [...AUTH_PROVIDER_ORDER.filter((provider) => available.delete(provider)), ...available];
+}
+
+export function authProviderName(provider: string, t: TranslateFn): string {
+  if (provider === "email") return t("wa_security_email_source");
+  if (provider === "passkey") return t("wa_security_passkey_default_name");
+  const names: Record<string, string> = {
+    discord: "Discord",
+    google: "Google",
+    telegram: "Telegram",
+    yandex: "Yandex",
+  };
+  return names[provider] || provider;
+}
+
+export function accountMergeErrorMessage(errorCode: string, t: TranslateFn): string {
+  const keys: Record<string, string> = {
+    provider_conflict: "wa_account_merge_provider_conflict",
+    account_merge_conflict: "wa_account_merge_conflict",
+    account_merge_duplicate_promo_conflict: "wa_account_merge_duplicate_promo_conflict",
+    account_merge_recurring_cancel_failed: "wa_account_merge_recurring_cancel_failed",
+    account_merge_google_conflict: "wa_account_merge_google_conflict",
+    account_merge_yandex_conflict: "wa_account_merge_yandex_conflict",
+    account_merge_provider_conflict: "wa_account_merge_provider_conflict",
+    account_merge_telegram_conflict: "wa_account_merge_telegram_conflict",
+    account_merge_privileged_source: "wa_account_merge_privileged_source",
+    account_merge_not_required: "wa_account_merge_not_required",
+    account_merge_failed: "wa_account_merge_failed",
+    account_merge_required: "wa_account_merge_required",
+    account_merge_confirmation_required: "wa_account_merge_confirmation_required",
+    account_merge_proof_expired: "wa_account_merge_proof_expired",
+  };
+  return t(keys[errorCode] || "wa_account_merge_conflict");
+}
+
 function readReferralParamFromLocation(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
@@ -141,13 +180,14 @@ export function buildTelegramOAuthStartUrl(purpose = "login", tg: unknown = null
 }
 
 export function buildExternalOAuthStartUrl(
-  provider: "discord" | "google" | "yandex",
-  purpose: "login" | "link",
+  provider: string,
+  purpose: "login" | "link" | "merge",
   language: string,
   referral = purpose === "login" ? readRegistrationInviteParam() : "",
   tariffAccessCode = ""
 ): string {
   const params = new URLSearchParams({ purpose, lang: language });
+  if (purpose === "merge") params.set("return_to", "/settings/security");
   if (referral) params.set("ref", referral);
   const pathAccessCode =
     typeof window === "undefined"

@@ -19,6 +19,17 @@ const MOCK_DATA = {
 };
 
 describe("computeAppDataView", () => {
+  it("keeps future registered providers available for sign-in and linking", () => {
+    const view = computeAppDataView({
+      cfg: {},
+      data: {
+        settings: { auth_providers: [" Google ", "discord", "Future-Provider", "future-provider"] },
+      },
+      fallbackBrandTitle: "Subscription",
+      mockData: {},
+    });
+    expect(view.authProviders).toEqual(["google", "discord", "future-provider"]);
+  });
   it("uses config brand values and falls back to mock collections", () => {
     const view = computeAppDataView({
       cfg: {

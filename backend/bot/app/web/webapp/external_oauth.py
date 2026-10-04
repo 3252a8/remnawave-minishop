@@ -35,8 +35,8 @@ from db.dal import user_dal, user_email_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import UserExternalIdentity
 
+from .account_merge_proof import confirm_merge_target, read_merge_proof, set_merge_proof
 from .auth import (
-    _merge_users_for_web,
     _sync_merged_panel_identity_for_user,
     _sync_panel_identity_for_user,
 )
@@ -114,7 +114,7 @@ def _redirect(
     normalized_access_code = normalize_tariff_access_code(tariff_access_code)
     path = (
         "/settings/security"
-        if purpose == "link"
+        if purpose in {"link", "merge"}
         else f"/checkout/{normalized_access_code}"
         if normalized_access_code
         else "/"
@@ -286,17 +286,25 @@ async def external_oauth_start_route(request: web.Request) -> web.Response:
         )
 
     purpose = str(request.query.get("purpose") or "login").lower()
-    if purpose not in {"login", "link"}:
+    if purpose not in {"login", "link", "merge"}:
         purpose = "login"
     current_user_id = _extract_authenticated_user_id(request)
-    if purpose == "link" and not current_user_id:
+    if purpose in {"link", "merge"} and not current_user_id:
         raise web.HTTPFound(_redirect(key, purpose, "unauthorized"))
 
+    merge_proof = (
+        read_merge_proof(request, int(current_user_id))
+        if purpose == "merge" and current_user_id
+        else None
+    )
+    if purpose == "merge" and not merge_proof:
+        raise web.HTTPFound(_redirect(key, purpose, "account_merge_proof_expired"))
     language = _normalize_language(str(request.query.get("lang") or settings.DEFAULT_LANGUAGE))
     state = secrets.token_urlsafe(24)
     verifier = secrets.token_urlsafe(48)
     nonce = secrets.token_urlsafe(24)
     payload: dict[str, Any] = {
+        "merge_challenge": merge_proof["challenge"] if merge_proof else None,
         "state": state,
         "provider": key,
         "purpose": purpose,
@@ -384,6 +392,26 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                 )
             ).scalar_one_or_none()
             requested_user_id = int(state.get("user_id") or 0) or None
+            if purpose == "merge":
+                if (
+                    not requested_user_id
+                    or _extract_authenticated_user_id(request) != requested_user_id
+                    or not identity
+                    or int(identity.user_id) != requested_user_id
+                ):
+                    return finish("account_merge_confirmation_required")
+                target = await user_dal.get_user_by_id(session, requested_user_id)
+                if not target or target.is_banned:
+                    return finish("access_denied")
+                response = finish("account_merge_ready")
+                if not confirm_merge_target(
+                    request,
+                    response,
+                    user_id=requested_user_id,
+                    challenge=str(state.get("merge_challenge") or ""),
+                ):
+                    return finish("account_merge_proof_expired")
+                return response
             verified_email = (
                 str(profile.get("email") if profile.get("email_verified") else "").strip().lower()
             )
@@ -406,39 +434,17 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
                     return finish("provider_conflict")
                 if identity is None or int(identity.user_id) != requested_user_id:
                     identity_link_source = "settings"
-                merge_sources: list[tuple[int, str]] = []
-                if email_owner and int(email_owner.user_id) != requested_user_id:
-                    merge_sources.append((int(email_owner.user_id), f"{key}_verified_email_link"))
                 if identity and int(identity.user_id) != requested_user_id:
-                    identity_owner_id = int(identity.user_id)
-                    if all(source_id != identity_owner_id for source_id, _ in merge_sources):
-                        merge_sources.append((identity_owner_id, f"{key}_oauth_link"))
-                if merge_sources:
-                    return finish("account_merge_required")
-                for source_user_id, reason in merge_sources:
-                    source_user = await user_dal.get_user_by_id(session, source_user_id)
-                    source_panel_uuid = (
-                        str(getattr(source_user, "panel_user_uuid", ""))
-                        if source_user and getattr(source_user, "panel_user_uuid", None)
-                        else None
+                    response = finish("account_merge_required")
+                    set_merge_proof(
+                        response,
+                        settings,
+                        user_id=requested_user_id,
+                        source_user_id=int(identity.user_id),
+                        provider=key,
+                        subject=str(profile["subject"]),
                     )
-                    merged_user = await _merge_users_for_web(
-                        request,
-                        session,
-                        source_user_id=source_user_id,
-                        target_user_id=requested_user_id,
-                        reason=reason,
-                        send_user_email=True,
-                    )
-                    if source_panel_uuid and source_panel_uuid != str(
-                        merged_user.panel_user_uuid or ""
-                    ):
-                        merged_source_panel_uuids.append(source_panel_uuid)
-                    merged_source_user_ids.append(source_user_id)
-                if email_owner and int(email_owner.user_id) != requested_user_id:
-                    email_owner = await user_dal.get_user_by_id(session, requested_user_id)
-                if identity:
-                    identity.user_id = requested_user_id
+                    return response
                 user_id = requested_user_id
             elif identity:
                 user_id = int(identity.user_id)
@@ -554,7 +560,12 @@ async def external_oauth_callback_route(request: web.Request) -> web.Response:
             identity.display_name = profile.get("display_name")
             identity.picture_url = profile.get("picture_url")
             identity.last_used_at = datetime.now(UTC)
-            if not user.email and identity.email_verified and identity.email:
+            if (
+                not user.email
+                and identity.email_verified
+                and identity.email
+                and (not email_owner or int(email_owner.user_id) == int(user.user_id))
+            ):
                 user.email = identity.email
                 user.email_verified_at = datetime.now(UTC)
                 user.notification_email = identity.email

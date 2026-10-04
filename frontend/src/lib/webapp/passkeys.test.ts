@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "./publicApi.js";
 import {
+  confirmAccountMergeWithPasskey,
   loginWithPasskey,
   passkeyRegistrationBlockReason,
   registerPasskey,
@@ -140,4 +141,67 @@ describe("loginWithPasskey", () => {
     expect(removeItem).toHaveBeenCalledWith("rw_webapp_manual_logout");
     expect(assign).toHaveBeenCalledWith("/home");
   });
+});
+
+describe("confirmAccountMergeWithPasskey", () => {
+  it.each([true, false])(
+    "only submits a completed assertion (%s) for merge confirmation",
+    async (completed) => {
+      class TestAssertionResponse {
+        clientDataJSON = Uint8Array.from([1, 2]).buffer;
+        authenticatorData = Uint8Array.from([3, 4]).buffer;
+        signature = Uint8Array.from([5, 6]).buffer;
+        userHandle = null;
+      }
+      const assign = vi.fn();
+      const credential = {
+        id: "credential-id",
+        rawId: Uint8Array.from([7, 8]).buffer,
+        type: "public-key",
+        authenticatorAttachment: "platform",
+        getClientExtensionResults: () => ({}),
+        response: new TestAssertionResponse(),
+      };
+      const get = vi.fn().mockResolvedValue(completed ? credential : null);
+      vi.stubGlobal("window", { PublicKeyCredential: class {}, location: { assign } });
+      vi.stubGlobal("AuthenticatorAttestationResponse", class {});
+      vi.stubGlobal("AuthenticatorAssertionResponse", TestAssertionResponse);
+      vi.stubGlobal("navigator", { credentials: { get } });
+      const api = vi.fn(async () => ({
+        ok: true,
+        options: {
+          challenge: "AQID",
+          rpId: "example.test",
+          userVerification: "required",
+          allowCredentials: [{ id: "BAUG", type: "public-key" }],
+        },
+      }));
+      const confirmation = confirmAccountMergeWithPasskey(api as unknown as ApiClient["api"]);
+      if (completed) {
+        await confirmation;
+        expect(api).toHaveBeenCalledTimes(2);
+        const verifyOptions = api.mock.calls[1] as unknown as [string, RequestInit];
+        expect(verifyOptions[0]).toBe("/account/merge/passkey/verify");
+        expect(JSON.parse(String(verifyOptions[1].body))).toMatchObject({
+          challenge: "AQID",
+          credential: {
+            id: "credential-id",
+            response: { signature: "BQY", userHandle: null },
+          },
+        });
+      } else {
+        await expect(confirmation).rejects.toThrow("passkey_cancelled");
+        expect(api).toHaveBeenCalledOnce();
+      }
+      expect(get).toHaveBeenCalledWith({
+        publicKey: {
+          challenge: Uint8Array.from([1, 2, 3]).buffer,
+          rpId: "example.test",
+          userVerification: "required",
+          allowCredentials: [{ id: Uint8Array.from([4, 5, 6]).buffer, type: "public-key" }],
+        },
+      });
+      expect(assign).not.toHaveBeenCalled();
+    }
+  );
 });

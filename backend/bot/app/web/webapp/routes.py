@@ -22,6 +22,12 @@ from .account_merge import (
     account_telegram_merge_confirm_route,
     account_telegram_merge_request_route,
 )
+from .account_merge_generic import (
+    account_merge_cancel_route,
+    account_merge_confirm_route,
+    account_merge_request_route,
+    account_merge_status_route,
+)
 from .asset_paths import (
     WEBAPP_DEFAULT_LOGO_PATH,
     WEBAPP_FAVICON_PATH,
@@ -146,6 +152,8 @@ from .partner import (
     partner_withdrawals_route,
 )
 from .passkeys import (
+    account_merge_passkey_options_route,
+    account_merge_passkey_verify_route,
     account_passkey_delete_route,
     account_passkey_options_route,
     account_passkey_register_route,
@@ -382,6 +390,12 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
     app.router.add_post("/api/account/telegram/merge/request", account_telegram_merge_request_route)
     app.router.add_post("/api/account/telegram/merge/confirm", account_telegram_merge_confirm_route)
+    app.router.add_post("/api/account/merge/passkey/options", account_merge_passkey_options_route)
+    app.router.add_post("/api/account/merge/passkey/verify", account_merge_passkey_verify_route)
+    app.router.add_get("/api/account/merge/status", account_merge_status_route)
+    app.router.add_post("/api/account/merge/request", account_merge_request_route)
+    app.router.add_post("/api/account/merge/confirm", account_merge_confirm_route)
+    app.router.add_post("/api/account/merge/cancel", account_merge_cancel_route)
     app.router.add_post(
         "/api/account/telegram/notifications/probe",
         account_telegram_notifications_probe_route,

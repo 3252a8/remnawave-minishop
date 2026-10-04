@@ -13,7 +13,11 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
-  import { buildExternalOAuthStartUrl } from "$lib/webapp/authHelpers.js";
+  import {
+    authProviderName,
+    buildExternalOAuthStartUrl,
+    orderAuthProviders,
+  } from "$lib/webapp/authHelpers.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { passkeyRegistrationBlockReason, registerPasskey } from "$lib/webapp/passkeys.js";
   import type { Translate, UserProfile, VoidAction } from "$lib/webapp/types.js";
@@ -83,14 +87,14 @@
   const externalIdentities = $derived((user.external_identities || []) as ExternalIdentity[]);
   const passkeys = $derived((user.passkeys || []) as Passkey[]);
   const emailAddresses = $derived((user.email_addresses || []) as AccountEmailAddress[]);
-  const googleIdentity = $derived(externalIdentities.find((item) => item.provider === "google"));
-  const yandexIdentity = $derived(externalIdentities.find((item) => item.provider === "yandex"));
-  const discordIdentity = $derived(externalIdentities.find((item) => item.provider === "discord"));
+  const externalProviders = $derived(
+    orderAuthProviders([
+      ...authProviders,
+      ...externalIdentities.map((identity) => String(identity.provider || "")),
+    ]).filter((provider) => !["telegram", "email", "passkey"].includes(provider))
+  );
   const passkeyEnabled = $derived(authProviders.includes("passkey"));
   const showPasskeys = $derived(passkeyEnabled || passkeys.length > 0);
-  const googleVisible = $derived(authProviders.includes("google") || Boolean(googleIdentity));
-  const yandexVisible = $derived(authProviders.includes("yandex") || Boolean(yandexIdentity));
-  const discordVisible = $derived(authProviders.includes("discord") || Boolean(discordIdentity));
   const emailEnabled = $derived(
     emailAuthEnabled && (authProviders.includes("email") || Boolean(user.email))
   );
@@ -136,16 +140,13 @@
     return [...new Set(labels.filter(Boolean))].join(" · ");
   }
 
-  function linkExternal(provider: "discord" | "google" | "yandex"): void {
+  function linkExternal(provider: string): void {
     window.location.assign(buildExternalOAuthStartUrl(provider, "link", currentLang));
   }
 
   function emailAddressSources(address: AccountEmailAddress): string {
     const labels = (address.sources || []).map((source) => {
-      if (source === "google") return "Google";
-      if (source === "yandex") return "Yandex";
-      if (source === "discord") return "Discord";
-      return t("wa_security_email_source", {}, "Email");
+      return authProviderName(source, t);
     });
     if (address.is_primary) labels.push(t("wa_security_primary_email", {}, "Primary"));
     return [...new Set(labels)].join(" · ");
@@ -174,7 +175,7 @@
     }
   }
 
-  async function unlinkExternal(provider: "discord" | "google" | "yandex"): Promise<void> {
+  async function unlinkExternal(provider: string): Promise<void> {
     busy = true;
     status = "";
     try {
@@ -360,17 +361,19 @@
           </button>
         {/if}
       {/if}
-      {#if googleVisible}
-        {#if googleIdentity}
+      {#each externalProviders as provider (provider)}
+        {@const identity = externalIdentities.find((item) => item.provider === provider)}
+        {@const label = authProviderName(provider, t)}
+        {#if identity}
           <div class="settings-row security-deletable-row">
-            <ProviderLogo provider="google" size={21} />
-            <span><strong>Google</strong><small>{externalLabel(googleIdentity)}</small></span>
-            {#if googleIdentity.can_unlink}
+            <ProviderLogo {provider} size={21} />
+            <span><strong>{label}</strong><small>{externalLabel(identity)}</small></span>
+            {#if identity.can_unlink}
               <button
                 class="security-delete"
                 type="button"
-                aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
-                onclick={() => unlinkExternal("google")}
+                aria-label={t("wa_security_unlink_named_provider", { provider: label })}
+                onclick={() => unlinkExternal(provider)}
                 disabled={busy}><Trash2 size={17} /></button
               >
             {/if}
@@ -379,83 +382,19 @@
           <button
             class="settings-row"
             type="button"
-            onclick={() => linkExternal("google")}
+            onclick={() => linkExternal(provider)}
             disabled={busy}
           >
-            <ProviderLogo provider="google" size={21} />
+            <ProviderLogo {provider} size={21} />
             <span
-              ><strong>Google</strong><small
+              ><strong>{label}</strong><small
                 >{t("wa_security_link_provider", {}, "Link account")}</small
               ></span
             >
             <ArrowRight size={17} />
           </button>
         {/if}
-      {/if}
-      {#if yandexVisible}
-        {#if yandexIdentity}
-          <div class="settings-row security-deletable-row">
-            <ProviderLogo provider="yandex" size={21} />
-            <span><strong>Yandex</strong><small>{externalLabel(yandexIdentity)}</small></span>
-            {#if yandexIdentity.can_unlink}
-              <button
-                class="security-delete"
-                type="button"
-                aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
-                onclick={() => unlinkExternal("yandex")}
-                disabled={busy}><Trash2 size={17} /></button
-              >
-            {/if}
-          </div>
-        {:else}
-          <button
-            class="settings-row"
-            type="button"
-            onclick={() => linkExternal("yandex")}
-            disabled={busy}
-          >
-            <ProviderLogo provider="yandex" size={21} />
-            <span
-              ><strong>Yandex</strong><small
-                >{t("wa_security_link_provider", {}, "Link account")}</small
-              ></span
-            >
-            <ArrowRight size={17} />
-          </button>
-        {/if}
-      {/if}
-      {#if discordVisible}
-        {#if discordIdentity}
-          <div class="settings-row security-deletable-row">
-            <ProviderLogo provider="discord" size={21} />
-            <span><strong>Discord</strong><small>{externalLabel(discordIdentity)}</small></span>
-            {#if discordIdentity.can_unlink}
-              <button
-                class="security-delete"
-                type="button"
-                aria-label={t("wa_security_unlink_provider", {}, "Unlink provider")}
-                onclick={() => unlinkExternal("discord")}
-                disabled={busy}><Trash2 size={17} /></button
-              >
-            {/if}
-          </div>
-        {:else}
-          <button
-            class="settings-row"
-            type="button"
-            onclick={() => linkExternal("discord")}
-            disabled={busy}
-          >
-            <ProviderLogo provider="discord" size={21} />
-            <span
-              ><strong>Discord</strong><small
-                >{t("wa_security_link_provider", {}, "Link account")}</small
-              ></span
-            >
-            <ArrowRight size={17} />
-          </button>
-        {/if}
-      {/if}
+      {/each}
     </div>
   </Card>
 
@@ -485,16 +424,10 @@
             disabled={busy || !address.verified}
           >
             <span class="security-email-source-logos" aria-hidden="true">
-              {#if address.sources?.includes("google")}
-                <ProviderLogo provider="google" size={19} />
-              {/if}
-              {#if address.sources?.includes("yandex")}
-                <ProviderLogo provider="yandex" size={19} />
-              {/if}
-              {#if address.sources?.includes("discord")}
-                <ProviderLogo provider="discord" size={19} />
-              {/if}
-              {#if !address.sources?.some( (source) => ["discord", "google", "yandex"].includes(source) )}
+              {#each [...new Set(address.sources || [])].filter((source) => source !== "email") as provider (provider)}
+                <ProviderLogo {provider} size={19} />
+              {/each}
+              {#if !address.sources?.some((source) => source !== "email")}
                 <Mail size={19} />
               {/if}
             </span>

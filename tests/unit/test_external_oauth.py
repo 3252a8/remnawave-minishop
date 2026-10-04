@@ -550,16 +550,17 @@ async def _authenticated_provider_link_merges_claimed_email_before_linking() -> 
     ):
         response = await external_oauth.external_oauth_callback_route(request)
 
-    assert response.headers["Location"] == (
-        "/settings/security?external_auth=google:account_merge_required"
-    )
+    assert response.headers["Location"] == ("/settings/security?external_auth=google:success")
     merge_users.assert_not_awaited()
     upsert_address.assert_not_awaited()
-    factory.session.commit.assert_not_awaited()
-    emit_model.assert_not_awaited()
+    factory.session.commit.assert_awaited_once()
+    emit_model.assert_awaited_once()
+    assert target.email == "primary@example.com"
+    assert source.user_id == -41
+    assert factory.session.add.call_args.args[0].user_id == 42
 
 
-def test_authenticated_provider_link_rejects_claimed_email_without_merge() -> None:
+def test_authenticated_provider_link_preserves_unrelated_claimed_email_owner() -> None:
     asyncio.run(_authenticated_provider_link_merges_claimed_email_before_linking())
 
 
@@ -589,7 +590,11 @@ async def _provider_link_merges_distinct_identity_and_email_owners() -> None:
     merge_users = AsyncMock(return_value=target)
 
     with (
-        patch.object(external_oauth, "get_settings", return_value=SimpleNamespace()),
+        patch.object(
+            external_oauth,
+            "get_settings",
+            return_value=SimpleNamespace(WEBAPP_SESSION_SECRET="session-secret"),
+        ),
         patch.object(external_oauth, "get_session_factory", return_value=factory),
         patch.object(external_oauth, "_provider", return_value=_provider()),
         patch.object(external_oauth, "_read_state", return_value=state),

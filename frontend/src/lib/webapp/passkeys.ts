@@ -1,4 +1,4 @@
-import type { ApiClient } from "./publicApi.js";
+import { unwrap, type ApiClient } from "./publicApi.js";
 import { MANUAL_LOGOUT_FLAG_KEY } from "./constants.js";
 import { clearManualLogoutFlag } from "./session.js";
 
@@ -149,6 +149,28 @@ function publicApiUrl(apiBase: string, path: string): string {
   return `${base}/${path.replace(/^\/+/, "")}`;
 }
 
+async function authenticateWithPasskey(rawOptions: JsonMap): Promise<JsonMap> {
+  const credential = (await navigator.credentials.get({
+    publicKey: requestOptions(rawOptions),
+  })) as PublicKeyCredential | null;
+  if (!credential) throw new Error("passkey_cancelled");
+  return {
+    challenge: challengeFrom(rawOptions),
+    credential: serializeCredential(credential),
+  };
+}
+
+export async function confirmAccountMergeWithPasskey(api: ApiClient["api"]): Promise<void> {
+  if (!passkeysSupported()) throw new Error("passkey_unsupported");
+  const response = unwrap(
+    await api("/account/merge/passkey/options", { method: "POST", body: JSON.stringify({}) })
+  );
+  const payload = await authenticateWithPasskey(response.options as JsonMap);
+  unwrap(
+    await api("/account/merge/passkey/verify", { method: "POST", body: JSON.stringify(payload) })
+  );
+}
+
 export async function loginWithPasskey(apiBase = "/api"): Promise<void> {
   if (!passkeysSupported()) throw new Error("passkey_unsupported");
   const optionsResponse = await fetch(publicApiUrl(apiBase, "/auth/passkey/options"), {
@@ -159,17 +181,11 @@ export async function loginWithPasskey(apiBase = "/api"): Promise<void> {
   }).then((response) => response.json());
   if (!optionsResponse.ok) throw optionsResponse;
   const rawOptions = optionsResponse.options as JsonMap;
-  const credential = (await navigator.credentials.get({
-    publicKey: requestOptions(rawOptions),
-  })) as PublicKeyCredential | null;
-  if (!credential) throw new Error("passkey_cancelled");
+  const payload = await authenticateWithPasskey(rawOptions);
   const verifyResponse = await fetch(publicApiUrl(apiBase, "/auth/passkey/verify"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      challenge: challengeFrom(rawOptions),
-      credential: serializeCredential(credential),
-    }),
+    body: JSON.stringify(payload),
     credentials: "same-origin",
   }).then((response) => response.json());
   if (!verifyResponse.ok) throw verifyResponse;

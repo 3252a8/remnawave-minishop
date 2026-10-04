@@ -22,6 +22,7 @@ from db.dal import user_dal, user_email_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import UserTelegramAvatar
 
+from .account_merge_proof import set_merge_proof
 from .assets import (
     _enforce_webapp_rate_limit,
 )
@@ -183,12 +184,21 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
                 await user_email_dal.get_user_by_verified_email_address(session, email)
             )
             if existing_email_user and existing_email_user.user_id != current_user.user_id:
-                await session.rollback()
-                return _json_error(
+                await session.commit()
+                response = _json_error(
                     409,
                     "account_merge_required",
                     "Email belongs to another account; an explicit merge is required.",
                 )
+                set_merge_proof(
+                    response,
+                    settings,
+                    user_id=user_id,
+                    source_user_id=int(existing_email_user.user_id),
+                    provider="email",
+                    subject=email,
+                )
+                return response
             current_user.email = email
             current_user.email_verified_at = datetime.now(UTC)
             current_user.notification_email = email
@@ -437,6 +447,16 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                     user_id=user_id,
                     telegram_id=int(telegram_user["id"]),
                 )
+                source = await user_dal.get_user_by_telegram_id(session, int(telegram_user["id"]))
+                if source:
+                    set_merge_proof(
+                        response,
+                        settings,
+                        user_id=user_id,
+                        source_user_id=int(source.user_id),
+                        provider="telegram",
+                        subject=str(telegram_user["id"]),
+                    )
             return response
         except Exception:
             await session.rollback()

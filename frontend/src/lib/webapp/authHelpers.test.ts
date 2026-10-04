@@ -1,14 +1,52 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  accountMergeErrorMessage,
+  authProviderName,
   buildExternalOAuthStartUrl,
   buildTelegramOAuthStartUrl,
   emailError,
+  orderAuthProviders,
   readReferralParam,
   readRegistrationInviteParam,
   shouldShowInviteOnlyHint,
 } from "./authHelpers.js";
 import { GIFT_STORAGE_KEY, REFERRAL_STORAGE_KEY } from "./session.js";
+import ru from "../../../../locales/ru.json";
+import en from "../../../../locales/en.json";
+
+describe("account merge error localization", () => {
+  const russian: Record<string, string> = ru;
+  const english: Record<string, string> = en;
+  it.each(Object.keys(russian).filter((key) => key.startsWith("account_merge_")))(
+    "maps %s to a key included in both webapp locale payloads",
+    (errorCode) => {
+      const key = accountMergeErrorMessage(errorCode, (value) => value);
+      expect(key).toBe(`wa_${errorCode}`);
+      expect(russian[key]).toBeTruthy();
+      expect(english[key]).toBeTruthy();
+    }
+  );
+
+  it("uses a readable provider conflict and safe unknown error fallback", () => {
+    expect(accountMergeErrorMessage("provider_conflict", (value) => value)).toBe(
+      "wa_account_merge_provider_conflict"
+    );
+    expect(accountMergeErrorMessage("account_merge_unknown", (value) => value)).toBe(
+      "wa_account_merge_conflict"
+    );
+  });
+});
+
+describe("provider presentation", () => {
+  it("keeps the established order and appends new providers without duplicates", () => {
+    expect(
+      orderAuthProviders(["future-provider", "discord", "google", "future-provider", "email"])
+    ).toEqual(["email", "google", "discord", "future-provider"]);
+    expect(authProviderName("future-provider", (key) => key)).toBe("future-provider");
+    expect(authProviderName("yandex", (key) => key)).toBe("Yandex");
+  });
+});
 
 function installBrowser(search = "", pathname = "/") {
   const storage = new Map();
@@ -100,6 +138,16 @@ describe("auth referral helpers", () => {
       `/auth/google/start?purpose=login&lang=en&tariff_access=${"ab".repeat(16)}`
     );
   });
+
+  it.each(["google", "yandex", "discord", "telegram", "future-provider"])(
+    "reconfirms %s ownership without registration context before merging",
+    (provider) => {
+      installBrowser("?ref=REGISTRATION");
+      expect(buildExternalOAuthStartUrl(provider, "merge", "en")).toBe(
+        `/auth/${provider}/start?purpose=merge&lang=en&return_to=%2Fsettings%2Fsecurity`
+      );
+    }
+  );
 
   it("carries a partner web link into Google registration", () => {
     const code = "TestPartner_123";

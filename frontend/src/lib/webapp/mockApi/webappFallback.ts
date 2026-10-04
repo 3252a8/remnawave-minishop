@@ -200,6 +200,9 @@ export function webappFallbackResponse(
       user: { ...user, id: user.id ?? legacyUserId },
       settings: {
         ...DEV_MOCK.data.settings,
+        ...(new URLSearchParams(window.location.search).get("merge_demo") === "provider-only"
+          ? { email_auth_enabled: false }
+          : {}),
         gifts_enabled:
           DEV_MOCK.config.giftsEnabled !== false && !["disabled", "disabled-empty"].includes(demo),
       },

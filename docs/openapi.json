@@ -16251,6 +16251,27 @@
         "title": "TributeTariffConfig",
         "type": "object"
       },
+      "WebAppAccountMergePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "email_code": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email Code"
+          }
+        },
+        "title": "WebAppAccountMergePayload",
+        "type": "object"
+      },
       "WebAppAutoRenewPayload": {
         "properties": {
           "creator_cancellation_confirmed": {
@@ -16730,11 +16751,9 @@
       "WebAppExternalIdentityPayload": {
         "properties": {
           "provider": {
-            "enum": [
-              "discord",
-              "google",
-              "yandex"
-            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_-]*$",
             "title": "Provider",
             "type": "string"
           }
@@ -18750,6 +18769,372 @@
           }
         ],
         "summary": "Account Language",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/merge/cancel": {
+      "post": {
+        "operationId": "post_account_merge_cancel_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Merge Cancel",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/merge/confirm": {
+      "post": {
+        "operationId": "post_account_merge_confirm_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppAccountMergePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "account_merge": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "final_end_date": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "final_end_date_text": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "language": {
+                          "type": "string"
+                        },
+                        "merged": {
+                          "type": "boolean"
+                        },
+                        "primary_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "primary_user_id": {
+                          "type": "integer"
+                        },
+                        "removed_panel_user_uuid": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "removed_user_id": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "merged",
+                        "language",
+                        "primary_user_id",
+                        "removed_user_id",
+                        "primary_panel_user_uuid",
+                        "removed_panel_user_uuid",
+                        "final_end_date",
+                        "final_end_date_text"
+                      ],
+                      "type": "object"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "token",
+                    "csrf_token"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Merge Confirm",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/merge/passkey/options": {
+      "post": {
+        "operationId": "post_account_merge_passkey_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "options"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Merge Passkey Options",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/merge/passkey/verify": {
+      "post": {
+        "operationId": "post_account_merge_passkey_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppPasskeyCredentialPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Merge Passkey Verify",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/merge/request": {
+      "post": {
+        "operationId": "post_account_merge_request_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "email_code": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "retry_after": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Merge Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/merge/status": {
+      "get": {
+        "operationId": "get_account_merge_status_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "email": {
+                      "type": "string"
+                    },
+                    "email_available": {
+                      "type": "boolean"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "providers": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "target_confirmed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "provider",
+                    "target_confirmed",
+                    "providers",
+                    "email_available",
+                    "email"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Merge Status",
         "tags": [
           "account"
         ]
