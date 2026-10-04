@@ -174,6 +174,14 @@ class TelegramEmojiResourceQuotaTests(unittest.IsolatedAsyncioTestCase):
             ("GET", prefix + "0", 42, 4),
             ("GET", prefix + "1" * 21, 42, 4),
             ("GET", prefix + "123/extra", 42, 4),
+            ("GET", "/api/support/tickets/7/emoji/5368651601797984900", 42, 16),
+            ("GET", "/api/support/tickets/7/emoji/5368651601797984900", None, 8),
+            ("POST", "/api/support/tickets/7/emoji/5368651601797984900", 42, 4),
+            ("GET", "/api/support/tickets/0/emoji/123", 42, 4),
+            ("GET", "/api/support/tickets/2147483648/emoji/123", 42, 4),
+            ("GET", "/api/support/tickets/9223372036854775808/emoji/123", 42, 4),
+            ("GET", "/api/support/tickets/7/emoji/0", 42, 4),
+            ("GET", "/api/support/tickets/7/emoji/123/extra", 42, 4),
         )
         for method, path, user_id, allowed in cases:
             with self.subTest(method=method, path=path, user_id=user_id):

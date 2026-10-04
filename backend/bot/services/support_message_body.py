@@ -3,7 +3,7 @@
 A support message is stored either as ``text`` — everything written before the
 rich composer existed, and anything a client sends without asking for markup —
 or as ``html``: the same Telegram-subset markup the broadcast composer already
-produces (``b i u s code a pre blockquote``). The format is stored next to the
+produces (``b i u s code a pre blockquote tg-emoji``). The format is stored next to the
 body instead of being guessed, so an old plain-text message that happens to
 contain ``<b>`` keeps reading as the literal characters its author typed.
 
@@ -11,7 +11,7 @@ Every consumer then asks for the rendering it needs:
 
 - the chat surfaces keep the markup (:func:`sanitize_support_body`'s output is
   what the client re-renders from a whitelist of its own);
-- e-mail and log previews take :func:`support_body_plain_text`;
+- logs and plain-text e-mail previews take :func:`support_body_plain_text`;
 - Telegram takes :func:`support_body_telegram_html`, which truncates on tag
   boundaries so a cut-off message never reaches the Bot API half-open.
 
@@ -25,6 +25,9 @@ import html
 import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
+
+from bot.utils.custom_emoji import valid_emoji_fallback
+from config.telegram_menu import CUSTOM_EMOJI_ID_RE
 
 BODY_FORMAT_TEXT = "text"
 BODY_FORMAT_HTML = "html"
@@ -91,6 +94,10 @@ class _SupportBodyParser(HTMLParser):
         self._open: list[tuple[str, str | None]] = []
         self._length = 0
         self._pre_depth = 0
+        self._emoji_id: str | None = None
+        self._emoji_content: list[str] = []
+        self._emoji_depth = 0
+        self._emoji_invalid = False
 
     # -- output helpers ---------------------------------------------------- #
 
@@ -129,6 +136,22 @@ class _SupportBodyParser(HTMLParser):
     # -- HTMLParser hooks -------------------------------------------------- #
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self._emoji_depth:
+            self._emoji_invalid = True
+            if tag == "tg-emoji":
+                self._emoji_depth += 1
+            return
+        if tag == "tg-emoji":
+            identifier = dict(attrs).get("emoji-id") or ""
+            self._emoji_id = identifier if CUSTOM_EMOJI_ID_RE.fullmatch(identifier) else None
+            self._emoji_content = []
+            self._emoji_depth = 1
+            self._emoji_invalid = (
+                len(attrs) != 1
+                or attrs[0][0] != "emoji-id"
+                or any(emitted in {"code", "pre"} for _, emitted in self._open)
+            )
+            return
         name = _TAG_ALIASES.get(tag, tag)
         if name in _NEWLINE_TAGS:
             self._emit_break(1)
@@ -152,6 +175,10 @@ class _SupportBodyParser(HTMLParser):
         self._open.append((tag, name))
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tg-emoji" or self._emoji_depth:
+            self.handle_starttag(tag, attrs)
+            self.handle_endtag(tag)
+            return
         name = _TAG_ALIASES.get(tag, tag)
         if name in _NEWLINE_TAGS:
             self._emit_break(1)
@@ -160,6 +187,14 @@ class _SupportBodyParser(HTMLParser):
         # it would only produce an empty pair the cleanup pass removes anyway.
 
     def handle_endtag(self, tag: str) -> None:
+        if self._emoji_depth:
+            if tag != "tg-emoji":
+                self._emoji_invalid = True
+                return
+            self._emoji_depth -= 1
+            if not self._emoji_depth:
+                self._flush_emoji()
+            return
         name = _TAG_ALIASES.get(tag, tag)
         if name in _NEWLINE_TAGS:
             return
@@ -180,7 +215,30 @@ class _SupportBodyParser(HTMLParser):
             self._emit_break(2)
 
     def handle_data(self, data: str) -> None:
+        if self._emoji_depth:
+            self._emoji_content.append(data)
+            return
         self._emit_text(data)
+
+    def _flush_emoji(self) -> None:
+        fallback = "".join(self._emoji_content)
+        if self._emoji_id and not self._emoji_invalid and valid_emoji_fallback(fallback):
+            left = self._budget_left()
+            if left >= 0 and len(fallback) > left:
+                # Never split a flag, modifier or ZWJ sequence inside an entity.
+                self.truncated = True
+                self._length = self.limit
+            else:
+                self._html.append(
+                    f'<tg-emoji emoji-id="{self._emoji_id}">'
+                    f"{html.escape(fallback, quote=False)}</tg-emoji>"
+                )
+                self._text.append(fallback)
+                self._length += len(fallback)
+        else:
+            self._emit_text(fallback)
+        self._emoji_id = None
+        self._emoji_content = []
 
     def _close_emitted(self, tag: str, emitted: str | None) -> None:
         if emitted is None:
@@ -190,6 +248,9 @@ class _SupportBodyParser(HTMLParser):
         self._html.append(f"</{emitted}>")
 
     def finish(self) -> SanitizedBody:
+        if self._emoji_depth:
+            self._emoji_invalid = True
+            self._flush_emoji()
         for tag, emitted in reversed(self._open):
             self._close_emitted(tag, emitted)
         self._open.clear()

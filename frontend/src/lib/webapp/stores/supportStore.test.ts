@@ -16,15 +16,16 @@ function makeSupportStore() {
     if (path === "/support/unread") return { ok: true, unread: 0 };
     return { ok: true, tickets: [], counts: {} };
   });
+  const apiBlob = vi.fn<ApiClient["apiBlob"]>().mockResolvedValue(new Blob(["image"]));
   const store = createSupportStore({
     api: api as unknown as ApiClient["api"],
-    apiBlob: vi.fn() as unknown as ApiClient["apiBlob"],
+    apiBlob,
     t: (key: string) => key,
     showToast: vi.fn(),
   });
   store.openedTicketId = 7;
   store.openedTicket = { ticket_id: 7, status: "open" };
-  return { api, store };
+  return { api, apiBlob, store };
 }
 
 function makeListStore(responses: unknown[]) {
@@ -39,6 +40,30 @@ function makeListStore(responses: unknown[]) {
 }
 
 describe("supportStore", () => {
+  it("loads exact custom emoji IDs through the authenticated ticket-scoped API", async () => {
+    const { apiBlob, store } = makeSupportStore();
+    const signal = new AbortController().signal;
+    const id = "5368324170671202286";
+    await store.loadCustomEmojiMedia(7, id, signal);
+    expect(apiBlob).toHaveBeenCalledExactlyOnceWith(`/support/tickets/7/emoji/${id}`, { signal });
+  });
+
+  it.each([
+    ["../7", "5368324170671202286"],
+    ["0", "5368324170671202286"],
+    ["7", "0"],
+    ["7", "5368324170671202286/../../secret"],
+  ])(
+    "rejects unsafe ticket/emoji identifiers before requesting media: %s / %s",
+    async (ticket, id) => {
+      const { apiBlob, store } = makeSupportStore();
+      await expect(
+        store.loadCustomEmojiMedia(ticket, id, new AbortController().signal)
+      ).rejects.toThrow("invalid_custom_emoji");
+      expect(apiBlob).not.toHaveBeenCalled();
+    }
+  );
+
   it("ignores concurrent replies while the first request is in flight", async () => {
     const { api, store } = makeSupportStore();
 

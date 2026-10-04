@@ -15,6 +15,7 @@ import type {
 import {
   buildSupportTicketsPath,
   buildSupportTicketMessagesPath,
+  buildSupportTicketEmojiPath,
   buildSupportTicketPath,
   buildSupportTicketReadPath,
   buildSupportTicketTypingPath,
@@ -23,6 +24,7 @@ import {
 import { unwrap } from "../publicApi";
 import { createSupportTypingHeartbeat } from "../supportTyping.js";
 import { messageRequestBody } from "$lib/messageImage";
+import { isCustomEmojiId } from "$lib/richtext/customEmoji";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketRecord = Record<string, unknown> & {
@@ -74,6 +76,7 @@ export type SupportState = {
 };
 export type SupportStore = SupportState & {
   loadImage(url: string): Promise<Blob>;
+  loadCustomEmojiMedia(ticketId: string | number, id: string, signal: AbortSignal): Promise<Blob>;
   loadList(options?: LoadListOptions): Promise<SupportTicketsResponse>;
   hydrateUnread(value: unknown): void;
   createTicket(
@@ -195,6 +198,7 @@ export function createSupportStore({
     statusFilter: "active",
     polling: false,
     loadImage,
+    loadCustomEmojiMedia,
     loadList,
     hydrateUnread,
     createTicket,
@@ -227,6 +231,16 @@ export function createSupportStore({
 
   function loadImage(url: string): Promise<Blob> {
     return apiBlob(url);
+  }
+
+  function loadCustomEmojiMedia(
+    ticketId: string | number,
+    id: string,
+    signal: AbortSignal
+  ): Promise<Blob> {
+    if (!/^[1-9][0-9]*$/.test(String(ticketId)) || !isCustomEmojiId(id))
+      return Promise.reject(new Error("invalid_custom_emoji"));
+    return apiBlob(buildSupportTicketEmojiPath(ticketId, id), { signal });
   }
 
   function fetchTicketList(path: SupportTicketsListPath): Promise<SupportTicketsResponse> {

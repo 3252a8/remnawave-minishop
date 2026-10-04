@@ -427,3 +427,26 @@ async def user_can_access_image(session: AsyncSession, user_id: int, image_id: s
         .limit(1)
     )
     return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
+async def user_can_access_ticket_emoji(
+    session: AsyncSession, user_id: int, ticket_id: int, emoji_id: str
+) -> bool:
+    """Only canonical entities in the owner's public HTML messages authorize media."""
+    from config.telegram_menu import CUSTOM_EMOJI_ID_RE
+
+    if not CUSTOM_EMOJI_ID_RE.fullmatch(emoji_id):
+        return False
+    stmt = (
+        select(SupportTicketMessage.message_id)
+        .join(SupportTicket, SupportTicket.ticket_id == SupportTicketMessage.ticket_id)
+        .where(
+            SupportTicket.user_id == user_id,
+            SupportTicket.ticket_id == ticket_id,
+            SupportTicketMessage.body_format == "html",
+            SupportTicketMessage.is_internal_note.is_(False),
+            SupportTicketMessage.body.contains(f'<tg-emoji emoji-id="{emoji_id}">'),
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none() is not None

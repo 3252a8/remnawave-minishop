@@ -37026,6 +37026,55 @@
         ]
       }
     },
+    "/api/support/tickets/{id}/emoji/{emoji_id}": {
+      "get": {
+        "operationId": "get_support_ticket_emoji_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "emoji_id",
+            "required": true,
+            "schema": {
+              "pattern": "[^{}/]+",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Support Ticket Emoji",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/api/support/tickets/{id}/messages": {
       "post": {
         "operationId": "post_support_ticket_reply_route",

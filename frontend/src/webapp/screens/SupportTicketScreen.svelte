@@ -10,6 +10,7 @@
   import { webappRichTextLabels } from "$lib/webapp/richTextLabels.js";
   import { wireTextLength } from "$lib/richtext/telegramHtml";
   import { supportMessageImageUrl } from "$lib/messageImage";
+  import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
   import {
     clearSupportDraft,
     readSupportDraft,
@@ -51,6 +52,8 @@
   }: Props = $props();
 
   const supportStore = getSupportStore();
+  const loadCustomEmojiMedia: CustomEmojiMediaLoader = (id, signal) =>
+    supportStore.loadCustomEmojiMedia(ticketId, id, signal);
   let reply = $state("");
   let replyImage = $state<File | null>(null);
   let messagesScrollEl = $state<HTMLElement | null>(null);
@@ -228,13 +231,14 @@
       >
         <div class="ticket-message-list">
           {#if messages.length}
-            {#each messages as message}
+            {#each messages as message, index (`${ticketId}:${message.message_id ?? index}`)}
               <TicketMessageBubble
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
                 imageUrl={message.image_id ? supportMessageImageUrl(message.image_id) : ""}
                 loadImage={supportStore.loadImage}
+                {loadCustomEmojiMedia}
                 buttons={message.buttons}
                 createdAt={message.created_at}
                 isInternalNote={message.is_internal_note}

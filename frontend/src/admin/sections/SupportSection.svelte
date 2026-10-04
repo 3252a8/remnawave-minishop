@@ -396,7 +396,7 @@
     {:else}
       <ScrollArea class="support-inbox-list" maxHeight="none">
         <div class="support-inbox-list-inner">
-          {#each tickets as ticket}
+          {#each tickets as ticket (ticket.ticket_id)}
             <SupportInboxRow
               {ticket}
               active={openedTicketId === ticket.ticket_id}
@@ -462,13 +462,14 @@
       >
         <div class="support-admin-messages">
           {#if messages.length}
-            {#each messages as message}
+            {#each messages as message, index (`${openedTicketId}:${message.message_id ?? index}`)}
               <TicketMessageBubble
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
                 imageUrl={message.image_id ? supportMessageImageUrl(message.image_id, true) : ""}
                 loadImage={supportStore.loadImage}
+                loadCustomEmojiMedia={supportStore.loadCustomEmojiMedia}
                 buttons={message.buttons}
                 createdAt={message.created_at ?? undefined}
                 isInternalNote={message.is_internal_note}

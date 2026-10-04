@@ -1,5 +1,7 @@
 """Resource protection runs before route handlers and database-backed auditing."""
 
+import re
+
 from aiohttp import web
 from aiohttp.typedefs import Handler
 
@@ -19,6 +21,16 @@ _CODE_ROUTES = {
     "/api/tariffs/change-payment",
 }
 _EMOJI_MEDIA_PREFIX = "/api/admin/telegram-emoji/media/"
+_TICKET_EMOJI_MEDIA_RE = re.compile(
+    r"/api/support/tickets/([1-9][0-9]{0,18})/emoji/([1-9][0-9]{0,19})"
+)
+
+
+def _is_emoji_media_path(path: str) -> bool:
+    if path.startswith(_EMOJI_MEDIA_PREFIX):
+        return CUSTOM_EMOJI_ID_RE.fullmatch(path.removeprefix(_EMOJI_MEDIA_PREFIX)) is not None
+    match = _TICKET_EMOJI_MEDIA_RE.fullmatch(path)
+    return bool(match and int(match[1]) <= 2_147_483_647)
 
 
 @web.middleware
@@ -29,15 +41,10 @@ async def api_resource_middleware(request: web.Request, handler: Handler) -> web
         user_id = extract_authenticated_user_id(request)
         quota = "api"
         multiplier = 4
-        if (
-            user_id is not None
-            and request.method == "GET"
-            and request.path.startswith(_EMOJI_MEDIA_PREFIX)
-            and CUSTOM_EMOJI_ID_RE.fullmatch(request.path.removeprefix(_EMOJI_MEDIA_PREFIX))
-        ):
-            # A palette loads one protected image per emoji. Keep those bounded
-            # reads independent of account actions; admin authorization still
-            # runs in the downstream middleware and media route.
+        if user_id is not None and request.method == "GET" and _is_emoji_media_path(request.path):
+            # Palettes and ticket messages load one protected image per emoji.
+            # Keep reads bounded and independent of account actions; admin or
+            # ticket ownership checks still run in the downstream media route.
             quota = "telegram-emoji-media"
             multiplier = 16
         limits = [(f"{quota}:ip:{client_ip(request)}", maximum * multiplier * 2)]

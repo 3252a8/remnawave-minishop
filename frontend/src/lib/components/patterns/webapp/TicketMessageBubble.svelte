@@ -10,6 +10,8 @@
     UserRound,
   } from "$components/ui/icons.js";
   import { messageDisplayHtml } from "$lib/richtext/telegramHtml";
+  import { customEmojiPreviews } from "$lib/richtext/customEmojiPreview";
+  import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
 
   import type { TicketMessageButtonLike } from "./types.js";
 
@@ -28,6 +30,7 @@
     bodyFormat?: string;
     imageUrl?: string;
     loadImage?: (url: string) => Promise<Blob>;
+    loadCustomEmojiMedia?: CustomEmojiMediaLoader;
     buttons?: TicketMessageButtonLike[];
     createdAt?: string;
     isInternalNote?: boolean;
@@ -48,6 +51,7 @@
     bodyFormat = "text",
     imageUrl = "",
     loadImage = undefined,
+    loadCustomEmojiMedia = undefined,
     buttons = [],
     createdAt = "",
     isInternalNote = false,
@@ -83,7 +87,9 @@
   const timeLabel = $derived(formatTime(createdAt));
   // Built from the parsed structure, never from the raw string: only the tags
   // the whitelist knows can reach the DOM, and bare URLs become tappable.
-  const bodyHtml = $derived(messageDisplayHtml(body, bodyFormat));
+  const bodyHtml = $derived(
+    messageDisplayHtml(body, bodyFormat, { customEmoji: Boolean(loadCustomEmojiMedia) })
+  );
   const messageButtons = $derived((buttons || []).filter((button) => button?.label && button?.url));
   const showSupportAvatar = $derived(!isInternalNote && messageRole === "admin");
   const showUserAvatar = $derived(!isInternalNote && messageRole === "user");
@@ -203,8 +209,14 @@
         </span>
       {/if}
       {#if bodyHtml}
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        <div class="ticket-message-text">{@html bodyHtml}</div>
+        <div
+          class="ticket-message-text"
+          {@attach customEmojiPreviews(bodyHtml, loadCustomEmojiMedia)}
+        >
+          <!-- Rendered from the safe parsed whitelist, never the stored HTML source. -->
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+          {@html bodyHtml}
+        </div>
       {/if}
       {#if messageButtons.length}
         <div class="ticket-message-buttons">

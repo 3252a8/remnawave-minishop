@@ -165,6 +165,40 @@ describe("messageDisplayHtml", () => {
   it("shows an unsubstituted token as the characters it is", () => {
     expect(messageDisplayHtml("Hi {first_name}", "html")).toBe("<p>Hi {first_name}</p>");
   });
+
+  it("emits a safe selectable emoji placeholder inside the original formatting", () => {
+    const id = "5368324170671202286";
+    const source = `<blockquote><a href="https://example.test"><b><tg-emoji emoji-id="${id}">👩🏽‍💻</tg-emoji></b></a></blockquote>`;
+    expect(messageDisplayHtml(source, "html", { customEmoji: true })).toBe(
+      `<blockquote><a href="https://example.test"><b><span class="rt-custom-emoji" data-custom-emoji-id="${id}"><span class="rt-custom-emoji-fallback">👩🏽‍💻</span></span></b></a></blockquote>`
+    );
+  });
+
+  it("never creates media placeholders from plain text, code or pre", () => {
+    const emoji = '<tg-emoji emoji-id="5368324170671202286">🙂</tg-emoji>';
+    for (const [body, format] of [
+      [emoji, "text"],
+      [`<code>${emoji}</code>`, "html"],
+      [`<pre>${emoji}</pre>`, "html"],
+    ]) {
+      const html = messageDisplayHtml(body, format, { customEmoji: true });
+      expect(html).not.toContain('data-custom-emoji-id="');
+      expect(html).toContain("🙂");
+    }
+  });
+
+  it.each([
+    '<tg-emoji emoji-id="1/../../secret">🙂</tg-emoji>',
+    '<tg-emoji emoji-id="5368324170671202286" onclick="alert(1)">🙂</tg-emoji>',
+    '<tg-emoji emoji-id="5368324170671202286"><img src="https://evil.test/tracker"></tg-emoji>',
+    '<span class="rt-custom-emoji" data-custom-emoji-id="5368324170671202286"><span class="rt-custom-emoji-fallback">🙂</span></span>',
+    '<img src="https://evil.test/tracker" onerror="alert(1)">',
+  ])("does not turn untrusted markup into a media element: %s", (body) => {
+    const html = messageDisplayHtml(body, "html", { customEmoji: true });
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain('<span class="rt-custom-emoji"');
+    expect(html).not.toContain("<tg-emoji");
+  });
 });
 
 describe("wireTextLength", () => {

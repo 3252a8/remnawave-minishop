@@ -82,4 +82,8 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         response_schema=BINARY_RESPONSE_SCHEMA,
         response_content_type="image/webp",
     ),
+    "support_ticket_emoji_route": user_contract(
+        response_schema=BINARY_RESPONSE_SCHEMA,
+        response_content_type="application/octet-stream",
+    ),
 }

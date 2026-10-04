@@ -354,6 +354,16 @@ export function buildSupportTicketMessagesPath(
   );
 }
 
+export type SupportTicketEmojiPath = BuiltApiPath<"/api/support/tickets/{id}/emoji/{emoji_id}">;
+export function buildSupportTicketEmojiPath(
+  ticketId: string | number,
+  emojiId: string
+): SupportTicketEmojiPath {
+  return builtApiPath<"/api/support/tickets/{id}/emoji/{emoji_id}">(
+    `/support/tickets/${encodeURIComponent(String(ticketId))}/emoji/${encodeURIComponent(emojiId)}`
+  );
+}
+
 export type SupportTicketReadPath = BuiltApiPath<"/api/support/tickets/{id}/read">;
 export function buildSupportTicketReadPath(ticketId: string | number): SupportTicketReadPath {
   return builtApiPath<"/api/support/tickets/{id}/read">(

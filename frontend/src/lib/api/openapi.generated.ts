@@ -4131,6 +4131,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/support/tickets/{id}/emoji/{emoji_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Ticket Emoji */
+    get: operations["get_support_ticket_emoji_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/support/tickets/{id}/messages": {
     parameters: {
       query?: never;
@@ -20688,6 +20705,29 @@ export interface operations {
             ticket: components["schemas"]["SupportTicketOut"];
             unread?: number;
           };
+        };
+      };
+    };
+  };
+  get_support_ticket_emoji_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        emoji_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
         };
       };
     };

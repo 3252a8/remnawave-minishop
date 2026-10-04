@@ -451,7 +451,11 @@ export function previewHtmlFromWire(html: string, samples: Record<string, string
  * written before the rich composer is. Bare URLs become links in both cases,
  * because a support conversation is mostly people pasting them.
  */
-export function messageDisplayHtml(body: string, format: string): string {
+export function messageDisplayHtml(
+  body: string,
+  format: string,
+  options: { customEmoji?: boolean } = {}
+): string {
   const source = String(body ?? "");
   if (format !== "html") {
     return source
@@ -468,8 +472,14 @@ export function messageDisplayHtml(body: string, format: string): string {
         // A shortcode token that survived into a stored body was never
         // substituted, so it is literal text to the reader.
         if (node.type === "shortcode") return escapeHtml(`{${node.attrs.name}}`);
-        if (node.type === "customEmoji")
-          return wrapMarks(escapeHtml(node.attrs.fallback), node.marks);
+        if (node.type === "customEmoji") {
+          const fallback = escapeHtml(node.attrs.fallback);
+          const html =
+            options.customEmoji && isCustomEmoji(node.attrs)
+              ? `<span class="rt-custom-emoji" data-custom-emoji-id="${node.attrs.id}"><span class="rt-custom-emoji-fallback">${fallback}</span></span>`
+              : fallback;
+          return wrapMarks(html, node.marks);
+        }
         const authored = node.marks?.some((mark) => mark.type === "link");
         const text = authored ? escapeHtml(node.text) : linkifyToHtml(node.text);
         return wrapMarks(text, node.marks);

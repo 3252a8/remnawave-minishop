@@ -16,6 +16,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.email_custom_emoji import prepare_email_custom_emoji
 from bot.services.email_templates import EmailContent, EmailInlineImage, render_login_code
 from bot.services.message_audit import log_user_message_delivery
 from bot.utils.outbound_network import OutboundPolicy
@@ -548,13 +549,16 @@ class EmailAuthService:
         html_body: str | None = None,
         inline_images: Sequence[EmailInlineImage] = (),
     ) -> None:
+        html_body, prepared_images = await prepare_email_custom_emoji(
+            self.settings, html_body, inline_images
+        )
         await asyncio.to_thread(
             self._send_custom_email_sync,
             email=email,
             subject=subject,
             body=body,
             html_body=html_body,
-            inline_images=inline_images,
+            inline_images=prepared_images,
         )
 
     async def send_rendered_email(

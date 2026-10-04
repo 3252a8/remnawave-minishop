@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSchema } from "@tiptap/core";
 
-import { CustomEmojiNodeViewMedia } from "./customEmojiNodeView";
+import { CustomEmojiMedia as CustomEmojiNodeViewMedia } from "./customEmojiMedia";
 import { composerExtensions } from "./editorSchema";
 import { type Doc, docToTelegramHtml, telegramHtmlToDoc } from "./telegramHtml";
 import type { CustomEmojiMediaLoader } from "./types";

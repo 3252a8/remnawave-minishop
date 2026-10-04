@@ -75,6 +75,48 @@ def test_pre_keeps_its_content_literal():
     assert sanitize("<pre>a <b>b</b></pre>") == "<pre>a b</pre>"
 
 
+def test_custom_emoji_survives_storage_and_telegram_with_plain_text_fallback():
+    body = '<b>Files <tg-emoji emoji-id="5368651601797984900">📁</tg-emoji></b>'
+    assert sanitize(body) == body
+    assert support_body_telegram_html(body, "html") == body
+    assert support_body_plain_text(body, "html") == "Files 📁"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<tg-emoji emoji-id="0">📁</tg-emoji>',
+        '<tg-emoji emoji-id="123" onclick="bad()">📁</tg-emoji>',
+        '<tg-emoji emoji-id="123"><b>📁</b></tg-emoji>',
+        '<tg-emoji emoji-id="123"><tg-emoji emoji-id="456">📁</tg-emoji></tg-emoji>',
+        '<tg-emoji emoji-id="123">📁',
+    ],
+)
+def test_invalid_custom_emoji_keeps_only_safe_fallback(body):
+    assert sanitize(body) == "📁"
+
+
+@pytest.mark.parametrize("tag", ["code", "pre"])
+def test_custom_emoji_is_plain_inside_code(tag):
+    assert (
+        sanitize(f'<{tag}><tg-emoji emoji-id="123">📁</tg-emoji></{tag}>') == f"<{tag}>📁</{tag}>"
+    )
+
+
+def test_custom_emoji_truncation_never_splits_unicode_sequence():
+    body = '<b>x<tg-emoji emoji-id="123">👩🏽‍💻</tg-emoji>y</b>'
+    assert sanitize(body, max_length=3) == "<b>x</b>…"
+    assert sanitize(body, max_length=5) == '<b>x<tg-emoji emoji-id="123">👩🏽‍💻</tg-emoji></b>…'
+
+
+def test_custom_emoji_markup_is_literal_in_old_plain_text_messages():
+    body = '<tg-emoji emoji-id="123">📁</tg-emoji>'
+    assert (
+        support_body_telegram_html(body, "text")
+        == '&lt;tg-emoji emoji-id="123"&gt;📁&lt;/tg-emoji&gt;'
+    )
+
+
 def test_truncation_cuts_visible_text_and_closes_tags():
     stored = sanitize("<b>abcdefghij</b>", max_length=4)
 

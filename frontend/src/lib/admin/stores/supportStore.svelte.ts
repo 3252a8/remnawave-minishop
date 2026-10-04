@@ -16,6 +16,9 @@ import { messageRequestBody } from "$lib/messageImage";
 import { adminErrorMessage } from "../errors.js";
 import { defineRawStateProperty } from "./rawStateProperty";
 import { snapshotForPayload } from "./snapshotForPayload.svelte";
+import { isCustomEmojiId } from "$lib/richtext/customEmoji";
+import { buildTelegramEmojiMediaPath } from "$lib/telegramEmoji/paths";
+import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
 
 type AdminApi = ApiClient["api"];
 type AdminApiBlob = ApiClient["apiBlob"];
@@ -83,6 +86,7 @@ type AdminSupportStoreOptions = {
 
 export type AdminSupportStore = AdminSupportState & {
   loadImage(url: string): Promise<Blob>;
+  loadCustomEmojiMedia: CustomEmojiMediaLoader;
   setActive(section: string): void;
   loadStats(): Promise<void>;
   loadList(options?: LoadListOptions): Promise<void>;
@@ -213,6 +217,11 @@ export function createAdminSupportStore({
 
   function loadImage(url: string): Promise<Blob> {
     return apiBlob(url);
+  }
+
+  function loadCustomEmojiMedia(id: string, signal: AbortSignal): Promise<Blob> {
+    if (!isCustomEmojiId(id)) return Promise.reject(new Error("invalid_custom_emoji"));
+    return apiBlob(buildTelegramEmojiMediaPath(id), { signal });
   }
 
   function getSnapshot() {
@@ -597,6 +606,7 @@ export function createAdminSupportStore({
 
   return Object.assign(store, {
     loadImage,
+    loadCustomEmojiMedia,
     setActive,
     loadStats,
     loadList,

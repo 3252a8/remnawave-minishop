@@ -25,17 +25,39 @@ async function makeSupportStore() {
     if (path === "/admin/support/stats") return { ok: true, stats: {} };
     return { ok: true, tickets: [] };
   });
+  const apiBlob = vi.fn<ApiClient["apiBlob"]>().mockResolvedValue(new Blob(["image"]));
   const store = createAdminSupportStore({
     api: api as unknown as ApiClient["api"],
-    apiBlob: vi.fn() as unknown as ApiClient["apiBlob"],
+    apiBlob,
     at: (key: string) => key,
     onToast: vi.fn(),
   });
   await store.openTicket(7, { skipPush: true });
-  return { api, store };
+  return { api, apiBlob, store };
 }
 
 describe("admin supportStore", () => {
+  it("loads custom emoji through the authenticated admin media API", async () => {
+    const { apiBlob, store } = await makeSupportStore();
+    const signal = new AbortController().signal;
+    const id = "5368324170671202286";
+    await store.loadCustomEmojiMedia(id, signal);
+    expect(apiBlob).toHaveBeenCalledExactlyOnceWith(`/admin/telegram-emoji/media/${id}`, {
+      signal,
+    });
+  });
+
+  it.each(["0", "01", "5368324170671202286/../../secret", '1" onclick="alert(1)'])(
+    "never requests admin media for an unsafe identifier: %s",
+    async (id) => {
+      const { apiBlob, store } = await makeSupportStore();
+      await expect(store.loadCustomEmojiMedia(id, new AbortController().signal)).rejects.toThrow(
+        "invalid_custom_emoji"
+      );
+      expect(apiBlob).not.toHaveBeenCalled();
+    }
+  );
+
   it.each(["awaiting_admin", "awaiting_user"])(
     "requests only %s tickets for the selected status view",
     async (status) => {

@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlsplit
 
+from bot.utils.custom_emoji import custom_emoji_html_error, custom_emoji_unicode_html
+
 if TYPE_CHECKING:
     from PIL.Image import Image as PILImage
 
@@ -508,6 +510,8 @@ class _TelegramEmailHtmlConverter(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "tg-emoji":
+            identifier = dict(attrs)["emoji-id"]
+            self.parts.append(f'<span data-telegram-emoji-id="{identifier}">')
             return
         if tag == "a":
             href = next((value for key, value in attrs if key == "href"), None)
@@ -535,6 +539,7 @@ class _TelegramEmailHtmlConverter(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "tg-emoji":
+            self.parts.append("</span>")
             return
         if tag == "a":
             if self._anchor_stack and self._anchor_stack.pop():
@@ -555,6 +560,8 @@ class _TelegramEmailHtmlConverter(HTMLParser):
 
 def _telegram_html_to_email_html(value: str) -> str:
     """Escape arbitrary text while preserving the Telegram HTML subset we support."""
+    if custom_emoji_html_error(value):
+        value = custom_emoji_unicode_html(value)
     converter = _TelegramEmailHtmlConverter()
     try:
         converter.feed(str(value or ""))

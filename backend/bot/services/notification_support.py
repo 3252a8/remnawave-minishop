@@ -500,6 +500,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
             user_display=user_display,
             subject=ticket.subject,
             body_preview=preview,
+            body_preview_html=preview_html,
             snapshot_rows=self._support_snapshot_rows(snapshot),
             ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
             image=email_image,
@@ -567,6 +568,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                 user_display=user_display,
                 subject=ticket.subject,
                 body_preview=preview,
+                body_preview_html=preview_html,
                 snapshot_rows=self._support_snapshot_rows(snapshot),
                 ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
                 image=email_image,
@@ -628,6 +630,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                 ticket_id=ticket.ticket_id,
                 subject=ticket.subject,
                 body_preview=preview,
+                body_preview_html=self._support_preview_html(message.body, body_format, limit=500),
                 ticket_url=url,
                 image=email_image,
             )

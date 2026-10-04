@@ -1,59 +1,8 @@
 import type { NodeViewRenderer } from "@tiptap/core";
 
-import { isCustomEmoji, isCustomEmojiId } from "./customEmoji.js";
+import { isCustomEmoji } from "./customEmoji.js";
+import { CustomEmojiMedia } from "./customEmojiMedia.js";
 import type { CustomEmojiMediaLoader } from "./types.js";
-
-type ThumbnailTarget = { show: (url: string) => void; clear: () => void };
-
-/** Own each node view's request and blob URL without putting media in document attrs. */
-export class CustomEmojiNodeViewMedia {
-  private sequence = 0;
-  private controller: AbortController | null = null;
-  private url = "";
-  private destroyed = false;
-
-  constructor(
-    private loadMedia: CustomEmojiMediaLoader,
-    private target: ThumbnailTarget
-  ) {}
-
-  clear(): void {
-    this.sequence += 1;
-    this.controller?.abort();
-    this.controller = null;
-    this.target.clear();
-    if (this.url) URL.revokeObjectURL(this.url);
-    this.url = "";
-  }
-
-  async load(id: string): Promise<void> {
-    this.clear();
-    if (this.destroyed || !isCustomEmojiId(id)) return;
-    const sequence = this.sequence;
-    const controller = new AbortController();
-    this.controller = controller;
-    try {
-      const blob = await this.loadMedia(id, controller.signal);
-      if (controller.signal.aborted || sequence !== this.sequence || this.destroyed) return;
-      // SVG/HTML and oversized or empty bodies never become image URLs.
-      if (
-        !/^image\/(png|webp|jpeg|gif)$/i.test(blob.type) ||
-        blob.size === 0 ||
-        blob.size > 2 * 1024 * 1024
-      )
-        return;
-      this.url = URL.createObjectURL(blob);
-      this.target.show(this.url);
-    } catch {
-      if (!controller.signal.aborted && sequence === this.sequence) this.clear();
-    }
-  }
-
-  destroy(): void {
-    this.destroyed = true;
-    this.clear();
-  }
-}
 
 /** DOM-only presentation. The extension's renderHTML still owns clipboard/source output. */
 export function createCustomEmojiNodeView(loadMedia: CustomEmojiMediaLoader): NodeViewRenderer {
@@ -82,7 +31,7 @@ export function createCustomEmojiNodeView(loadMedia: CustomEmojiMediaLoader): No
     let destroyed = false;
     let visible = typeof IntersectionObserver === "undefined";
     let observer: IntersectionObserver | null = null;
-    const media = new CustomEmojiNodeViewMedia(loadMedia, {
+    const media = new CustomEmojiMedia(loadMedia, {
       clear: () => {
         image.onload = image.onerror = null;
         image.hidden = true;

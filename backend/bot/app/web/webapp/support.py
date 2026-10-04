@@ -1,9 +1,11 @@
+import asyncio
 from typing import Any
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
+    get_optional_bot,
     get_session_factory,
     get_settings,
     get_support_service,
@@ -20,6 +22,8 @@ from bot.services.message_image_service import (
 from bot.services.support_message_body import SupportBodyError
 from bot.services.support_presence import is_support_typing, set_support_typing
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
+from bot.services.telegram_emoji_catalog import TelegramEmojiError, media
+from config.telegram_menu import CUSTOM_EMOJI_ID_RE
 from db.dal import support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage
 
@@ -250,3 +254,37 @@ async def support_message_image_route(request: web.Request) -> web.StreamRespons
     if image is None:
         raise web.HTTPNotFound()
     return await message_image_response(image)
+
+
+async def support_ticket_emoji_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    emoji_id = request.match_info["emoji_id"]
+    ticket_id = int(request.match_info["id"])
+    # Ticket primary keys use PostgreSQL INTEGER, not BIGINT.
+    if not CUSTOM_EMOJI_ID_RE.fullmatch(emoji_id) or not 0 < ticket_id <= 2_147_483_647:
+        raise web.HTTPNotFound()
+    async_session_factory: sessionmaker = get_session_factory(request)
+    async with async_session_factory() as session:
+        if not await support_dal.user_can_access_ticket_emoji(
+            session, user_id, ticket_id, emoji_id
+        ):
+            raise web.HTTPNotFound()
+    bot = get_optional_bot(request)
+    if bot is None:
+        return _json_error(503, "telegram_emoji_bot_required", "Emoji preview unavailable")
+    try:
+        async with asyncio.timeout(20):
+            content, mime = await media(bot, emoji_id)
+    except TelegramEmojiError as exc:
+        return _json_error(exc.status, exc.code, "Emoji preview unavailable")
+    except (OSError, TimeoutError):
+        return _json_error(503, "telegram_emoji_unavailable", "Emoji preview unavailable")
+    return web.Response(
+        body=content,
+        content_type=mime,
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'",
+        },
+    )

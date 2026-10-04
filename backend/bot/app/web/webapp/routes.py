@@ -167,6 +167,7 @@ from .support import (
     support_create_ticket_route,
     support_message_image_route,
     support_ticket_detail_route,
+    support_ticket_emoji_route,
     support_ticket_read_route,
     support_ticket_reply_route,
     support_ticket_typing_route,
@@ -412,6 +413,9 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/api/support/tickets", support_tickets_route)
     app.router.add_post("/api/support/tickets", support_create_ticket_route)
     app.router.add_get("/api/support/tickets/{id:\\d+}", support_ticket_detail_route)
+    app.router.add_get(
+        "/api/support/tickets/{id:\\d+}/emoji/{emoji_id}", support_ticket_emoji_route
+    )
     app.router.add_post("/api/support/tickets/{id:\\d+}/messages", support_ticket_reply_route)
     app.router.add_post("/api/support/tickets/{id:\\d+}/read", support_ticket_read_route)
     app.router.add_post("/api/support/tickets/{id:\\d+}/typing", support_ticket_typing_route)
