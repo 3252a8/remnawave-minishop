@@ -13,7 +13,9 @@ const MAX_ENTRIES = 256;
 const RETENTION = 30 * 24 * 60 * 60 * 1000;
 type Entry = { key: string; mime: string; data: string; expires: number; touched: number };
 
-function invoke<T>(operation: (callback: Result<T>) => unknown): Promise<T | null> {
+export function telegramDeviceStorageCall<T>(
+  operation: (callback: Result<T>) => unknown
+): Promise<T | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), 250);
     try {
@@ -41,7 +43,9 @@ export class TelegramEmojiDeviceCache {
   private load(): Promise<void> {
     return (this.loaded ??= (async () => {
       const generation = this.generation;
-      const value = await invoke<string>((callback) => this.storage.getItem(KEY, callback));
+      const value = await telegramDeviceStorageCall<string>((callback) =>
+        this.storage.getItem(KEY, callback)
+      );
       if (!value || value.length > MAX_BYTES || generation !== this.generation) return;
       try {
         const parsed: unknown = JSON.parse(value);
@@ -85,7 +89,9 @@ export class TelegramEmojiDeviceCache {
           value = JSON.stringify(alive);
         }
         this.entries = new Map(alive.map((entry) => [entry.key, entry]));
-        await invoke<boolean>((callback) => this.storage.setItem(KEY, value, callback));
+        await telegramDeviceStorageCall<boolean>((callback) =>
+          this.storage.setItem(KEY, value, callback)
+        );
       });
     }, 30);
   }
@@ -149,7 +155,9 @@ export class TelegramEmojiDeviceCache {
     this.entries.clear();
     this.loaded = Promise.resolve();
     this.queue = this.queue.then(async () => {
-      await invoke<boolean>((callback) => this.storage.removeItem(KEY, callback));
+      await telegramDeviceStorageCall<boolean>((callback) =>
+        this.storage.removeItem(KEY, callback)
+      );
     });
     await this.queue;
   }
@@ -157,6 +165,7 @@ export class TelegramEmojiDeviceCache {
 
 let adapter: TelegramDeviceStorage | null = null;
 let cache: TelegramEmojiDeviceCache | null = null;
+export const getTelegramEmojiDeviceStorage = (): TelegramDeviceStorage | null => adapter;
 export function setTelegramEmojiDeviceStorage(storage: TelegramDeviceStorage | null): void {
   if (adapter === storage) return;
   adapter = storage;

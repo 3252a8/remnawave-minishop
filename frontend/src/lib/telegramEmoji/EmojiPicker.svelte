@@ -20,7 +20,7 @@
     writeEmojiPreferences,
     type EmojiPreferences,
   } from "./preferences";
-  import type { EmojiItem, EmojiLibrary, TranslateFn } from "./types";
+  import type { EmojiCatalog, EmojiItem, EmojiLibrary, TranslateFn } from "./types";
 
   function contextApi(): TelegramEmojiApi {
     try {
@@ -133,6 +133,7 @@
   let libraryGeneration = $state(0);
   let grid = $state<HTMLDivElement | null>(null);
   let requestSequence = 0;
+  let catalogQuery: { pack: string; term: string; generation: number } | null = null;
   const selectedKey = $derived(selected ? emojiSelectionKey(selected) : "");
   const favorite = $derived(
     Boolean(
@@ -201,35 +202,61 @@
     const term = search;
     const pack = set;
     const generation = libraryGeneration;
+    const previousQuery = catalogQuery;
+    catalogQuery = showing ? { pack, term, generation } : null;
     if (!showing) return;
     const sequence = ++requestSequence;
     const controller = new AbortController();
     loading = true;
     loadingMore = false;
     error = "";
-    const timer = window.setTimeout(
-      () => {
-        void getEmojiCatalog(api, { set: pack, q: term }, controller.signal)
-          .then((result) => {
-            if (controller.signal.aborted || sequence !== requestSequence) return;
-            catalogItems = result.items;
-            total = result.total;
-          })
-          .catch((failure: unknown) => {
-            if (!controller.signal.aborted && sequence === requestSequence) {
-              error = telegramEmojiErrorCode(failure, "telegram_emoji_load_failed");
-              catalogItems = [];
-              total = 0;
-            }
-          })
-          .finally(() => {
-            if (!controller.signal.aborted && sequence === requestSequence) loading = false;
-          });
-      },
-      generation ? 100 : 180
-    );
+    let appliedItems: EmojiItem[] | null = null;
+    const currentRequest = () =>
+      !controller.signal.aborted && sequence === requestSequence && open && tab === "custom";
+    const applyCatalog = (result: EmojiCatalog) => {
+      if (!currentRequest()) return;
+      // Compare first-page snapshots so an unchanged refresh preserves loaded later pages.
+      const previousItems = appliedItems ?? catalogItems;
+      const unchanged =
+        previousItems.length === result.items.length &&
+        result.items.every((item, index) => {
+          const previous = previousItems[index];
+          return (
+            previous?.id === item.id &&
+            previous.fallback === item.fallback &&
+            previous.set_name === item.set_name &&
+            previous.thumbnail_url === item.thumbnail_url &&
+            previous.format === item.format
+          );
+        });
+      appliedItems = result.items;
+      if (!unchanged) catalogItems = result.items;
+      total = result.total;
+    };
+    const load = () => {
+      void getEmojiCatalog(api, { set: pack, q: term }, controller.signal, applyCatalog)
+        .then(applyCatalog)
+        .catch((failure: unknown) => {
+          if (!currentRequest()) return;
+          error = telegramEmojiErrorCode(failure, "telegram_emoji_load_failed");
+          catalogItems = [];
+          total = 0;
+        })
+        .finally(() => {
+          if (currentRequest()) loading = false;
+        });
+    };
+    const debounceSearch =
+      term.trim() &&
+      previousQuery &&
+      previousQuery.term !== term &&
+      previousQuery.pack === pack &&
+      previousQuery.generation === generation;
+    let timer: number | undefined;
+    if (debounceSearch) timer = window.setTimeout(load, 180);
+    else load();
     return () => {
-      window.clearTimeout(timer);
+      if (timer !== undefined) window.clearTimeout(timer);
       controller.abort();
     };
   });

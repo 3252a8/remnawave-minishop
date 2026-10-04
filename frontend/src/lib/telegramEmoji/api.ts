@@ -1,4 +1,11 @@
 import { createApiClient, unwrap, type ApiClient, type GetResponse } from "$lib/webapp/publicApi";
+import {
+  clearEmojiCatalogStorage,
+  emojiApiCacheScope,
+  emojiCatalogGeneration,
+  readEmojiCatalog,
+  writeEmojiCatalog,
+} from "$lib/webapp/emojiCatalogStorage";
 import type {
   EmojiCatalog,
   EmojiLibrary,
@@ -52,6 +59,7 @@ export async function importEmojiSource(
   source: string,
   expectedRevision: string
 ): Promise<EmojiLibrary> {
+  clearEmojiCatalogStorage();
   return unwrap(
     await api(buildTelegramEmojiLibraryPath(), {
       method: "POST",
@@ -65,6 +73,7 @@ export async function removeEmojiSource(
   source: string,
   expectedRevision: string
 ): Promise<EmojiLibrary> {
+  clearEmojiCatalogStorage();
   return unwrap(
     await api(buildTelegramEmojiLibraryPath(), {
       method: "DELETE",
@@ -77,6 +86,7 @@ export async function refreshEmojiSource(
   api: TelegramEmojiApi,
   source: string
 ): Promise<EmojiLibrary> {
+  clearEmojiCatalogStorage();
   return unwrap(
     await api(buildTelegramEmojiRefreshPath(), {
       method: "POST",
@@ -88,13 +98,51 @@ export async function refreshEmojiSource(
 export async function getEmojiCatalog(
   api: TelegramEmojiApi,
   query: { set?: string; q?: string; offset?: number; ids?: string[] } = {},
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onRefresh?: (catalog: EmojiCatalog) => void
 ): Promise<EmojiCatalog> {
   const params = new URLSearchParams({ offset: String(query.offset ?? 0), limit: "60" });
   if (query.set) params.set("set", query.set);
   if (query.q) params.set("q", query.q);
   if (query.ids?.length) params.set("ids", query.ids.join(","));
-  return unwrap(await api(buildTelegramEmojiCatalogPath(params), { signal })) as EmojiCatalog;
+  const scope = emojiApiCacheScope(api);
+  const generation = emojiCatalogGeneration();
+  const key = params.toString();
+  const request = async () => {
+    const result = unwrap(
+      await api(buildTelegramEmojiCatalogPath(params), { signal })
+    ) as EmojiCatalog;
+    if (
+      signal?.aborted ||
+      emojiApiCacheScope(api) !== scope ||
+      emojiCatalogGeneration() !== generation
+    )
+      throw new DOMException("The session changed", "AbortError");
+    if (scope) writeEmojiCatalog(scope, key, result, generation);
+    return result;
+  };
+  const cached = onRefresh && scope ? await readEmojiCatalog(scope, key) : null;
+  if (
+    signal?.aborted ||
+    emojiApiCacheScope(api) !== scope ||
+    emojiCatalogGeneration() !== generation
+  )
+    throw new DOMException("The session changed", "AbortError");
+  if (cached) {
+    void request()
+      .then((catalog) => onRefresh?.(catalog))
+      .catch((failure: unknown) => {
+        if (
+          failure &&
+          typeof failure === "object" &&
+          "status" in failure &&
+          (failure.status === 401 || failure.status === 403)
+        )
+          clearEmojiCatalogStorage();
+      });
+    return cached;
+  }
+  return request();
 }
 
 export async function getEmojiAdminId(api: TelegramEmojiApi): Promise<string> {

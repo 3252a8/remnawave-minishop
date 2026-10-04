@@ -1,6 +1,7 @@
 import { currentBootSignal } from "./bootBudget";
 import { fetchApiJson } from "./apiJsonRequest";
 import { createBlobRequester } from "./apiBlobRequest";
+import { registerEmojiApiCacheScope } from "./emojiCatalogStorage";
 import { readCookie } from "./session.js";
 import { requestSignal } from "./requestSignal.js";
 import type {
@@ -958,5 +959,10 @@ export function createApiClient({
     return (await publicApiUnchecked(path, payload, options)) as PostResponse<Path>;
   }
 
+  registerEmojiApiCacheScope(api, () =>
+    !mockApi && (getAuthToken() || getCsrfToken() || readCookie(csrfCookieName))
+      ? getEmojiCacheScope()
+      : ""
+  );
   return { api, apiUnchecked, apiBlob, publicApi, publicApiUnchecked } as ApiClient;
 }

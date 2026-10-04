@@ -1,4 +1,5 @@
 import { isEmojiPreviewBlob, onEmojiPreviewRejected } from "$lib/telegramEmoji/media";
+import { clearEmojiCatalogStorage } from "./emojiCatalogStorage";
 import {
   clearDeviceEmojiPreviews,
   readDeviceEmojiPreview,
@@ -207,6 +208,7 @@ export async function writeEmojiPreview(scope: string, url: string, blob: Blob):
 
 export async function clearEmojiPreviewStorage(): Promise<void> {
   generation += 1;
+  clearEmojiCatalogStorage();
   clearDeviceEmojiPreviews();
   const db = await openDatabase();
   if (!db) return;

@@ -4,6 +4,7 @@ import { EmojiMediaBlobCache, emojiMediaCacheTtl } from "./emojiMediaCache";
 import { EmojiPreviewBatch } from "./emojiPreviewBatch";
 import { persistentEmojiKey, readEmojiPreview, writeEmojiPreview } from "./emojiPreviewStorage";
 import type { ApiClient, MockApi } from "./publicApi";
+import { catalogEmojiPreviewUrl } from "./emojiCatalogStorage";
 
 type Options = {
   authenticatedHeaders: (options: RequestInit) => Headers;
@@ -28,9 +29,22 @@ export function createBlobRequester(config: Options): ApiClient["apiBlob"] {
       if (typeof value === "string") return new Blob([value], { type: "text/csv;charset=utf-8" });
       throw new Error("mock_binary_response_unavailable");
     }
-    const url = config.buildApiUrl(path);
+    let url = config.buildApiUrl(path);
     const headers = config.authenticatedHeaders(options);
     const session = config.sessionScope();
+    const scope = config.persistentScope();
+    const unversioned = /^\/api\/admin\/telegram-emoji\/media\/([1-9][0-9]{0,19})$/.exec(url);
+    if (
+      unversioned &&
+      (headers.get("Authorization") || session) &&
+      !options.body &&
+      String(options.method || "GET").toUpperCase() === "GET" &&
+      options.cache !== "no-store"
+    ) {
+      url = (await catalogEmojiPreviewUrl(scope, unversioned[1])) || url;
+      if (config.persistentScope() !== scope)
+        throw new DOMException("The session changed", "AbortError");
+    }
     const ttl =
       String(options.method || "GET").toUpperCase() === "GET" &&
       !options.body &&
@@ -67,7 +81,6 @@ export function createBlobRequester(config: Options): ApiClient["apiBlob"] {
       }
     };
     if (!ttl) return request(consumerSignal);
-    const scope = config.persistentScope();
     const key = JSON.stringify([url, scope, session, [...headers]]);
     const storedKey = persistentEmojiKey(scope, url);
     return cache.load(
