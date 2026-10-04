@@ -1,5 +1,6 @@
 import { currentBootSignal } from "./bootBudget";
 import { fetchApiJson } from "./apiJsonRequest";
+import { createBlobRequester } from "./apiBlobRequest";
 import { readCookie } from "./session.js";
 import { requestSignal } from "./requestSignal.js";
 import type {
@@ -906,41 +907,15 @@ export function createApiClient({
     return requestJson(path, options);
   }
 
-  async function apiBlob(path: string, options: RequestInit = {}): Promise<Blob> {
-    if (mockApi) {
-      const value = await mockApi(path, options, getMockContext());
-      if (typeof Blob !== "undefined" && value instanceof Blob) return value;
-      if (typeof value === "string") return new Blob([value], { type: "text/csv;charset=utf-8" });
-      throw new Error("mock_binary_response_unavailable");
-    }
-
-    const headers = authenticatedHeaders(options);
-    const { signal, cleanup } = requestSignal(
-      options.signal || currentBootSignal(),
-      requestTimeoutMs
-    );
-    try {
-      const response = await fetch(buildApiUrl(path), {
-        cache: "no-store",
-        ...options,
-        headers,
-        credentials: "same-origin",
-        signal,
-      });
-      if (response.status === 401) onUnauthorized();
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({
-          ok: false,
-          error: "image_load_failed",
-          status: response.status,
-        }));
-        throw payload;
-      }
-      return response.blob();
-    } finally {
-      cleanup();
-    }
-  }
+  const apiBlob = createBlobRequester({
+    authenticatedHeaders,
+    sessionScope: () => getCsrfToken() || readCookie(csrfCookieName) || "",
+    buildApiUrl,
+    mockApi,
+    getMockContext,
+    onUnauthorized,
+    requestTimeoutMs,
+  });
 
   async function publicApiUnchecked(
     path: string,

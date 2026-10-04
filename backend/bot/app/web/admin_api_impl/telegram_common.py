@@ -14,6 +14,7 @@ from bot.app.web.context import get_bot, get_i18n, get_session_factory, get_sett
 from bot.middlewares.i18n import JsonI18n
 from bot.services.settings_override_service import refresh_overrides_from_db, update_overrides
 from bot.services.telegram_emoji_catalog import TelegramEmojiError
+from bot.services.telegram_emoji_storage import CacheFullError
 from config.settings import Settings
 from config.telegram_menu import TELEGRAM_MENU_SETTING_KEYS
 
@@ -33,6 +34,8 @@ def telegram_route(handler: Handler) -> Handler:
             return _error(exc.status, exc.code)
         except ValueError:
             return _error(400, "telegram_emoji_invalid_source")
+        except CacheFullError:
+            return _error(507, "telegram_emoji_cache_full")
         except OSError:
             return _error(503, "telegram_emoji_storage_unavailable")
 

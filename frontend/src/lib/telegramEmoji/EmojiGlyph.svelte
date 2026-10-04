@@ -1,7 +1,9 @@
 <script lang="ts">
   import { getAdminApiBlob } from "$lib/admin/context";
+  import { Skeleton } from "$components/ui";
   import { defaultTelegramEmojiMediaApi, type TelegramEmojiMediaApi } from "./api";
-  import { buildTelegramEmojiMediaPath } from "./paths";
+  import { buildTelegramEmojiMediaUrlPath } from "./paths";
+  import { isEmojiPreviewBlob, rejectEmojiPreviewBlob } from "./media";
 
   function contextMediaApi(): TelegramEmojiMediaApi {
     try {
@@ -25,9 +27,10 @@
   let visible = $state(false);
   let objectUrl = $state("");
   let failed = $state(false);
-  const emojiId = $derived(
-    /^\/api\/admin\/telegram-emoji\/media\/([1-9]\d*)$/.exec(url || "")?.[1] || ""
-  );
+  let decoded = $state(false);
+  let loadedBlob: Blob | null = null;
+  const mediaPath = $derived(url ? buildTelegramEmojiMediaUrlPath(url) : null);
+  const loading = $derived(Boolean(mediaPath) && !failed && !decoded);
 
   $effect(() => {
     const node = element;
@@ -49,20 +52,23 @@
   });
 
   $effect(() => {
-    const id = emojiId;
+    const path = mediaPath;
     const loader = loadMedia;
     objectUrl = "";
     failed = false;
-    if (!id || !visible) return;
+    decoded = false;
+    loadedBlob = null;
+    if (!path || !visible) return;
     const controller = new AbortController();
     let resolved = "";
-    void loader(buildTelegramEmojiMediaPath(id), { signal: controller.signal })
+    void loader(path, { signal: controller.signal })
       .then((blob) => {
         if (controller.signal.aborted) return;
-        if (!/^image\/(png|webp|jpeg|gif)$/i.test(blob.type)) {
+        if (!isEmojiPreviewBlob(blob)) {
           failed = true;
           return;
         }
+        loadedBlob = blob;
         resolved = URL.createObjectURL(blob);
         objectUrl = resolved;
       })
@@ -77,13 +83,21 @@
 </script>
 
 <span bind:this={element} class="emoji-glyph" style={`--emoji-size: ${size}px`} aria-hidden="true">
-  <span class:covered={objectUrl && !failed}>{fallback || "◻️"}</span>
+  <span class:covered={loading || (decoded && !failed)}>{fallback || "◻️"}</span>
+  {#if loading}<Skeleton class="emoji-skeleton" width={`${size}px`} height={`${size}px`} />{/if}
   {#if objectUrl && !failed}
     <img
       src={objectUrl}
       alt=""
-      loading="lazy"
-      onerror={() => {
+      decoding="async"
+      class:covered={!decoded}
+      onload={(event) => {
+        if (event.currentTarget.getAttribute("src") !== objectUrl) return;
+        decoded = true;
+      }}
+      onerror={(event) => {
+        if (event.currentTarget.getAttribute("src") !== objectUrl) return;
+        if (loadedBlob) rejectEmojiPreviewBlob(loadedBlob);
         failed = true;
       }}
     />
@@ -101,7 +115,8 @@
     line-height: 1;
   }
   .emoji-glyph > span,
-  .emoji-glyph > img {
+  .emoji-glyph > img,
+  .emoji-glyph :global(.emoji-skeleton) {
     grid-area: 1 / 1;
   }
   .emoji-glyph > img {
@@ -111,5 +126,8 @@
   }
   .covered {
     opacity: 0;
+  }
+  .emoji-glyph :global(.emoji-skeleton) {
+    border-radius: 6px;
   }
 </style>

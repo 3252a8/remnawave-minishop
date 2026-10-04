@@ -40,8 +40,11 @@ function menuConfiguration(response: MenuWireResponse): MenuConfiguration {
   };
 }
 
-export async function getEmojiLibrary(api: TelegramEmojiApi): Promise<EmojiLibrary> {
-  return unwrap(await api(buildTelegramEmojiLibraryPath())) as EmojiLibrary;
+export async function getEmojiLibrary(
+  api: TelegramEmojiApi,
+  signal?: AbortSignal
+): Promise<EmojiLibrary> {
+  return unwrap(await api(buildTelegramEmojiLibraryPath(), { signal })) as EmojiLibrary;
 }
 
 export async function importEmojiSource(

@@ -8232,16 +8232,26 @@ export interface components {
     };
     /** EmojiSetInfo */
     EmojiSetInfo: {
+      /**
+       * Cached Count
+       * @default 0
+       */
+      cached_count: number;
       /** Count */
       count: number;
       /** Name */
       name: string;
       /**
+       * Preview Count
+       * @default 0
+       */
+      preview_count: number;
+      /**
        * State
        * @default unknown
        * @enum {string}
        */
-      state: "ready" | "error" | "unknown";
+      state: "ready" | "warming" | "partial" | "error" | "unknown";
       /** Title */
       title: string;
     };

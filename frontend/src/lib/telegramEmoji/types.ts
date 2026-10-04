@@ -20,7 +20,9 @@ export type EmojiLibrary = {
     name: string;
     title: string;
     count: number;
-    state: "ready" | "error" | "unknown";
+    state: "ready" | "warming" | "partial" | "error" | "unknown";
+    cached_count?: number;
+    preview_count?: number;
   }[];
 };
 

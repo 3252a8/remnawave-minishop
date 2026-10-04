@@ -21,6 +21,7 @@ class CachedEmojiItem(EmojiItem):
     file_id: str = ""
     file_unique_id: str = ""
     thumbnail_file_id: str | None = None
+    thumbnail_unique_id: str = ""
 
 
 class EmojiCapability(BaseModel):
@@ -102,7 +103,9 @@ class EmojiSetInfo(BaseModel):
     name: str
     title: str
     count: int
-    state: Literal["ready", "error", "unknown"] = "unknown"
+    state: Literal["ready", "warming", "partial", "error", "unknown"] = "unknown"
+    cached_count: int = 0
+    preview_count: int = 0
 
 
 class EmojiLibraryOut(BaseModel):

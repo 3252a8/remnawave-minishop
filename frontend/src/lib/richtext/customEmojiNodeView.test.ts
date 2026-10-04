@@ -5,6 +5,7 @@ import { CustomEmojiMedia as CustomEmojiNodeViewMedia } from "./customEmojiMedia
 import { composerExtensions } from "./editorSchema";
 import { type Doc, docToTelegramHtml, telegramHtmlToDoc } from "./telegramHtml";
 import type { CustomEmojiMediaLoader } from "./types";
+import { isEmojiPreviewBlob } from "$lib/telegramEmoji/media";
 
 const id = "5368324170671202286";
 const png = () => new Blob(["image bytes"], { type: "image/png" });
@@ -106,17 +107,40 @@ describe("custom emoji node view media", () => {
   });
 
   it("restores fallback and revokes the URL when image decoding fails", async () => {
+    const blob = png();
     const target = { show: vi.fn(), clear: vi.fn() };
     const media = new CustomEmojiNodeViewMedia(
-      vi.fn<CustomEmojiMediaLoader>().mockResolvedValue(png()),
+      vi.fn<CustomEmojiMediaLoader>().mockResolvedValue(blob),
       target
     );
     await media.load(id);
-    media.clear();
+    media.fail();
+    expect(isEmojiPreviewBlob(blob)).toBe(false);
     expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith("blob:emoji-1");
     expect(target.clear).toHaveBeenCalledTimes(2);
     media.destroy();
     expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a neutral loading target until media succeeds or fallback is needed", async () => {
+    let complete: ((blob: Blob) => void) | undefined;
+    const loader = vi.fn<CustomEmojiMediaLoader>().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve;
+        })
+    );
+    const target = { show: vi.fn(), clear: vi.fn(), loading: vi.fn() };
+    const media = new CustomEmojiNodeViewMedia(loader, target);
+    const loading = media.load(id);
+    expect(target.loading).toHaveBeenCalledTimes(1);
+    expect(target.show).not.toHaveBeenCalled();
+    expect(target.clear).toHaveBeenCalledTimes(1);
+    complete?.(new Blob(["not an image"], { type: "text/html" }));
+    await loading;
+    expect(target.clear).toHaveBeenCalledTimes(2);
+    expect(target.show).not.toHaveBeenCalled();
+    media.destroy();
   });
 
   it.each(["", "-1", "0", "5368324170671202286/../../secret", '1" onclick="alert(1)'])(

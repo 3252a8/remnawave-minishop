@@ -27,6 +27,12 @@ export function buildTelegramEmojiMediaPath(id: string) {
     `/admin/telegram-emoji/media/${encodeURIComponent(id)}`
   );
 }
+/** Accept only the catalog's local authenticated media URL, preserving its version. */
+export function buildTelegramEmojiMediaUrlPath(url: string) {
+  if (!/^\/api\/admin\/telegram-emoji\/media\/[1-9][0-9]{0,19}(?:\?v=[a-f0-9]{16})?$/.test(url))
+    return null;
+  return builtApiPath<"/api/admin/telegram-emoji/media/{emoji_id}">(url);
+}
 export function buildTelegramEmojiAdminPath() {
   return builtApiPath<"/api/admin/me">("/admin/me");
 }

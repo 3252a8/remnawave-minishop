@@ -2,6 +2,7 @@ import type { NodeViewRenderer } from "@tiptap/core";
 
 import { isCustomEmoji } from "./customEmoji.js";
 import { CustomEmojiMedia } from "./customEmojiMedia.js";
+import { setCustomEmojiPlaceholder } from "./customEmojiPlaceholder.js";
 import type { CustomEmojiMediaLoader } from "./types.js";
 
 /** DOM-only presentation. The extension's renderHTML still owns clipboard/source output. */
@@ -22,6 +23,7 @@ export function createCustomEmojiNodeView(loadMedia: CustomEmojiMediaLoader): No
     // The wrapper's observer owns lazy loading; a hidden lazy img can never intersect.
     image.decoding = "async";
     image.hidden = true;
+    image.style.display = "none";
     image.style.gridArea = "1 / 1";
     image.style.width = image.style.height = "100%";
     image.style.objectFit = "contain";
@@ -35,16 +37,19 @@ export function createCustomEmojiNodeView(loadMedia: CustomEmojiMediaLoader): No
       clear: () => {
         image.onload = image.onerror = null;
         image.hidden = true;
+        image.style.display = "none";
         image.removeAttribute("src");
-        fallback.style.opacity = "";
+        setCustomEmojiPlaceholder(dom, fallback, "fallback");
       },
+      loading: () => setCustomEmojiPlaceholder(dom, fallback, "loading"),
       show: (url) => {
         image.onload = () => {
           if (destroyed || image.getAttribute("src") !== url) return;
           image.hidden = false;
-          fallback.style.opacity = "0";
+          image.style.display = "";
+          setCustomEmojiPlaceholder(dom, fallback, "ready");
         };
-        image.onerror = () => media.clear();
+        image.onerror = () => media.fail();
         image.src = url;
       },
     });
@@ -63,6 +68,7 @@ export function createCustomEmojiNodeView(loadMedia: CustomEmojiMediaLoader): No
       dom.setAttribute("data-custom-emoji-id", emoji.id);
     };
     syncFallback();
+    if (isCustomEmoji(attrs())) setCustomEmojiPlaceholder(dom, fallback, "loading");
     if (!visible) {
       observer = new IntersectionObserver(
         (entries) => {

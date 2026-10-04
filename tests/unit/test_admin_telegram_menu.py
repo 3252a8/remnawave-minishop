@@ -112,6 +112,46 @@ def test_test_message_cannot_choose_arbitrary_recipient_or_unlinked_admin(monkey
     assert json.loads(response.text)["error"] == "telegram_menu_test_telegram_required"
 
 
+def test_emoji_media_etag_and_cache_policy_keep_authenticated_variants_separate(
+    tmp_path, monkeypatch
+):
+    from aiohttp.test_utils import make_mocked_request
+
+    from bot.app.web.telegram_emoji_media import emoji_media_response
+    from bot.services import telegram_emoji_storage as storage
+    from bot.services.telegram_emoji_schemas import CachedEmojiItem
+
+    monkeypatch.setattr(storage, "ROOT", tmp_path)
+    item = CachedEmojiItem(id="123", fallback="🙂", file_unique_id="unique")
+    storage.save_item(1, item)
+    path = f"/api/admin/telegram-emoji/media/123?v={storage.media_version(item)}"
+    content = b"\x89PNG\r\n\x1a\nimage"
+    response = emoji_media_response(
+        make_mocked_request("GET", path), content, "image/png", 1, "123"
+    )
+    assert response.status == 200
+    assert response.headers["Cache-Control"] == "private, max-age=86400"
+    assert response.headers["Vary"] == "Authorization, Cookie"
+    revalidated = emoji_media_response(
+        make_mocked_request(
+            "GET", path, headers={"If-None-Match": f'"other", W/{response.headers["ETag"]}'}
+        ),
+        content,
+        "image/png",
+        1,
+        "123",
+    )
+    assert revalidated.status == 304 and not revalidated.body
+    unversioned = emoji_media_response(
+        make_mocked_request("GET", path.split("?")[0]), content, "image/png", 1, "123"
+    )
+    assert unversioned.headers["Cache-Control"] == "private, no-cache"
+    wrong_version = emoji_media_response(
+        make_mocked_request("GET", path + "wrong"), content, "image/png", 1, "123"
+    )
+    assert wrong_version.headers["Cache-Control"] == "private, no-cache"
+
+
 class TelegramEmojiResourceQuotaTests(unittest.IsolatedAsyncioTestCase):
     async def test_full_emoji_palettes_do_not_consume_account_api_quota(self):
         from aiohttp.test_utils import TestClient, TestServer

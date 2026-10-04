@@ -13,6 +13,7 @@ from bot.app.web.route_contracts import (
     ok_envelope_for,
     register_contract,
 )
+from bot.app.web.telegram_emoji_media import emoji_media_response
 from bot.services.telegram_emoji_catalog import (
     TelegramEmojiError,
     catalog,
@@ -20,6 +21,7 @@ from bot.services.telegram_emoji_catalog import (
     load_set,
     media,
     resolve_ids,
+    warm_library,
 )
 from bot.services.telegram_emoji_schemas import (
     EmojiCatalogOut,
@@ -47,6 +49,7 @@ from .telegram_common import (
 async def library_out(request: web.Request) -> EmojiLibraryOut:
     settings = await current_settings(request)
     library = parse_emoji_library(settings.TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON)
+    await warm_library(required_bot(request), library)
     return EmojiLibraryOut(
         library=library,
         revision=telegram_setting_revision(LIBRARY_KEY, library),
@@ -79,6 +82,7 @@ async def admin_telegram_emoji_add_route(request: web.Request) -> web.Response:
             library.manual_ids.append(source)
     library = TelegramEmojiLibrary.model_validate(library.model_dump())
     await persist_setting(request, LIBRARY_KEY, library, body.expected_revision)
+    await warm_library(bot, library, retry=True)
     return _ok((await library_out(request)).model_dump(mode="json"))
 
 
@@ -113,6 +117,7 @@ async def admin_telegram_emoji_refresh_route(request: web.Request) -> web.Respon
         if source not in result.library.manual_ids:
             raise TelegramEmojiError("telegram_emoji_not_found")
         await resolve_ids(bot, [source], refresh=True)
+    await warm_library(bot, result.library, retry=True)
     return _ok((await library_out(request)).model_dump(mode="json"))
 
 
@@ -133,17 +138,10 @@ async def admin_telegram_emoji_catalog_route(request: web.Request) -> web.Respon
 
 @telegram_route
 async def admin_telegram_emoji_media_route(request: web.Request) -> web.Response:
+    bot = required_bot(request)
     async with asyncio.timeout(20):
-        content, mime = await media(required_bot(request), request.match_info["emoji_id"])
-    return web.Response(
-        body=content,
-        content_type=mime,
-        headers={
-            "Cache-Control": "private, max-age=3600",
-            "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'none'",
-        },
-    )
+        content, mime = await media(bot, request.match_info["emoji_id"])
+    return emoji_media_response(request, content, mime, bot.id, request.match_info["emoji_id"])
 
 
 register_contract(

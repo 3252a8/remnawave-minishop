@@ -8642,6 +8642,11 @@
       },
       "EmojiSetInfo": {
         "properties": {
+          "cached_count": {
+            "default": 0,
+            "title": "Cached Count",
+            "type": "integer"
+          },
           "count": {
             "title": "Count",
             "type": "integer"
@@ -8650,10 +8655,17 @@
             "title": "Name",
             "type": "string"
           },
+          "preview_count": {
+            "default": 0,
+            "title": "Preview Count",
+            "type": "integer"
+          },
           "state": {
             "default": "unknown",
             "enum": [
               "ready",
+              "warming",
+              "partial",
               "error",
               "unknown"
             ],

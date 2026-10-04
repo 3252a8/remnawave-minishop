@@ -13,14 +13,17 @@
     type TelegramEmojiApi,
   } from "./api";
   import type { EmojiLibrary, TranslateFn } from "./types";
+  import { emojiLibraryIsWarming, pollEmojiLibrary } from "./libraryPolling";
 
   let {
     at,
     api = defaultTelegramEmojiApi,
+    active = true,
     onChange = () => {},
   }: {
     at: TranslateFn;
     api?: TelegramEmojiApi;
+    active?: boolean;
     onChange?: (library: EmojiLibrary) => void;
   } = $props();
   let library = $state<EmojiLibrary | null>(null);
@@ -29,6 +32,9 @@
   let busy = $state("");
   let error = $state("");
   let notice = $state("");
+  let pollError = $state("");
+  let element = $state<HTMLElement | null>(null);
+  let visible = $state(true);
   let alive = true;
   const sourceHintId = $props.id();
   const conflict = $derived(error.includes("conflict"));
@@ -36,6 +42,7 @@
   async function load() {
     loading = true;
     error = "";
+    pollError = "";
     try {
       const result = await getEmojiLibrary(api);
       if (!alive) return;
@@ -53,6 +60,7 @@
     busy = `${action}:${value}`;
     error = "";
     notice = "";
+    pollError = "";
     try {
       const result =
         action === "import"
@@ -78,9 +86,34 @@
       alive = false;
     };
   });
+
+  $effect(() => {
+    const node = element;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      visible = entries.some((entry) => entry.isIntersecting);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    if (!active || !visible || loading || busy || !emojiLibraryIsWarming(library)) return;
+    return pollEmojiLibrary(
+      api,
+      (result) => {
+        library = result;
+        pollError = "";
+        onChange(result);
+      },
+      (failure) => {
+        pollError = telegramEmojiErrorCode(failure, "telegram_emoji_load_failed");
+      }
+    );
+  });
 </script>
 
-<section class="emoji-library" aria-label={at("telegram_emoji_library_title")}>
+<section bind:this={element} class="emoji-library" aria-label={at("telegram_emoji_library_title")}>
   <header class="library-heading">
     <div>
       <h3>{at("telegram_emoji_library_title")}</h3>
@@ -98,9 +131,9 @@
       <RefreshCw size={14} />{at("refresh")}
     </AdminButton>
   </header>
-  {#if error}
+  {#if error || pollError}
     <div class="library-message error" role="alert">
-      <p>{at(error, {}, at("telegram_emoji_operation_failed"))}</p>
+      <p>{at(error || pollError, {}, at("telegram_emoji_operation_failed"))}</p>
       {#if conflict}<AdminButton
           size="sm"
           controlSize="md"
@@ -158,13 +191,39 @@
                 <AdminBadge
                   variant={pack.state === "ready"
                     ? "success"
-                    : pack.state === "error"
+                    : pack.state === "error" || pack.state === "partial"
                       ? "warning"
                       : "muted"}
                 >
                   {at(`telegram_emoji_state_${pack.state}`)}
                 </AdminBadge>
               </span>
+              {#if pack.state === "warming" || (pack.preview_count ?? 0) > 0}
+                <div class="pack-progress">
+                  <span role="status"
+                    >{at("telegram_emoji_preview_progress", {
+                      count: pack.cached_count ?? 0,
+                      total: pack.preview_count ?? 0,
+                    })}</span
+                  >
+                  <progress
+                    max={Math.max(1, pack.preview_count ?? 0)}
+                    value={pack.cached_count ?? 0}
+                    aria-label={at("telegram_emoji_preview_progress", {
+                      count: pack.cached_count ?? 0,
+                      total: pack.preview_count ?? 0,
+                    })}
+                  ></progress>
+                </div>
+              {/if}
+              {#if ["ready", "warming", "partial"].includes(pack.state) && pack.preview_count !== undefined && pack.preview_count < pack.count}
+                <p class="muted">
+                  {at("telegram_emoji_without_preview", { count: pack.count - pack.preview_count })}
+                </p>
+              {/if}
+              {#if pack.state === "partial"}<p class="muted">
+                  {at("telegram_emoji_partial_hint")}
+                </p>{/if}
             </div>
             <div class="pack-actions">
               <AdminButton
@@ -294,6 +353,34 @@
     min-width: 0;
     display: grid;
     gap: 4px;
+    flex: 1;
+  }
+  .pack-progress {
+    display: grid;
+    gap: 5px;
+    margin-top: 5px;
+    color: var(--admin-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pack-progress progress {
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border: 0;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--admin-surface-bg, var(--admin-card-bg));
+    accent-color: var(--admin-accent);
+  }
+  .pack-progress progress::-webkit-progress-bar {
+    background: var(--admin-surface-bg, var(--admin-card-bg));
+  }
+  .pack-progress progress::-webkit-progress-value {
+    background: var(--admin-accent);
+  }
+  .pack-progress progress::-moz-progress-bar {
+    background: var(--admin-accent);
   }
   .pack-copy strong {
     overflow-wrap: anywhere;

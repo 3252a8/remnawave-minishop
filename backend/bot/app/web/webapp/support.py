@@ -13,6 +13,7 @@ from bot.app.web.context import (
 from bot.app.web.message_image_responses import message_image_response
 from bot.app.web.request_parsing import parse_body_with_optional_image_or_400
 from bot.app.web.support_schemas import SupportMessageOut, SupportTicketOut, SupportTypingIn
+from bot.app.web.telegram_emoji_media import emoji_media_response
 from bot.services.broadcast_personalization import telegram_html_error
 from bot.services.message_image_service import (
     MessageImageError,
@@ -279,12 +280,4 @@ async def support_ticket_emoji_route(request: web.Request) -> web.Response:
         return _json_error(exc.status, exc.code, "Emoji preview unavailable")
     except (OSError, TimeoutError):
         return _json_error(503, "telegram_emoji_unavailable", "Emoji preview unavailable")
-    return web.Response(
-        body=content,
-        content_type=mime,
-        headers={
-            "Cache-Control": "private, max-age=3600",
-            "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'none'",
-        },
-    )
+    return emoji_media_response(request, content, mime, bot.id, emoji_id)

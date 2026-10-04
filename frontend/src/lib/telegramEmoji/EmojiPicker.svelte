@@ -338,7 +338,12 @@
       {/each}
     </nav>
     {#if tab === "library"}
-      <EmojiLibraryManager {api} {at} onChange={libraryChanged} />
+      <EmojiLibraryManager
+        {api}
+        {at}
+        active={open && tab === "library"}
+        onChange={libraryChanged}
+      />
     {:else}
       <div class="picker-filters">
         <AdminField label={at("telegram_emoji_search")}>

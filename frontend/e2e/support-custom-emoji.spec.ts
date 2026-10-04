@@ -170,7 +170,8 @@ for (const admin of [false, true]) {
       ).toBe("👩🏽‍💻");
     }
     const prefix = admin ? "/api/admin/telegram-emoji/media/" : "/api/support/tickets/7/emoji/";
-    expect(fixture.requestedMedia).toHaveLength(8);
+    expect(new Set(fixture.requestedMedia).size).toBe(4);
+    expect(fixture.requestedMedia.filter((path) => path.endsWith(emojiIds.image))).toHaveLength(1);
     expect(fixture.requestedMedia.every((path) => path.startsWith(prefix))).toBe(true);
     expect(fixture.unsafeRequests).toEqual([]);
     expect(fixture.errors).toEqual([]);

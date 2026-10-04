@@ -27,6 +27,7 @@ from bot.infra.observability import observability_error_middleware
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.message_image_service import MESSAGE_IMAGE_REQUEST_MAX_BYTES
 from bot.services.server_status import ServerStatusService
+from bot.services.telegram_emoji_catalog import stop_warming
 from config.settings import Settings
 
 from .action_audit import webapp_action_audit_middleware
@@ -101,6 +102,8 @@ def create_subscription_webapp_application(
         warmup_task = asyncio.create_task(_warm_caches(app_obj))
 
     async def _shutdown(app_obj: web.Application) -> None:
+        if bot is not None:
+            await stop_warming(bot)
         if warmup_task is not None and not warmup_task.done():
             warmup_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):

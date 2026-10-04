@@ -2,6 +2,7 @@ import type { Attachment } from "svelte/attachments";
 
 import { isCustomEmoji } from "./customEmoji.js";
 import { CustomEmojiMedia } from "./customEmojiMedia.js";
+import { setCustomEmojiPlaceholder } from "./customEmojiPlaceholder.js";
 import type { CustomEmojiMediaLoader } from "./types.js";
 
 /** Decorate only the canonical placeholders produced by messageDisplayHtml. */
@@ -58,19 +59,21 @@ export function mountCustomEmojiPreviews(
         image.hidden = true;
         image.style.display = "none";
         image.removeAttribute("src");
-        fallbackElement.style.opacity = "";
+        setCustomEmojiPlaceholder(wrapper, fallbackElement, "fallback");
       },
+      loading: () => setCustomEmojiPlaceholder(wrapper, fallbackElement, "loading"),
       show: (url) => {
         image.onload = () => {
           if (destroyed || image.getAttribute("src") !== url) return;
           image.hidden = false;
           image.style.display = "inline";
-          fallbackElement.style.opacity = "0";
+          setCustomEmojiPlaceholder(wrapper, fallbackElement, "ready");
         };
-        image.onerror = () => media.clear();
+        image.onerror = () => media.fail();
         image.src = url;
       },
     });
+    setCustomEmojiPlaceholder(wrapper, fallbackElement, "loading");
     if (typeof IntersectionObserver === "undefined") {
       void media.load(emoji.id);
     } else {
