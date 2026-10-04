@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 
-from config.telegram_menu import CUSTOM_EMOJI_ID_RE
+from config.telegram_emoji import CUSTOM_EMOJI_ID_RE
 
 # Extended_Pictographic (Unicode 17.0), matching the editor's Unicode property.
 # Ranges derived from the project's Node Unicode engine; no runtime dependency.

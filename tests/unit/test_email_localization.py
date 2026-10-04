@@ -434,9 +434,13 @@ def test_support_email_templates_use_russian_copy_for_russian_recipients():
     ]
 
 
-def test_docs_email_preview_generator_renders_real_template_html():
+def test_docs_email_preview_generator_renders_real_template_html_without_site_packages():
     result = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "docs-site" / "scripts" / "generate-email-previews.py")],
+        [
+            sys.executable,
+            "-S",
+            str(REPO_ROOT / "docs-site" / "scripts" / "generate-email-previews.py"),
+        ],
         cwd=REPO_ROOT,
         check=True,
         encoding="utf-8",

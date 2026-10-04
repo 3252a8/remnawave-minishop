@@ -11,10 +11,11 @@ from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from config.telegram_emoji import CUSTOM_EMOJI_ID_RE
+
 APPEARANCE_KEY = "TELEGRAM_MENU_APPEARANCE_JSON"
 LIBRARY_KEY = "TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON"
 TELEGRAM_MENU_SETTING_KEYS = {APPEARANCE_KEY, LIBRARY_KEY}
-CUSTOM_EMOJI_ID_RE = re.compile(r"^[1-9][0-9]{0,19}$")
 _SET_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
 _BUTTON_ID_RE = re.compile(r"^(?:[a-z][a-z_]*|custom:[A-Za-z0-9_-]{1,64})$")
 MAX_SETTING_BYTES = 64 * 1024

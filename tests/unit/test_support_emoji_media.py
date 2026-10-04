@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+from contextlib import closing
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -19,7 +20,7 @@ BODY = f'<tg-emoji emoji-id="{EMOJI_ID}">📁</tg-emoji>'
 @pytest.fixture
 def ticket_media(monkeypatch):
     # Execute the production ownership query rather than mocking its result.
-    with sqlite3.connect(":memory:") as connection:
+    with closing(sqlite3.connect(":memory:")) as connection:
         connection.execute("CREATE TABLE support_tickets (ticket_id INTEGER, user_id INTEGER)")
         connection.execute(
             "CREATE TABLE support_ticket_messages (message_id INTEGER, ticket_id INTEGER, "
