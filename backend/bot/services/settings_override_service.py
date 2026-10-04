@@ -418,7 +418,7 @@ async def refresh_overrides_from_db(
 
 
 def _provider_api_origin_errors(updates: dict[str, Any]) -> dict[str, str]:
-    from bot.payment_providers import find_manifest_owner, get_provider_bundle
+    from bot.payment_providers import find_manifest_owner
     from bot.utils.outbound_network import CredentialPolicy
 
     errors: dict[str, str] = {}
@@ -426,17 +426,13 @@ def _provider_api_origin_errors(updates: dict[str, Any]) -> dict[str, str]:
         owner = find_manifest_owner(key)
         if owner is None or not value:
             continue
-        spec, field = owner
+        _, field = owner
         if field.target != "config" or field.attr != "BASE_URL":
             continue
-        bundle = get_provider_bundle(spec.service_key)
-        if bundle is None or bundle.config is None:
-            continue
-        config = bundle.config
         try:
-            CredentialPolicy(
-                config._trusted_api_urls, private_urls=config._trusted_private_api_urls
-            ).check_url(str(value))
+            # Saving an API URL is explicit operator approval of that endpoint.
+            # Still reject malformed URLs and forbidden addresses before persistence.
+            CredentialPolicy([str(value)], private_urls=[str(value)]).check_url(str(value))
         except ValueError:
             errors[key] = "unapproved_payment_api_origin"
     return errors

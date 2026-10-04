@@ -13,7 +13,7 @@ import json
 import logging
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from aiohttp.test_utils import make_mocked_request
@@ -173,6 +173,40 @@ def test_update_overrides_reports_nothing_when_everything_applies(
 
     assert result["not_applied"] == []
     assert registry.get_provider_bundle("tribute_service").config.ENABLED is False
+
+
+@pytest.mark.parametrize(
+    ("key", "service_key"),
+    [
+        ("ROLLYPAY_BASE_URL", "rollypay_service"),
+        ("CLOUDPAYMENTS_BASE_URL", "cloudpayments_service"),
+    ],
+)
+@pytest.mark.parametrize("url", ["https://api.example.com/v1", "http://10.1.2.3:8080/api"])
+def test_admin_can_persist_and_apply_a_custom_payment_api_url(
+    key: str,
+    service_key: str,
+    url: str,
+    _memory_overrides: dict[str, Any],
+) -> None:
+    registry.build_provider_configs(force=True)
+    settings = Settings(
+        _env_file=None, BOT_TOKEN="token", POSTGRES_USER="test", POSTGRES_PASSWORD="test"
+    )
+    result = asyncio.run(
+        svc.update_overrides(
+            settings, Mock(return_value=_FakeSession()), updates={key: url}, actor_id=1
+        )
+    )
+    assert result["ok"] is True
+    assert result["not_applied"] == []
+    assert _memory_overrides == {key: url}
+    bundle = registry.get_provider_bundle(service_key)
+    assert bundle is not None
+    config = bundle.config
+    assert config is not None
+    assert config._trusted_api_urls == (url,)
+    assert config._trusted_private_api_urls == (url,)
 
 
 def test_update_overrides_persists_empty_subscription_purchase_description(

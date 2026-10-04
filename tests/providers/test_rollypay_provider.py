@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from aiogram import types
+from aiohttp import web
+from aiohttp.test_utils import TestServer
 
 from bot.payment_providers.base import WebAppPaymentContext
 from bot.payment_providers.rollypay import SPECS, RollyPayConfig, RollyPayService
@@ -20,7 +22,67 @@ from bot.payment_providers.rollypay.subscriptions import (
     subscription_context_supported,
 )
 from bot.payment_providers.shared import CreatePaymentRequest
+from bot.services.settings_override_service import apply_overrides
 from config.subscription_periods import with_period_days
+
+
+def test_payment_creation_uses_a_persisted_admin_api_url() -> None:
+    async def scenario() -> None:
+        received: list[dict[str, object]] = []
+
+        async def create(request: web.Request) -> web.Response:
+            assert request.headers["X-API-Key"] == "api-key"
+            received.append(await request.json())
+            return web.json_response(
+                {"payment": {"id": "payment-110", "payment_url": "https://pay.example.com/110"}}
+            )
+
+        app = web.Application()
+        app.router.add_post("/api/v1/payments", create)
+        server = TestServer(app)
+        await server.start_server()
+        from bot.payment_providers import registry
+
+        registry.build_provider_configs(force=True)
+        service = _service()
+        bundle = registry.get_provider_bundle("rollypay_service")
+        assert bundle is not None and isinstance(bundle.config, RollyPayConfig)
+        service.config = bundle.config
+        try:
+            # Startup creates the env bundle before loading the DB overrides.
+            assert (
+                apply_overrides(
+                    service.settings,
+                    {
+                        "ROLLYPAY_ENABLED": True,
+                        "ROLLYPAY_API_KEY": "api-key",
+                        "ROLLYPAY_SIGNING_SECRET": "signing-secret",
+                        "ROLLYPAY_BASE_URL": str(server.make_url("/api/v1")),
+                    },
+                )
+                == 4
+            )
+            ok, data = await service.create_payment(
+                CreatePaymentRequest(
+                    payment=SimpleNamespace(payment_id=110),
+                    user_id=42,
+                    amount=1500,
+                    currency="RUB",
+                    description="Subscription",
+                    months=1,
+                    sale_mode="subscription@basic",
+                ),
+                variant="all_methods",
+            )
+            assert ok and data["id"] == "payment-110"
+            assert data["payment_url"] == "https://pay.example.com/110"
+            assert len(received) == 1 and received[0]["order_id"] == "minishop-110"
+        finally:
+            await service.close()
+            await server.close()
+            registry.build_provider_configs(force=True)
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda spec: spec.id)

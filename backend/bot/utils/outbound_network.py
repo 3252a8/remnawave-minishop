@@ -73,7 +73,7 @@ class OutboundPolicy:
 
 
 class CredentialPolicy(OutboundPolicy):
-    """Credentials may go only to a shipped API origin or an operator-pinned origin."""
+    """Credentials may go only to the configured API origin, never a foreign redirect."""
 
     def __init__(self, urls: Iterable[str], *, private_urls: Iterable[str] = ()) -> None:
         origins = set()

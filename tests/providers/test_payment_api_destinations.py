@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import Mock
 
+import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
@@ -17,7 +18,7 @@ class Client(HttpClientMixin):
         self._init_http_client()
 
 
-def test_payment_credentials_never_follow_a_foreign_origin_or_an_admin_override() -> None:
+def test_payment_credentials_never_follow_a_foreign_origin() -> None:
     async def run() -> None:
         received: list[object] = []
         leaked: list[object] = []
@@ -61,6 +62,19 @@ def test_payment_credentials_never_follow_a_foreign_origin_or_an_admin_override(
                 session, config.BASE_URL, body=secret, log_prefix="test"
             )
             assert not ok and leaked == []
+            # Explicit reconfiguration gets a new policy; an in-flight session
+            # keeps its original origin and cannot leak keys via a redirect.
+            updated_session = await client._get_session()
+            assert updated_session is not session
+            assert not session.closed
+            ok, _ = await post_json_request(
+                updated_session, config.BASE_URL, body=secret, log_prefix="test"
+            )
+            assert ok and leaked == [secret]
+            ok, _ = await post_json_request(
+                updated_session, str(server.make_url("/")), body=secret, log_prefix="test"
+            )
+            assert not ok and received == [secret]
         finally:
             await client.close()
             await server.close()
@@ -69,18 +83,28 @@ def test_payment_credentials_never_follow_a_foreign_origin_or_an_admin_override(
     asyncio.run(run())
 
 
-def test_settings_reject_an_unapproved_origin_before_persisting_any_change() -> None:
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "https://user:secret@api.example.com",
+        "https://api.example.com:65536",
+        "http://169.254.169.254/latest/meta-data",
+        "http://[::ffff:169.254.169.254]/latest/meta-data",
+        "http://0.0.0.0/api",
+        "http://224.0.0.1/api",
+    ],
+)
+def test_settings_reject_unsafe_api_urls_before_persisting_any_change(url: str) -> None:
     registry.build_provider_configs(force=True)
     settings = Settings(
         _env_file=None, BOT_TOKEN="token", POSTGRES_USER="test", POSTGRES_PASSWORD="test"
     )
     session_factory = Mock(
-        side_effect=AssertionError("An invalid origin must not reach the database")
+        side_effect=AssertionError("An unsafe API URL must not reach the database")
     )
     result = asyncio.run(
-        update_overrides(
-            settings, session_factory, updates={"CLOUDPAYMENTS_BASE_URL": "https://attacker.test"}
-        )
+        update_overrides(settings, session_factory, updates={"CLOUDPAYMENTS_BASE_URL": url})
     )
     assert result == {
         "ok": False,

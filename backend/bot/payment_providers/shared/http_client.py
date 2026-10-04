@@ -131,7 +131,8 @@ class HttpClientMixin:
 
     ``total_timeout`` may be a callable so the timeout follows runtime
     settings changes (admin overrides apply in-process without a restart).
-    When the value changes, the next request gets a fresh session; the old
+    When the timeout or configured API URL changes, the next request gets a
+    fresh session with the current destination policy; the old
     session stays open until its own in-flight requests cannot outlive it.
 
     Provider API calls are traced so callers can retry transport failures only
@@ -142,12 +143,16 @@ class HttpClientMixin:
     _session: ClientSession | None
     _stale_sessions: list[ClientSession]
     _session_cleanup_tasks: set[asyncio.Task[None]]
+    _session_api_urls: tuple[str, ...] | None
+    _session_private_api_urls: tuple[str, ...]
 
     def _init_http_client(self, *, total_timeout: TimeoutSource = _DEFAULT_TIMEOUT_SECONDS) -> None:
         self._timeout_source = total_timeout
         self._session = None
         self._stale_sessions = []
         self._session_cleanup_tasks = set()
+        self._session_api_urls = None
+        self._session_private_api_urls = ()
 
     def _current_timeout_seconds(self) -> float:
         source = self._timeout_source
@@ -159,8 +164,19 @@ class HttpClientMixin:
 
     async def _get_session(self) -> ClientSession:
         timeout_seconds = self._current_timeout_seconds()
+        config = getattr(self, "config", None)
+        approved_urls = getattr(config, "_trusted_api_urls", None)
+        private_urls = tuple(getattr(config, "_trusted_private_api_urls", ()))
         session = self._session
-        if session is not None and not session.closed and session.timeout.total != timeout_seconds:
+        if (
+            session is not None
+            and not session.closed
+            and (
+                session.timeout.total != timeout_seconds
+                or self._session_api_urls != approved_urls
+                or self._session_private_api_urls != private_urls
+            )
+        ):
             self._session = None
             self._stale_sessions.append(session)
             task = asyncio.create_task(self._close_stale_session(session))
@@ -168,12 +184,8 @@ class HttpClientMixin:
             task.add_done_callback(self._session_cleanup_tasks.discard)
             session = None
         if session is None or session.closed:
-            config = getattr(self, "config", None)
-            approved_urls = getattr(config, "_trusted_api_urls", None)
             policy = (
-                CredentialPolicy(
-                    approved_urls, private_urls=getattr(config, "_trusted_private_api_urls", ())
-                )
+                CredentialPolicy(approved_urls, private_urls=private_urls)
                 if approved_urls is not None
                 else OutboundPolicy()
             )
@@ -183,6 +195,8 @@ class HttpClientMixin:
                 trace_configs=[_payment_trace_config(), outbound_trace(policy)],
             )
             self._session = session
+            self._session_api_urls = approved_urls
+            self._session_private_api_urls = private_urls
         return session
 
     async def _close_stale_session(self, session: ClientSession) -> None:
