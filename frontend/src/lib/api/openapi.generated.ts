@@ -2336,6 +2336,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/telegram-emoji/previews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Telegram Emoji Previews */
+    get: operations["get_admin_telegram_emoji_previews_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/telegram-menu": {
     parameters: {
       query?: never;
@@ -8157,6 +8174,20 @@ export interface components {
       /** Token */
       token: string;
     };
+    /** EmojiBatchPreview */
+    EmojiBatchPreview: {
+      /** Data */
+      data: string;
+      /** Id */
+      id: string;
+      /**
+       * Mime
+       * @enum {string}
+       */
+      mime: "image/png" | "image/webp" | "image/jpeg" | "image/gif";
+      /** Version */
+      version: string;
+    };
     /** EmojiCapabilities */
     EmojiCapabilities: {
       icon?: components["schemas"]["EmojiCapability"];
@@ -8224,6 +8255,11 @@ export interface components {
       revision: string;
       /** Sets */
       sets: components["schemas"]["EmojiSetInfo"][];
+    };
+    /** EmojiPreviewBatchOut */
+    EmojiPreviewBatchOut: {
+      /** Previews */
+      previews: components["schemas"]["EmojiBatchPreview"][];
     };
     /** EmojiRefreshBody */
     EmojiRefreshBody: {
@@ -16709,6 +16745,29 @@ export interface operations {
         };
         content: {
           "application/octet-stream": string;
+        };
+      };
+    };
+  };
+  get_admin_telegram_emoji_previews_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["EmojiPreviewBatchOut"];
         };
       };
     };

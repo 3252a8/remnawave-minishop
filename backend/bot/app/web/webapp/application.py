@@ -27,8 +27,10 @@ from bot.infra.observability import observability_error_middleware
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.message_image_service import MESSAGE_IMAGE_REQUEST_MAX_BYTES
 from bot.services.server_status import ServerStatusService
-from bot.services.telegram_emoji_catalog import stop_warming
+from bot.services.settings_override_service import refresh_overrides_from_db
+from bot.services.telegram_emoji_catalog import stop_warming, warm_library
 from config.settings import Settings
+from config.telegram_menu import LIBRARY_KEY, parse_emoji_library
 
 from .action_audit import webapp_action_audit_middleware
 from .advertising import advertising_identity_middleware
@@ -91,17 +93,34 @@ def create_subscription_webapp_application(
         await warm_subscription_guides_config(app_obj)
 
     warmup_task: asyncio.Task[None] | None = None
+    emoji_warmup_task: asyncio.Task[None] | None = None
+
+    async def _warm_emoji_cache() -> None:
+        if bot is None:
+            return
+        try:
+            await refresh_overrides_from_db(settings, async_session_factory, keys={LIBRARY_KEY})
+            library = parse_emoji_library(settings.TELEGRAM_CUSTOM_EMOJI_LIBRARY_JSON)
+            if library.sets or library.manual_ids:
+                await warm_library(bot, library)
+        except Exception:
+            logger.exception("Failed to warm custom emoji cache")
 
     # The warms fetch the logo from a remote URL and the guides config from the
     # panel; both may hang on network timeouts right after a restart, so they
     # must not delay opening the webapp listener.
     async def _startup(app_obj: web.Application) -> None:
-        nonlocal warmup_task
+        nonlocal warmup_task, emoji_warmup_task
         await app_obj[SERVER_STATUS_SERVICE].start()
         await _ensure_shared_http_session()
         warmup_task = asyncio.create_task(_warm_caches(app_obj))
+        emoji_warmup_task = asyncio.create_task(_warm_emoji_cache())
 
     async def _shutdown(app_obj: web.Application) -> None:
+        if emoji_warmup_task is not None and not emoji_warmup_task.done():
+            emoji_warmup_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await emoji_warmup_task
         if bot is not None:
             await stop_warming(bot)
         if warmup_task is not None and not warmup_task.done():

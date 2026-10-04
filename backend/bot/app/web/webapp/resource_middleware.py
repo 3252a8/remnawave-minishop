@@ -27,6 +27,8 @@ _TICKET_EMOJI_MEDIA_RE = re.compile(
 
 
 def _is_emoji_media_path(path: str) -> bool:
+    if path == "/api/admin/telegram-emoji/previews":
+        return True
     if path.startswith(_EMOJI_MEDIA_PREFIX):
         return CUSTOM_EMOJI_ID_RE.fullmatch(path.removeprefix(_EMOJI_MEDIA_PREFIX)) is not None
     match = _TICKET_EMOJI_MEDIA_RE.fullmatch(path)

@@ -16,11 +16,13 @@
     fallback = "◻️",
     url = null,
     size = 28,
+    fillContainer = false,
     loadMedia = contextMediaApi(),
   }: {
     fallback?: string;
     url?: string | null;
     size?: number;
+    fillContainer?: boolean;
     loadMedia?: TelegramEmojiMediaApi;
   } = $props();
   let element = $state<HTMLSpanElement | null>(null);
@@ -82,9 +84,16 @@
   });
 </script>
 
-<span bind:this={element} class="emoji-glyph" style={`--emoji-size: ${size}px`} aria-hidden="true">
+<span
+  bind:this={element}
+  class="emoji-glyph"
+  class:emoji-glyph--fill={fillContainer}
+  style={`--emoji-size: ${size}px`}
+  data-emoji-loading={loading ? "" : undefined}
+  aria-hidden="true"
+>
   <span class:covered={loading || (decoded && !failed)}>{fallback || "◻️"}</span>
-  {#if loading}<Skeleton class="emoji-skeleton" width={`${size}px`} height={`${size}px`} />{/if}
+  {#if loading}<Skeleton class="emoji-skeleton" width="100%" height="100%" />{/if}
   {#if objectUrl && !failed}
     <img
       src={objectUrl}
@@ -114,20 +123,37 @@
     font-size: var(--emoji-size);
     line-height: 1;
   }
+  .emoji-glyph--fill {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    border-radius: inherit;
+    pointer-events: none;
+  }
   .emoji-glyph > span,
   .emoji-glyph > img,
   .emoji-glyph :global(.emoji-skeleton) {
     grid-area: 1 / 1;
   }
   .emoji-glyph > img {
-    width: 100%;
-    height: 100%;
+    width: var(--emoji-size);
+    height: var(--emoji-size);
     object-fit: contain;
   }
   .covered {
     opacity: 0;
   }
   .emoji-glyph :global(.emoji-skeleton) {
+    min-height: 0;
     border-radius: 6px;
+  }
+  .emoji-glyph--fill :global(.emoji-skeleton) {
+    border-radius: inherit;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .emoji-glyph :global(.emoji-skeleton) {
+      animation: none;
+    }
   }
 </style>

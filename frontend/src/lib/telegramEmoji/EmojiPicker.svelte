@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getAdminApi } from "$lib/admin/context";
-  import { Dialog, Input } from "$components/ui";
+  import { Dialog, Input, Skeleton } from "$components/ui";
   import { AdminButton, AdminField, AdminSelect } from "$components/patterns/admin";
   import { Clock, Plus, Search, Star } from "$components/ui/icons";
   import EmojiGlyph from "./EmojiGlyph.svelte";
@@ -390,7 +390,7 @@
       {#if loading && tab === "custom"}
         <p class="picker-muted" role="status">{at("loading")}</p>
         <div class="emoji-grid skeleton" aria-hidden="true">
-          {#each Array(24) as _, index (index)}<span></span>{/each}
+          {#each Array(24) as _, index (index)}<Skeleton class="picker-cell-skeleton" />{/each}
         </div>
       {:else if visibleItems.length}
         <div
@@ -420,6 +420,7 @@
                 fallback={item.fallback}
                 url={item.thumbnail_url}
                 size={30}
+                fillContainer
                 loadMedia={apiBlob}
               />
               {#if preferences.favorites.some((value) => emojiSelectionKey(value) === emojiSelectionKey(item))}<span
@@ -565,11 +566,15 @@
     right: 4px;
     color: var(--admin-accent);
   }
-  .skeleton span {
+  .skeleton :global(.picker-cell-skeleton) {
     aspect-ratio: 1;
+    min-height: 0;
     border-radius: 10px;
-    background: var(--admin-border);
-    opacity: 0.5;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton :global(.picker-cell-skeleton) {
+      animation: none;
+    }
   }
   .picker-muted,
   .picker-pagination,

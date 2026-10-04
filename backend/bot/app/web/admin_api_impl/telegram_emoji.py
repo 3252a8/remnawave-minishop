@@ -23,10 +23,12 @@ from bot.services.telegram_emoji_catalog import (
     resolve_ids,
     warm_library,
 )
+from bot.services.telegram_emoji_previews import cached_previews, preview_references
 from bot.services.telegram_emoji_schemas import (
     EmojiCatalogOut,
     EmojiLibraryBody,
     EmojiLibraryOut,
+    EmojiPreviewBatchOut,
     EmojiRefreshBody,
 )
 from config.telegram_menu import (
@@ -137,6 +139,13 @@ async def admin_telegram_emoji_catalog_route(request: web.Request) -> web.Respon
 
 
 @telegram_route
+async def admin_telegram_emoji_previews_route(request: web.Request) -> web.Response:
+    references = preview_references(request.query.get("items", ""))
+    result = await cached_previews(required_bot(request).id, references)
+    return _ok(result.model_dump(mode="json"))
+
+
+@telegram_route
 async def admin_telegram_emoji_media_route(request: web.Request) -> web.Response:
     bot = required_bot(request)
     async with asyncio.timeout(20):
@@ -180,6 +189,12 @@ register_contract(
     RouteContract(
         response_schema=ok_envelope_for(EmojiCatalogOut),
         models=(EmojiCatalogOut,),
+    ),
+)
+register_contract(
+    "admin_telegram_emoji_previews_route",
+    RouteContract(
+        response_schema=ok_envelope_for(EmojiPreviewBatchOut), models=(EmojiPreviewBatchOut,)
     ),
 )
 register_contract(

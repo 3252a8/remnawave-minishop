@@ -8453,6 +8453,40 @@
         "title": "EmailNotificationPreferencesPatchBody",
         "type": "object"
       },
+      "EmojiBatchPreview": {
+        "properties": {
+          "data": {
+            "title": "Data",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mime": {
+            "enum": [
+              "image/png",
+              "image/webp",
+              "image/jpeg",
+              "image/gif"
+            ],
+            "title": "Mime",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "mime",
+          "data"
+        ],
+        "title": "EmojiBatchPreview",
+        "type": "object"
+      },
       "EmojiCapabilities": {
         "properties": {
           "icon": {
@@ -8622,6 +8656,22 @@
           "sets"
         ],
         "title": "EmojiLibraryOut",
+        "type": "object"
+      },
+      "EmojiPreviewBatchOut": {
+        "properties": {
+          "previews": {
+            "items": {
+              "$ref": "#/components/schemas/EmojiBatchPreview"
+            },
+            "title": "Previews",
+            "type": "array"
+          }
+        },
+        "required": [
+          "previews"
+        ],
+        "title": "EmojiPreviewBatchOut",
         "type": "object"
       },
       "EmojiRefreshBody": {
@@ -27162,6 +27212,52 @@
           }
         ],
         "summary": "Admin Telegram Emoji Media",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/telegram-emoji/previews": {
+      "get": {
+        "operationId": "get_admin_telegram_emoji_previews_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmojiPreviewBatchOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Telegram Emoji Previews",
         "tags": [
           "admin"
         ]

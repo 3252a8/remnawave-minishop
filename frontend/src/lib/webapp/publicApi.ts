@@ -66,6 +66,7 @@ type ApiClientOptions = {
   csrfCookieName?: string;
   getAuthToken?: () => string;
   getCsrfToken?: () => string;
+  getEmojiCacheScope?: () => string;
   getTariffAccessCode?: () => string;
   onUnauthorized?: () => void;
   mockApi?: MockApi | null;
@@ -843,6 +844,7 @@ export function createApiClient({
   csrfCookieName = "rw_webapp_csrf",
   getAuthToken = () => "",
   getCsrfToken = () => "",
+  getEmojiCacheScope = () => "",
   getTariffAccessCode = () => "",
   onUnauthorized = () => {},
   mockApi = null,
@@ -910,6 +912,7 @@ export function createApiClient({
   const apiBlob = createBlobRequester({
     authenticatedHeaders,
     sessionScope: () => getCsrfToken() || readCookie(csrfCookieName) || "",
+    persistentScope: getEmojiCacheScope,
     buildApiUrl,
     mockApi,
     getMockContext,

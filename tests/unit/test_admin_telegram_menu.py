@@ -50,6 +50,7 @@ def make_request(monkeypatch, payload=None, *, admin=False):
         telegram_emoji.admin_telegram_emoji_refresh_route,
         telegram_emoji.admin_telegram_emoji_catalog_route,
         telegram_emoji.admin_telegram_emoji_media_route,
+        telegram_emoji.admin_telegram_emoji_previews_route,
     ],
 )
 def test_all_telegram_design_endpoints_require_admin_auth(handler, monkeypatch) -> None:

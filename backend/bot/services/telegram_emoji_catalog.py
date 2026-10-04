@@ -41,6 +41,7 @@ class _BotCache:
     slots: asyncio.Semaphore = field(default_factory=lambda: asyncio.Semaphore(WARM_CONCURRENCY))
     downloads: dict[str, asyncio.Task[tuple[bytes, str]]] = field(default_factory=dict)
     warming: dict[str, asyncio.Task[None]] = field(default_factory=dict)
+    refreshing: dict[str, asyncio.Task[None]] = field(default_factory=dict)
     retry_after: dict[str, float] = field(default_factory=dict)
     failures: dict[str, tuple[float, str, int]] = field(default_factory=dict)
     set_locks: dict[str, asyncio.Lock] = field(default_factory=dict)
@@ -270,6 +271,7 @@ async def stop_warming(bot: Bot) -> None:
         task for task in cache.warming.values() if not task.done()
     ]
     tasks += [task for task in cache.downloads.values() if not task.done()]
+    tasks += [task for task in cache.refreshing.values() if not task.done()]
     for task in tasks:
         task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -324,7 +326,7 @@ async def catalog(
             if not selected:
                 raise TelegramEmojiError("telegram_emoji_unknown_set")
         for name in selected:
-            cached = await load_set(bot, name)
+            cached = await _catalog_set(bot, name, library)
             for item in cached.items:
                 items.setdefault(item.id, item)
         if not set_name:
@@ -349,6 +351,38 @@ async def catalog(
     )
 
 
+async def _catalog_set(bot: Bot, name: str, library: TelegramEmojiLibrary) -> CachedEmojiSet:
+    cached = await asyncio.to_thread(storage.read_set, bot.id, name)
+    if cached is None:
+        return await load_set(bot, name)
+    cache = _cache(bot)
+    key = f"catalog:{name.casefold()}"
+    if (
+        time.time() - cached.saved_at >= CATALOG_TTL_SECONDS
+        and key not in cache.refreshing
+        and cache.retry_after.get(key, 0) <= time.time()
+    ):
+
+        async def refresh() -> None:
+            try:
+                await load_set(bot, name, refresh=True)
+                await warm_library(bot, library, retry=True)
+            except (TelegramEmojiError, OSError):
+                cache.retry_after[key] = time.time() + WARM_RETRY_SECONDS
+
+        task = asyncio.create_task(refresh())
+        cache.refreshing[key] = task
+
+        def finished(result: asyncio.Task[None]) -> None:
+            cache.refreshing.pop(key, None)
+            if not result.cancelled():
+                result.exception()
+
+        task.add_done_callback(finished)
+    # Imported catalogs stay immediate even after their metadata refresh deadline.
+    return cached
+
+
 def _media_format(content: bytes) -> str | None:
     if content.startswith(b"\x89PNG\r\n\x1a\n"):
         return "png"
@@ -361,7 +395,7 @@ def _media_format(content: bytes) -> str | None:
     return None
 
 
-def _validated_format(content: bytes) -> str | None:
+def validated_format(content: bytes) -> str | None:
     format_name = _media_format(content)
     if format_name is None:
         return None
@@ -389,7 +423,7 @@ async def media(bot: Bot, identifier: str) -> tuple[bytes, str]:
     items = await resolve_ids(bot, [identifier])
     item = items[0]
     content = await asyncio.to_thread(storage.read_media, bot.id, item, MAX_MEDIA_BYTES)
-    if content and (format_name := await asyncio.to_thread(_validated_format, content)):
+    if content and (format_name := await asyncio.to_thread(validated_format, content)):
         return content, _FORMAT_MIME[format_name]
     cache = _cache(bot)
     key = f"{item.id}-{storage.media_version(item)}"
@@ -425,7 +459,7 @@ async def _download(bot: Bot, item: CachedEmojiItem) -> tuple[bytes, str]:
 async def _download_in_slot(bot: Bot, item: CachedEmojiItem) -> tuple[bytes, str]:
     content_cached = await asyncio.to_thread(storage.read_media, bot.id, item, MAX_MEDIA_BYTES)
     if content_cached and (
-        format_cached := await asyncio.to_thread(_validated_format, content_cached)
+        format_cached := await asyncio.to_thread(validated_format, content_cached)
     ):
         return content_cached, _FORMAT_MIME[format_cached]
     file_id = item.thumbnail_file_id or (item.file_id if item.format == "static" else "")
@@ -442,7 +476,7 @@ async def _download_in_slot(bot: Bot, item: CachedEmojiItem) -> tuple[bytes, str
         )
     )
     result = content.getvalue()
-    format_name = await asyncio.to_thread(_validated_format, result)
+    format_name = await asyncio.to_thread(validated_format, result)
     if format_name is None:
         raise TelegramEmojiError("telegram_emoji_preview_invalid", 415)
     if not await asyncio.to_thread(storage.save_media, bot.id, item, result):

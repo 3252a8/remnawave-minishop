@@ -240,6 +240,10 @@
   border-radius: var(--radius-control);
 }
 
+.rt-custom-emoji.ui-skeleton {
+  min-height: 0;
+}
+
 .ui-skeleton-line,
 .admin-skeleton-line,
 .skeleton-line {
@@ -290,6 +294,12 @@
   }
   100% {
     background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-custom-emoji.ui-skeleton {
+    animation: none;
   }
 }
 

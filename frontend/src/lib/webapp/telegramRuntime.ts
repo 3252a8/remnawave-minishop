@@ -2,11 +2,16 @@ import { createTelegramLaunch } from "./telegramLaunch.js";
 import { createTelegramSdk } from "./telegramSdk";
 import { shellState } from "./shellState.svelte";
 import { createTelegramViewportBridge } from "./telegramViewport.js";
+import {
+  setTelegramEmojiDeviceStorage,
+  type TelegramDeviceStorage,
+} from "./telegramEmojiDeviceCache";
 
 export type TelegramWebAppEvent = "fullscreenChanged" | "themeChanged";
 
 export type TelegramWebApp = Record<string, unknown> & {
   initData?: string;
+  DeviceStorage?: TelegramDeviceStorage;
   openInvoice?: (url: string, callback: (status: string) => void) => void;
   openLink?: (url: string, options?: Record<string, unknown>) => void;
   openTelegramLink?: (url: string) => void;
@@ -85,6 +90,9 @@ export function createTelegramRuntime<Tg = TelegramWebApp | null>({
     const webApp = telegram as TelegramWebApp | null;
     shellState.tg = webApp;
     viewportBridge.setTelegram(webApp);
+    setTelegramEmojiDeviceStorage(
+      webApp?.initData && webApp.isVersionAtLeast?.("9.0") ? (webApp.DeviceStorage ?? null) : null
+    );
   }
 
   const telegramSdk = createSdk({

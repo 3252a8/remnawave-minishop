@@ -6,6 +6,7 @@ import {
   readCookie,
 } from "./session.js";
 import { shellState } from "./shellState.svelte";
+import { clearEmojiPreviewStorage } from "./emojiPreviewStorage";
 
 type SessionStorageActions = {
   clearManualLogoutFlag: (flagKey: string) => void;
@@ -54,6 +55,7 @@ export function createWebappSessionActions({
   }
 
   function markManualLogout() {
+    void clearEmojiPreviewStorage();
     storage.markManualLogout(manualLogoutFlagKey);
   }
 

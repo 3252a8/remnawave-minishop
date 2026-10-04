@@ -70,7 +70,8 @@ export class EmojiMediaBlobCache {
     key: string,
     ttl: number,
     load: () => Promise<Blob>,
-    signal?: AbortSignal | null
+    signal?: AbortSignal | null,
+    cacheable: (blob: Blob) => boolean = () => true
   ): Promise<Blob> {
     if (signal?.aborted)
       return Promise.reject(
@@ -88,7 +89,7 @@ export class EmojiMediaBlobCache {
       pending = Promise.resolve()
         .then(load)
         .then((blob) => {
-          this.remember(key, blob, ttl);
+          if (cacheable(blob)) this.remember(key, blob, ttl);
           return blob;
         })
         .finally(() => this.pending.delete(key));

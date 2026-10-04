@@ -142,6 +142,7 @@ from .telegram_emoji import (
     admin_telegram_emoji_catalog_route,
     admin_telegram_emoji_library_route,
     admin_telegram_emoji_media_route,
+    admin_telegram_emoji_previews_route,
     admin_telegram_emoji_refresh_route,
     admin_telegram_emoji_remove_route,
 )
@@ -205,6 +206,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_delete("/api/admin/telegram-emoji/library", admin_telegram_emoji_remove_route)
     router.add_post("/api/admin/telegram-emoji/library/refresh", admin_telegram_emoji_refresh_route)
     router.add_get("/api/admin/telegram-emoji/catalog", admin_telegram_emoji_catalog_route)
+    router.add_get("/api/admin/telegram-emoji/previews", admin_telegram_emoji_previews_route)
     router.add_get("/api/admin/telegram-emoji/media/{emoji_id}", admin_telegram_emoji_media_route)
     router.add_get("/api/admin/me", admin_me_route)
     router.add_get("/api/admin/roles", admin_roles_list_route)

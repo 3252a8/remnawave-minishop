@@ -6,10 +6,8 @@ export function setCustomEmojiPlaceholder(
 ): void {
   const loading = state === "loading";
   fallback.style.opacity = state === "fallback" ? "" : "0";
+  element.classList.toggle("ui-skeleton", loading);
   element.toggleAttribute("data-emoji-loading", loading);
   element.setAttribute("aria-busy", String(loading));
-  element.style.background = loading
-    ? "color-mix(in srgb, var(--text, #808080) 12%, transparent)"
-    : "";
   element.style.borderRadius = loading ? "0.25em" : "";
 }

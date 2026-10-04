@@ -283,6 +283,7 @@ export function createAppFactories({
     csrfCookieName,
     getAuthToken: () => shellState.token,
     getCsrfToken: () => shellState.csrfToken,
+    getEmojiCacheScope: () => (getIsAdmin() ? String(getUser()?.id || "") : ""),
     getTariffAccessCode: () => tariffAccessCode,
     onUnauthorized: () => {
       clearToken();

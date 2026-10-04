@@ -132,6 +132,17 @@ class EmojiCatalogOut(BaseModel):
     limit: int
 
 
+class EmojiBatchPreview(BaseModel):
+    id: str
+    version: str
+    mime: Literal["image/png", "image/webp", "image/jpeg", "image/gif"]
+    data: str
+
+
+class EmojiPreviewBatchOut(BaseModel):
+    previews: list[EmojiBatchPreview]
+
+
 class CachedEmojiSet(BaseModel):
     name: str
     title: str
