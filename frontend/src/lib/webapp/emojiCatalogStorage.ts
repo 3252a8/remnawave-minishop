@@ -8,7 +8,14 @@ const KEY = "minishop_emoji_catalog_v1";
 const MAX_BYTES = 128 * 1024;
 const RETENTION = 30 * 24 * 60 * 60 * 1000;
 type Entry = { scope: string; query: string; catalog: EmojiCatalog; touched: number };
-const scopes = new WeakMap<object, () => string>();
+const API_CACHE = Symbol.for("minishop.emojiCatalogCache.v1");
+type EmojiApiCatalogCache = {
+  scope: () => string;
+  read: typeof readEmojiCatalog;
+  write: typeof writeEmojiCatalog;
+  generation: typeof emojiCatalogGeneration;
+  clear: typeof clearEmojiCatalogStorage;
+};
 let entries: Entry[] | null = null;
 let nativeLoaded: Promise<void> | null = null;
 let nativeAdapter = getTelegramEmojiDeviceStorage();
@@ -17,10 +24,24 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let queue = Promise.resolve();
 
 export function registerEmojiApiCacheScope(api: object, scope: () => string): void {
-  scopes.set(api, scope);
+  // Main app and lazy admin are separate bundles. Keep storage and SDK ownership
+  // with the authenticated API client instead of a module-local registry.
+  Object.defineProperty(api, API_CACHE, {
+    configurable: true,
+    value: {
+      scope,
+      read: readEmojiCatalog,
+      write: writeEmojiCatalog,
+      generation: emojiCatalogGeneration,
+      clear: clearEmojiCatalogStorage,
+    } satisfies EmojiApiCatalogCache,
+  });
+}
+export function emojiApiCatalogCache(api: object): EmojiApiCatalogCache | undefined {
+  return Reflect.get(api, API_CACHE) as EmojiApiCatalogCache | undefined;
 }
 export function emojiApiCacheScope(api: object): string {
-  const scope = scopes.get(api)?.() ?? "";
+  const scope = emojiApiCatalogCache(api)?.scope() ?? "";
   return /^[1-9][0-9]{0,19}$/.test(scope) ? scope : "";
 }
 function validItem(value: unknown): value is EmojiItem {

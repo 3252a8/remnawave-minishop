@@ -6,6 +6,7 @@ import {
   catalogEmojiPreviewUrl,
   clearEmojiCatalogStorage,
   emojiApiCacheScope,
+  emojiApiCatalogCache,
   emojiCatalogGeneration,
   readEmojiCatalog,
   registerEmojiApiCacheScope,
@@ -53,6 +54,60 @@ afterEach(async () => {
 });
 
 describe("persistent emoji catalog", () => {
+  it("shares storage and invalidation with a separately loaded admin bundle", async () => {
+    writeEmojiCatalog("42", query, catalog());
+    let finish!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          })
+      )
+    );
+    const mainClient = createApiClient({
+      getAuthToken: () => "session",
+      getEmojiCacheScope: () => "42",
+    });
+    const mainCache = emojiApiCatalogCache(mainClient.api);
+    vi.resetModules();
+    const adminStorage = await import("./emojiCatalogStorage");
+    const adminApi = await import("$lib/telegramEmoji/api");
+    expect(adminStorage.emojiApiCatalogCache(mainClient.api)).toBe(mainCache);
+    expect(adminStorage.emojiApiCacheScope(mainClient.api)).toBe("42");
+    const refreshed = vi.fn();
+    expect(await adminApi.getEmojiCatalog(mainClient.api, {}, undefined, refreshed)).toEqual(
+      catalog()
+    );
+    expect(refreshed).not.toHaveBeenCalled();
+    const fresh = catalog();
+    fresh.items[0].thumbnail_url = url.replace("0123456789abcdef", "0000000000000001");
+    finish(
+      new Response(JSON.stringify({ ok: true, ...fresh }), {
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    await vi.waitFor(() => expect(refreshed).toHaveBeenCalledWith({ ok: true, ...fresh }));
+    expect(await catalogEmojiPreviewUrl("42", fresh.items[0].id)).toBe(
+      fresh.items[0].thumbnail_url
+    );
+    vi.mocked(fetch).mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            library: { schema_version: 1, sets: [], manual_ids: [] },
+            revision: "a".repeat(64),
+            sets: [],
+          }),
+          { headers: { "Content-Type": "application/json" } }
+        )
+    );
+    await adminApi.removeEmojiSource(mainClient.api, "win95_by_emjsetbot", "a".repeat(64));
+    expect(await readEmojiCatalog("42", query)).toBeNull();
+    expect(await catalogEmojiPreviewUrl("42", catalog().items[0].id)).toBeNull();
+  });
   it("renders stored metadata without waiting for background HTTP and applies refreshed versions", async () => {
     writeEmojiCatalog("42", query, catalog());
     let finish!: (value: unknown) => void;

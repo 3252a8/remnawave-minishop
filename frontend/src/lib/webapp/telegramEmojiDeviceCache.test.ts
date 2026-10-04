@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { rejectEmojiPreviewBlob } from "$lib/telegramEmoji/media";
+import { isEmojiPreviewBlob, rejectEmojiPreviewBlob } from "$lib/telegramEmoji/media";
 import {
   persistentEmojiKey,
   readEmojiPreview,
@@ -39,6 +39,20 @@ afterEach(() => {
 });
 
 describe("Telegram native preview persistence", () => {
+  it("invalidates native previews when a separately loaded admin renderer rejects the Blob", async () => {
+    vi.useFakeTimers();
+    const { storage } = device();
+    const cache = new TelegramEmojiDeviceCache(storage);
+    await cache.write(key, blob());
+    await vi.advanceTimersByTimeAsync(40);
+    const restored = (await cache.read(key))!;
+    vi.resetModules();
+    const adminMedia = await import("$lib/telegramEmoji/media");
+    adminMedia.rejectEmojiPreviewBlob(restored);
+    expect(isEmojiPreviewBlob(restored)).toBe(false);
+    await vi.advanceTimersByTimeAsync(40);
+    expect(await new TelegramEmojiDeviceCache(storage).read(key)).toBeNull();
+  });
   it("survives replacement of the WebView with one native read and a coalesced write", async () => {
     vi.useFakeTimers();
     const { storage } = device();

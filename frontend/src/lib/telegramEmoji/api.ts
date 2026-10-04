@@ -2,9 +2,7 @@ import { createApiClient, unwrap, type ApiClient, type GetResponse } from "$lib/
 import {
   clearEmojiCatalogStorage,
   emojiApiCacheScope,
-  emojiCatalogGeneration,
-  readEmojiCatalog,
-  writeEmojiCatalog,
+  emojiApiCatalogCache,
 } from "$lib/webapp/emojiCatalogStorage";
 import type {
   EmojiCatalog,
@@ -59,7 +57,7 @@ export async function importEmojiSource(
   source: string,
   expectedRevision: string
 ): Promise<EmojiLibrary> {
-  clearEmojiCatalogStorage();
+  (emojiApiCatalogCache(api)?.clear ?? clearEmojiCatalogStorage)();
   return unwrap(
     await api(buildTelegramEmojiLibraryPath(), {
       method: "POST",
@@ -73,7 +71,7 @@ export async function removeEmojiSource(
   source: string,
   expectedRevision: string
 ): Promise<EmojiLibrary> {
-  clearEmojiCatalogStorage();
+  (emojiApiCatalogCache(api)?.clear ?? clearEmojiCatalogStorage)();
   return unwrap(
     await api(buildTelegramEmojiLibraryPath(), {
       method: "DELETE",
@@ -86,7 +84,7 @@ export async function refreshEmojiSource(
   api: TelegramEmojiApi,
   source: string
 ): Promise<EmojiLibrary> {
-  clearEmojiCatalogStorage();
+  (emojiApiCatalogCache(api)?.clear ?? clearEmojiCatalogStorage)();
   return unwrap(
     await api(buildTelegramEmojiRefreshPath(), {
       method: "POST",
@@ -106,7 +104,8 @@ export async function getEmojiCatalog(
   if (query.q) params.set("q", query.q);
   if (query.ids?.length) params.set("ids", query.ids.join(","));
   const scope = emojiApiCacheScope(api);
-  const generation = emojiCatalogGeneration();
+  const cache = emojiApiCatalogCache(api);
+  const generation = cache?.generation() ?? 0;
   const key = params.toString();
   const request = async () => {
     const result = unwrap(
@@ -115,17 +114,17 @@ export async function getEmojiCatalog(
     if (
       signal?.aborted ||
       emojiApiCacheScope(api) !== scope ||
-      emojiCatalogGeneration() !== generation
+      (cache?.generation() ?? 0) !== generation
     )
       throw new DOMException("The session changed", "AbortError");
-    if (scope) writeEmojiCatalog(scope, key, result, generation);
+    if (scope) cache?.write(scope, key, result, generation);
     return result;
   };
-  const cached = onRefresh && scope ? await readEmojiCatalog(scope, key) : null;
+  const cached = onRefresh && scope ? await cache?.read(scope, key) : null;
   if (
     signal?.aborted ||
     emojiApiCacheScope(api) !== scope ||
-    emojiCatalogGeneration() !== generation
+    (cache?.generation() ?? 0) !== generation
   )
     throw new DOMException("The session changed", "AbortError");
   if (cached) {
@@ -138,7 +137,7 @@ export async function getEmojiCatalog(
           "status" in failure &&
           (failure.status === 401 || failure.status === 403)
         )
-          clearEmojiCatalogStorage();
+          cache?.clear();
       });
     return cached;
   }
