@@ -698,12 +698,12 @@ def test_panel_sync_imports_new_user_and_subscription_without_verifying_email(id
     assert upsert_subscription.await_args.args[1]["panel_subscription_uuid"] == "new-subscription"
 
 
-def test_panel_sync_does_not_import_panel_user_claiming_existing_email():
-    panel_service = SimpleNamespace(
-        get_all_panel_users=AsyncMock(
-            return_value=[{"uuid": "other-panel-user", "email": "owner@example.test"}]
-        )
-    )
+@pytest.mark.parametrize("has_login_identity", [True, False])
+def test_panel_sync_reports_unimportable_users_without_creating_accounts(has_login_identity):
+    panel_user = {"uuid": "other-panel-user"}
+    if has_login_identity:
+        panel_user["email"] = "owner@example.test"
+    panel_service = SimpleNamespace(get_all_panel_users=AsyncMock(return_value=[panel_user]))
     session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
     sync_indexes = {
         "users_by_telegram_id": {},
@@ -743,8 +743,16 @@ def test_panel_sync_does_not_import_panel_user_claiming_existing_email():
             )
         )
 
-    assert result["status"] == "completed_with_errors"
-    assert "manual review required" in result["errors"][0]
+    if has_login_identity:
+        assert result["status"] == "completed_with_errors"
+        assert "manual review required" in result["errors"][0]
+    else:
+        assert result["status"] == "completed"
+        assert result["errors"] == []
+        assert result["users_processed"] == 1
+        assert result["users_created"] == 0
+        assert result["subs_synced"] == 0
+        assert "без Telegram ID и email: 1" in result["details"]
     create_user.assert_not_awaited()
 
 
@@ -882,6 +890,30 @@ def test_sync_summary_translates_error_count():
 
         assert expected in details
         assert "admin_sync_errors" not in details
+
+    for language, expected in (
+        ("ru", "Пропущено записей только из панели без Telegram ID и email: 12"),
+        ("en", "Panel-only records skipped without Telegram ID or email: 12"),
+    ):
+        details = localized_sync_details(
+            i18n,
+            language,
+            panel_records_checked=12,
+            users_found_in_db=0,
+            users_created=0,
+            users_updated=0,
+            subscriptions_synced_count=0,
+            subscriptions_created=0,
+            subscriptions_updated=0,
+            users_without_telegram_id=12,
+            users_not_found_in_db=12,
+            users_skipped_no_identity=12,
+            error_count=0,
+        )
+
+        assert expected in details
+        assert "admin_sync_skipped_no_identity" not in details
+        assert "❌" not in details
 
 
 def test_absorb_duplicate_panel_identity_extends_kept_user_and_deletes_duplicate():
