@@ -136,6 +136,7 @@ async def _perform_sync_impl(
 
     # Additional counters for detailed logging
     users_without_telegram_id = 0
+    users_skipped_no_identity = 0
     users_not_found_in_db = 0
     users_created = 0
     users_uuid_updated = 0
@@ -254,9 +255,7 @@ async def _perform_sync_impl(
                 if not existing_user:
                     users_not_found_in_db += 1
                     if not telegram_id_from_panel and not email_from_panel:
-                        sync_errors.append(
-                            f"Panel user {panel_uuid} has no login identity; manual import required"
-                        )
+                        users_skipped_no_identity += 1
                         continue
                     email_is_owned = bool(
                         email_from_panel
@@ -902,6 +901,7 @@ async def _perform_sync_impl(
             subscriptions_updated=subscriptions_updated,
             users_without_telegram_id=users_without_telegram_id,
             users_not_found_in_db=users_not_found_in_db,
+            users_skipped_no_identity=users_skipped_no_identity,
             error_count=len(sync_errors),
         )
 
@@ -919,6 +919,9 @@ async def _perform_sync_impl(
         logger.info("  Panel records checked: %s", panel_records_checked)
         logger.info("  Users without telegramId: %s", users_without_telegram_id)
         logger.info("  Users not found in local DB: %s", users_not_found_in_db)
+        logger.info(
+            "  Panel-only users skipped without login identity: %s", users_skipped_no_identity
+        )
         logger.info("  Users found in local DB: %s", users_found_in_db)
         logger.info("  Users created: %s", users_created)
         logger.info("  Users with UUID updated: %s", users_uuid_updated)

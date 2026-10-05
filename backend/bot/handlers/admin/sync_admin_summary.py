@@ -38,6 +38,7 @@ def localized_sync_details(
     users_without_telegram_id: int,
     users_not_found_in_db: int,
     error_count: int,
+    users_skipped_no_identity: int = 0,
 ) -> str:
     additional_stats = ""
     if users_without_telegram_id > 0:
@@ -47,6 +48,10 @@ def localized_sync_details(
     if users_not_found_in_db > 0:
         additional_stats += i18n.gettext(
             language, "admin_sync_not_found_in_db", count=users_not_found_in_db
+        )
+    if users_skipped_no_identity > 0:
+        additional_stats += i18n.gettext(
+            language, "admin_sync_skipped_no_identity", count=users_skipped_no_identity
         )
     if error_count:
         additional_stats += i18n.gettext(language, "admin_sync_errors", count=error_count)
