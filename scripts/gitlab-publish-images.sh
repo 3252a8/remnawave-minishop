@@ -15,7 +15,7 @@ CI_SERVER_URL="${CI_SERVER_URL:?GitLab must provide CI_SERVER_URL}"
 
 IMAGE_PREFIX="${IMAGE_PREFIX:-remnawave-minishop}"
 TARGETS="${TARGETS:-backend worker frontend}"
-TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.70.0}"
+TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.75.0}"
 # OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://github.com/3252a8/remnawave-minishop}"
 OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://gitlab.com/3252a8/remnawave-minishop}"
 dockerhub_owner="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"

@@ -61,7 +61,7 @@ RUN set -eu; \
     printf '%s' "$provenance" > /build-provenance
 
 
-FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS python-base
+FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -111,6 +111,7 @@ RUN useradd -u 10001 -m appuser
 
 COPY backend/requirements.txt backend/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade "pip>=26.2.1,<27" && \
     pip install --no-cache-dir -r backend/requirements.txt
 
 COPY locales ./locales

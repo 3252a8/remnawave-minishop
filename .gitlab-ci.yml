@@ -20,9 +20,9 @@ variables:
     when:
       - runner_external_dependency_failure
       - script_failure
-  image: docker:27.5.1-cli
+  image: docker:29.8.2-cli
   services:
-    - name: docker:27.5.1-dind
+    - name: docker:29.8.2-dind
   id_tokens:
     SIGSTORE_ID_TOKEN:
       aud: sigstore
