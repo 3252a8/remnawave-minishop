@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_runner import perform_sync
@@ -79,15 +79,16 @@ async def _verify_upgrade() -> None:
                     )
                 ).all()
             )
-            subscriptions_before = int(
-                await session.scalar(
-                    select(func.count(Subscription.subscription_id)).where(
-                        Subscription.user_id.in_(seeded_user_ids)
+            subscription_ids_before = set(
+                (
+                    await session.scalars(
+                        select(Subscription.subscription_id).where(
+                            Subscription.user_id.in_(seeded_user_ids)
+                        )
                     )
-                )
-                or 0
+                ).all()
             )
-            assert subscriptions_before > 0
+            assert subscription_ids_before
 
         async with sessions() as session:
             # Reconcile native references through the production ownership checks
@@ -125,7 +126,9 @@ async def _verify_upgrade() -> None:
                     )
                 ).all()
             )
-            assert len(subscriptions) == subscriptions_before
+            assert {subscription.subscription_id for subscription in subscriptions} == (
+                subscription_ids_before
+            )
             subscription_refs = [
                 str(subscription.panel_subscription_uuid or "") for subscription in subscriptions
             ]

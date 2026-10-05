@@ -23,7 +23,7 @@ from bot.services.user_email_notifications import send_user_notification_email
 from bot.utils.text_sanitizer import panel_description_from_profile
 from config.traffic_strategy import normalize_traffic_limit_strategy
 from db.auth_models import AccountRole
-from db.dal import user_dal, user_panel_squad_override_dal
+from db.dal import subscription_panel_identity_dal, user_dal, user_panel_squad_override_dal
 from db.models import User
 
 from ._typing import SubscriptionServiceMixinContract
@@ -585,6 +585,17 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 # Only update the local linkage to panel UUID here.
                 await user_dal.update_user(session, user_id, update_data_for_local_user)
                 if previous_panel_uuid:
+                    if not panel_user_created_now:
+                        await subscription_panel_identity_dal.relink_panel_subscriptions(
+                            session,
+                            user_id=user_id,
+                            old_panel_user_uuid=previous_panel_uuid,
+                            new_panel_user_uuid=actual_panel_uuid_from_api,
+                            panel_subscription_uuid=(
+                                panel_user_obj_from_api.get("subscriptionUuid")
+                                or panel_user_obj_from_api.get("shortUuid")
+                            ),
+                        )
                     moved_overrides = await user_panel_squad_override_dal.merge_panel_user_uuid(
                         session,
                         user_id=user_id,

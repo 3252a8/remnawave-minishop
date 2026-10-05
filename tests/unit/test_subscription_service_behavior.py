@@ -701,6 +701,10 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     "bot.services.subscription_service_impl.panel_identity.user_panel_squad_override_dal.merge_panel_user_uuid",
                     AsyncMock(return_value=1),
                 ) as merge_overrides,
+                patch(
+                    "bot.services.subscription_service_impl.panel_identity.subscription_panel_identity_dal.relink_panel_subscriptions",
+                    AsyncMock(return_value=2),
+                ) as relink_subscriptions,
             ):
                 link = await service._get_or_create_panel_user_link(session, 42, db_user)
 
@@ -714,6 +718,13 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 user_id=42,
                 old_panel_user_uuid="old-v2-uuid",
                 new_panel_user_uuid="42",
+            )
+            relink_subscriptions.assert_awaited_once_with(
+                session,
+                user_id=42,
+                old_panel_user_uuid="old-v2-uuid",
+                new_panel_user_uuid="42",
+                panel_subscription_uuid="short",
             )
 
     async def test_panel_link_creation_uses_operation_specific_access(self):
