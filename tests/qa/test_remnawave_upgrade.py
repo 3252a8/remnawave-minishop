@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from bot.handlers.admin.sync_admin_runner import perform_sync
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_service import SubscriptionService
 from config.settings import Settings
 from db.models import Subscription, User
 from tests.support.settings_stub import settings_stub
@@ -62,6 +63,7 @@ async def _verify_upgrade() -> None:
     engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
     sessions = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     i18n = JsonI18n(str(REPO_ROOT / "locales"), default="en")
+    subscription_service = SubscriptionService(settings, service, i18n=i18n)
     try:
         compatibility = await service.get_panel_api_compatibility(force_refresh=True)
         assert compatibility.version is not None
@@ -86,8 +88,19 @@ async def _verify_upgrade() -> None:
             assert subscriptions_before > 0
 
         async with sessions() as session:
+            # Reconcile native references through the production ownership checks
+            # before bulk sync imports the upgraded panel state.
+            for user_id in seeded_user_ids:
+                link = await subscription_service._get_or_create_panel_user_link_details(
+                    session=session, user_id=user_id
+                )
+                assert link.panel_user_uuid and link.panel_user_uuid.isdecimal(), link
+                assert link.local_link_updated_now, link
+                assert not link.panel_user_created_now, link
+            await session.commit()
+
             result = await perform_sync(service, session, settings, i18n)
-            assert result["status"] == "completed", result
+            assert result["status"] == "completed", result["errors"]
             assert result["errors"] == [], result
 
         async with sessions() as session:

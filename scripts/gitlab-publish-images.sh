@@ -33,9 +33,9 @@ cleanup() {
 
 trap cleanup EXIT
 
-# Retry idempotent registry operations, preserving JSON stdout only on success.
-# Registry token endpoints can return transient EOFs after a successful build.
-retry_registry_command() {
+# Retry network operations, preserving command stdout only on success.
+# Registry token and Sigstore TUF endpoints can return transient EOFs.
+retry_network_command() {
   local attempt
   local output
   local status=1
@@ -48,7 +48,7 @@ retry_registry_command() {
       status=$?
     fi
     if [ "$attempt" -lt 6 ]; then
-      echo "Registry operation failed on attempt $attempt; retrying in $((attempt * 2))s." >&2
+      echo "Network operation failed on attempt $attempt; retrying in $((attempt * 2))s." >&2
       sleep "$((attempt * 2))"
     fi
   done
@@ -113,7 +113,7 @@ promote_tag() {
   local tag="$3"
   local destination="$image:$tag"
 
-  retry_registry_command docker buildx imagetools create --tag "$destination" "$image@$digest"
+  retry_network_command docker buildx imagetools create --tag "$destination" "$image@$digest"
   wait_for_registry_digest "$destination" "$digest"
 }
 
@@ -252,7 +252,7 @@ for target in $TARGETS; do
   wait_for_registry_digest "$image:$candidate_tag" "$digest"
 
   immutable_ref="$image@$digest"
-  labels="$(retry_registry_command docker buildx imagetools inspect "$immutable_ref" --format '{{json .Image.Config.Labels}}')"
+  labels="$(retry_network_command docker buildx imagetools inspect "$immutable_ref" --format '{{json .Image.Config.Labels}}')"
   jq -e \
     --arg source "$OCI_IMAGE_SOURCE" \
     --arg revision "$CI_COMMIT_SHA" \
@@ -261,7 +261,7 @@ for target in $TARGETS; do
     '."org.opencontainers.image.source" == $source and ."org.opencontainers.image.revision" == $revision and ."org.opencontainers.image.version" == $version and ."org.opencontainers.image.ref.name" == $ref_name' \
     <<< "$labels" > /dev/null
 
-  cosign sign --yes \
+  retry_network_command cosign sign --yes \
     --identity-token "$SIGSTORE_ID_TOKEN" \
     --registry-referrers-mode oci-1-1 \
     --annotations "tag=$publish_tag" \
@@ -326,7 +326,7 @@ if [ "$PUBLISH_CHANNEL" = "release" ]; then
     if [ -z "$latest_digest" ]; then
       continue
     fi
-    latest_labels="$(retry_registry_command docker buildx imagetools inspect "$image@$latest_digest" --format '{{json .Image.Config.Labels}}')"
+    latest_labels="$(retry_network_command docker buildx imagetools inspect "$image@$latest_digest" --format '{{json .Image.Config.Labels}}')"
     if ! latest_version="$(jq -er '."org.opencontainers.image.version"' <<< "$latest_labels")"; then
       echo "Current latest image has no version label: $image@$latest_digest" >&2
       exit 1
@@ -385,11 +385,11 @@ jq -e '(.images | length == 3) and ([.images[].target] | sort == ["backend", "fr
 
 if [ "$PUBLISH_CHANNEL" = "release" ]; then
   sha256sum "$manifest_path" > "$manifest_path.sha256"
-  cosign sign-blob --yes \
+  retry_network_command cosign sign-blob --yes \
     --identity-token "$SIGSTORE_ID_TOKEN" \
     --bundle "$manifest_path.sigstore.json" \
     "$manifest_path"
-  cosign verify-blob \
+  retry_network_command cosign verify-blob \
     --bundle "$manifest_path.sigstore.json" \
     --certificate-identity "$certificate_identity" \
     --certificate-oidc-issuer "$CI_SERVER_URL" \
