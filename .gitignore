@@ -125,3 +125,4 @@ data/docs/*
 # Local maintenance lifecycle lock
 .minishop-restore.lock
 .venv/
+.tmp
