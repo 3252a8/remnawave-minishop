@@ -114,7 +114,7 @@ COPY deploy/docker/refresh_pip_vendor.py /tmp/refresh_pip_vendor.py
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade "pip==26.2.1" && \
     pip install --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
-      "urllib3==2.8.0" "msgpack==1.2.1" && \
+      "urllib3==2.8.0" "msgpack==1.2.1" "setuptools==80.9.0" && \
     pip install --no-cache-dir -r backend/requirements.txt && \
     python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
     rm -rf /tmp/pip-vendor-fixes /tmp/refresh_pip_vendor.py

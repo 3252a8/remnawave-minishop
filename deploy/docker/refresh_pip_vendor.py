@@ -2,7 +2,8 @@
 
 Keep pip's namespace/Brotli patches and pure-Python msgpack layout, as documented
 at https://pip.pypa.io/en/stable/development/vendoring-policy/.
-Remove this helper once upstream pip vendors urllib3 >= 2.8.0 and msgpack >= 1.2.1.
+Remove this helper once upstream pip vendors urllib3 >= 2.8.0, msgpack >= 1.2.1,
+and pkg_resources from setuptools >= 80.9.0 (or removes that legacy backend).
 """
 
 from __future__ import annotations
@@ -28,9 +29,10 @@ def main(source: Path) -> None:
     if pip.__version__ != "26.2.1" or pip.__file__ is None:
         raise RuntimeError("Recheck the vendoring patches for this pip version")
     vendor = Path(pip.__file__).parent / "_vendor"
-    for name, version, license_name in (
-        ("urllib3", "2.8.0", "LICENSE.txt"),
-        ("msgpack", "1.2.1", "COPYING"),
+    for name, distribution, version, license_name in (
+        ("urllib3", "urllib3", "2.8.0", "LICENSE.txt"),
+        ("msgpack", "msgpack", "1.2.1", "COPYING"),
+        ("pkg_resources", "setuptools", "80.9.0", "LICENSE"),
     ):
         shutil.rmtree(vendor / name)
         shutil.copytree(
@@ -39,12 +41,16 @@ def main(source: Path) -> None:
             ignore=shutil.ignore_patterns("__pycache__", "*.so", "*.pyd"),
         )
         shutil.copy2(
-            source / f"{name}-{version}.dist-info" / "licenses" / license_name,
+            source / f"{distribution}-{version}.dist-info" / "licenses" / license_name,
             vendor / name / license_name,
         )
         manifest = vendor / "vendor.txt"
         text = manifest.read_text(encoding="utf-8")
-        text, count = re.subn(rf"(?m)^(\s*){name}==[^\n]+$", rf"\g<1>{name}=={version}", text)
+        text, count = re.subn(
+            rf"(?m)^(\s*){distribution}==[^\n]+$",
+            rf"\g<1>{distribution}=={version}",
+            text,
+        )
         if count != 1:
             raise RuntimeError(f"Expected one {name} entry in pip's vendor manifest")
         manifest.write_text(text, encoding="utf-8")
@@ -54,7 +60,11 @@ def main(source: Path) -> None:
     inventory = vendor / "bom.cdx.json"
     bom = json.loads(inventory.read_text(encoding="utf-8"))
     references: dict[str, str] = {}
-    for name, version in (("urllib3", "2.8.0"), ("msgpack", "1.2.1")):
+    for name, version in (
+        ("urllib3", "2.8.0"),
+        ("msgpack", "1.2.1"),
+        ("setuptools", "80.9.0"),
+    ):
         components = [component for component in bom["components"] if component["name"] == name]
         if len(components) != 1:
             raise RuntimeError(f"Expected one {name} component in pip's SBOM")
@@ -108,10 +118,46 @@ def main(source: Path) -> None:
         "from pip._vendor.urllib3.contrib import pyopenssl\n"
         "        pyopenssl.inject_into_urllib3()",
     )
+    resources = vendor / "pkg_resources" / "__init__.py"
+    text = resources.read_text(encoding="utf-8")
+    for name in ("markers", "requirements", "specifiers", "utils", "version"):
+        old = f"import packaging.{name}"
+        if text.count(old) != 1:
+            raise RuntimeError(f"Recheck pkg_resources packaging.{name} imports")
+        text = text.replace(old, f"from pip._vendor.packaging import {name} as _packaging_{name}")
+        text = text.replace(f"packaging.{name}.", f"_packaging_{name}.")
+    resources.write_text(text, encoding="utf-8")
+    replace(
+        resources,
+        "from jaraco.text import drop_comment, join_continuation, yield_lines",
+        "from pip._internal.utils._jaraco_text import drop_comment, join_continuation, yield_lines",
+    )
+    replace(
+        resources,
+        "from platformdirs import user_cache_dir as _user_cache_dir",
+        "from pip._vendor.platformdirs import user_cache_dir as _user_cache_dir",
+    )
+    replace(
+        resources,
+        "sys.path.extend(((vendor_path := os.path.join(os.path.dirname(os.path.dirname(__file__)), "
+        "'setuptools', '_vendor')) not in sys.path) * [vendor_path])  # fmt: skip\n"
+        "# workaround for #4476\nsys.modules.pop('backports', None)",
+        "",
+    )
+    replace(
+        resources,
+        "warnings.warn(\n"
+        '    "pkg_resources is deprecated as an API. "\n'
+        '    "See https://setuptools.pypa.io/en/latest/pkg_resources.html. "\n'
+        '    "The pkg_resources package is slated for removal as early as "\n'
+        '    "2025-11-30. Refrain from using this package or pin to "\n'
+        '    "Setuptools<81.",\n    UserWarning,\n    stacklevel=2,\n)',
+        "",
+    )
     # CVE-2025-47273 affects setuptools.package_index, which pip does not vendor.
-    # The scanner exception is valid only while this image has no full 70.3.0 copy.
+    # Preserve that boundary while refreshing pkg_resources independently.
     if (vendor / "setuptools").exists():
-        raise RuntimeError("Recheck the setuptools scanner exception")
+        raise RuntimeError("Recheck the setuptools vendoring boundary")
     try:
         setuptools_version = importlib.metadata.version("setuptools")
     except importlib.metadata.PackageNotFoundError:
