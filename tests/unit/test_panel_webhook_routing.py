@@ -753,6 +753,40 @@ class HandleEventLoggingTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HandleEventSupersessionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_old_period_events_are_skipped_after_renewing_the_same_row(self):
+        service = _make_service()
+        service.async_session_factory = _FakeSessionFactory()
+        service.i18n = SimpleNamespace(gettext=lambda lang, key, **kwargs: key)
+        sub = SimpleNamespace(
+            subscription_id=244,
+            user_id=123,
+            end_date=datetime(2099, 3, 1, 12, tzinfo=UTC),
+        )
+        send_stage = AsyncMock()
+        record_activity = AsyncMock()
+        with (
+            patch.object(service, "_user_for_payload", AsyncMock(return_value=None)),
+            patch.object(service, "_subscription_for_payload", AsyncMock(return_value=sub)),
+            patch.object(service.lifecycle_notifications, "send_stage", send_stage),
+            patch.object(
+                service, "_superseded_by_newer_subscription", AsyncMock(return_value=False)
+            ),
+            patch.object(pws, "record_subscription_panel_activity", record_activity),
+        ):
+            for event in (
+                "user.expires_in_72_hours",
+                "user.expires_in_24_hours",
+                "user.expired",
+                "user.expired_24_hours_ago",
+            ):
+                for expiry in ("2099-02-01T12:00:00Z", "2099-02-01"):
+                    with self.subTest(event=event, expiry=expiry):
+                        await service.handle_event(
+                            event, {"telegramId": 555, "uuid": "panel-user-3", "expireAt": expiry}
+                        )
+        send_stage.assert_not_awaited()
+        record_activity.assert_not_awaited()
+
     async def test_expired_event_skipped_when_user_has_newer_active_subscription(self):
         service = _make_service()
         service.async_session_factory = _FakeSessionFactory()

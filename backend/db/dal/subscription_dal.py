@@ -5,12 +5,18 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import String, and_, cast, delete, func, literal_column, or_, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import set_committed_value
 
-from db.models import Subscription, SubscriptionNotification, User
+from db.models import (
+    Subscription,
+    SubscriptionLifecycleNotification,
+    SubscriptionNotification,
+    User,
+)
 
 from ._sqlalchemy import rowcount
 
@@ -617,11 +623,93 @@ async def update_subscription_last_connected_at(
     return existing
 
 
+def _lifecycle_notification_offset(notification_key: str) -> int | None:
+    stage = notification_key.split(":", 1)[0]
+    before = re.fullmatch(r"before_(\d+)([dh])(?:_autorenew)?", stage)
+    if before:
+        return -int(before[1]) * (24 if before[2] == "d" else 1)
+    if stage == "expired":
+        return 0
+    after = re.fullmatch(r"expired_(\d+)h_after", stage)
+    return int(after[1]) if after else None
+
+
+def _notification_utc(value: object) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+async def _record_lifecycle_notification(
+    session: AsyncSession,
+    subscription_id: int,
+    notification_key: str,
+    period_end_date: datetime,
+    sent_at: datetime,
+) -> None:
+    await session.execute(
+        insert(SubscriptionLifecycleNotification)
+        .values(
+            subscription_id=subscription_id,
+            notification_key=notification_key,
+            period_end_date=period_end_date,
+            sent_at=sent_at,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["subscription_id", "notification_key", "period_end_date"]
+        )
+    )
+
+
 async def has_subscription_notification(
     session: AsyncSession,
     subscription_id: int,
     notification_key: str,
 ) -> bool:
+    offset = _lifecycle_notification_offset(notification_key)
+    if offset is not None:
+        sub = await session.get(Subscription, subscription_id)
+        end = _notification_utc(sub.end_date) if sub else None
+        if end is None:
+            return False
+        current = await session.execute(
+            select(SubscriptionLifecycleNotification.notification_id)
+            .where(
+                SubscriptionLifecycleNotification.subscription_id == subscription_id,
+                SubscriptionLifecycleNotification.notification_key == notification_key,
+                SubscriptionLifecycleNotification.period_end_date == end,
+            )
+            .limit(1)
+        )
+        if current.scalar_one_or_none() is not None:
+            return True
+        # Legacy markers have no expiry snapshot. Only a marker inside this
+        # period's stage window can belong to its current delivery. Allow one
+        # hour of legacy timestamp tolerance, then freeze this attribution so a
+        # traffic counter reset cannot invalidate an already delivered notice.
+        try:
+            lower = end + timedelta(hours=offset - 1)
+        except OverflowError:
+            return False
+        start = _notification_utc(sub.start_date) if sub else None
+        if start is not None:
+            lower = max(lower, start)
+        legacy = await session.execute(
+            select(SubscriptionNotification.sent_at)
+            .where(
+                SubscriptionNotification.subscription_id == subscription_id,
+                SubscriptionNotification.notification_key == notification_key,
+                SubscriptionNotification.sent_at >= lower,
+            )
+            .limit(1)
+        )
+        legacy_sent_at = _notification_utc(legacy.scalar_one_or_none())
+        if legacy_sent_at is None:
+            return False
+        await _record_lifecycle_notification(
+            session, subscription_id, notification_key, end, legacy_sent_at
+        )
+        return True
     stmt = (
         select(SubscriptionNotification.notification_id)
         .where(
@@ -645,6 +733,16 @@ async def record_subscription_notification(
         sent_at = datetime.now(UTC)
     existing = await has_subscription_notification(session, subscription_id, notification_key)
     if existing:
+        return
+    if _lifecycle_notification_offset(notification_key) is not None:
+        sub = await session.get(Subscription, subscription_id)
+        end = _notification_utc(sub.end_date) if sub else None
+        if end is None:
+            return
+        await _record_lifecycle_notification(
+            session, subscription_id, notification_key, end, sent_at
+        )
+        await update_subscription_notification_time(session, subscription_id, sent_at)
         return
     session.add(
         SubscriptionNotification(

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import main_worker
+import pytest
 from aiogram.exceptions import TelegramNetworkError
 
 from bot.app.factories import runtime as runtime_factory
@@ -191,6 +192,76 @@ def test_worker_plugin_hooks_use_shared_runtime_context(monkeypatch) -> None:
     assert "worker_composition" in handlers
     assert "PluginWorker" in {spec.name for spec in task_specs}
     assert migration_chains["worker_composition"][0].id == "worker_composition.0001_initial"
+
+
+@pytest.mark.parametrize("saved_enabled", [True, False])
+@pytest.mark.parametrize(
+    ("event_name", "meta"),
+    [
+        ("user.expires_in_72_hours", None),
+        ("user.expires_in_48_hours", None),
+        ("user.expires_in_24_hours", None),
+        ("user.expired", None),
+        ("user.expired_24_hours_ago", None),
+        ("user.expiration", {"expiration": -72}),
+        ("user.expiration", {"expiration": -48}),
+        ("user.expiration", {"expiration": -24}),
+        ("user.expiration", {"expiration": -12}),
+        ("user.expiration", {"expiration": 12}),
+        ("user.expiration", {"expiration": 24}),
+    ],
+)
+def test_panel_queue_handler_refreshes_subscription_settings_before_dispatch(
+    event_name, meta, saved_enabled
+) -> None:
+    settings = SimpleNamespace(
+        SUBSCRIPTION_NOTIFICATIONS_ENABLED=not saved_enabled,
+        SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED=not saved_enabled,
+        SUBSCRIPTION_NOTIFY_ON_EXPIRE=False,
+        SUBSCRIPTION_NOTIFY_AFTER_EXPIRE=False,
+        SUBSCRIPTION_NOTIFY_DAYS_BEFORE=0,
+    )
+    saved_settings = {
+        "SUBSCRIPTION_NOTIFICATIONS_ENABLED": saved_enabled,
+        "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED": saved_enabled,
+        "SUBSCRIPTION_NOTIFY_ON_EXPIRE": True,
+        "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE": True,
+        "SUBSCRIPTION_NOTIFY_DAYS_BEFORE": 3,
+    }
+    observed_settings = []
+    session_factory = object()
+
+    async def refresh_settings(runtime_settings, runtime_session_factory, *, keys):
+        assert runtime_settings is settings
+        assert runtime_session_factory is session_factory
+        for key, value in saved_settings.items():
+            if key in keys:
+                setattr(runtime_settings, key, value)
+
+    async def handle_event(event, user, *, meta):
+        observed_settings.append({key: getattr(settings, key) for key in saved_settings})
+
+    panel_webhook_service = SimpleNamespace(handle_event=AsyncMock(side_effect=handle_event))
+    ctx = SimpleNamespace(
+        settings=settings,
+        require_panel_webhook_service=lambda: panel_webhook_service,
+        require_session_factory=lambda: session_factory,
+    )
+    payload = {
+        "event": event_name,
+        "user": {"uuid": "panel-user-1", "telegramId": 99},
+        "meta": meta,
+    }
+
+    with patch.object(main_worker, "refresh_overrides_from_db", refresh_settings):
+        asyncio.run(main_worker._handle_panel_event(ctx, payload))
+
+    assert observed_settings == [saved_settings]
+    panel_webhook_service.handle_event.assert_awaited_once_with(
+        event_name,
+        payload["user"],
+        meta=meta,
+    )
 
 
 def test_panel_queue_handler_forwards_torrent_notification_context() -> None:

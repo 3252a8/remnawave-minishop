@@ -56,6 +56,7 @@ from bot.services.hwid_device_notifications import (
 )
 from bot.services.hwid_device_webhook import HWID_DEVICE_EVENTS
 from bot.services.message_log_notifier import configure_message_log_notifier
+from bot.services.panel_webhook_service import ACTIONABLE_EVENTS
 from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
 from bot.services.referral_accrual_worker import ReferralAccrualWorker
@@ -78,6 +79,16 @@ TORRENT_BLOCKER_RUNTIME_SETTING_KEYS = {
     "TORRENT_BLOCKER_NOTIFICATION_COOLDOWN_SECONDS",
     "TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP",
     "TORRENT_BLOCKER_TELEGRAM_NOTIFICATIONS_ENABLED",
+}
+
+SUBSCRIPTION_NOTIFICATION_RUNTIME_SETTING_KEYS = {
+    "SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED",
+    "SUBSCRIPTION_MINI_APP_URL",
+    "SUBSCRIPTION_NOTIFICATIONS_ENABLED",
+    "SUBSCRIPTION_NOTIFY_AFTER_EXPIRE",
+    "SUBSCRIPTION_NOTIFY_DAYS_BEFORE",
+    "SUBSCRIPTION_NOTIFY_ON_EXPIRE",
+    "USER_NOTIFICATION_SINGLE_CHANNEL_FALLBACK_ENABLED",
 }
 
 
@@ -156,6 +167,12 @@ async def _handle_panel_event(ctx: PluginContext, payload: dict[str, Any]) -> No
             ctx.settings,
             ctx.require_session_factory(),
             keys=HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS,
+        )
+    elif event_name in ACTIONABLE_EVENTS:
+        await refresh_overrides_from_db(
+            ctx.settings,
+            ctx.require_session_factory(),
+            keys=SUBSCRIPTION_NOTIFICATION_RUNTIME_SETTING_KEYS,
         )
     if isinstance(context, dict):
         await service.handle_event(

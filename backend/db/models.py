@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
+from db import subscription_notification_models
 from db.base import Base
 from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
@@ -981,5 +982,8 @@ MessageImage = message_image_models.MessageImage
 LegacyReferralCode = legacy_import_models.LegacyReferralCode
 LegacyImportMapping = legacy_import_models.LegacyImportMapping
 SubscriptionAccessRotation = access_rotation_models.SubscriptionAccessRotation
+SubscriptionLifecycleNotification = (
+    subscription_notification_models.SubscriptionLifecycleNotification
+)
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
 WataSubscription = wata_models.WataSubscription

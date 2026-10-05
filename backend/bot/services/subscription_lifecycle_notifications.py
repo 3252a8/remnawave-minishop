@@ -51,10 +51,21 @@ class SubscriptionNotificationStage:
 class SubscriptionNotificationDelivery:
     telegram_sent: bool = False
     email_sent: bool = False
+    retry_channels: tuple[str, ...] = ()
 
     @property
     def any_sent(self) -> bool:
         return self.telegram_sent or self.email_sent
+
+    @property
+    def needs_retry(self) -> bool:
+        return bool(self.retry_channels)
+
+
+class SubscriptionNotificationRetryError(RuntimeError):
+    def __init__(self, channels: tuple[str, ...]) -> None:
+        self.channels = channels
+        super().__init__("Transient subscription notification failure: " + ", ".join(channels))
 
 
 class SubscriptionLifecycleNotificationService:
@@ -132,7 +143,7 @@ class SubscriptionLifecycleNotificationService:
             email_available=bool(recipient_email) and smtp_delivery_available(self.settings),
         )
 
-        telegram_sent = await self._send_telegram(
+        telegram_sent, telegram_retry = await self._send_telegram(
             session,
             sub,
             stage,
@@ -165,6 +176,7 @@ class SubscriptionLifecycleNotificationService:
         return SubscriptionNotificationDelivery(
             telegram_sent=telegram_sent,
             email_sent=email_sent,
+            retry_channels=("telegram",) if telegram_retry else (),
         )
 
     async def _send_telegram(
@@ -179,20 +191,20 @@ class SubscriptionLifecycleNotificationService:
         markup: InlineKeyboardMarkup | None,
         sent_at: datetime,
         enabled: bool,
-    ) -> bool:
+    ) -> tuple[bool, bool]:
         if not enabled or self.bot is None:
-            return False
+            return False, False
         chat_id = self._telegram_chat_id(user, getattr(sub, "user_id", None))
         if chat_id is None:
-            return False
+            return False, False
         if user:
             status = normalize_telegram_notification_status(
                 getattr(user, "telegram_notifications_status", None)
             )
             if status in {TELEGRAM_NOTIFICATIONS_NEEDS_START, TELEGRAM_NOTIFICATIONS_BLOCKED}:
-                return False
+                return False, False
         if await self._already_sent(session, sub.subscription_id, stage.key, "telegram"):
-            return False
+            return False, False
         try:
             await self.bot.send_message(chat_id, message_text, reply_markup=markup)
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
@@ -210,20 +222,20 @@ class SubscriptionLifecycleNotificationService:
                     chat_id,
                     exc,
                 )
-                return False
+                return False, False
             logger.exception(
                 "Failed to send subscription notification %s to Telegram user %s",
                 stage.key,
                 chat_id,
             )
-            return False
+            return False, False
         except Exception:
             logger.exception(
                 "Failed to send subscription notification %s to Telegram user %s",
                 stage.key,
                 chat_id,
             )
-            return False
+            return False, True
         await subscription_dal.record_subscription_notification(
             session,
             sub.subscription_id,
@@ -254,7 +266,7 @@ class SubscriptionLifecycleNotificationService:
                     telegram_id=chat_id,
                     checked_at=sent_at,
                 )
-        return True
+        return True, False
 
     async def _send_email(
         self,

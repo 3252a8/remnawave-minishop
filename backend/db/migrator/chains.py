@@ -26,6 +26,9 @@ from .chain_0096_user_device_names import CHAIN_0096_USER_DEVICE_NAMES
 from .chain_0097_advertising_evidence import CHAIN_0097_ADVERTISING_EVIDENCE
 from .chain_0098_topup_period_lifetime import CHAIN_0098_TOPUP_PERIOD_LIFETIME
 from .chain_0099_regular_topup_accounting import CHAIN_0099_REGULAR_TOPUP_ACCOUNTING
+from .chain_0100_subscription_notification_periods import (
+    CHAIN_0100_SUBSCRIPTION_NOTIFICATION_PERIODS,
+)
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -55,4 +58,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0097_ADVERTISING_EVIDENCE,
     *CHAIN_0098_TOPUP_PERIOD_LIFETIME,
     *CHAIN_0099_REGULAR_TOPUP_ACCOUNTING,
+    *CHAIN_0100_SUBSCRIPTION_NOTIFICATION_PERIODS,
 ]

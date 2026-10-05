@@ -28,6 +28,7 @@ from bot.services.panel_activity import record_subscription_panel_activity
 from bot.services.panel_api_compat import normalize_panel_user
 from bot.services.subscription_lifecycle_notifications import (
     SubscriptionLifecycleNotificationService,
+    SubscriptionNotificationRetryError,
     SubscriptionNotificationStage,
 )
 from config.settings import Settings
@@ -299,6 +300,27 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
             )
             end_date_text = self._payload_expire_date(user_payload)
 
+            panel_end = self._payload_expire_datetime(user_payload)
+            local_end = getattr(sub, "end_date", None)
+            if panel_end is not None and isinstance(local_end, datetime):
+                local_end = (
+                    local_end.replace(tzinfo=UTC)
+                    if local_end.tzinfo is None
+                    else local_end.astimezone(UTC)
+                )
+                if panel_end < local_end and self._is_stale_autorenew_cycle(
+                    sub,
+                    panel_end,
+                    renewal_cycle_end_is_date_only=self._payload_expire_is_date_only(user_payload),
+                ):
+                    logger.info(
+                        "Panel webhook event %s skipped: subscription %s has already "
+                        "advanced beyond the event's expiry.",
+                        event_name,
+                        getattr(sub, "subscription_id", None),
+                    )
+                    return
+
             # The panel may target a stale, expired subscription row while the
             # user has already renewed into a newer active subscription. Sending
             # expiry/expiring notices in that case is wrong (e.g. "your sub ended
@@ -350,7 +372,7 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                             and self._subscription_auto_renew_supported(active_sub)
                         ):
                             cancel_kb = get_autorenew_cancel_keyboard(lang, self.i18n)
-                            await self.lifecycle_notifications.send_stage(
+                            await self._send_subscription_stage(
                                 session,
                                 sub,
                                 SubscriptionNotificationStage(
@@ -363,9 +385,8 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                                 extra_text=hwid_renewal_note,
                                 end_date_text=end_date_text,
                             )
-                            await session.commit()
                             return
-                    await self.lifecycle_notifications.send_stage(
+                    await self._send_subscription_stage(
                         session,
                         sub,
                         stage,
@@ -374,10 +395,9 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                         extra_text=hwid_renewal_note,
                         end_date_text=end_date_text,
                     )
-                    await session.commit()
             elif stage.key == "expired":
                 if self.settings.SUBSCRIPTION_NOTIFY_ON_EXPIRE:
-                    await self.lifecycle_notifications.send_stage(
+                    await self._send_subscription_stage(
                         session,
                         sub,
                         stage,
@@ -385,12 +405,11 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                         telegram_markup=markup,
                         end_date_text=end_date_text,
                     )
-                    await session.commit()
             elif (
                 self._is_after_expiration_stage(stage)
                 and self.settings.SUBSCRIPTION_NOTIFY_AFTER_EXPIRE
             ):
-                await self.lifecycle_notifications.send_stage(
+                await self._send_subscription_stage(
                     session,
                     sub,
                     stage,
@@ -398,7 +417,18 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
                     telegram_markup=markup,
                     end_date_text=end_date_text,
                 )
-                await session.commit()
+
+    async def _send_subscription_stage(
+        self,
+        session: AsyncSession,
+        sub: Subscription,
+        stage: SubscriptionNotificationStage,
+        **kwargs: Any,
+    ) -> None:
+        delivery = await self.lifecycle_notifications.send_stage(session, sub, stage, **kwargs)
+        await session.commit()
+        if delivery.needs_retry:
+            raise SubscriptionNotificationRetryError(delivery.retry_channels)
 
     async def _send_legacy_without_dedupe(
         self,

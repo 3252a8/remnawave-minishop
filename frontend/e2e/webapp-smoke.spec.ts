@@ -2108,6 +2108,7 @@ test("checkout sliders track dragging without transition lag, animate prices, an
   const priceFlows = dialog.locator("number-flow-svelte");
   await expect(slider).toBeVisible();
   await expect(priceFlows.first()).toBeVisible();
+  const priceFlowCount = await priceFlows.count();
   await page.waitForTimeout(1_050);
 
   const sliderBox = await slider.boundingBox();
@@ -2129,7 +2130,9 @@ test("checkout sliders track dragging without transition lag, animate prices, an
           running:
             flow.shadowRoot
               ?.getAnimations()
-              .filter((animation) => animation.playState === "running").length ?? 0,
+              .filter(
+                (animation) => animation.playState !== "finished" && animation.playState !== "idle"
+              ).length ?? 0,
         };
       })
     );
@@ -2147,16 +2150,21 @@ test("checkout sliders track dragging without transition lag, animate prices, an
   const finalAnimationState = await readAnimationState();
   const runningAnimations = (states: { running: number }[]) =>
     states.reduce((total, { running }) => total + running, 0);
-  expect(finalAnimationState.length).toBeGreaterThan(0);
+  expect(initialAnimationState).toHaveLength(priceFlowCount);
+  expect(finalAnimationState).toHaveLength(priceFlowCount);
   expect(
     finalAnimationState.every(({ animated }) => animated !== false),
     JSON.stringify(finalAnimationState)
   ).toBe(true);
   expect(runningAnimations(initialAnimationState)).toBeGreaterThan(0);
   expect(runningAnimations(finalAnimationState)).toBeGreaterThan(0);
-  expect(runningAnimations(finalAnimationState)).toBeLessThanOrEqual(
-    runningAnimations(initialAnimationState) * 2
-  );
+  // Successive changes can legitimately overlap NumberFlow's 900 ms transitions.
+  // They must all settle even while the pointer remains down, without accumulating
+  // active animations or adding NumberFlow elements after repeated drags.
+  await expect
+    .poll(async () => runningAnimations(await readAnimationState()), { timeout: 5_000 })
+    .toBe(0);
+  await expect(priceFlows).toHaveCount(priceFlowCount);
   expect(quoteRequests).toBe(quoteRequestsBeforeDrag);
 
   await page.mouse.up();
@@ -2378,6 +2386,16 @@ test("admin deep links do not pin the first opened record", async ({ page }) => 
 test("webapp and admin sections, dialogs, tabs stay interactive without console errors", async ({
   page,
 }) => {
+  await page.route(
+    /^https:\/\/(?:www\.)?gravatar\.com\/avatar\/|^https:\/\/i\.pravatar\.cc\//,
+    (route) =>
+      route.request().resourceType() === "image"
+        ? route.fulfill({
+            contentType: "image/svg+xml",
+            body: '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#64748b" /></svg>',
+          })
+        : route.fallback()
+  );
   let phase = "boot";
   const setPhase = (value: string) => {
     phase = value;

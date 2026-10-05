@@ -116,6 +116,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0097_advertising_evidence",
     "0098_topup_period_lifetime",
     "0099_regular_topup_accounting",
+    "0100_subscription_notification_periods",
 ]
 
 
