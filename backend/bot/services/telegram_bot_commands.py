@@ -12,6 +12,7 @@ from aiogram.types import (
     BotCommandScopeUnion,
 )
 
+from bot.middlewares.i18n import get_i18n_instance
 from config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -29,13 +30,8 @@ def _telegram_command_language_codes(settings: Settings) -> list[str | None]:
 
 
 async def sync_telegram_bot_commands(bot: Bot, settings: Settings) -> None:
-    start_description = settings.START_COMMAND_DESCRIPTION or "Main menu"
-    bot_commands = [
-        BotCommand(command="start", description=start_description),
-        BotCommand(command="tg", description="Bot interface"),
-    ]
+    i18n = get_i18n_instance()
     bot_menu_disabled = bool(settings.TELEGRAM_BOT_MENU_DISABLED)
-    public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
     language_codes = _telegram_command_language_codes(settings)
     command_scopes_to_clear: list[BotCommandScopeUnion] = [
         BotCommandScopeDefault(),
@@ -60,8 +56,22 @@ async def sync_telegram_bot_commands(bot: Bot, settings: Settings) -> None:
                         admin_id,
                         exc,
                     )
-    await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeDefault())
-    await bot.set_my_commands(public_bot_commands, scope=BotCommandScopeAllPrivateChats())
+    for language_code in language_codes:
+        language = language_code or settings.DEFAULT_LANGUAGE
+        bot_commands = [
+            BotCommand(
+                command="start",
+                description=settings.START_COMMAND_DESCRIPTION
+                or i18n.gettext(language, "bot_command_start_description"),
+            ),
+            BotCommand(
+                command="tg",
+                description=i18n.gettext(language, "bot_command_tg_description"),
+            ),
+        ]
+        public_bot_commands = [bot_commands[0]] if bot_menu_disabled else bot_commands
+        for scope in (BotCommandScopeDefault(), BotCommandScopeAllPrivateChats()):
+            await bot.set_my_commands(public_bot_commands, scope=scope, language_code=language_code)
 
 
 __all__ = ["BOT_MENU_SETTING_KEY", "sync_telegram_bot_commands"]

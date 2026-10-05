@@ -93,8 +93,8 @@ def test_telegram_startup_hides_tg_command_from_public_scopes_when_bot_menu_disa
                 (type(scope).__name__, getattr(scope, "chat_id", None), language_code)
             )
 
-        async def set_my_commands(self, commands, *, scope):
-            self.set_calls.append((type(scope).__name__, list(commands), scope))
+        async def set_my_commands(self, commands, *, scope, language_code=None):
+            self.set_calls.append((type(scope).__name__, list(commands), scope, language_code))
 
     settings = SimpleNamespace(
         SUBSCRIPTION_MINI_APP_URL="",
@@ -115,12 +115,17 @@ def test_telegram_startup_hides_tg_command_from_public_scopes_when_bot_menu_disa
     public_calls = dispatcher["bot_instance"].set_calls[:2]
 
     assert [
-        (scope_name, [cmd.command for cmd in commands]) for scope_name, commands, _ in public_calls
+        (scope_name, [cmd.command for cmd in commands])
+        for scope_name, commands, _, _ in public_calls
     ] == [
         ("BotCommandScopeDefault", ["start"]),
         ("BotCommandScopeAllPrivateChats", ["start"]),
     ]
-    assert len(dispatcher["bot_instance"].set_calls) == 2
+    assert len(dispatcher["bot_instance"].set_calls) == 6
+    assert all(
+        [cmd.command for cmd in commands] == ["start"]
+        for _, commands, _, _ in dispatcher["bot_instance"].set_calls
+    )
     assert any(
         scope_name == "BotCommandScopeChat" and chat_id == 42
         for scope_name, chat_id, _ in dispatcher["bot_instance"].deleted

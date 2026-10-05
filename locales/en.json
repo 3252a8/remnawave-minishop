@@ -12,6 +12,8 @@
   "admin_color_picker_preset": "Choose {color}",
   "admin_color_picker_previous": "Previous color",
   "welcome": "Welcome, {user_name}!",
+  "bot_command_start_description": "Main menu",
+  "bot_command_tg_description": "Bot interface",
   "channel_subscription_required": "To use the bot, join the channel and tap \"Check subscription\".",
   "channel_subscription_join_button": "Open channel",
   "channel_subscription_verify_button": "Check subscription",
