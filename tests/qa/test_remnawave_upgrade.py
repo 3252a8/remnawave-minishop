@@ -93,7 +93,7 @@ async def _verify_upgrade() -> None:
             # Reconcile native references through the production ownership checks
             # before bulk sync imports the upgraded panel state.
             for user_id in seeded_user_ids:
-                link = await subscription_service._get_or_create_panel_user_link_details(
+                link = await subscription_service._get_or_create_panel_user_link(
                     session=session, user_id=user_id
                 )
                 assert link.panel_user_uuid and link.panel_user_uuid.isdecimal(), link
