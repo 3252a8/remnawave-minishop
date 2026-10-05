@@ -8,7 +8,8 @@
 # shows a tag / sha even though the runtime images have no git tooling and no
 # .git tree.
 FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0 AS version-builder
-RUN apk add --no-cache git
+COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
+RUN sh /tmp/retry_apk.sh add --no-cache git
 WORKDIR /repo
 ARG REMNAWAVE_MINISHOP_BRANCH=""
 ARG GIT_BRANCH=""
@@ -213,9 +214,13 @@ CMD ["python", "backend/plugin_launcher.py", "worker"]
 
 FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS nginx-brotli-builder
 
+# Refresh Alpine packages for every published source revision.
+ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
+COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
 RUN set -eu; \
-    apk upgrade --no-cache; \
-    apk add --no-cache \
+    : "$REMNAWAVE_MINISHOP_APK_REFRESH"; \
+    sh /tmp/retry_apk.sh upgrade --no-cache; \
+    sh /tmp/retry_apk.sh add --no-cache \
         build-base \
         git \
         linux-headers \
@@ -241,6 +246,8 @@ RUN set -eu; \
 
 FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS frontend
 
+ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
+COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
 # GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
 LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \
       org.opencontainers.image.title="remnawave-minishop-frontend" \
@@ -249,7 +256,9 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
 
 COPY --from=nginx-brotli-builder /brotli-modules/ngx_http_brotli_static_module.so /usr/lib/nginx/modules/
 RUN set -eu; \
-    apk upgrade --no-cache; \
+    : "$REMNAWAVE_MINISHOP_APK_REFRESH"; \
+    sh /tmp/retry_apk.sh upgrade --no-cache; \
+    rm /tmp/retry_apk.sh; \
     sed -i '1i load_module modules/ngx_http_brotli_static_module.so;' /etc/nginx/nginx.conf
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/minishop/default.conf.template
 COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh

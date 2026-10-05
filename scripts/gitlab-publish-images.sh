@@ -214,6 +214,7 @@ for target in $TARGETS; do
   build_args=(
     --build-arg "REMNAWAVE_MINISHOP_BRANCH=$build_branch"
     --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$build_provenance"
+    --build-arg "REMNAWAVE_MINISHOP_APK_REFRESH=$CI_COMMIT_SHA-$CI_PIPELINE_ID-$CI_JOB_ID"
   )
   release_args=()
 
@@ -273,18 +274,16 @@ for target in $TARGETS; do
     "$immutable_ref"
   verify_signature "$immutable_ref" "$publish_tag"
 
-  if [ "$PUBLISH_CHANNEL" = "release" ]; then
-    docker run --rm \
-      -e TRIVY_USERNAME \
-      -e TRIVY_PASSWORD \
-      "$TRIVY_IMAGE" image \
-      --platform linux/amd64 \
-      --scanners vuln \
-      --severity CRITICAL,HIGH \
-      --exit-code 1 \
-      --no-progress \
-      "$immutable_ref"
-  fi
+  docker run --rm \
+    -e TRIVY_USERNAME \
+    -e TRIVY_PASSWORD \
+    "$TRIVY_IMAGE" image \
+    --platform linux/amd64 \
+    --scanners vuln \
+    --severity CRITICAL,HIGH \
+    --exit-code 1 \
+    --no-progress \
+    "$immutable_ref"
 
   jq -n \
     --arg target "$target" \
@@ -378,7 +377,7 @@ jq -s \
     schema_version: 2,
     release: {repository: $repository, source_repository: $source_repository, channel: $channel, tag: $tag, version: $version, commit: $commit},
     pipeline: {provider: "gitlab", id: $pipeline_id, url: $pipeline_url},
-    security: {signature: "sigstore-keyless", provenance: "slsa-buildkit-max", sbom: "spdx", scan: (if $channel == "release" then "trivy-high-critical-blocking" else "not-required" end)},
+    security: {signature: "sigstore-keyless", provenance: "slsa-buildkit-max", sbom: "spdx", scan: "trivy-high-critical-blocking"},
     images: (map({target, digest, dockerhub: .image, dockerhub_ref: (.image + "@" + .digest)}) | sort_by(.target))
   }' \
   "${metadata_files[@]}" > "$manifest_path"

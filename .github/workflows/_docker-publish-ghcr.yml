@@ -119,6 +119,7 @@ jobs:
             org.opencontainers.image.revision=${{ inputs.source_commit }}
 
       - name: Build and push ${{ matrix.image }}
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -128,13 +129,39 @@ jobs:
           push: true
           pull: true
           no-cache: ${{ inputs.channel == 'release' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             GITHUB_REF_NAME=${{ inputs.channel == 'release' && 'main' || 'dev' }}
             REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official
             REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ inputs.source_commit }}
+            REMNAWAVE_MINISHOP_APK_REFRESH=${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ matrix.target }}-ghcr
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}-ghcr
           provenance: mode=max
           sbom: true
+
+      - name: Scan the published candidate
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          version: v0.75.0
+          scan-type: image
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: false
+
+      - name: Publish verified channel tags
+        env:
+          IMAGE_REFERENCE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          CHANNEL_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              docker buildx imagetools create --prefer-index=false --tag "$tag" "$IMAGE_REFERENCE"
+            fi
+          done <<< "$CHANNEL_TAGS"
