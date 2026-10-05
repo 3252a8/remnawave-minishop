@@ -4,6 +4,7 @@ import {
   checkoutPromoAffectsQuotedPlan,
   checkoutPromoBlockVisible,
   checkoutPromoMatchesPlan,
+  checkoutPromoPaymentMethods,
   discountedCheckoutPlan,
   normalizedCheckoutPromoDiscount,
   selectPaymentMethodWithPromoReset,
@@ -51,6 +52,64 @@ describe("checkout promo policy", () => {
 
   it("still hides checkout promos when the provider manages its own price", () => {
     expect(checkoutPromoBlockVisible(true, true)).toBe(false);
+    expect(checkoutPromoBlockVisible(true, true, true)).toBe(true);
+    expect(checkoutPromoBlockVisible(true, false, true)).toBe(false);
+  });
+
+  it("keeps code-compatible methods in configured order and respects plan availability", () => {
+    const methods = [
+      { id: "wata_subscription" },
+      { id: "rollypay_subscription" },
+      { id: "platega_subscription" },
+      { id: "tribute" },
+      { id: "external", price_managed_externally: true },
+      { id: "disabled", disabled: true },
+      { id: "minimum", minimum_amount: 200, min_currency: "RUB" },
+      { id: "card" },
+      { id: "stars" },
+    ];
+    const compatible = checkoutPromoPaymentMethods(methods, {
+      sale_mode: "subscription",
+      price: 100,
+      currency: "RUB",
+      available_payment_method_ids: methods.map((method) => method.id),
+    });
+
+    expect(compatible.map((method) => method.id)).toEqual(["disabled", "minimum", "card", "stars"]);
+    expect(compatible.filter((method) => !method.disabled).map((method) => method.id)).toEqual([
+      "card",
+      "stars",
+    ]);
+    expect(
+      checkoutPromoPaymentMethods(methods, {
+        available_payment_method_ids: ["stars"],
+        externally_managed_price_method_ids: ["card"],
+      }).filter((method) => !method.disabled)
+    ).toEqual([{ id: "stars", disabled: false }]);
+  });
+
+  it("keeps one-time locally priced Tribute purchases compatible", () => {
+    expect(checkoutPromoPaymentMethods([{ id: "tribute" }], { sale_mode: "traffic" })).toEqual([
+      { id: "tribute", disabled: false },
+    ]);
+    expect(checkoutPromoPaymentMethods([{ id: "WATA_SUBSCRIPTION" }], null)).toEqual([]);
+  });
+
+  it("preserves a supported local Tribute quote without admitting fixed recurring methods", () => {
+    expect(
+      checkoutPromoPaymentMethods(
+        [{ id: "tribute" }, { id: "wata_subscription" }],
+        { sale_mode: "subscription" },
+        true
+      )
+    ).toEqual([{ id: "tribute", disabled: false }]);
+    expect(
+      checkoutPromoPaymentMethods(
+        [{ id: "tribute", price_managed_externally: true }],
+        { sale_mode: "subscription" },
+        true
+      )
+    ).toEqual([]);
   });
 
   it("normalizes checkout discounts and applies them to local prices", () => {

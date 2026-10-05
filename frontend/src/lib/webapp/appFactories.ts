@@ -349,6 +349,7 @@ export function createAppFactories({
   });
   billingStore = createBillingStore({
     billing,
+    getMethods,
     loadData,
     t,
     termUnitLabel,
@@ -362,6 +363,7 @@ export function createAppFactories({
     telegramSdk,
   });
   const giftBillingStore = createBillingStore({
+    getMethods,
     billing: {
       ...billing,
       planPaymentBody: (plan, method, options) => ({

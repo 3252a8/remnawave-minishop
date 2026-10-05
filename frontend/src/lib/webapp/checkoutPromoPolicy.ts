@@ -1,5 +1,48 @@
 import { billingDurationDays } from "./subscriptionPeriods.js";
-import type { BillingPlan } from "./tariffs.js";
+import {
+  methodManagesPrice,
+  methodsForPlan,
+  firstAvailableMethod,
+  type BillingPlan,
+  type PaymentMethod,
+} from "./tariffs.js";
+
+const FIXED_RECURRING_METHODS = new Set([
+  "platega_subscription",
+  "rollypay_subscription",
+  "wata_subscription",
+]);
+
+export function checkoutPromoPaymentMethods(
+  methods: PaymentMethod[],
+  plan: BillingPlan | null,
+  allowTributeSubscription = false
+): PaymentMethod[] {
+  return methodsForPlan(methods, plan).filter((method) => {
+    const id = String(method.id || "").toLowerCase();
+    // Recurring amounts cannot carry arbitrary one-time code effects.
+    const tributeSubscription = id === "tribute" && checkoutPlanSaleMode(plan) === "subscription";
+    return (
+      !FIXED_RECURRING_METHODS.has(id) &&
+      (!tributeSubscription || allowTributeSubscription) &&
+      !methodManagesPrice(methods, plan, id)
+    );
+  });
+}
+
+export function checkoutPromoSelectionMethods(
+  methods: PaymentMethod[],
+  plan: BillingPlan | null,
+  selectedMethod: string,
+  appliedCode: string
+): PaymentMethod[] {
+  const compatible = checkoutPromoPaymentMethods(methods, plan);
+  const keepTributeQuote =
+    selectedMethod.toLowerCase() === "tribute" &&
+    !methodManagesPrice(methods, plan, selectedMethod) &&
+    Boolean(appliedCode || !firstAvailableMethod(compatible));
+  return keepTributeQuote ? checkoutPromoPaymentMethods(methods, plan, true) : compatible;
+}
 
 type SelectPaymentMethod = (methodId: string) => void;
 
@@ -86,7 +129,8 @@ export function discountedCheckoutPlan(
 
 export function checkoutPromoBlockVisible(
   providerManagesPrice: boolean,
-  hasSelectionOrPromoState: boolean
+  hasSelectionOrPromoState: boolean,
+  compatibleMethodAvailable = false
 ): boolean {
-  return !providerManagesPrice && hasSelectionOrPromoState;
+  return (!providerManagesPrice || compatibleMethodAvailable) && hasSelectionOrPromoState;
 }

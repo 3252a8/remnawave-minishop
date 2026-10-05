@@ -44,6 +44,83 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it.each(["wata_subscription", "rollypay_subscription", "platega_subscription"])(
+    "selects the first compatible method before quoting a code from %s",
+    async (recurringMethod) => {
+      const { store, billing } = makeBillingStore({
+        getMethods: () => [
+          { id: recurringMethod },
+          { id: "disabled", disabled: true },
+          { id: "minimum", min_amount: 500, min_currency: "RUB" },
+          { id: "card" },
+          { id: "crypto" },
+        ],
+        billing: {
+          quotePromo: vi.fn().mockResolvedValue({
+            ok: true,
+            valid: true,
+            code: "SAVE20",
+            discount_percent: 20,
+            effective_amount: 240,
+          }),
+        },
+      });
+      store.openPaymentModal(
+        false,
+        false,
+        [],
+        { active: false },
+        [{ id: "monthly", price: 300, currency: "RUB" }],
+        recurringMethod,
+        { preferredPlanId: "monthly" }
+      );
+
+      store.setCheckoutPromoInput(" SAVE20 ");
+      expect(store.selectedMethod).toBe("card");
+      await store.applyCheckoutPromo();
+      expect(billing.quotePromo).toHaveBeenCalledOnce();
+      expect(billing.quotePromo).toHaveBeenCalledWith(
+        expect.objectContaining({ method: "card", promo_code: "SAVE20" })
+      );
+      expect(store.checkoutPromoAppliedCode).toBe("SAVE20");
+    }
+  );
+
+  it.each([false, true])(
+    "selects a compatible method for a prefilled checkout code (suggested=%s)",
+    async (suggested) => {
+      const { store, billing } = makeBillingStore({
+        getMethods: () => [{ id: "wata_subscription" }, { id: "card" }],
+        billing: {
+          quotePromo: vi.fn().mockResolvedValue({
+            ok: true,
+            valid: true,
+            code: "SAVE20",
+            discount_percent: 20,
+            effective_amount: 240,
+          }),
+        },
+      });
+      if (!suggested) store.setCheckoutPromoInput("SAVE20");
+      store.openPaymentModal(
+        false,
+        false,
+        [],
+        { active: false },
+        [{ id: "monthly", price: 300 }],
+        "wata_subscription",
+        { preferredPlanId: "monthly", ...(suggested ? { suggestedPromoCode: "SAVE20" } : {}) }
+      );
+      if (!suggested) await store.applyCheckoutPromo();
+      await vi.waitFor(() => expect(store.checkoutPromoAppliedCode).toBe("SAVE20"));
+      expect(store.selectedMethod).toBe("card");
+      expect(billing.quotePromo).toHaveBeenCalledOnce();
+      expect(billing.quotePromo).toHaveBeenCalledWith(
+        expect.objectContaining({ method: "card", promo_code: "SAVE20" })
+      );
+    }
+  );
+
   it.each([false, true])(
     "stops a review without success or failure messages (paid=%s)",
     async (paid) => {

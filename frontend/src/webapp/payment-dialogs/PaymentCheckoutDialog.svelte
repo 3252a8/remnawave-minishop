@@ -22,6 +22,8 @@
     checkoutPromoAffectsQuotedPlan,
     checkoutPromoBlockVisible,
     checkoutPromoMatchesPlan,
+    checkoutPromoPaymentMethods,
+    checkoutPromoSelectionMethods,
     discountedCheckoutPlan as discountedCheckoutPlanFn,
     normalizedCheckoutPromoDiscount,
     selectPaymentMethodWithPromoReset,
@@ -400,8 +402,22 @@
       ? discountedCheckoutPlan(selectedPlanForPayment)
       : selectedPlanForPayment
   );
-  const paymentMethods = $derived(
+  const availablePaymentMethods = $derived(
     methodsForPlan(methods, paymentMethodAvailabilityPlan, balanceSource)
+  );
+  const promoPaymentMethods = $derived(
+    checkoutPromoPaymentMethods(availablePaymentMethods, paymentMethodAvailabilityPlan)
+  );
+  const promoMethodAvailable = $derived(Boolean(firstAvailableMethod(promoPaymentMethods)));
+  const paymentMethods = $derived(
+    checkoutPromoInput.trim() || checkoutPromoAppliedCode
+      ? checkoutPromoSelectionMethods(
+          availablePaymentMethods,
+          paymentMethodAvailabilityPlan,
+          selectedMethod,
+          checkoutPromoAppliedCode
+        )
+      : availablePaymentMethods
   );
   const balanceFullyCovers = $derived(
     !gift &&
@@ -637,7 +653,8 @@
       !isTrialPaymentPlan(selectedPlan) &&
       checkoutPromoBlockVisible(
         providerManagesPrice(),
-        Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan)
+        Boolean(checkoutPromoAppliedCode || checkoutPromoStatus || selectedPlan),
+        promoMethodAvailable || Boolean(checkoutPromoInput.trim() || checkoutPromoAppliedCode)
       )
     );
   }

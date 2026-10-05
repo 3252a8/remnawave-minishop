@@ -23,7 +23,14 @@ import {
   createPendingPaymentResume,
 } from "../billingPaymentResume.js";
 import { emptyCheckoutPromoQuote, suggestedCheckoutPromoPatch } from "../billingPromoSuggestion.js";
-import { priceLabel } from "../tariffs";
+import { firstAvailableMethod, methodSelectable, type PaymentMethod } from "../tariffs";
+import { checkoutPromoSelectionMethods } from "../checkoutPromoPolicy.js";
+import {
+  checkoutPromoPlan,
+  checkoutPromoPriceText,
+  checkoutPromoQuoteBody,
+  checkoutPromoQuoteKey,
+} from "../checkoutPromoQuote.js";
 import {
   openTelegramInvoice as openTelegramInvoiceUrl,
   type TelegramWebApp,
@@ -39,6 +46,7 @@ import type {
 } from "../types";
 export function createBillingStore({
   billing,
+  getMethods = () => [],
   loadData,
   t,
   termUnitLabel,
@@ -52,6 +60,7 @@ export function createBillingStore({
   telegramSdk = null,
 }: {
   billing: BillingActions;
+  getMethods?: () => PaymentMethod[];
   loadData: (options?: LoadDataOptions & Record<string, unknown>) => Promise<unknown>;
   t: (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   termUnitLabel: TermUnitLabel;
@@ -192,6 +201,7 @@ export function createBillingStore({
       state.checkoutPromoPriceText = "";
       Object.assign(state, emptyCheckoutPromoQuote());
     }
+    ensureCheckoutPromoMethod();
   }
 
   function optionalNumber(value: unknown): number | null {
@@ -206,83 +216,11 @@ export function createBillingStore({
   }
 
   function checkoutQuoteBody(options: Pick<PartnerBalancePaymentOptions, "checkoutAddons"> = {}) {
-    const s = state;
-    const code = String(s.checkoutPromoInput || s.checkoutPromoAppliedCode || "").trim();
-    if (!code || !s.selectedMethod) return null;
-    if (s.paymentModalOpen && s.selectedPlan) {
-      return {
-        ...billing.planPaymentBody(s.selectedPlan, s.selectedMethod, {
-          renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
-          checkoutAddons: options.checkoutAddons || checkoutAddonsForQuote,
-        }),
-        promo_code: code,
-      };
-    }
-    if (s.topupModalOpen && s.selectedTopupPlan) {
-      return {
-        ...billing.topupPaymentBody(
-          s.selectedTopupPlan,
-          s.selectedMethod,
-          stringField(s.topupOptions?.tariff_key)
-        ),
-        promo_code: code,
-      };
-    }
-    if (s.deviceTopupModalOpen && s.selectedDeviceTopupPlan) {
-      return {
-        ...billing.deviceTopupPaymentBody(
-          s.selectedDeviceTopupPlan,
-          s.selectedMethod,
-          stringField(s.deviceTopupOptions?.tariff_key)
-        ),
-        promo_code: code,
-      };
-    }
-    return null;
-  }
-
-  function checkoutPlanKey(plan: PlanView | null): string {
-    if (!plan) return "";
-    return String(
-      plan.id ||
-        `${plan.tariff_key || ""}:${plan.sale_mode || ""}:${plan.months || ""}:${plan.traffic_gb || ""}`
-    );
+    return checkoutPromoQuoteBody(state, billing, options.checkoutAddons || checkoutAddonsForQuote);
   }
 
   function checkoutQuoteKey(): string {
-    const code = String(
-      state.checkoutPromoAppliedCode ||
-        (state.checkoutPromoAutoApply || state.checkoutPromoIsError ? state.checkoutPromoInput : "")
-    ).trim();
-    if (!code || !state.selectedMethod) return "";
-    if (state.paymentModalOpen && state.selectedPlan) {
-      return [
-        "payment",
-        code,
-        state.selectedMethod,
-        checkoutPlanKey(state.selectedPlan),
-        state.renewHwidDevices ? "hwid" : "no-hwid",
-        JSON.stringify(checkoutAddonsForQuote || {}),
-      ].join(":");
-    }
-    if (state.topupModalOpen && state.selectedTopupPlan) {
-      return [
-        "topup",
-        code,
-        state.selectedMethod,
-        checkoutPlanKey(state.selectedTopupPlan),
-        state.topupKind,
-      ].join(":");
-    }
-    if (state.deviceTopupModalOpen && state.selectedDeviceTopupPlan) {
-      return [
-        "device",
-        code,
-        state.selectedMethod,
-        checkoutPlanKey(state.selectedDeviceTopupPlan),
-      ].join(":");
-    }
-    return "";
+    return checkoutPromoQuoteKey(state, checkoutAddonsForQuote);
   }
 
   $effect(() => {
@@ -297,25 +235,26 @@ export function createBillingStore({
     if (shouldRefresh) void applyCheckoutPromo();
   });
 
-  function promoPriceText(payload: BillingRecord): string {
-    const amount = Number(payload.effective_amount || 0);
-    const stars = Number(payload.effective_stars || 0);
-    if (amount <= 0 && stars <= 0) return "";
-    const currency = stringField(payload.currency);
-    return priceLabel(
-      {
-        price: amount,
-        stars_price: stars,
-        currency: currency || undefined,
-      },
-      state.selectedMethod
+  function ensureCheckoutPromoMethod(): void {
+    if (!state.checkoutPromoInput.trim()) return;
+    const plan = checkoutPromoPlan(state);
+    if (!plan) return;
+    const methods = checkoutPromoSelectionMethods(
+      getMethods(),
+      plan,
+      state.selectedMethod,
+      state.checkoutPromoAppliedCode
     );
+    if (methodSelectable(methods, state.selectedMethod)) return;
+    const firstMethod = firstAvailableMethod(methods);
+    if (firstMethod) state.selectedMethod = firstMethod;
   }
 
   async function applyCheckoutPromo(
     options: Pick<PartnerBalancePaymentOptions, "checkoutAddons"> = {}
   ): Promise<void> {
     if (options.checkoutAddons) checkoutAddonsForQuote = options.checkoutAddons;
+    ensureCheckoutPromoMethod();
     const body = checkoutQuoteBody(options);
     if (!body) {
       updateState((s) => ({
@@ -328,6 +267,7 @@ export function createBillingStore({
       return;
     }
     const attemptedCode = stringField(body.promo_code);
+    lastCheckoutQuoteKey = checkoutQuoteKey();
     const requestId = ++checkoutPromoRequestId;
     try {
       const response = await billing.quotePromo(body);
@@ -356,7 +296,7 @@ export function createBillingStore({
         checkoutPromoAppliedCode: appliedCode,
         checkoutPromoIsError: false,
         checkoutPromoStatus: formatPromoEffectSummary(payload, { t, termUnitLabel }),
-        checkoutPromoPriceText: promoPriceText(payload),
+        checkoutPromoPriceText: checkoutPromoPriceText(payload, state.selectedMethod),
         checkoutPromoEffectiveAmount: Math.max(0, Number(payload.effective_amount || 0)),
         checkoutPromoDiscountPercent: Math.max(0, Number(payload.discount_percent || 0)),
         checkoutPromoAppliesTo: stringField(payload.applies_to) || "all",
