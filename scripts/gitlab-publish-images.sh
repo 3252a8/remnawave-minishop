@@ -33,6 +33,28 @@ cleanup() {
 
 trap cleanup EXIT
 
+# Retry idempotent registry operations, preserving JSON stdout only on success.
+# Registry token endpoints can return transient EOFs after a successful build.
+retry_registry_command() {
+  local attempt
+  local output
+  local status=1
+
+  for attempt in 1 2 3 4 5 6; do
+    if output="$("$@")"; then
+      printf '%s\n' "$output"
+      return 0
+    else
+      status=$?
+    fi
+    if [ "$attempt" -lt 6 ]; then
+      echo "Registry operation failed on attempt $attempt; retrying in $((attempt * 2))s." >&2
+      sleep "$((attempt * 2))"
+    fi
+  done
+  return "$status"
+}
+
 registry_digest() {
   local reference="$1"
   local manifest
@@ -91,7 +113,7 @@ promote_tag() {
   local tag="$3"
   local destination="$image:$tag"
 
-  docker buildx imagetools create --tag "$destination" "$image@$digest"
+  retry_registry_command docker buildx imagetools create --tag "$destination" "$image@$digest"
   wait_for_registry_digest "$destination" "$digest"
 }
 
@@ -229,7 +251,7 @@ for target in $TARGETS; do
   wait_for_registry_digest "$image:$candidate_tag" "$digest"
 
   immutable_ref="$image@$digest"
-  labels="$(docker buildx imagetools inspect "$immutable_ref" --format '{{json .Image.Config.Labels}}')"
+  labels="$(retry_registry_command docker buildx imagetools inspect "$immutable_ref" --format '{{json .Image.Config.Labels}}')"
   jq -e \
     --arg source "$OCI_IMAGE_SOURCE" \
     --arg revision "$CI_COMMIT_SHA" \
@@ -307,7 +329,7 @@ if [ "$PUBLISH_CHANNEL" = "release" ]; then
     if [ -z "$latest_digest" ]; then
       continue
     fi
-    latest_labels="$(docker buildx imagetools inspect "$image@$latest_digest" --format '{{json .Image.Config.Labels}}')"
+    latest_labels="$(retry_registry_command docker buildx imagetools inspect "$image@$latest_digest" --format '{{json .Image.Config.Labels}}')"
     if ! latest_version="$(jq -er '."org.opencontainers.image.version"' <<< "$latest_labels")"; then
       echo "Current latest image has no version label: $image@$latest_digest" >&2
       exit 1

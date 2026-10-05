@@ -214,8 +214,11 @@
   поскольку уязвимый модуль `package_index` не входит в состав pip.
   Клиент Docker и DinD в GitLab обновлены вместе до `29.8.2` с исправлениями
   обработки OCI-индексов, соединений с registry и BuildKit.
+  Операции чтения метаданных и копирования тегов Docker Hub повторяются
+  при кратковременных сетевых сбоях.
   [1a31757f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/1a31757fae44947929ef0d5f38429bcb0564056c)
   [8f90cda4](https://gitlab.com/3252a8/remnawave-minishop/-/commit/8f90cda43a6f6376a53c011bcd49d620ab3262f0)
+  [af209c40](https://gitlab.com/3252a8/remnawave-minishop/-/commit/af209c40abe63e3c4d981437de492b7ed975b69d)
 
 - **Единые поля форм.** Изменение срока подписки, планирование и перенос рассылок,
   срок действия кодов активации используют календарь из библиотеки UI. Выбор каналов
