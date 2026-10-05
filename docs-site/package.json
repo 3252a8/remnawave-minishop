@@ -13,10 +13,10 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.4",
+    "@astrojs/starlight": "^0.42.5",
     "astro": "^7.3.5",
     "starlight-theme-nova": "^0.12.3",
-    "swagger-ui-dist": "^5.33.0",
+    "swagger-ui-dist": "^5.33.1",
     "typescript": "^6.0.3"
   },
   "overrides": {
