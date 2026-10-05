@@ -55,6 +55,8 @@ async def _verify_upgrade() -> None:
             PANEL_ALL_USERS_CACHE_TTL_SECONDS=0,
             PANEL_USER_CACHE_TTL_SECONDS=0,
             PANEL_DEVICES_CACHE_TTL_SECONDS=0,
+            parsed_user_squad_uuids=[],
+            parsed_user_external_squad_uuid=None,
             REDIS_URL=None,
             DATABASE_URL=_async_dsn(),
         ),
