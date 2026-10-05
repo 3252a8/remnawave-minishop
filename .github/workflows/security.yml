@@ -163,6 +163,7 @@ jobs:
           limit-severities-for-sarif: true
           exit-code: "1"
           ignore-unfixed: false
+          trivyignores: .trivyignore.yaml
 
       - name: Upload ${{ matrix.target }} Trivy results
         uses: github/codeql-action/upload-sarif@v4

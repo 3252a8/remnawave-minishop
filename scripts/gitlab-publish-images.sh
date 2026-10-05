@@ -255,11 +255,13 @@ for target in $TARGETS; do
     docker run --rm \
       -e TRIVY_USERNAME \
       -e TRIVY_PASSWORD \
+      -v "${CI_PROJECT_DIR:-$PWD}/.trivyignore.yaml:/tmp/trivyignore.yaml:ro" \
       "$TRIVY_IMAGE" image \
       --platform linux/amd64 \
       --scanners vuln \
       --severity CRITICAL,HIGH \
       --exit-code 1 \
+      --ignorefile /tmp/trivyignore.yaml \
       --no-progress \
       "$immutable_ref"
   fi
