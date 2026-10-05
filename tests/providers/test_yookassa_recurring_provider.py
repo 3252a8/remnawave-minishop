@@ -82,6 +82,26 @@ def _context(
 
 
 class YooKassaRecurringProviderTests(IsolatedAsyncioTestCase):
+    async def test_paid_order_awaiting_review_cannot_create_another_charge(self):
+        service = _service()
+        payment = SimpleNamespace(
+            payment_id=17,
+            status="succeeded_pending_review",
+            yookassa_payment_id="yk-17",
+            provider_payment_id="yk-17",
+            created_at=datetime.now(UTC) - timedelta(days=7),
+        )
+        with patch.object(
+            yookassa_service.payment_dal,
+            "create_or_get_payment_record_by_idempotence_key",
+            AsyncMock(return_value=(payment, False)),
+        ):
+            result = await service.charge_saved_payment_method(_context(session=AsyncMock()))
+        self.assertTrue(result.initiated)
+        self.assertEqual(result.provider_payment_id, "yk-17")
+        self.assertEqual(result.status, "succeeded_pending_review")
+        service.create_payment.assert_not_awaited()
+
     async def test_saved_method_charge_uses_shared_recurring_context(self):
         service = _service(response={"id": "yk-auto-7", "status": "waiting_for_capture"})
         session = AsyncMock()

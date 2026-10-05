@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -30,6 +29,21 @@ from .payment_reporting_dal import (
     get_user_total_paid as get_user_total_paid,
 )
 from .referral_payment_dal import count_user_succeeded_payments as count_user_succeeded_payments
+from .yookassa_reconciliation_dal import (
+    PAYMENT_STATUS_PENDING_REVIEW as PAYMENT_STATUS_PENDING_REVIEW,
+)
+from .yookassa_reconciliation_dal import (
+    YooKassaReconciliationCandidate as YooKassaReconciliationCandidate,
+)
+from .yookassa_reconciliation_dal import (
+    list_yookassa_reconciliation_candidates as list_yookassa_reconciliation_candidates,
+)
+from .yookassa_reconciliation_dal import (
+    mark_yookassa_finalization_retry as mark_yookassa_finalization_retry,
+)
+from .yookassa_reconciliation_dal import (
+    mark_yookassa_reconciliation_checked as mark_yookassa_reconciliation_checked,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +59,6 @@ _PAYMENT_TERMINAL_STATUSES = frozenset(
         "refunded",
         "reversed",
     }
-)
-_YOOKASSA_RECONCILABLE_STATUSES = (
-    "pending_yookassa",
-    "pending",
-    "waiting_for_capture",
-    _PAYMENT_STATUS_PENDING_FINALIZATION,
 )
 
 
@@ -84,70 +92,6 @@ async def _add_payment_success_log(session: AsyncSession, payment: Payment) -> N
             "is_admin_event": False,
             "target_user_id": user_id,
         },
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class YooKassaReconciliationCandidate:
-    payment_id: int
-    provider_payment_id: str
-
-
-async def list_yookassa_reconciliation_candidates(
-    session: AsyncSession,
-    *,
-    limit: int = 100,
-    grace_seconds: int = 30,
-) -> list[YooKassaReconciliationCandidate]:
-    """Return old pending YooKassa orders that can be polled safely.
-
-    The provider identifier is persisted before an order becomes eligible.
-    ``updated_at`` is also used as the last-poll timestamp so a permanently
-    pending order cannot monopolize the front of a bounded batch.
-    """
-
-    cutoff = datetime.now(UTC) - timedelta(seconds=max(0, int(grace_seconds)))
-    provider_payment_id = func.coalesce(
-        Payment.yookassa_payment_id,
-        Payment.provider_payment_id,
-    )
-    last_activity_at = func.coalesce(Payment.updated_at, Payment.created_at)
-    stmt = (
-        select(Payment.payment_id, provider_payment_id)
-        .where(
-            func.lower(Payment.provider) == "yookassa",
-            func.lower(Payment.status).in_(_YOOKASSA_RECONCILABLE_STATUSES),
-            provider_payment_id.isnot(None),
-            last_activity_at <= cutoff,
-        )
-        .order_by(last_activity_at.asc(), Payment.payment_id.asc())
-        .limit(max(1, int(limit)))
-    )
-    rows = (await session.execute(stmt)).all()
-    return [
-        YooKassaReconciliationCandidate(
-            payment_id=int(payment_id),
-            provider_payment_id=str(remote_id),
-        )
-        for payment_id, remote_id in rows
-        if remote_id
-    ]
-
-
-async def mark_yookassa_reconciliation_checked(
-    session: AsyncSession,
-    payment_id: int,
-) -> None:
-    """Rotate an unresolved order to the back of the reconciliation queue."""
-
-    await session.execute(
-        update(Payment)
-        .where(
-            Payment.payment_id == payment_id,
-            func.lower(Payment.provider) == "yookassa",
-            func.lower(Payment.status).in_(_YOOKASSA_RECONCILABLE_STATUSES),
-        )
-        .values(updated_at=func.now())
     )
 
 
@@ -494,6 +438,7 @@ async def claim_payment_finalization(
             func.lower(Payment.status) != _PAYMENT_STATUS_SUCCEEDED,
             func.lower(Payment.status) != "refunded",
             func.lower(Payment.status) != "reversed",
+            func.lower(Payment.status) != PAYMENT_STATUS_PENDING_REVIEW,
         )
         .values(**values)
         .returning(Payment.payment_id)
@@ -541,7 +486,7 @@ async def find_recent_pending_provider_payment(
     alias so legacy rows (e.g. Platega ``PENDING`` or YooKassa ``pending``) stay
     reusable after provider APIs overwrite the internal pending status.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     conditions = [
         Payment.user_id == user_id,

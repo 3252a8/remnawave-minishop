@@ -58,6 +58,20 @@ class PaymentDalIdempotenceTests(IsolatedAsyncioTestCase):
 
 
 class PaymentDalStatusUpdateTests(IsolatedAsyncioTestCase):
+    async def test_cancellation_cannot_erase_confirmed_payment_awaiting_review(self):
+        session = SimpleNamespace(flush=AsyncMock(), refresh=AsyncMock())
+        for status in ("succeeded_pending_review", "succeeded_pending_finalization"):
+            with self.subTest(status=status):
+                payment = SimpleNamespace(payment_id=1, status=status, yookassa_payment_id="yk-1")
+                with patch.object(
+                    payment_dal, "get_payment_by_db_id_for_update", AsyncMock(return_value=payment)
+                ):
+                    result = await payment_dal.update_payment_status_by_db_id(
+                        session, 1, "canceled"
+                    )
+                self.assertIs(result, payment)
+                self.assertEqual(payment.status, status)
+
     async def asyncSetUp(self):
         self.ad_state = AsyncMock()
         guard = patch("bot.services.advertising.capture.record_payment_state", self.ad_state)

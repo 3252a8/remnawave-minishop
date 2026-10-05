@@ -23,6 +23,7 @@ BLOCKING_PAYMENT_STATUSES = (
     "pending_yookassa",
     "waiting_for_capture",
     "succeeded_pending_finalization",
+    "succeeded_pending_review",
     "succeeded",
 )
 

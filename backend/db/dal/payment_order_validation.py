@@ -17,6 +17,19 @@ def would_overwrite_succeeded_payment(current_status: Any, new_status: Any) -> b
     normalized_new_status = normalize_payment_status(new_status)
     if normalized_current_status in _PAYMENT_IMMUTABLE_TERMINAL_STATUSES:
         return normalized_new_status != normalized_current_status
+    if normalized_current_status == "succeeded_pending_finalization" and normalized_new_status in {
+        "canceled",
+        "cancelled",
+    }:
+        return True
+    if normalized_current_status == "succeeded_pending_review":
+        return normalized_new_status not in {
+            "succeeded_pending_review",
+            "succeeded_pending_finalization",
+            "succeeded",
+            "refunded",
+            "reversed",
+        }
     return normalized_current_status == _PAYMENT_STATUS_SUCCEEDED and normalized_new_status not in {
         _PAYMENT_STATUS_SUCCEEDED,
         "refunded",

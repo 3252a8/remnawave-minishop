@@ -144,6 +144,7 @@ class YooKassaReconciliationWorker:
             try:
                 await self._reconcile_candidate(candidate)
             except Exception:
+                await self._defer_candidate(candidate.payment_id)
                 logger.exception(
                     "Failed to reconcile YooKassa payment %s (remote %s)",
                     candidate.payment_id,
@@ -219,6 +220,13 @@ class YooKassaReconciliationWorker:
                 await session.commit()
             except Exception:
                 await session.rollback()
+                async with self.session_factory() as retry_session:
+                    await payment_dal.mark_yookassa_finalization_retry(
+                        retry_session,
+                        int(payload["metadata"]["payment_db_id"]),
+                        str(payload["id"]),
+                    )
+                    await retry_session.commit()
                 raise
         if event_payload:
             await emit_yookassa_success_events(event_payload)

@@ -309,6 +309,7 @@ export function createAppFactories({
   const emailAvatarSync = createEmailAvatarSync();
   const activation = createWebappActivationContext({
     billing,
+    onPaymentReview: () => showToast(t("wa_payment_pending_review")),
     loadData,
     getPaymentModalOpen,
     getTopupModalOpen,
@@ -354,6 +355,7 @@ export function createAppFactories({
     showToast,
     openExternalLink,
     onSubscriptionActivationPending: activation.rememberActivationPending,
+    onPaymentReview: activation.handlePaymentReview,
     onSubscriptionActivated: activation.handleSubscriptionActivated,
     tg: initialTg,
     getTg: () => getTg() || telegramSdk.refresh(),

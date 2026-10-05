@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createBillingStore } from "./billingStore.js";
+afterEach(() => vi.useRealTimers());
 type TestOverrides = Record<string, unknown>;
 
 const translateFallback = (key: string, params: Record<string, unknown> = {}, fallback = "") =>
@@ -43,6 +44,77 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it.each([false, true])(
+    "stops a review without success or failure messages (paid=%s)",
+    async (paid) => {
+      vi.useFakeTimers();
+      const onPaymentReview = vi.fn();
+      const loadData = vi.fn().mockResolvedValue({});
+      const { store, deps, billing } = makeBillingStore({
+        onPaymentReview,
+        loadData,
+        billing: {
+          fetchPaymentStatus: vi.fn().mockResolvedValue({
+            ok: true,
+            paid,
+            status: "succeeded_pending_review",
+          }),
+        },
+      });
+      await store.resumePendingPayment({
+        payment_id: 17,
+        payment_url: "https://pay.example/17",
+        provider: "yookassa",
+        sale_mode: "subscription",
+      } as Parameters<typeof store.resumePendingPayment>[0]);
+      loadData.mockRejectedValueOnce(new Error("profile refresh unavailable"));
+
+      await vi.advanceTimersByTimeAsync(12000);
+      expect(billing.fetchPaymentStatus).toHaveBeenCalledOnce();
+      expect(onPaymentReview).toHaveBeenCalledOnce();
+      expect(deps.showToast).toHaveBeenCalledWith("wa_payment_pending_review");
+      expect(deps.showToast).not.toHaveBeenCalledWith("wa_payment_success");
+      expect(deps.showToast).not.toHaveBeenCalledWith("wa_payment_create_failed");
+      expect(deps.showToast).not.toHaveBeenCalledWith("wa_pending_payment_canceled");
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
+
+  it("announces paid finalization once and reports success only after fulfillment", async () => {
+    vi.useFakeTimers();
+    const { store, deps, billing } = makeBillingStore({
+      billing: {
+        fetchPaymentStatus: vi
+          .fn()
+          .mockResolvedValueOnce({ ok: true, paid: true, status: "succeeded_pending_finalization" })
+          .mockResolvedValueOnce({
+            ok: true,
+            paid: false,
+            status: "succeeded_pending_finalization",
+          })
+          .mockResolvedValue({ ok: true, paid: true, status: "succeeded" }),
+      },
+    });
+    await store.resumePendingPayment({
+      payment_id: 17,
+      payment_url: "https://pay.example/17",
+      provider: "yookassa",
+      sale_mode: "subscription",
+    } as Parameters<typeof store.resumePendingPayment>[0]);
+
+    await vi.advanceTimersByTimeAsync(3500);
+    expect(billing.fetchPaymentStatus).toHaveBeenCalledTimes(2);
+    expect(
+      deps.showToast.mock.calls.filter(([message]) => message === "wa_payment_pending_finalization")
+    ).toHaveLength(1);
+    expect(deps.showToast).not.toHaveBeenCalledWith("wa_payment_success");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(billing.fetchPaymentStatus).toHaveBeenCalledTimes(3);
+    expect(deps.showToast).toHaveBeenCalledWith("wa_payment_success");
+    expect(deps.showToast).not.toHaveBeenCalledWith("wa_payment_create_failed");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it("opens the current tariff directly on the first and subsequent renewal clicks", () => {
     const { store } = makeBillingStore();
     const catalog = [{ key: "basic" }, { key: "current" }] as unknown as Parameters<

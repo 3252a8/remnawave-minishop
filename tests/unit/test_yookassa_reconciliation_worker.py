@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest import IsolatedAsyncioTestCase
@@ -9,7 +10,7 @@ import main_worker
 from sqlalchemy.dialects import postgresql
 
 from bot.services.yookassa_reconciliation_worker import YooKassaReconciliationWorker
-from db.dal import payment_dal
+from db.dal import payment_dal, yookassa_reconciliation_dal
 from db.dal.payment_dal import YooKassaReconciliationCandidate
 
 
@@ -123,6 +124,11 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
                 "mark_yookassa_reconciliation_checked",
                 AsyncMock(),
             ) as mark_checked,
+            patch.object(
+                payment_dal,
+                "mark_yookassa_finalization_retry",
+                AsyncMock(),
+            ) as mark_retry,
             patch(
                 "bot.services.yookassa_reconciliation_worker.process_successful_payment",
                 AsyncMock(side_effect=[RuntimeError("panel failed"), event_payload]),
@@ -138,8 +144,10 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
         self.assertEqual(process_success.await_count, 2)
         session_factory.sessions[1].rollback.assert_awaited_once()
         session_factory.sessions[1].commit.assert_not_awaited()
-        session_factory.sessions[3].commit.assert_awaited_once()
-        mark_checked.assert_not_awaited()
+        session_factory.sessions[2].commit.assert_awaited_once()
+        session_factory.sessions[5].commit.assert_awaited_once()
+        mark_retry.assert_awaited_once_with(session_factory.sessions[2], 42, "yk-42")
+        mark_checked.assert_awaited_once_with(session_factory.sessions[3], 42)
         emit_success.assert_awaited_once_with(event_payload)
 
     async def test_duplicate_success_is_committed_without_duplicate_event(self) -> None:
@@ -214,6 +222,27 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
 
         mark_checked.assert_awaited_once_with(session_factory.sessions[1], 42)
         session_factory.sessions[1].commit.assert_awaited_once()
+
+    async def test_poll_error_rotates_the_order_and_continues_the_batch(self) -> None:
+        worker, get_info, _ = self._worker(None)
+        second = YooKassaReconciliationCandidate(43, "yk-43")
+        payload = _provider_payload(status="pending", paid=False)
+        payload["id"] = "yk-43"
+        payload["metadata"]["payment_db_id"] = "43"
+        get_info.side_effect = [RuntimeError("provider unavailable"), payload]
+        with (
+            patch.object(
+                payment_dal,
+                "list_yookassa_reconciliation_candidates",
+                AsyncMock(return_value=[_candidate(), second]),
+            ),
+            patch.object(
+                payment_dal, "mark_yookassa_reconciliation_checked", AsyncMock()
+            ) as mark_checked,
+        ):
+            await worker.tick()
+        self.assertEqual(get_info.await_count, 2)
+        self.assertEqual([call.args[1] for call in mark_checked.await_args_list], [42, 43])
 
     async def test_transient_empty_response_is_deferred(self) -> None:
         worker, _, _ = self._worker(None)
@@ -297,6 +326,40 @@ class YooKassaReconciliationWorkerTests(IsolatedAsyncioTestCase):
 
 
 class YooKassaReconciliationDalTests(IsolatedAsyncioTestCase):
+    async def test_failed_paid_fulfillment_has_a_durable_five_minute_delay(self) -> None:
+        session = AsyncMock()
+        session.execute.return_value = SimpleNamespace(all=list)
+        now = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+        with patch.object(yookassa_reconciliation_dal, "datetime") as clock:
+            clock.now.return_value = now
+            await payment_dal.list_yookassa_reconciliation_candidates(session, grace_seconds=30)
+        params = session.execute.await_args.args[0].compile().params
+        cutoffs = {v for v in params.values() if isinstance(v, datetime)}
+        self.assertEqual(
+            cutoffs,
+            {
+                datetime(2026, 10, 5, 11, 59, 30, tzinfo=UTC),
+                datetime(2026, 10, 5, 11, 55, tzinfo=UTC),
+            },
+        )
+
+    async def test_retry_record_cannot_downgrade_settled_or_reviewed_payments(self) -> None:
+        session = AsyncMock()
+        await payment_dal.mark_yookassa_finalization_retry(session, 42, "yk-42")
+        stmt = session.execute.await_args.args[0]
+        sql = str(
+            stmt.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        )
+        where = sql.split(" WHERE ", 1)[1]
+        self.assertIn("payments.payment_id = 42", where)
+        self.assertIn("= 'yookassa'", where)
+        self.assertIn("= 'yk-42'", where)
+        self.assertNotIn("'succeeded'", where)
+        self.assertNotIn("'refunded'", where)
+        self.assertNotIn("'succeeded_pending_review'", where)
+        self.assertIn("succeeded_pending_finalization", sql)
+        self.assertIn("fulfillment_retryable", sql)
+
     async def test_candidate_query_is_bounded_and_provider_scoped(self) -> None:
         result = SimpleNamespace(all=lambda: [(42, "yk-42")])
         session = AsyncMock()
@@ -319,6 +382,8 @@ class YooKassaReconciliationDalTests(IsolatedAsyncioTestCase):
         self.assertIn("lower(payments.provider) = 'yookassa'", sql)
         self.assertIn("pending_yookassa", sql)
         self.assertIn("waiting_for_capture", sql)
+        self.assertNotIn("succeeded_pending_review", sql)
+        self.assertIn("fulfillment_retryable", sql)
         self.assertIn(
             "coalesce(payments.yookassa_payment_id, payments.provider_payment_id) is not null",
             sql,

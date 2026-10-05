@@ -3,7 +3,11 @@
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { LockKeyhole, WalletCards } from "$components/ui/icons.js";
-  import { EmptyCard, PaymentMethodPicker } from "$components/patterns/webapp/index.js";
+  import {
+    EmptyCard,
+    PaymentMethodPicker,
+    StatusMessage,
+  } from "$components/patterns/webapp/index.js";
   import AnimatedNumber from "$components/patterns/webapp/AnimatedNumber.svelte";
   import { asWebappRecord } from "$lib/webapp/types.js";
   import type {
@@ -15,6 +19,7 @@
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import { availableBalanceTopupMethods, decimalTopupAmount } from "$lib/webapp/balanceUiPolicy.js";
+  import { paymentOutcome } from "$lib/paymentStatus.js";
 
   let {
     api,
@@ -40,6 +45,7 @@
   let selectedMethod = $state("");
   let busy = $state(false);
   let error = $state("");
+  let notice = $state("");
   let buttonAnimatedAmount = $state(0);
   let inputAnimatedAmount = $state(0);
   let inputAnimationVisible = $state(false);
@@ -60,7 +66,8 @@
       numericAmount >= minimum &&
       numericAmount <= maximum &&
       !!selectedMethod &&
-      !busy
+      !busy &&
+      !notice
   );
   const currencySymbol = $derived(
     String(balance.currency || "")
@@ -119,6 +126,13 @@
       if (response.ok !== true) {
         throw new Error(String(response.message || response.error || "balance_topup_failed"));
       }
+      const outcome = paymentOutcome(response);
+      if (outcome === "review" || outcome === "finalizing") {
+        notice = t(
+          outcome === "review" ? "wa_payment_pending_review" : "wa_payment_pending_finalization"
+        );
+        return;
+      }
       const paymentUrl = String(
         response.payment_url || response.confirmation_url || response.url || ""
       ).trim();
@@ -127,7 +141,7 @@
         open = false;
         return;
       }
-      if (response.paid === true || response.status === "succeeded") {
+      if (outcome === "fulfilled") {
         open = false;
         return;
       }
@@ -159,6 +173,10 @@
         ""
     );
     error = "";
+  });
+
+  $effect(() => {
+    if (!open) notice = "";
   });
 
   onDestroy(() => {
@@ -241,6 +259,7 @@
       <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
     {/if}
     {#if error}<small class="balance-topup-error">{error}</small>{/if}
+    {#if notice}<StatusMessage role="status">{notice}</StatusMessage>{/if}
     <Button class="wide bottom-action payment-submit-button" onclick={submit} disabled={!valid}>
       {t("wa_pay", {}, "Pay")}
       <strong>

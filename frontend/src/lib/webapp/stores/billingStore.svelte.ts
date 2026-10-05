@@ -1,5 +1,6 @@
 import { legacyMonthsToDays } from "../subscriptionPeriods.js";
 import { formatPromoEffectSummary } from "../promoEffectSummary.js";
+import { paymentOutcome } from "../../paymentStatus.js";
 import type { LoadDataOptions } from "../dataClient";
 import {
   asBillingRecord as asRecord,
@@ -45,6 +46,7 @@ export function createBillingStore({
   openExternalLink,
   onSubscriptionActivationPending = null,
   onSubscriptionActivated = null,
+  onPaymentReview = null,
   tg,
   getTg = null,
   telegramSdk = null,
@@ -57,6 +59,7 @@ export function createBillingStore({
   openExternalLink: (url: string) => void;
   onSubscriptionActivationPending?: ((context: Record<string, unknown>) => void) | null;
   onSubscriptionActivated?: ((context: Record<string, unknown>) => Promise<void> | void) | null;
+  onPaymentReview?: (() => void) | null;
   tg?: TelegramWebApp | null;
   getTg?: (() => TelegramWebApp | null) | null;
   telegramSdk?: {
@@ -743,6 +746,7 @@ export function createBillingStore({
   ) {
     if (!paymentId || !billing.fetchPaymentStatus) return;
     const token = ++paymentPollToken;
+    let finalizationNotified = false;
     void (async () => {
       for (let attempt = 0; attempt < 45 && token === paymentPollToken; attempt += 1) {
         await sleep(attempt === 0 ? 1500 : 2000);
@@ -751,17 +755,23 @@ export function createBillingStore({
           const status = await billing.fetchPaymentStatus(paymentId);
           if (!status?.ok) continue;
           const payload = unwrapBilling(status);
-          if (payload.paid || payload.status === "succeeded") {
+          const outcome = paymentOutcome(payload);
+          if (outcome === "review") {
+            paymentPollToken += 1;
+            onPaymentReview?.();
+            showToast(t("wa_payment_pending_review"));
+            await loadData({ fresh: true, preserveView: true });
+            return;
+          }
+          if (outcome === "finalizing" && !finalizationNotified) {
+            showToast(t("wa_payment_pending_finalization"));
+            finalizationNotified = true;
+          }
+          if (outcome === "fulfilled") {
             await handlePaymentSuccess({ ...successContext, paymentId });
             return;
           }
-          const normalized = String(payload.status || "").toLowerCase();
-          if (
-            normalized === "failed" ||
-            normalized === "canceled" ||
-            normalized === "cancelled" ||
-            normalized.startsWith("failed_")
-          ) {
+          if (outcome === "failed") {
             showToast(t("wa_payment_create_failed"));
             return;
           }

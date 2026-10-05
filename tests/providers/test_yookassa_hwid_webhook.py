@@ -135,9 +135,94 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
         update_status.assert_awaited_once_with(
             ANY,
             5,
-            "activation_failed",
+            "succeeded_pending_review",
             "yk-stale-addon",
         )
+        assert payment.failure_kind == "active_subscription_changed"
+
+    async def test_paid_subscription_with_stale_checkout_requires_review_without_activation(self):
+        import json
+
+        payment = SimpleNamespace(
+            payment_id=1270,
+            status="pending_yookassa",
+            user_id=42,
+            provider="yookassa",
+            sale_mode="subscription@standard",
+            tariff_key="standard",
+            subscription_duration_months=3,
+            purchased_hwid_devices=None,
+            amount=120.0,
+            currency="RUB",
+            promo_code_id=None,
+            checkout_bundle_snapshot=json.dumps(
+                {
+                    "version": 2,
+                    "items": [],
+                    "active_context": {
+                        "subscription_id": 252,
+                        "end_at": "2026-09-29T08:10:39.257000+00:00",
+                    },
+                }
+            ),
+        )
+        provider_payload = {
+            "id": "yk-paid-stale-quote",
+            "status": "succeeded",
+            "paid": True,
+            "amount": {"value": "120.00", "currency": "RUB"},
+            "metadata": {
+                "user_id": "42",
+                "subscription_months": "3",
+                "payment_db_id": "1270",
+                "sale_mode": "subscription@standard",
+            },
+        }
+        subscription_service = SimpleNamespace(activate_subscription=AsyncMock())
+        update_status = AsyncMock(return_value=payment)
+        with (
+            patch.object(
+                yookassa.payment_dal, "get_payment_by_db_id", AsyncMock(return_value=payment)
+            ),
+            patch.object(
+                yookassa.payment_dal, "claim_payment_finalization", AsyncMock(return_value=payment)
+            ),
+            patch.object(yookassa.payment_dal, "update_payment_status_by_db_id", update_status),
+            patch.object(
+                yookassa.user_dal,
+                "get_user_by_id",
+                AsyncMock(return_value=SimpleNamespace(user_id=42)),
+            ),
+            patch.object(
+                yookassa_success.subscription_dal,
+                "get_active_subscription_by_user_id_for_update",
+                AsyncMock(
+                    return_value=SimpleNamespace(
+                        subscription_id=252,
+                        end_date=datetime(2026, 12, 28, 8, 10, 39, 257000, tzinfo=UTC),
+                        tariff_key="standard",
+                        provider="yookassa",
+                        auto_renew_enabled=False,
+                    )
+                ),
+            ),
+        ):
+            result = await yookassa.process_successful_payment(
+                AsyncMock(),
+                AsyncMock(),
+                provider_payload,
+                _I18n(),
+                SimpleNamespace(traffic_sale_mode=False),
+                AsyncMock(),
+                subscription_service,
+                AsyncMock(),
+            )
+        assert result is None
+        subscription_service.activate_subscription.assert_not_awaited()
+        update_status.assert_awaited_once_with(
+            ANY, 1270, "succeeded_pending_review", "yk-paid-stale-quote"
+        )
+        assert payment.failure_kind == "active_subscription_end_changed"
 
     async def test_active_tribute_recurrence_blocks_yookassa_subscription_race(self):
         payment = SimpleNamespace(

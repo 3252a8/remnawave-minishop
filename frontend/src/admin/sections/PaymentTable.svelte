@@ -14,6 +14,7 @@
   import { Popover } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import { paymentDescriptionDisplay, paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
+  import { paymentStatusLabel } from "$lib/admin/format.js";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
@@ -269,7 +270,9 @@
               >{paymentDescriptionDisplay(p, at)}</td
             >
             <td data-label={at("status", {}, "Status")}>
-              <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
+              <AdminBadge wrap variant={paymentStatusVariant(p.status)}
+                >{paymentStatusLabel(p.status, at)}</AdminBadge
+              >
             </td>
             <td data-label={at("date", {}, "Date")}>{fmtDate(p.created_at)}</td>
           </tr>
@@ -301,7 +304,9 @@
                 oncopy={copyValue}
               />
             </span>
-            <AdminBadge variant={paymentStatusVariant(p.status)}>{p.status}</AdminBadge>
+            <AdminBadge wrap variant={paymentStatusVariant(p.status)}
+              >{paymentStatusLabel(p.status, at)}</AdminBadge
+            >
           </div>
 
           <div class="admin-payment-mobile-user">

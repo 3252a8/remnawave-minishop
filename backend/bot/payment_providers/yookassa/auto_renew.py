@@ -265,6 +265,7 @@ def existing_auto_renew_result(
             "pending_yookassa",
             "waiting_for_capture",
             "succeeded_pending_finalization",
+            "succeeded_pending_review",
             "succeeded",
         }:
             logger.info(
@@ -278,7 +279,7 @@ def existing_auto_renew_result(
                 status=status,
             )
         return RecurringChargeResult.failed(f"existing_payment:{status or 'unknown'}")
-    if status in {"succeeded_pending_finalization", "succeeded"}:
+    if status in {"succeeded_pending_finalization", "succeeded_pending_review", "succeeded"}:
         return RecurringChargeResult.ok(status=status)
     created_at = getattr(payment, "created_at", None)
     if not isinstance(created_at, datetime):

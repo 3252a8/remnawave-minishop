@@ -17,6 +17,7 @@
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
+  import { paymentStatusLabel } from "$lib/admin/format.js";
   import { isReversalReasonValid } from "$lib/admin/reversalReason.js";
   import { demoPartnerAttributionForPayment } from "$lib/webapp/mockApi/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
@@ -273,7 +274,7 @@
       label: at("amount", {}, "Amount"),
       value: money(payment?.amount, payment?.currency),
     },
-    { label: at("status", {}, "Status"), value: payment?.status },
+    { label: at("status", {}, "Status"), value: paymentStatusLabel(payment?.status, at) },
     {
       label: at("date", {}, "Date"),
       value: payment?.created_at ? fmtDate(payment.created_at) : "",
@@ -394,8 +395,8 @@
             <strong>{money(payment.amount, payment.currency)}</strong>
             <small>{paymentDescription(payment)}</small>
             <div class="admin-payment-summary-tags">
-              <AdminBadge variant={paymentStatusVariant(payment.status)}
-                >{display(payment.status)}</AdminBadge
+              <AdminBadge wrap variant={paymentStatusVariant(payment.status)}
+                >{paymentStatusLabel(payment.status, at)}</AdminBadge
               >
               {#if payment.provider}
                 <AdminBadge variant="muted">{providerLabel}</AdminBadge>

@@ -28,6 +28,7 @@ type ActivationContextDeps = {
   loadInstallGuides: (force?: boolean) => unknown;
   openActivationConnectLink: () => void;
   syncAppSectionPath: (section: string, replace?: boolean) => void;
+  onPaymentReview?: () => void;
 };
 
 /**
@@ -97,6 +98,7 @@ export function createWebappActivationContext(deps: ActivationContextDeps) {
   activationWatcher = createActivationWatcher({
     activationHandoff,
     billing: deps.billing,
+    onPaymentReview: deps.onPaymentReview,
     getData: getShellData,
     loadData: deps.loadData,
     maybeShowActivationSuccessDialog,
@@ -119,6 +121,10 @@ export function createWebappActivationContext(deps: ActivationContextDeps) {
   });
 
   return {
+    handlePaymentReview: () => {
+      activationHandoff.clearPending();
+      activationWatcher.stop();
+    },
     closeActivationSuccessDialog,
     handleSubscriptionActivated,
     hasPendingActivationHandoff,

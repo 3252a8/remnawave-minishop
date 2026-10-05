@@ -14,6 +14,7 @@
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { AdminSortColumn } from "$lib/admin/tableSort.js";
   import { formatAdminPromoEffect } from "$lib/admin/promoEffectDisplay.js";
+  import { paymentStatusLabel } from "$lib/admin/format.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type PromoActivation = components["schemas"]["PromoActivationOut"];
@@ -307,8 +308,8 @@
               </td>
               <td data-label={at("status", {}, "Status")}>
                 {#if row.payment_status}
-                  <AdminBadge variant={paymentStatusVariant(row.payment_status)}>
-                    {row.payment_status}
+                  <AdminBadge wrap variant={paymentStatusVariant(row.payment_status)}>
+                    {paymentStatusLabel(row.payment_status, at)}
                   </AdminBadge>
                 {:else}
                   <AdminBadge variant="muted">

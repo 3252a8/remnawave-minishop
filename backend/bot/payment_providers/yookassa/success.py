@@ -470,7 +470,7 @@ async def process_successful_payment(
                 active_subscription,
             )
             if not entitlement_preflight.allowed:
-                logger.error(
+                logger.warning(
                     "Rejecting YooKassa payment %s before entitlement mutation: %s (%s).",
                     payment_db_id,
                     entitlement_preflight.status,
@@ -479,9 +479,10 @@ async def process_successful_payment(
                 await payment_dal.update_payment_status_by_db_id(
                     session,
                     payment_db_id,
-                    "activation_failed",
+                    payment_dal.PAYMENT_STATUS_PENDING_REVIEW,
                     yk_payment_id_from_hook,
                 )
+                payment_record.failure_kind = entitlement_preflight.reason or "entitlement_invalid"
                 return None
 
     except (TypeError, ValueError) as e:

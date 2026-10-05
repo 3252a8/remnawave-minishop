@@ -1,5 +1,6 @@
 import type { LoadDataOptions } from "./dataClient";
 import { activationPaymentFailed } from "./activationHandoff";
+import { paymentOutcome } from "../paymentStatus.js";
 
 const ACTIVATION_PENDING_WATCH_INTERVAL_MS = 2000;
 const ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS = 45;
@@ -31,6 +32,7 @@ type ActivationWatcherDeps = {
   loadData: (options?: LoadDataOptions & Record<string, unknown>) => Promise<unknown>;
   maybeShowActivationSuccessDialog: (context?: Record<string, unknown>) => Promise<boolean>;
   shouldWatch: () => boolean;
+  onPaymentReview?: () => void;
   intervalMs?: number;
   maxAttempts?: number;
   resumeCooldownMs?: number;
@@ -44,6 +46,7 @@ export function createActivationWatcher({
   loadData,
   maybeShowActivationSuccessDialog,
   shouldWatch,
+  onPaymentReview = () => {},
   intervalMs = ACTIVATION_PENDING_WATCH_INTERVAL_MS,
   maxAttempts = ACTIVATION_PENDING_WATCH_MAX_ATTEMPTS,
   resumeCooldownMs = ACTIVATION_RESUME_CHECK_COOLDOWN_MS,
@@ -105,7 +108,14 @@ export function createActivationWatcher({
       let shouldRefreshProfile = !pending?.paymentId;
       if (pending?.paymentId && billing.fetchPaymentStatus) {
         const paymentStatus = await billing.fetchPaymentStatus(pending.paymentId);
-        if (paymentStatus?.paid || paymentStatus?.status === "succeeded") {
+        const outcome = paymentOutcome(paymentStatus);
+        if (outcome === "review") {
+          activationHandoff.clearPending();
+          stop();
+          onPaymentReview();
+          return;
+        }
+        if (outcome === "fulfilled") {
           shouldRefreshProfile = true;
         } else if (activationPaymentFailed(paymentStatus)) {
           activationHandoff.clearPending();
@@ -141,6 +151,21 @@ export function createActivationWatcher({
     resumeLastCheckAt = now;
     resumeRefreshBusy = true;
     try {
+      const pending = activationHandoff.read().pending;
+      if (pending?.paymentId && billing.fetchPaymentStatus) {
+        const paymentStatus = await billing.fetchPaymentStatus(pending.paymentId);
+        const outcome = paymentOutcome(paymentStatus);
+        if (outcome === "review") {
+          activationHandoff.clearPending();
+          stop();
+          onPaymentReview();
+          return;
+        }
+        if (outcome === "finalizing") {
+          start();
+          return;
+        }
+      }
       await loadData({ fresh: true });
       const shown = await maybeShowActivationSuccessDialog({ source: "resume" });
       if (!shown) start();

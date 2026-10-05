@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.checkout_addons import checkout_addon_grants, parse_checkout_bundle_snapshot
 from db.dal import subscription_dal
 
 _SNAPSHOT_VERSION = 1
@@ -78,10 +80,69 @@ def payment_uses_entitlement_context(payment_or_sale_mode: Any) -> bool:
     if _sale_mode_base(sale_mode) in _CONTEXT_BOUND_BASES or _is_combined_hwid_renewal(sale_mode):
         return True
     if not isinstance(payment_or_sale_mode, str):
-        return bool(
-            str(getattr(payment_or_sale_mode, "entitlement_context_snapshot", "") or "").strip()
+        return (
+            bool(
+                str(getattr(payment_or_sale_mode, "entitlement_context_snapshot", "") or "").strip()
+            )
+            or _subscription_checkout_snapshot(payment_or_sale_mode) is not None
         )
     return False
+
+
+def _subscription_checkout_snapshot(payment: Any) -> dict[str, Any] | None:
+    if _sale_mode_base(getattr(payment, "sale_mode", None)) != "subscription":
+        return None
+    snapshot = parse_checkout_bundle_snapshot(getattr(payment, "checkout_bundle_snapshot", None))
+    if snapshot is None or snapshot.get("version") == 1 or "active_context" not in snapshot:
+        return None
+    return snapshot
+
+
+def _preflight_checkout_context(
+    payment: Any, active_subscription: Any | None
+) -> EntitlementPreflightResult | None:
+    snapshot = _subscription_checkout_snapshot(payment)
+    if snapshot is None:
+        return None
+    try:
+        grants = checkout_addon_grants(getattr(payment, "checkout_bundle_snapshot", None))
+        context = snapshot.get("active_context")
+        if context is not None and (
+            not isinstance(context, dict)
+            or grants.active_subscription_id is None
+            or grants.active_subscription_id <= 0
+            or grants.active_end_at is None
+        ):
+            return EntitlementPreflightResult(
+                EntitlementPreflightStatus.INVALID, "checkout_context_invalid"
+            )
+        current_id = int(active_subscription.subscription_id) if active_subscription else None
+        current_end = (
+            getattr(active_subscription, "end_date", None) if active_subscription else None
+        )
+        if current_end is not None:
+            if not isinstance(current_end, datetime):
+                return EntitlementPreflightResult(
+                    EntitlementPreflightStatus.INVALID, "current_subscription_invalid"
+                )
+            current_end = (
+                current_end.replace(tzinfo=UTC)
+                if current_end.tzinfo is None
+                else current_end.astimezone(UTC)
+            )
+    except (AttributeError, TypeError, ValueError):
+        return EntitlementPreflightResult(
+            EntitlementPreflightStatus.INVALID, "checkout_context_invalid"
+        )
+    if current_id != grants.active_subscription_id:
+        return EntitlementPreflightResult(
+            EntitlementPreflightStatus.DETERMINISTIC_STALE, "active_subscription_changed"
+        )
+    if current_end != grants.active_end_at:
+        return EntitlementPreflightResult(
+            EntitlementPreflightStatus.DETERMINISTIC_STALE, "active_subscription_end_changed"
+        )
+    return EntitlementPreflightResult(EntitlementPreflightStatus.OK)
 
 
 def build_entitlement_context_snapshot(
@@ -238,6 +299,15 @@ def preflight_payment_entitlement(
     base = _sale_mode_base(sale_mode)
     if not payment_uses_entitlement_context(payment):
         return EntitlementPreflightResult(EntitlementPreflightStatus.NOT_APPLICABLE)
+
+    checkout_preflight = _preflight_checkout_context(payment, active_subscription)
+    if checkout_preflight is not None:
+        if not checkout_preflight.allowed:
+            return checkout_preflight
+        if not _is_combined_hwid_renewal(sale_mode) and not getattr(
+            payment, "entitlement_context_snapshot", None
+        ):
+            return checkout_preflight
 
     payment_tariff_key = str(
         getattr(payment, "tariff_key", "") or ""

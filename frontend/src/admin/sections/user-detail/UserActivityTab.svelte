@@ -2,6 +2,7 @@
   import { AdminBadge, AdminButton, AdminTable } from "$components/patterns/admin/index.js";
   import { FileText } from "$components/ui/icons.js";
   import { Tabs } from "$components/ui/primitives.js";
+  import { paymentStatusLabel } from "$lib/admin/format.js";
   import {
     formatPaymentTrafficGb,
     paymentDescriptionDisplay,
@@ -83,8 +84,8 @@
                 {fmtMoney(payment.amount, payment.currency)}
               </td>
               <td data-label={at("status", {}, "Status")}>
-                <AdminBadge variant={paymentStatusVariant(payment.status)}>
-                  {payment.status}
+                <AdminBadge wrap variant={paymentStatusVariant(payment.status)}>
+                  {paymentStatusLabel(payment.status, at)}
                 </AdminBadge>
               </td>
               <td data-label={at("date", {}, "Date")}>{fmtDateShort(payment.created_at)}</td>

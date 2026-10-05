@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import ANY, AsyncMock, patch
@@ -69,19 +70,63 @@ def test_snapshot_allows_only_the_same_subscription_and_tariff() -> None:
     )
     assert preflight_payment_entitlement(payment, quoted_subscription).allowed
 
-    replaced = preflight_payment_entitlement(
-        payment,
-        _subscription(12, "pro"),
-    )
+    replaced = preflight_payment_entitlement(payment, _subscription(12, "pro"))
     assert replaced.status is EntitlementPreflightStatus.DETERMINISTIC_STALE
     assert replaced.reason == "active_subscription_changed"
 
-    switched = preflight_payment_entitlement(
-        payment,
-        _subscription(11, "other"),
-    )
+    switched = preflight_payment_entitlement(payment, _subscription(11, "other"))
     assert switched.status is EntitlementPreflightStatus.DETERMINISTIC_STALE
     assert switched.reason == "active_tariff_changed"
+
+
+def test_subscription_checkout_context_rejects_a_changed_end_date() -> None:
+    end = datetime(2026, 9, 29, 8, 10, tzinfo=UTC)
+    payment = _payment(sale_mode="subscription@pro")
+    payment.checkout_bundle_snapshot = json.dumps(
+        {
+            "version": 2,
+            "items": [],
+            "active_context": {"subscription_id": 11, "end_at": end.isoformat()},
+        }
+    )
+    subscription = _subscription(11, "pro")
+    subscription.end_date = end
+    assert preflight_payment_entitlement(payment, subscription).allowed
+    subscription.end_date = end + timedelta(days=90)
+    result = preflight_payment_entitlement(payment, subscription)
+    assert result.status is EntitlementPreflightStatus.DETERMINISTIC_STALE
+    assert result.reason == "active_subscription_end_changed"
+
+
+def test_subscription_checkout_without_an_active_context_keeps_legacy_behavior() -> None:
+    payment = _payment(sale_mode="subscription@pro")
+    payment.checkout_bundle_snapshot = json.dumps({"version": 1, "items": []})
+    assert preflight_payment_entitlement(payment, _subscription(11, "basic")).allowed
+
+
+def test_subscription_checkout_new_purchase_cannot_land_on_a_newly_active_subscription() -> None:
+    payment = _payment(sale_mode="subscription@pro")
+    payment.checkout_bundle_snapshot = json.dumps(
+        {"version": 2, "items": [], "active_context": None}
+    )
+    assert preflight_payment_entitlement(payment, None).allowed
+    result = preflight_payment_entitlement(payment, _subscription(11, "pro"))
+    assert result.status is EntitlementPreflightStatus.DETERMINISTIC_STALE
+    assert result.reason == "active_subscription_changed"
+
+
+def test_subscription_checkout_malformed_context_requires_review() -> None:
+    payment = _payment(sale_mode="subscription@pro")
+    payment.checkout_bundle_snapshot = json.dumps(
+        {
+            "version": 2,
+            "items": [],
+            "active_context": {"subscription_id": 11, "end_at": "not-a-date"},
+        }
+    )
+    result = preflight_payment_entitlement(payment, _subscription(11, "pro"))
+    assert result.status is EntitlementPreflightStatus.INVALID
+    assert result.reason == "checkout_context_invalid"
 
 
 def test_initial_traffic_package_snapshot_rejects_a_later_subscription() -> None:

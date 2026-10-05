@@ -70,8 +70,21 @@ export function trafficOfLabel(used: unknown, limit: unknown): string {
 
 export function paymentStatusVariant(status: unknown): PaymentStatusVariant {
   if (status === "succeeded") return "success";
+  if (status === "succeeded_pending_finalization" || status === "succeeded_pending_review") {
+    return "warning";
+  }
   if (typeof status === "string" && status.startsWith("pending")) return "warning";
   return "danger";
+}
+
+export function paymentStatusLabel(
+  status: unknown,
+  at: (key: string, params?: Record<string, unknown>, fallback?: string) => string
+): string {
+  if (status === "succeeded_pending_finalization" || status === "succeeded_pending_review") {
+    return at(`payment_status_${status}`);
+  }
+  return String(status || "—");
 }
 
 export function optionLabel(options: readonly SelectOption[], value: string): string {
