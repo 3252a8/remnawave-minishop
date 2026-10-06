@@ -84,7 +84,7 @@ class PaykillaService(HttpClientMixin):
         self.subscription_service = subscription_service
         self.referral_service = referral_service
         self._default_return_url = default_return_url
-        self._exchange_rate_cache: dict[tuple[str, str], tuple[float, Decimal]] = {}
+        self._exchange_rate_cache: dict[tuple[str, str, str], tuple[float, Decimal]] = {}
         self._currency_cache: tuple[float, list[dict[str, Any]]] = (0, [])
 
         self._init_http_client(total_timeout=lambda: self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS)
@@ -148,7 +148,8 @@ class PaykillaService(HttpClientMixin):
         if source_currency == target_currency:
             return Decimal("1")
 
-        cache_key = (source_currency, target_currency)
+        url = self._exchange_rate_url(source_currency, target_currency)
+        cache_key = (url, source_currency, target_currency)
         cache_seconds = int(self.config.EXCHANGE_RATE_CACHE_SECONDS)
         now = time.time()
         cache = self._exchange_rate_cache
@@ -156,7 +157,6 @@ class PaykillaService(HttpClientMixin):
         if cached and now - cached[0] < cache_seconds:
             return cached[1]
 
-        url = self._exchange_rate_url(source_currency, target_currency)
         response_data = await fetch_json(
             url,
             total_seconds=self.settings.PAYMENT_REQUEST_TIMEOUT_SECONDS,

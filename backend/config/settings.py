@@ -39,8 +39,6 @@ class Settings(
     TelegramTransportSettings,
 ):
     _trusted_subscription_config_path: Path = PrivateAttr()
-    _trusted_outbound_urls: tuple[str, ...] = PrivateAttr(default=())
-    _trusted_smtp_endpoints: tuple[tuple[str, int], ...] = PrivateAttr(default=())
 
     def model_post_init(self, context: object) -> None:
         # Freeze the operator's file selection before database overrides are applied.
@@ -49,11 +47,19 @@ class Settings(
         self._trusted_subscription_config_path = (
             path if path.is_absolute() else root / path
         ).resolve()
-        self._trusted_outbound_urls = (
+
+    @property
+    def _trusted_outbound_urls(self) -> tuple[str, ...]:
+        """Trust the current administrator-selected monitoring destinations."""
+        return (
             str(self.SERVER_STATUS_XRAY_CHECKER_URL or ""),
             str(self.SERVER_STATUS_KUMA_URL or ""),
         )
-        self._trusted_smtp_endpoints = (
+
+    @property
+    def _trusted_smtp_endpoints(self) -> tuple[tuple[str, int], ...]:
+        # Admin assignments mark the field as set, just like explicit env values.
+        return (
             tuple((self.SMTP_HOST.lower().rstrip("."), port) for port in self.smtp_ports_to_try)
             if "SMTP_HOST" in self.model_fields_set
             else ()

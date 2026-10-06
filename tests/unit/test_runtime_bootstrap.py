@@ -38,6 +38,23 @@ async def _noop() -> None:
     return None
 
 
+def test_worker_keeps_outbound_settings_current_without_restart(monkeypatch) -> None:
+    settings = make_settings()
+    session_factory = object()
+    ctx = SimpleNamespace(settings=settings, require_session_factory=lambda: session_factory)
+    keys = {"SMTP_HOST", "PAYKILLA_BASE_URL"}
+    refresh = AsyncMock()
+    sleep = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr(main_worker, "outbound_runtime_setting_keys", lambda: keys)
+    monkeypatch.setattr(main_worker, "refresh_overrides_from_db", refresh)
+    monkeypatch.setattr(main_worker.asyncio, "sleep", sleep)
+    assert "OutboundSettingsRefresh" in {spec.name for spec in main_worker._core_worker_tasks()}
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(main_worker._outbound_settings_refresh_task(ctx))
+    refresh.assert_awaited_once_with(settings, session_factory, keys=keys)
+    sleep.assert_awaited_once_with(5)
+
+
 def teardown_function() -> None:
     reset_plugins()
 

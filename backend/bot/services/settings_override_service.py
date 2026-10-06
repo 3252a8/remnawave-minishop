@@ -404,17 +404,59 @@ async def refresh_overrides_from_db(
         return 0
     if keys is not None:
         try:
+            from bot.payment_providers import find_manifest_owner, get_provider_bundle
+            from bot.payment_providers.base import ProviderEnvConfig
+
             env_only = Settings()
+            fresh_configs: dict[type[ProviderEnvConfig], ProviderEnvConfig | None] = {}
             for key in keys:
                 if key in overrides:
+                    continue
+                owner = find_manifest_owner(key)
+                if owner is not None:
+                    spec, field = owner
+                    bundle = get_provider_bundle(spec.service_key)
+                    if bundle is None or field.target != "config" or bundle.config is None:
+                        continue
+                    target = bundle.config
+                    cls = type(target)
+                    if cls not in fresh_configs:
+                        try:
+                            fresh_configs[cls] = cls()
+                        except Exception:
+                            logger.warning(
+                                "Could not restore provider env defaults for %s", spec.id
+                            )
+                            fresh_configs[cls] = None
+                    fresh = fresh_configs[cls]
+                    if fresh is None:
+                        continue
+                    attr = field.attr or key
+                    setattr(target, attr, getattr(fresh, attr))
+                    if attr not in fresh.model_fields_set:
+                        target.model_fields_set.discard(attr)
                     continue
                 attr_name = _resolve_attribute_name(env_only, key)
                 if attr_name and hasattr(env_only, attr_name):
                     setattr(settings, attr_name, getattr(env_only, attr_name))
+                    if attr_name not in env_only.model_fields_set:
+                        settings.model_fields_set.discard(attr_name)
         except Exception as exc:
             logger.warning("Failed to restore env defaults while refreshing overrides: %s", exc)
         overrides = {key: value for key, value in overrides.items() if key in keys}
     return apply_overrides(settings, overrides)
+
+
+def outbound_runtime_setting_keys() -> set[str]:
+    """Keep SMTP and provider settings consistent in the separate worker process."""
+    from bot.payment_providers import find_manifest_owner
+
+    keys = set()
+    for key in manifest_keys():
+        owner = find_manifest_owner(key)
+        if key.startswith("SMTP_") or (owner is not None and owner[1].target == "config"):
+            keys.add(key)
+    return keys
 
 
 def _provider_api_origin_errors(updates: dict[str, Any]) -> dict[str, str]:
@@ -596,10 +638,14 @@ async def update_overrides(
                     attr = manifest_field.attr or key
                     if hasattr(fresh, attr):
                         setattr(target, attr, getattr(fresh, attr))
+                        if attr not in fresh.model_fields_set:
+                            target.model_fields_set.discard(attr)
                     continue
                 attr_name = _resolve_attribute_name(env_only, key) or key
                 if hasattr(env_only, attr_name):
                     setattr(settings, attr_name, getattr(env_only, attr_name))
+                    if attr_name not in env_only.model_fields_set:
+                        settings.model_fields_set.discard(attr_name)
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Failed to restore env defaults: %s", exc)
 

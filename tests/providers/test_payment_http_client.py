@@ -1,6 +1,10 @@
 import unittest
 from types import SimpleNamespace
 
+from aiohttp import web
+from aiohttp.test_utils import TestServer
+
+from bot.payment_providers.paykilla.config import PaykillaConfig
 from bot.payment_providers.shared.http_client import (
     HttpClientMixin,
     _should_retry_transport_error,
@@ -8,7 +12,8 @@ from bot.payment_providers.shared.http_client import (
 
 
 class _DummyHttpClient(HttpClientMixin):
-    def __init__(self, total_timeout=20):
+    def __init__(self, total_timeout=20, config=None):
+        self.config = config
         self._init_http_client(total_timeout=total_timeout)
 
 
@@ -53,3 +58,43 @@ class PaymentHttpClientTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(session.timeout.total, 20.0)
         finally:
             await client.close()
+
+    async def test_admin_api_url_change_updates_connections_and_keeps_keys_on_origin(self):
+        received = []
+
+        async def api(request):
+            received.append(request.headers.get("X-API-Key"))
+            return web.json_response({"host": request.host})
+
+        first_app = web.Application()
+        first_app.router.add_get("/api", api)
+        second_app = web.Application()
+        second_app.router.add_get("/api", api)
+        first_server = TestServer(first_app)
+        second_server = TestServer(second_app)
+        await first_server.start_server()
+        await second_server.start_server()
+        config = PaykillaConfig()
+        client = _DummyHttpClient(config=config)
+        try:
+            first_url = str(first_server.make_url("/api"))
+            second_url = str(second_server.make_url("/api"))
+            config.BASE_URL = first_url
+            first = await client._get_session()
+            async with first.get(first_url, headers={"X-API-Key": "test-key"}) as response:
+                self.assertEqual(response.status, 200)
+                await response.read()
+            config.BASE_URL = second_url
+            second = await client._get_session()
+            self.assertIsNot(second, first)
+            self.assertFalse(first.closed)
+            async with second.get(second_url, headers={"X-API-Key": "test-key"}) as response:
+                self.assertEqual(response.status, 200)
+                await response.read()
+            with self.assertRaises(ValueError):
+                await second.get(first_url, headers={"X-API-Key": "test-key"})
+            self.assertEqual(received, ["test-key", "test-key"])
+        finally:
+            await client.close()
+            await first_server.close()
+            await second_server.close()

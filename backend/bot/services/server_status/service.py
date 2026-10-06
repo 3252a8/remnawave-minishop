@@ -45,21 +45,54 @@ class ServerStatusService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._session: aiohttp.ClientSession | None = None
+        self._stale_sessions: list[aiohttp.ClientSession] = []
+        self._session_cleanup_tasks: set[asyncio.Task[None]] = set()
         self._lock = asyncio.Lock()
         self._local_cache: dict[str, tuple[datetime, ServerStatus]] = {}
         self._outbound_policy = OutboundPolicy(approved_endpoints(settings._trusted_outbound_urls))
 
     async def start(self) -> None:
+        trusted = approved_endpoints(self.settings._trusted_outbound_urls)
+        timeout = aiohttp.ClientTimeout(total=self.settings.SERVER_STATUS_TIMEOUT_SECONDS)
+        session = self._session
+        if (
+            session is not None
+            and not session.closed
+            and (trusted != self._outbound_policy.trusted or session.timeout != timeout)
+        ):
+            self._session = None
+            self._stale_sessions.append(session)
+            task = asyncio.create_task(self._close_stale_session(session))
+            self._session_cleanup_tasks.add(task)
+            task.add_done_callback(self._session_cleanup_tasks.discard)
         if self._session is None or self._session.closed:
+            self._outbound_policy = OutboundPolicy(trusted)
             self._session = aiohttp.ClientSession(
+                timeout=timeout,
                 connector=aiohttp.TCPConnector(resolver=GuardedResolver(self._outbound_policy)),
                 trace_configs=[outbound_trace(self._outbound_policy)],
             )
 
+    async def _close_stale_session(self, session: aiohttp.ClientSession) -> None:
+        # Preserve in-flight requests while retiring cached DNS and connections.
+        await asyncio.sleep((session.timeout.total or 5) + 1)
+        if session in self._stale_sessions:
+            self._stale_sessions.remove(session)
+        await session.close()
+
     async def close(self) -> None:
-        if self._session is not None:
-            await self._session.close()
-            self._session = None
+        tasks = list(self._session_cleanup_tasks)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._session_cleanup_tasks.clear()
+        sessions = [self._session, *self._stale_sessions]
+        self._session = None
+        self._stale_sessions = []
+        for session in sessions:
+            if session is not None:
+                await session.close()
 
     def _fingerprint(self) -> str:
         settings = self.settings
@@ -213,16 +246,16 @@ class ServerStatusService:
                 return status
 
     async def _fetch_json(self, provider: str, url: str) -> object:
-        if self._session is None or self._session.closed:
-            await self.start()
+        await self.start()
         assert self._session is not None
-        timeout = aiohttp.ClientTimeout(total=self.settings.SERVER_STATUS_TIMEOUT_SECONDS)
+        session = self._session
+        policy = self._outbound_policy
         started = time.monotonic()
         response: aiohttp.ClientResponse | None = None
         body: bytes | None = None
         try:
-            self._outbound_policy.check_url(url)
-            async with self._session.get(url, timeout=timeout) as response:
+            policy.check_url(url)
+            async with session.get(url) as response:
                 body_buffer = bytearray()
                 while len(body_buffer) <= MAX_PROVIDER_RESPONSE_BYTES:
                     chunk = await response.content.read(

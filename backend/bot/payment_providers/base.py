@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 from aiohttp import web
-from pydantic import PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,10 +32,11 @@ class ProviderEnvConfig(BaseSettings):
     """
 
     ADMIN_ONLY_ENABLED: bool = False
-    _trusted_exchange_rate_url: str = PrivateAttr(default="")
 
-    def model_post_init(self, context: object) -> None:
-        self._trusted_exchange_rate_url = (
+    @property
+    def _trusted_exchange_rate_url(self) -> str:
+        """Follow the configured rate endpoint, including administrator overrides."""
+        return (
             str(getattr(self, "EXCHANGE_RATE_URL", "") or "")
             if "EXCHANGE_RATE_URL" in self.model_fields_set
             else ""
