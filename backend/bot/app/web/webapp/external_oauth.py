@@ -111,6 +111,12 @@ def _redirect(
     status: str,
     tariff_access_code: str | None = None,
 ) -> str:
+    # Provider names are query data, never a destination or an extra query parameter.
+    provider = {
+        "discord": "discord",
+        "google": "google",
+        "yandex": "yandex",
+    }.get(provider, "external")
     normalized_access_code = normalize_tariff_access_code(tariff_access_code)
     path = (
         "/settings/security"
@@ -119,7 +125,8 @@ def _redirect(
         if normalized_access_code
         else "/"
     )
-    return f"{path}?external_auth={provider}:{status}"
+    query = urlencode({"external_auth": f"{provider}:{status}"}, safe=":")
+    return f"{path}?{query}"
 
 
 def _set_state_cookie(

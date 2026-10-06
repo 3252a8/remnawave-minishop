@@ -1,7 +1,10 @@
 import asyncio
+import socket
+import ssl
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import cast
+from unittest.mock import Mock, patch
 
 import pytest
 from aiohttp import web
@@ -9,9 +12,30 @@ from aiohttp.test_utils import TestServer
 
 from bot.payment_providers.paykilla.config import PaykillaConfig, _exchange_rate_sync
 from bot.payment_providers.paykilla.service import PaykillaService
-from bot.utils.http_transport import fetch_json, fetch_json_sync
+from bot.utils.http_transport import _PinnedHTTPSConnection, fetch_json, fetch_json_sync
 from bot.utils.outbound_network import OutboundPolicy, approved_endpoints
 from config.settings import Settings
+
+
+def test_pinned_https_connection_requires_modern_tls_and_verified_hostname() -> None:
+    raw_socket = Mock(spec=socket.socket)
+
+    def wrap_socket(
+        context: ssl.SSLContext, connection: socket.socket, *, server_hostname: str
+    ) -> socket.socket:
+        assert context.minimum_version >= ssl.TLSVersion.TLSv1_2
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname
+        assert server_hostname == "rates.example"
+        return connection
+
+    connection = _PinnedHTTPSConnection("rates.example", 443, 2, OutboundPolicy())
+    with (
+        patch("bot.utils.http_transport.connect_socket", return_value=raw_socket),
+        patch.object(ssl.SSLContext, "wrap_socket", wrap_socket),
+    ):
+        connection.connect()
+    assert connection.sock is raw_socket
 
 
 @pytest.mark.parametrize("url", ["file:///etc/passwd", "http://169.254.169.254/latest"])

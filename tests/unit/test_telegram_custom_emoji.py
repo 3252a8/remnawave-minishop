@@ -34,6 +34,16 @@ def test_fallback_rejects_multiple_or_broken_sequences(value) -> None:
     assert not valid_emoji_fallback(value)
 
 
+@pytest.mark.parametrize("value", ["\ufffd", "\u2193", "\u219a", "\U0001fffe", "-", "_"])
+def test_fallback_rejects_characters_outside_unicode_pictographic_ranges(value: str) -> None:
+    assert not valid_emoji_fallback(value)
+
+
+@pytest.mark.parametrize("value", ["\u2194", "\u2199", "\U0001fc00", "\U0001fffd"])
+def test_fallback_preserves_unicode_pictographic_range_endpoints(value: str) -> None:
+    assert valid_emoji_fallback(value)
+
+
 def test_lint_validates_entities_and_email_keeps_only_unicode_fallback() -> None:
     assert telegram_html_error(HTML) is None
     assert (

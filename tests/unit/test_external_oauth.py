@@ -191,6 +191,18 @@ def test_discord_oauth_uses_supported_authorization_parameters() -> None:
     asyncio.run(_discord_oauth_uses_supported_authorization_parameters())
 
 
+def test_external_oauth_redirect_treats_untrusted_values_as_query_data() -> None:
+    for provider in ("//evil.example", "google&next=https://evil.example", "google\r\nLocation: x"):
+        location = urlsplit(external_oauth._redirect(provider, "login", "not_configured"))
+        assert not location.scheme and not location.netloc
+        assert location.path == "/"
+        assert parse_qs(location.query) == {"external_auth": ["external:not_configured"]}
+    status = "failure&next=//evil.example\r\nLocation: x"
+    location = urlsplit(external_oauth._redirect("google", "link", status))
+    assert location.path == "/settings/security"
+    assert parse_qs(location.query) == {"external_auth": [f"google:{status}"]}
+
+
 async def _discord_profile_maps_verified_identity() -> None:
     captured: dict[str, object] = {}
 

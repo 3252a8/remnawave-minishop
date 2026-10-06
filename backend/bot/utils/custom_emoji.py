@@ -2,47 +2,177 @@
 
 from __future__ import annotations
 
-import re
+from bisect import bisect_right
 from html.parser import HTMLParser
 
 from config.telegram_emoji import CUSTOM_EMOJI_ID_RE
 
 # Extended_Pictographic (Unicode 17.0), matching the editor's Unicode property.
 # Ranges derived from the project's Node Unicode engine; no runtime dependency.
-_EXTENDED_PICTOGRAPHIC = re.compile(
-    "["
-    "\u00a9\u00ae\u203c\u2049\u2122\u2139\u2194-\u2199\u21a9-\u21aa\u231a-\u231b\u2328"
-    "\u23cf\u23e9-\u23f3\u23f8-\u23fa\u24c2\u25aa-\u25ab\u25b6\u25c0\u25fb-\u25fe"
-    "\u2600-\u2604\u260e\u2611\u2614-\u2615\u2618\u261d\u2620\u2622-\u2623\u2626\u262a"
-    "\u262e-\u262f\u2638-\u263a\u2640\u2642\u2648-\u2653\u265f-\u2660\u2663\u2665-\u2666"
-    "\u2668\u267b\u267e-\u267f\u2692-\u2697\u2699\u269b-\u269c\u26a0-\u26a1\u26a7"
-    "\u26aa-\u26ab\u26b0-\u26b1\u26bd-\u26be\u26c4-\u26c5\u26c8\u26ce-\u26cf\u26d1"
-    "\u26d3-\u26d4\u26e9-\u26ea\u26f0-\u26f5\u26f7-\u26fa\u26fd\u2702\u2705\u2708-\u270d"
-    "\u270f\u2712\u2714\u2716\u271d\u2721\u2728\u2733-\u2734\u2744\u2747\u274c\u274e"
-    "\u2753-\u2755\u2757\u2763-\u2764\u2795-\u2797\u27a1\u27b0\u27bf\u2934-\u2935"
-    "\u2b05-\u2b07\u2b1b-\u2b1c\u2b50\u2b55\u3030\u303d\u3297\u3299\U0001f004"
-    "\U0001f02c-\U0001f02f\U0001f094-\U0001f09f\U0001f0af-\U0001f0b0\U0001f0c0"
-    "\U0001f0cf-\U0001f0d0\U0001f0f6-\U0001f0ff\U0001f170-\U0001f171\U0001f17e-\U0001f17f"
-    "\U0001f18e\U0001f191-\U0001f19a\U0001f1ae-\U0001f1e5\U0001f201-\U0001f20f\U0001f21a"
-    "\U0001f22f\U0001f232-\U0001f23a\U0001f23c-\U0001f23f\U0001f249-\U0001f25f"
-    "\U0001f266-\U0001f321\U0001f324-\U0001f393\U0001f396-\U0001f397\U0001f399-\U0001f39b"
-    "\U0001f39e-\U0001f3f0\U0001f3f3-\U0001f3f5\U0001f3f7-\U0001f3fa\U0001f400-\U0001f4fd"
-    "\U0001f4ff-\U0001f53d\U0001f549-\U0001f54e\U0001f550-\U0001f567\U0001f56f-\U0001f570"
-    "\U0001f573-\U0001f57a\U0001f587\U0001f58a-\U0001f58d\U0001f590\U0001f595-\U0001f596"
-    "\U0001f5a4-\U0001f5a5\U0001f5a8\U0001f5b1-\U0001f5b2\U0001f5bc\U0001f5c2-\U0001f5c4"
-    "\U0001f5d1-\U0001f5d3\U0001f5dc-\U0001f5de\U0001f5e1\U0001f5e3\U0001f5e8\U0001f5ef"
-    "\U0001f5f3\U0001f5fa-\U0001f64f\U0001f680-\U0001f6c5\U0001f6cb-\U0001f6d2"
-    "\U0001f6d5-\U0001f6e5\U0001f6e9\U0001f6eb-\U0001f6f0\U0001f6f3-\U0001f6ff"
-    "\U0001f7da-\U0001f7ff\U0001f80c-\U0001f80f\U0001f848-\U0001f84f\U0001f85a-\U0001f85f"
-    "\U0001f888-\U0001f88f\U0001f8ae-\U0001f8af\U0001f8bc-\U0001f8bf\U0001f8c2-\U0001f8cf"
-    "\U0001f8d9-\U0001f8ff\U0001f90c-\U0001f93a\U0001f93c-\U0001f945\U0001f947-\U0001f9ff"
-    "\U0001fa58-\U0001fa5f\U0001fa6e-\U0001faff\U0001fc00-\U0001fffd"
-    "]"
+_EXTENDED_PICTOGRAPHIC_RANGES = (
+    (0x00A9, 0x00A9),
+    (0x00AE, 0x00AE),
+    (0x203C, 0x203C),
+    (0x2049, 0x2049),
+    (0x2122, 0x2122),
+    (0x2139, 0x2139),
+    (0x2194, 0x2199),
+    (0x21A9, 0x21AA),
+    (0x231A, 0x231B),
+    (0x2328, 0x2328),
+    (0x23CF, 0x23CF),
+    (0x23E9, 0x23F3),
+    (0x23F8, 0x23FA),
+    (0x24C2, 0x24C2),
+    (0x25AA, 0x25AB),
+    (0x25B6, 0x25B6),
+    (0x25C0, 0x25C0),
+    (0x25FB, 0x25FE),
+    (0x2600, 0x2604),
+    (0x260E, 0x260E),
+    (0x2611, 0x2611),
+    (0x2614, 0x2615),
+    (0x2618, 0x2618),
+    (0x261D, 0x261D),
+    (0x2620, 0x2620),
+    (0x2622, 0x2623),
+    (0x2626, 0x2626),
+    (0x262A, 0x262A),
+    (0x262E, 0x262F),
+    (0x2638, 0x263A),
+    (0x2640, 0x2640),
+    (0x2642, 0x2642),
+    (0x2648, 0x2653),
+    (0x265F, 0x2660),
+    (0x2663, 0x2663),
+    (0x2665, 0x2666),
+    (0x2668, 0x2668),
+    (0x267B, 0x267B),
+    (0x267E, 0x267F),
+    (0x2692, 0x2697),
+    (0x2699, 0x2699),
+    (0x269B, 0x269C),
+    (0x26A0, 0x26A1),
+    (0x26A7, 0x26A7),
+    (0x26AA, 0x26AB),
+    (0x26B0, 0x26B1),
+    (0x26BD, 0x26BE),
+    (0x26C4, 0x26C5),
+    (0x26C8, 0x26C8),
+    (0x26CE, 0x26CF),
+    (0x26D1, 0x26D1),
+    (0x26D3, 0x26D4),
+    (0x26E9, 0x26EA),
+    (0x26F0, 0x26F5),
+    (0x26F7, 0x26FA),
+    (0x26FD, 0x26FD),
+    (0x2702, 0x2702),
+    (0x2705, 0x2705),
+    (0x2708, 0x270D),
+    (0x270F, 0x270F),
+    (0x2712, 0x2712),
+    (0x2714, 0x2714),
+    (0x2716, 0x2716),
+    (0x271D, 0x271D),
+    (0x2721, 0x2721),
+    (0x2728, 0x2728),
+    (0x2733, 0x2734),
+    (0x2744, 0x2744),
+    (0x2747, 0x2747),
+    (0x274C, 0x274C),
+    (0x274E, 0x274E),
+    (0x2753, 0x2755),
+    (0x2757, 0x2757),
+    (0x2763, 0x2764),
+    (0x2795, 0x2797),
+    (0x27A1, 0x27A1),
+    (0x27B0, 0x27B0),
+    (0x27BF, 0x27BF),
+    (0x2934, 0x2935),
+    (0x2B05, 0x2B07),
+    (0x2B1B, 0x2B1C),
+    (0x2B50, 0x2B50),
+    (0x2B55, 0x2B55),
+    (0x3030, 0x3030),
+    (0x303D, 0x303D),
+    (0x3297, 0x3297),
+    (0x3299, 0x3299),
+    (0x1F004, 0x1F004),
+    (0x1F02C, 0x1F02F),
+    (0x1F094, 0x1F09F),
+    (0x1F0AF, 0x1F0B0),
+    (0x1F0C0, 0x1F0C0),
+    (0x1F0CF, 0x1F0D0),
+    (0x1F0F6, 0x1F0FF),
+    (0x1F170, 0x1F171),
+    (0x1F17E, 0x1F17F),
+    (0x1F18E, 0x1F18E),
+    (0x1F191, 0x1F19A),
+    (0x1F1AE, 0x1F1E5),
+    (0x1F201, 0x1F20F),
+    (0x1F21A, 0x1F21A),
+    (0x1F22F, 0x1F22F),
+    (0x1F232, 0x1F23A),
+    (0x1F23C, 0x1F23F),
+    (0x1F249, 0x1F25F),
+    (0x1F266, 0x1F321),
+    (0x1F324, 0x1F393),
+    (0x1F396, 0x1F397),
+    (0x1F399, 0x1F39B),
+    (0x1F39E, 0x1F3F0),
+    (0x1F3F3, 0x1F3F5),
+    (0x1F3F7, 0x1F3FA),
+    (0x1F400, 0x1F4FD),
+    (0x1F4FF, 0x1F53D),
+    (0x1F549, 0x1F54E),
+    (0x1F550, 0x1F567),
+    (0x1F56F, 0x1F570),
+    (0x1F573, 0x1F57A),
+    (0x1F587, 0x1F587),
+    (0x1F58A, 0x1F58D),
+    (0x1F590, 0x1F590),
+    (0x1F595, 0x1F596),
+    (0x1F5A4, 0x1F5A5),
+    (0x1F5A8, 0x1F5A8),
+    (0x1F5B1, 0x1F5B2),
+    (0x1F5BC, 0x1F5BC),
+    (0x1F5C2, 0x1F5C4),
+    (0x1F5D1, 0x1F5D3),
+    (0x1F5DC, 0x1F5DE),
+    (0x1F5E1, 0x1F5E1),
+    (0x1F5E3, 0x1F5E3),
+    (0x1F5E8, 0x1F5E8),
+    (0x1F5EF, 0x1F5EF),
+    (0x1F5F3, 0x1F5F3),
+    (0x1F5FA, 0x1F64F),
+    (0x1F680, 0x1F6C5),
+    (0x1F6CB, 0x1F6D2),
+    (0x1F6D5, 0x1F6E5),
+    (0x1F6E9, 0x1F6E9),
+    (0x1F6EB, 0x1F6F0),
+    (0x1F6F3, 0x1F6FF),
+    (0x1F7DA, 0x1F7FF),
+    (0x1F80C, 0x1F80F),
+    (0x1F848, 0x1F84F),
+    (0x1F85A, 0x1F85F),
+    (0x1F888, 0x1F88F),
+    (0x1F8AE, 0x1F8AF),
+    (0x1F8BC, 0x1F8BF),
+    (0x1F8C2, 0x1F8CF),
+    (0x1F8D9, 0x1F8FF),
+    (0x1F90C, 0x1F93A),
+    (0x1F93C, 0x1F945),
+    (0x1F947, 0x1F9FF),
+    (0x1FA58, 0x1FA5F),
+    (0x1FA6E, 0x1FAFF),
+    (0x1FC00, 0x1FFFD),
 )
+_EXTENDED_PICTOGRAPHIC_STARTS = tuple(start for start, _ in _EXTENDED_PICTOGRAPHIC_RANGES)
 
 
 def _emoji_base(code: int) -> bool:
-    return _EXTENDED_PICTOGRAPHIC.fullmatch(chr(code)) is not None
+    index = bisect_right(_EXTENDED_PICTOGRAPHIC_STARTS, code) - 1
+    return index >= 0 and code <= _EXTENDED_PICTOGRAPHIC_RANGES[index][1]
 
 
 def valid_emoji_fallback(value: str) -> bool:

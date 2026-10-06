@@ -17,6 +17,12 @@ from bot.utils.outbound_network import (
 _MAX_JSON_BYTES = 1024 * 1024
 
 
+def _tls_context() -> ssl.SSLContext:
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    return context
+
+
 class _PinnedHTTPConnection(http.client.HTTPConnection):
     def __init__(self, host: str, port: int, timeout: float, policy: OutboundPolicy) -> None:
         super().__init__(host, port, timeout=timeout)
@@ -31,9 +37,7 @@ class _PinnedHTTPSConnection(_PinnedHTTPConnection):
     def connect(self) -> None:
         connection = connect_socket(self.policy, self.host, self.port, self.connect_timeout)
         try:
-            self.sock = ssl.create_default_context().wrap_socket(
-                connection, server_hostname=self.host
-            )
+            self.sock = _tls_context().wrap_socket(connection, server_hostname=self.host)
         except BaseException:
             connection.close()
             raise
@@ -79,7 +83,7 @@ async def fetch_json(url: str, *, total_seconds: float, policy: OutboundPolicy) 
     async with (
         ClientSession(
             timeout=ClientTimeout(total=total_seconds),
-            connector=TCPConnector(resolver=GuardedResolver(policy)),
+            connector=TCPConnector(resolver=GuardedResolver(policy), ssl=_tls_context()),
             trace_configs=[outbound_trace(policy)],
         ) as session,
         session.get(url) as response,
