@@ -26,6 +26,9 @@ from .payloads import (
     WebAppEmailRequestPayload,
     WebAppPasskeyCredentialPayload,
     WebAppPromoApplyPayload,
+    WebAppQrLoginApprovePayload,
+    WebAppQrLoginClaimPayload,
+    WebAppQrLoginRequestPayload,
     WebAppTelegramAuthPayload,
 )
 
@@ -87,6 +90,58 @@ AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         response_schema=AUTH_RESPONSE_SCHEMA,
     ),
     "external_oauth_pending_cancel_route": public_contract(
+        response_schema=ok_envelope_with(),
+    ),
+    "qr_login_start_route": public_contract(
+        response_schema=ok_envelope_with(
+            {
+                "request_id": STRING_SCHEMA,
+                "qr_url": STRING_SCHEMA,
+                "expires_in": INTEGER_SCHEMA,
+                "poll_interval": INTEGER_SCHEMA,
+            }
+        )
+    ),
+    "qr_login_poll_route": public_contract(
+        request_model=WebAppQrLoginRequestPayload,
+        response_schema=ok_envelope_with(
+            {
+                "status": STRING_SCHEMA,
+                "match_number": INTEGER_SCHEMA,
+                "expires_in": INTEGER_SCHEMA,
+                "user_id": NULLABLE_INTEGER_SCHEMA,
+                "telegram_id": NULLABLE_INTEGER_SCHEMA,
+                "token": STRING_SCHEMA,
+                "csrf_token": STRING_SCHEMA,
+            },
+            required=["status"],
+        ),
+    ),
+    "qr_login_cancel_route": public_contract(
+        request_model=WebAppQrLoginRequestPayload,
+        response_schema=ok_envelope_with(),
+    ),
+    "account_qr_login_claim_route": user_contract(
+        request_model=WebAppQrLoginClaimPayload,
+        response_schema=ok_envelope_with(
+            {
+                "request_id": STRING_SCHEMA,
+                "browser": STRING_SCHEMA,
+                "os": STRING_SCHEMA,
+                "ip": STRING_SCHEMA,
+                "expires_in": INTEGER_SCHEMA,
+            }
+        ),
+    ),
+    "account_qr_login_approve_route": user_contract(
+        request_model=WebAppQrLoginApprovePayload,
+        response_schema=ok_envelope_with(
+            {"status": STRING_SCHEMA, "attempts_left": INTEGER_SCHEMA},
+            required=[],
+        ),
+    ),
+    "account_qr_login_deny_route": user_contract(
+        request_model=WebAppQrLoginRequestPayload,
         response_schema=ok_envelope_with(),
     ),
     "logout_route": public_contract(response_schema=ok_envelope_with()),

@@ -184,10 +184,11 @@ async def _security_headers_middleware(
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Robots-Tag", "noindex, nofollow, noarchive")
+    camera_sources = "self" if get_settings(request).QR_LOGIN_ENABLED else ""
     response.headers.setdefault(
         "Permissions-Policy",
         (
-            "accelerometer=(), autoplay=(), camera=(), display-capture=(), "
+            f"accelerometer=(), autoplay=(), camera=({camera_sources}), display-capture=(), "
             "encrypted-media=(), geolocation=(), gyroscope=(), magnetometer=(), "
             "microphone=(), midi=(), payment=(), usb=()"
         ),

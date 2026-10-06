@@ -29,6 +29,8 @@
     showCloseButton?: boolean;
     /** Hosts with an async first control can defer focus until that control mounts. */
     focusOnOpen?: boolean;
+    /** Refocus after a host replaces the dialog's active controls. */
+    focusKey?: string;
     /** Escape transformed/scrolling ancestors when a dialog is nested in a card or dialog. */
     portal?: boolean;
     titleIcon?: Snippet;
@@ -48,6 +50,7 @@
     scrollType = "auto",
     showCloseButton = true,
     focusOnOpen = true,
+    focusKey = "",
     portal = false,
     titleIcon,
     headerContent,
@@ -83,6 +86,7 @@
 
   $effect(() => {
     if (!open || !focusOnOpen) return;
+    void focusKey;
     focusFirstDialogControl(() => card);
   });
 

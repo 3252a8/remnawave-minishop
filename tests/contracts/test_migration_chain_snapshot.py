@@ -117,6 +117,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0098_topup_period_lifetime",
     "0099_regular_topup_accounting",
     "0100_subscription_notification_periods",
+    "0101_qr_login_requests",
 ]
 
 

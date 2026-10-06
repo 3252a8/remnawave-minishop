@@ -378,6 +378,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/qr-login/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Qr Login Approve */
+    post: operations["post_account_qr_login_approve_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/qr-login/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Qr Login Claim */
+    post: operations["post_account_qr_login_claim_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/qr-login/deny": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Qr Login Deny */
+    post: operations["post_account_qr_login_deny_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/telegram/link": {
     parameters: {
       query?: never;
@@ -3339,6 +3390,57 @@ export interface paths {
     put?: never;
     /** Passkey Auth Verify */
     post: operations["post_passkey_auth_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/qr/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qr Login Cancel */
+    post: operations["post_qr_login_cancel_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/qr/poll": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qr Login Poll */
+    post: operations["post_qr_login_poll_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/qr/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qr Login Start */
+    post: operations["post_qr_login_start_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -12133,6 +12235,23 @@ export interface components {
        */
       use_partner_balance: boolean;
     };
+    /** WebAppQrLoginApprovePayload */
+    WebAppQrLoginApprovePayload: {
+      /** Number */
+      number: number;
+      /** Request Id */
+      request_id: string;
+    };
+    /** WebAppQrLoginClaimPayload */
+    WebAppQrLoginClaimPayload: {
+      /** Code */
+      code: string;
+    };
+    /** WebAppQrLoginRequestPayload */
+    WebAppQrLoginRequestPayload: {
+      /** Request Id */
+      request_id: string;
+    };
     /** WebAppSetPasswordPayload */
     WebAppSetPasswordPayload: {
       /** Code */
@@ -13164,6 +13283,94 @@ export interface operations {
             /** @constant */
             ok: true;
             retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_qr_login_approve_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginApprovePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            attempts_left?: number;
+            /** @constant */
+            ok: true;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+  post_account_qr_login_claim_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginClaimPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            browser: string;
+            expires_in: number;
+            ip: string;
+            /** @constant */
+            ok: true;
+            os: string;
+            request_id: string;
+          };
+        };
+      };
+    };
+  };
+  post_account_qr_login_deny_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -18864,6 +19071,94 @@ export interface operations {
       };
     };
   };
+  post_qr_login_cancel_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_qr_login_poll_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            csrf_token?: string;
+            expires_in?: number;
+            match_number?: number;
+            /** @constant */
+            ok: true;
+            status: string;
+            telegram_id?: number | null;
+            token?: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_qr_login_start_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            expires_in: number;
+            /** @constant */
+            ok: true;
+            poll_interval: number;
+            qr_url: string;
+            request_id: string;
+          };
+        };
+      };
+    };
+  };
   get_session_route: {
     parameters: {
       query?: never;
@@ -19947,6 +20242,7 @@ export interface operations {
               notification_preferences_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
+              public_url?: string;
               recommended_auth_providers?: string[];
               referral_program_enabled?: boolean;
               server_status_url?: string | null;

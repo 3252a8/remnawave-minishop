@@ -208,9 +208,10 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             flush=AsyncMock(),
         )
 
-        with patch("db.dal.user_merge_dal.get_user_by_id", AsyncMock(return_value=user)):
+        with patch("db.dal.user_delete_dal.get_user_by_id", AsyncMock(return_value=user)) as lookup:
             deleted = await user_dal.delete_user_and_relations(session, 42)
 
+        lookup.assert_awaited_once_with(session, 42)
         self.assertTrue(deleted)
 
         delete_tables = []

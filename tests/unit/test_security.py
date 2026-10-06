@@ -1327,7 +1327,11 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         }
         handler = AsyncMock(return_value=web.Response(text="ok"))
 
-        response = await subscription_webapp._security_headers_middleware(request, handler)
+        with patch(
+            "bot.app.web.webapp.assets.get_settings",
+            return_value=settings_stub(QR_LOGIN_ENABLED=False),
+        ):
+            response = await subscription_webapp._security_headers_middleware(request, handler)
         csp = response.headers["Content-Security-Policy"]
 
         self.assertNotIn("'unsafe-eval'", csp)
@@ -1336,6 +1340,19 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("img-src 'self' data: blob: https:;", csp)
         self.assertNotIn("img-src 'self' data: https: http:;", csp)
         self.assertEqual(response.headers["X-Robots-Tag"], "noindex, nofollow, noarchive")
+        self.assertIn("camera=()", response.headers["Permissions-Policy"])
+
+    async def test_qr_login_allows_only_the_shop_to_use_the_camera(self):
+        request = {}
+        handler = AsyncMock(return_value=web.Response(text="ok"))
+        with patch(
+            "bot.app.web.webapp.assets.get_settings",
+            return_value=settings_stub(QR_LOGIN_ENABLED=True),
+        ):
+            response = await subscription_webapp._security_headers_middleware(request, handler)
+        policy = response.headers["Permissions-Policy"]
+        self.assertIn("camera=(self)", policy)
+        self.assertIn("microphone=()", policy)
 
 
 class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):

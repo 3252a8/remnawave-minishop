@@ -758,6 +758,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
         "recommended_auth_providers": STRING_ARRAY_SCHEMA,
+        "public_url": STRING_SCHEMA,
         "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },
 }

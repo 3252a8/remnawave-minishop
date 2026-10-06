@@ -46,10 +46,10 @@ from .user_broadcast_dal import (  # noqa: F401
     get_user_ids_without_active_subscription,
     get_user_ids_without_any_subscription,
 )
+from .user_delete_dal import delete_user_and_relations as delete_user_and_relations
 from .user_email_dal import upsert_user_email_address
 from .user_merge_dal import (  # noqa: F401
     UserMergeConflictError,
-    delete_user_and_relations,
     merge_users,
 )
 from .user_reads_dal import (  # noqa: F401

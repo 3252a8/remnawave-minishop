@@ -166,6 +166,14 @@ from .payloads import (
 from .payloads import (
     WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
 )
+from .qr_login import (
+    account_qr_login_approve_route,
+    account_qr_login_claim_route,
+    account_qr_login_deny_route,
+    qr_login_cancel_route,
+    qr_login_poll_route,
+    qr_login_start_route,
+)
 from .server_status import server_status_route
 from .subscription_gateway import subscription_gateway_route
 from .subscription_reissue import (
@@ -332,6 +340,9 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/auth/external/cancel", external_oauth_pending_cancel_route)
     app.router.add_post("/api/auth/passkey/options", passkey_auth_options_route)
     app.router.add_post("/api/auth/passkey/verify", passkey_auth_verify_route)
+    app.router.add_post("/api/auth/qr/start", qr_login_start_route)
+    app.router.add_post("/api/auth/qr/poll", qr_login_poll_route)
+    app.router.add_post("/api/auth/qr/cancel", qr_login_cancel_route)
     app.router.add_get("/api/auth/session", session_route)
     app.router.add_post("/api/auth/logout", logout_route)
     app.router.add_get("/api/bootstrap", bootstrap_route)
@@ -386,6 +397,9 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/account/passkeys/options", account_passkey_options_route)
     app.router.add_post("/api/account/passkeys/register", account_passkey_register_route)
     app.router.add_post("/api/account/passkeys/delete", account_passkey_delete_route)
+    app.router.add_post("/api/account/qr-login/claim", account_qr_login_claim_route)
+    app.router.add_post("/api/account/qr-login/approve", account_qr_login_approve_route)
+    app.router.add_post("/api/account/qr-login/deny", account_qr_login_deny_route)
     app.router.add_post("/api/account/identities/unlink", external_identity_unlink_route)
     app.router.add_post("/api/account/telegram/link", account_telegram_link_route)
     app.router.add_post("/api/account/telegram/merge/request", account_telegram_merge_request_route)
