@@ -976,6 +976,7 @@ AccountAlias = auth_models.AccountAlias
 UserEmailAddress = auth_models.UserEmailAddress
 UserPasskeyCredential = auth_models.UserPasskeyCredential
 WebAuthnChallenge = auth_models.WebAuthnChallenge
+QrLoginRequest = auth_models.QrLoginRequest
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage

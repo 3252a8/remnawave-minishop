@@ -91,7 +91,7 @@
     orderAuthProviders([
       ...authProviders,
       ...externalIdentities.map((identity) => String(identity.provider || "")),
-    ]).filter((provider) => !["telegram", "email", "passkey"].includes(provider))
+    ]).filter((provider) => !["telegram", "email", "passkey", "qr"].includes(provider))
   );
   const passkeyEnabled = $derived(authProviders.includes("passkey"));
   const showPasskeys = $derived(passkeyEnabled || passkeys.length > 0);

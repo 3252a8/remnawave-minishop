@@ -27,6 +27,7 @@ from ..models import (
     MessageLog,
     Payment,
     PromoCodeActivation,
+    QrLoginRequest,
     Subscription,
     SubscriptionNotification,
     SupportTicket,
@@ -766,6 +767,7 @@ async def merge_users(
     await session.execute(
         delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == source_user_id)
     )
+    await session.execute(delete(QrLoginRequest).where(QrLoginRequest.user_id == source_user_id))
 
     from .gift_dal import merge_owner
 
@@ -834,6 +836,7 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
         delete(UserPasskeyCredential).where(UserPasskeyCredential.user_id == user_id)
     )
     await session.execute(delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == user_id))
+    await session.execute(delete(QrLoginRequest).where(QrLoginRequest.user_id == user_id))
 
     # Financial partner history is intentionally retained, but the deleted
     # account must no longer be identifiable or able to receive attribution.

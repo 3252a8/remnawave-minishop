@@ -6,6 +6,7 @@
     FileText,
     Handshake,
     Megaphone,
+    ScanQrCode,
     Send,
     Server,
     Shield,
@@ -19,6 +20,7 @@
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import MenuButtonIcon from "../MenuButtonIcon.svelte";
+  import QrLoginApprover from "../security/QrLoginApprover.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import { shouldShowUserBalance } from "$lib/webapp/balanceUiPolicy.js";
   import {
@@ -66,6 +68,7 @@
     promoFieldError?: string;
     promoIsError?: boolean;
     promoStatus?: string;
+    qrLoginEnabled?: boolean;
     serverStatusUrl?: string;
     serverStatusInternal?: boolean;
     supportUrl?: string;
@@ -125,6 +128,7 @@
     promoFieldError = "",
     promoIsError = false,
     promoStatus = "",
+    qrLoginEnabled = false,
     serverStatusUrl = "",
     serverStatusInternal = false,
     supportUrl = "",
@@ -161,6 +165,7 @@
 
   const showEmailAccount = $derived(emailAuthEnabled);
   let themeMenuOpen = $state(false);
+  let qrApprover = $state<ReturnType<typeof QrLoginApprover>>();
   let publicDocuments = $state<PublicInformationDocument[]>([]);
   let settingsDocuments = $state<PublicInformationDocument[]>([]);
   const hasNativePrivacyPolicy = $derived(
@@ -260,6 +265,23 @@
   {/if}
   <div class="settings-links-block">
     <div class="settings-divider" aria-hidden="true"></div>
+    {#if qrLoginEnabled && api}
+      <button
+        data-webapp-action="scan-qr-login"
+        class="settings-row settings-row-qr-login"
+        type="button"
+        onclick={() => qrApprover?.scan()}
+      >
+        <ScanQrCode size={21} />
+        <span>
+          <strong>{t("wa_settings_qr_login_scan")}</strong>
+          <small>{t("wa_settings_qr_login_scan_hint")}</small>
+        </span>
+        <ArrowRight size={17} />
+      </button>
+      <div class="settings-divider" aria-hidden="true"></div>
+      <QrLoginApprover bind:this={qrApprover} {api} {t} />
+    {/if}
     {#if notificationPreferencesEnabled}
       <button
         data-webapp-action="open-notifications"

@@ -25,6 +25,8 @@
   } from "$lib/webapp/authHelpers.js";
   import { loginWithPasskey, passkeysSupported } from "$lib/webapp/passkeys.js";
   import ProviderLogo from "./ProviderLogo.svelte";
+  import QrLoginDialog from "./QrLoginDialog.svelte";
+  import { parseQrLoginCode } from "$lib/webapp/qrLogin.js";
 
   type WebappConfig = Record<string, unknown> & {
     authProviders?: string[];
@@ -136,6 +138,10 @@
   let externalLoginBusy = $state(false);
   let externalLoginStatus = $state("");
   let emailFormOpen = $state(false);
+  let qrLoginOpen = $state(false);
+  // A sign-in link scanned by a camera lands here when this browser is signed out.
+  const qrApprovalPending =
+    typeof window !== "undefined" && parseQrLoginCode(window.location.hash) !== null;
 
   const emailAuthEnabled = $derived(CFG.emailAuthEnabled !== false);
   const authProviders = $derived(
@@ -456,7 +462,20 @@
                         )}{/if}
                     </Button>
                   {/if}
-                  {#if !["telegram", "email", "google", "yandex", "discord", "passkey"].includes(provider)}
+                  {#if provider === "qr"}
+                    <Button
+                      class={`${isCompact("qr") ? "auth-provider-compact" : "wide"} auth-provider-button`}
+                      variant="secondary"
+                      onclick={() => (qrLoginOpen = true)}
+                      disabled={authBusy || externalLoginBusy}
+                      aria-label={t("wa_login_qr")}
+                      data-auth-provider="qr"
+                    >
+                      <ProviderLogo provider="qr" size={isCompact("qr") ? 26 : 18} />
+                      {#if !isCompact("qr")}{t("wa_login_qr")}{/if}
+                    </Button>
+                  {/if}
+                  {#if !["telegram", "email", "google", "yandex", "discord", "passkey", "qr"].includes(provider)}
                     {@const label = t("wa_login_provider", {
                       provider: authProviderName(provider, t),
                     })}
@@ -474,6 +493,11 @@
                   {/if}
                 {/each}
               </div>
+              {#if qrApprovalPending}
+                <StatusMessage class="auth-login-status">
+                  {t("wa_qr_login_signed_out_hint")}
+                </StatusMessage>
+              {/if}
               {#if emailAuthEnabled}
                 <div class="password-switch-stack">
                   <div class="password-switch-divider" aria-hidden="true"></div>
@@ -618,3 +642,10 @@
     </div>
   </div>
 {/if}
+
+<QrLoginDialog
+  open={qrLoginOpen}
+  apiBase={String(CFG.apiBase || "/api")}
+  {t}
+  onclose={() => (qrLoginOpen = false)}
+/>

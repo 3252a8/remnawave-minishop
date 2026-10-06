@@ -22,7 +22,7 @@ function asTelegramWebApp(tg: unknown): TelegramWebAppLike {
 
 type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
 
-const AUTH_PROVIDER_ORDER = ["telegram", "email", "google", "yandex", "discord", "passkey"];
+const AUTH_PROVIDER_ORDER = ["telegram", "email", "google", "yandex", "discord", "passkey", "qr"];
 
 export function orderAuthProviders(providers: readonly string[]): string[] {
   const available = new Set(providers.filter(Boolean));
@@ -32,6 +32,7 @@ export function orderAuthProviders(providers: readonly string[]): string[] {
 export function authProviderName(provider: string, t: TranslateFn): string {
   if (provider === "email") return t("wa_security_email_source");
   if (provider === "passkey") return t("wa_security_passkey_default_name");
+  if (provider === "qr") return t("wa_login_qr");
   const names: Record<string, string> = {
     discord: "Discord",
     google: "Google",

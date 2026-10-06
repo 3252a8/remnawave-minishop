@@ -128,6 +128,8 @@ if TYPE_CHECKING:
         PASSKEY_LOGIN_ENABLED: bool
         PASSKEY_LOGIN_RECOMMENDED: bool
         PASSKEY_LOGIN_WIDE_BUTTON: bool
+        QR_LOGIN_ENABLED: bool
+        QR_LOGIN_WIDE_BUTTON: bool
         PASSKEY_RP_ID: str | None
         PASSKEY_RP_NAME: str | None
         PASSKEY_ORIGINS: str | None
@@ -935,6 +937,8 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             providers.append("discord")
         if self.PASSKEY_LOGIN_ENABLED:
             providers.append("passkey")
+        if self.QR_LOGIN_ENABLED:
+            providers.append("qr")
         return providers
 
     @computed_field
@@ -964,6 +968,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             ("yandex", self.YANDEX_LOGIN_WIDE_BUTTON),
             ("discord", self.DISCORD_LOGIN_WIDE_BUTTON),
             ("passkey", self.PASSKEY_LOGIN_WIDE_BUTTON),
+            ("qr", self.QR_LOGIN_WIDE_BUTTON),
         )
         return [provider for provider, wide in preferences if wide and provider in available]
 

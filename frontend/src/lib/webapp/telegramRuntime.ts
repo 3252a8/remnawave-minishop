@@ -15,6 +15,11 @@ export type TelegramWebApp = Record<string, unknown> & {
   openInvoice?: (url: string, callback: (status: string) => void) => void;
   openLink?: (url: string, options?: Record<string, unknown>) => void;
   openTelegramLink?: (url: string) => void;
+  showScanQrPopup?: (
+    params: { text?: string },
+    callback?: (text: string) => boolean | void
+  ) => void;
+  closeScanQrPopup?: () => void;
   platform?: string;
   isFullscreen?: boolean;
   isVersionAtLeast?: (version: string) => boolean;

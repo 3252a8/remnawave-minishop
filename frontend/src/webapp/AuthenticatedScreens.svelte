@@ -611,6 +611,9 @@
     {:else if screen === "settings"}
       <SettingsScreen
         {api}
+        qrLoginEnabled={(
+          (appSettings.auth_providers || appSettings.authProviders || []) as string[]
+        ).includes("qr")}
         {routePrefix}
         {currentLang}
         {currentLanguageOption}

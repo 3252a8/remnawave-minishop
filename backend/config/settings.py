@@ -694,6 +694,8 @@ class Settings(
     PASSKEY_LOGIN_ENABLED: bool = Field(default=False)
     PASSKEY_LOGIN_RECOMMENDED: bool = Field(default=True)
     PASSKEY_LOGIN_WIDE_BUTTON: bool = Field(default=False)
+    QR_LOGIN_ENABLED: bool = Field(default=False)
+    QR_LOGIN_WIDE_BUTTON: bool = Field(default=False)
     PASSKEY_RP_ID: str | None = Field(
         default=None,
         description="WebAuthn relying-party domain. Empty means the public Web App hostname.",

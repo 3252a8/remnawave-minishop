@@ -68,6 +68,7 @@ export {
   Repeat2,
   RotateCcw,
   Save,
+  ScanQrCode,
   Search,
   Send,
   Server,

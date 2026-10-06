@@ -39,6 +39,9 @@ WEBAPP_CSRF_EXEMPT_PATHS = {
     "/api/auth/email/password",
     "/api/auth/passkey/options",
     "/api/auth/passkey/verify",
+    "/api/auth/qr/start",
+    "/api/auth/qr/poll",
+    "/api/auth/qr/cancel",
     "/api/auth/logout",
     "/api/notification-preferences/unsubscribe",
 }

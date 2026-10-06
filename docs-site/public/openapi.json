@@ -17321,6 +17321,61 @@
         "title": "WebAppPromoQuotePayload",
         "type": "object"
       },
+      "WebAppQrLoginApprovePayload": {
+        "properties": {
+          "number": {
+            "maximum": 99,
+            "minimum": 0,
+            "title": "Number",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 22,
+            "minLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "number"
+        ],
+        "title": "WebAppQrLoginApprovePayload",
+        "type": "object"
+      },
+      "WebAppQrLoginClaimPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 22,
+            "minLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "WebAppQrLoginClaimPayload",
+        "type": "object"
+      },
+      "WebAppQrLoginRequestPayload": {
+        "properties": {
+          "request_id": {
+            "maxLength": 22,
+            "minLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "WebAppQrLoginRequestPayload",
+        "type": "object"
+      },
       "WebAppSetPasswordPayload": {
         "properties": {
           "code": {
@@ -19479,6 +19534,179 @@
           }
         ],
         "summary": "Account Password Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/qr-login/approve": {
+      "post": {
+        "operationId": "post_account_qr_login_approve_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginApprovePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attempts_left": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Qr Login Approve",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/qr-login/claim": {
+      "post": {
+        "operationId": "post_account_qr_login_claim_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginClaimPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "browser": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "ip": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "os": {
+                      "type": "string"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "request_id",
+                    "browser",
+                    "os",
+                    "ip",
+                    "expires_in"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Qr Login Claim",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/qr-login/deny": {
+      "post": {
+        "operationId": "post_account_qr_login_deny_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Qr Login Deny",
         "tags": [
           "account"
         ]
@@ -31814,6 +32042,153 @@
           }
         },
         "summary": "Passkey Auth Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/qr/cancel": {
+      "post": {
+        "operationId": "post_qr_login_cancel_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Qr Login Cancel",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/qr/poll": {
+      "post": {
+        "operationId": "post_qr_login_poll_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "match_number": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Qr Login Poll",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/qr/start": {
+      "post": {
+        "operationId": "post_qr_login_start_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "poll_interval": {
+                      "type": "integer"
+                    },
+                    "qr_url": {
+                      "type": "string"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "request_id",
+                    "qr_url",
+                    "expires_in",
+                    "poll_interval"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Qr Login Start",
         "tags": [
           "auth"
         ]

@@ -144,7 +144,7 @@ export async function registerPasskey(
   if (!response.ok) throw response;
 }
 
-function publicApiUrl(apiBase: string, path: string): string {
+export function publicApiUrl(apiBase: string, path: string): string {
   const base = String(apiBase || "/api").replace(/\/+$/, "");
   return `${base}/${path.replace(/^\/+/, "")}`;
 }
