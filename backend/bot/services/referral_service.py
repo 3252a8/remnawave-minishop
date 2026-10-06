@@ -75,6 +75,16 @@ class ReferralService:
                 if referral_program_enabled(self.settings)
                 else None
             )
+            partner_config = getattr(self.settings, "partner_settings", None)
+            if (
+                inviter_user_id is not None
+                and bool(getattr(partner_config, "enabled", False))
+                and bool(getattr(partner_config, "referral_program_disabled", False))
+                and not await PartnerProgramService(
+                    self.settings
+                ).referral_program_enabled_for_user(session, user_id=inviter_user_id)
+            ):
+                inviter_user_id = None
             partner_client_bonus = False
             if inviter_user_id is None:
                 partner_client_bonus = await PartnerProgramService(
