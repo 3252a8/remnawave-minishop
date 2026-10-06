@@ -15,6 +15,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.behavior_events import BotStartedSource, emit_bot_started
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
+from bot.services.referral_welcome_trial import referral_welcome_bonus_joins_trial
 from bot.services.registration_invite_gate import (
     evaluate_registration_invite,
     referral_program_enabled,
@@ -364,8 +365,14 @@ async def start_command_handler(
                                 session, user_id
                             )
                         )
+                        bonus_waits_for_trial = False
                         if not eligible:
                             referral_bonus_end_date = None
+                            await session.rollback()
+                        elif referral_welcome_bonus_joins_trial(settings):
+                            # The bonus is added to the trial when the user activates it.
+                            referral_bonus_end_date = None
+                            bonus_waits_for_trial = True
                             await session.rollback()
                         else:
                             db_user = locked_user
@@ -409,6 +416,15 @@ async def start_command_handler(
                                     "referral_welcome_bonus_applied",
                                     days=referral_welcome_days,
                                     end_date=referral_bonus_end_date.strftime("%d.%m.%Y %H:%M:%S"),
+                                ),
+                                parse_mode="HTML",
+                            )
+                        elif bonus_waits_for_trial:
+                            await message.answer(
+                                _(
+                                    "referral_welcome_bonus_added_to_trial",
+                                    days=referral_welcome_days,
+                                    trial_days=settings.TRIAL_DURATION_DAYS + referral_welcome_days,
                                 ),
                                 parse_mode="HTML",
                             )

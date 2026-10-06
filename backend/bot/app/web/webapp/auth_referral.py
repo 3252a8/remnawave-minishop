@@ -14,6 +14,7 @@ from bot.app.web.context import (
 from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.services.partner_program_service import PartnerProgramService
+from bot.services.referral_welcome_trial import referral_welcome_bonus_joins_trial
 from bot.services.registration_invite_gate import (
     RegistrationInviteRequiredError,
     evaluate_registration_invite,
@@ -171,6 +172,9 @@ async def _grant_referral_welcome_bonus_if_eligible(
 
     referral_welcome_days = max(0, int(settings.referral_settings.welcome_bonus_days))
     if referral_welcome_days <= 0:
+        return None
+    if referral_welcome_bonus_joins_trial(settings):
+        # The bonus is added to the trial when the user activates it.
         return None
 
     subscription_service: SubscriptionService = get_subscription_service(request)

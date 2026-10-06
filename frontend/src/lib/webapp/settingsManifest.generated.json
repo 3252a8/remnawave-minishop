@@ -14543,6 +14543,25 @@
         "updated_at": null
       },
       {
+        "key": "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL",
+        "type": "bool",
+        "section": "pricing",
+        "section_order": 11,
+        "subsection": "referral",
+        "label": "Referral Welcome Bonus Adds To Trial",
+        "description": "Add the welcome bonus days to the free trial instead of granting a separate bonus subscription at sign-up. Applies while a free trial is enabled.",
+        "i18n_label_key": "admin_settings_field_referral_welcome_bonus_adds_to_trial_label",
+        "i18n_description_key": "admin_settings_field_referral_welcome_bonus_adds_to_trial_description",
+        "i18n_subsection_key": "admin_settings_subsection_referral",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "REFERRAL_WEBAPP_LINK_ENABLED",
         "type": "bool",
         "section": "pricing",

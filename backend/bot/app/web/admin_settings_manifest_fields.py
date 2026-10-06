@@ -626,6 +626,17 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="referral",
     ),
     SettingField(
+        "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL",
+        "bool",
+        "pricing",
+        "Referral Welcome Bonus Adds To Trial",
+        (
+            "Add the welcome bonus days to the free trial instead of granting a separate "
+            "bonus subscription at sign-up. Applies while a free trial is enabled."
+        ),
+        subsection="referral",
+    ),
+    SettingField(
         "REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED",
         "bool",
         "system",

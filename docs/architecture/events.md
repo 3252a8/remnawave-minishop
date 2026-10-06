@@ -425,7 +425,7 @@
 
 Модель данных события: `ReferralBonusGrantedPayload`
 
-Источники события: `backend/bot/app/web/webapp/auth.py`, `backend/bot/handlers/user/start.py`, `backend/bot/payment_providers/shared/success.py`, `backend/bot/payment_providers/yookassa.py`, `backend/bot/services/referral_accrual_worker.py`, `backend/bot/services/referral_service.py`
+Источники события: `backend/bot/app/web/webapp/auth.py`, `backend/bot/handlers/user/start.py`, `backend/bot/payment_providers/shared/success.py`, `backend/bot/payment_providers/yookassa.py`, `backend/bot/services/referral_accrual_worker.py`, `backend/bot/services/referral_service.py`, `backend/bot/services/subscription_service_impl/trial.py`
 
 Реакции Core: `CoreEventReactions.on_referral_bonus_granted`
 

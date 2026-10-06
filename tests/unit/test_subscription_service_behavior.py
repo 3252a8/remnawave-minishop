@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, patch
 
+from bot.infra.event_payloads import ReferralBonusGrantedPayload, TrialActivatedPayload
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.panel_identity import (
@@ -855,6 +856,74 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
             self.assertEqual(panel_payload["trafficLimitStrategy"], "MONTH")
             self.assertEqual(panel_payload["hwidDeviceLimit"], 2)
             self.assertEqual(panel_payload["activeInternalSquads"], ["trial-squad"])
+
+    async def test_activate_trial_adds_pending_referral_welcome_bonus_days(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _make_settings(
+                _tariffs_config_payload(),
+                tmpdir,
+                TRIAL_ENABLED=True,
+                TRIAL_DURATION_DAYS=7,
+                TRIAL_TRAFFIC_LIMIT_GB=5,
+                REFERRAL_WELCOME_BONUS_DAYS=3,
+                REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL=True,
+            )
+            service = _make_service(settings)
+            service.has_trial_blocking_subscription = AsyncMock(return_value=False)
+            service._get_or_create_panel_user_link = AsyncMock(
+                return_value=PanelUserLink("panel-user", "panel-sub", "short", False, False, None)
+            )
+            _configure_persisted_panel_echo(service)
+            session = AsyncMock()
+            db_user = SimpleNamespace(
+                user_id=42,
+                telegram_id=42,
+                panel_user_uuid="panel-user",
+                email=None,
+                username="trial-user",
+                first_name="Trial",
+                last_name="User",
+                referred_by_id=7,
+                referral_welcome_bonus_claimed_at=None,
+            )
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.trial.user_dal.lock_user_by_id",
+                    AsyncMock(return_value=db_user),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.deactivate_other_active_subscriptions",
+                    AsyncMock(),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.trial.subscription_dal.upsert_subscription",
+                    AsyncMock(),
+                ) as upsert_subscription,
+                patch(
+                    "bot.services.subscription_service_impl.trial.events.emit_model",
+                    AsyncMock(),
+                ) as emit_model,
+            ):
+                result = await service.activate_trial_subscription(session, user_id=42)
+
+            self.assertTrue(result["activated"])
+            self.assertEqual(result["days"], 10)
+            sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(
+                sub_payload["end_date"] - sub_payload["start_date"], timedelta(days=10)
+            )
+            create_options = service._get_or_create_panel_user_link.await_args.kwargs[
+                "create_options"
+            ]
+            self.assertEqual(create_options.default_expire_days, 10)
+            self.assertIsNotNone(db_user.referral_welcome_bonus_claimed_at)
+            payloads = [call.args[0] for call in emit_model.await_args_list]
+            bonus = [p for p in payloads if isinstance(p, ReferralBonusGrantedPayload)]
+            self.assertEqual(len(bonus), 1)
+            self.assertEqual(bonus[0].referee_bonus_days, 3)
+            trial = [p for p in payloads if isinstance(p, TrialActivatedPayload)]
+            self.assertEqual(trial[0].days, 10)
 
     async def test_activate_trial_provisions_new_panel_user_with_trial_access_once(self):
         with tempfile.TemporaryDirectory() as tmpdir:
