@@ -29,6 +29,7 @@ from bot.infra.promo_policies import (
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
+from bot.services.referral_welcome_trial import referral_welcome_trial_bonus_days
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
@@ -283,6 +284,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             else None
         )
         trial_available = bool(trial_base_available and not trial_oauth_required_reason)
+        trial_welcome_bonus_days = (
+            await referral_welcome_trial_bonus_days(session, settings, db_user)
+            if trial_base_available
+            else 0
+        )
         lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
         plans_payload = _serialize_plans(
             settings,
@@ -522,7 +528,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_OAUTH_ENABLED),
             "trial_requires_telegram": bool(trial_oauth_required_reason and not telegram_linked),
             "trial_block_reason": trial_oauth_required_reason,
-            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
+            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0)
+            + trial_welcome_bonus_days,
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
             "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
             "subscription_purchase_description": subscription_purchase_description_text(

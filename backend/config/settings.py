@@ -416,6 +416,13 @@ class Settings(
             "Disposable email domains are still blocked until Telegram is linked."
         ),
     )
+    REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL: bool = Field(
+        default=False,
+        description=(
+            "Add the referral welcome bonus days to the free trial instead of granting a "
+            "separate bonus subscription at sign-up. Applies while a free trial is enabled."
+        ),
+    )
     REFERRAL_WEBAPP_LINK_ENABLED: bool = Field(
         default=True,
         description="Show the website referral link in the user Web App bonus section.",
