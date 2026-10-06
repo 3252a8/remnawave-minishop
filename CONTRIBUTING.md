@@ -78,32 +78,49 @@ LOG, G, PLE, T10` (задан в `pyproject.toml` `[tool.ruff.lint]`); `per-file
 
 ### Локальные backend-тесты на Windows
 
-На Windows вне CI `npm test` использует локальный Linux engine Docker Desktop,
-если он доступен. Собирается существующий target `qa`, а снимок текущих исходников
-из Git, включая новые неигнорируемые файлы, распаковывается внутри контейнера.
-Частые обращения SQLite и отладочных стеков asyncio идут к файловой системе Linux.
-Первый запуск собирает зависимости; следующие используют кеш Docker.
-Рабочие `.env`-файлы в снимок не входят. Это действует также внутри
-`npm run check:backend` и `npm run check`.
+На Windows вне CI `npm test` запускает свежий снимок текущих Git-исходников
+(включая новые неигнорируемые файлы) в Linux Docker. `.env` и граф знаний не
+попадают в снимок. Target `qa-deps` содержит только Python/Node/Docker CLI и
+зависимости; фронтенд и код продукта при подготовке окружения не собираются.
+Отладочный asyncio, warnings-as-errors и аргументы pytest сохраняются.
 
-Если Docker Desktop недоступен, используется `.venv\Scripts\python.exe`,
-а без локального окружения — обычная команда `pytest`. Для native-окружения
-рекомендуется Python 3.12, как в CI:
-
-```powershell
-uv venv --python 3.12 .venv
-uv pip install --python .venv\Scripts\python.exe -r backend\requirements.txt -r requirements-dev.txt
-npm test
-npm test -- tests/unit/test_missing_panel_profile.py
+```bash
+npm run check:local    # подготовка зависимостей по fingerprint + полный npm run check
+npm run qa:local       # полный изолированный stand, upgrade и zero-skips tests
+npm run test:env        # один раз подготовить Linux-зависимости
+npm run test:env:refresh # обновить ОС/зависимости явно; требуется сеть
+npm run test:env:gc     # освободить старые удерживающие контейнеры
 ```
 
-Существующее окружение не заменяется автоматически. Для явного native-запуска
-установите `$env:MINISHOP_LOCAL_TEST_RUNTIME = "native"`. Прямой запуск
-`python -m pytest` использует Python из текущего `PATH`; для него сначала
-активируйте `.venv`. Если локально выставлен `CI=true` для Playwright, значение
-`MINISHOP_LOCAL_TEST_RUNTIME=container` явно разрешает контейнерный backend-прогон.
-GitHub Actions и GitLab CI сохраняют прежний запуск `pytest`; флаги, код завершения,
-отладочный режим asyncio и проверка warnings-as-errors передаются без изменений.
+`check:local` требует Node 24, uv и Python 3.12 (uv может скачать Python).
+Native Python и frontend node_modules хранятся вне checkout в
+`%LOCALAPPDATA%/minishop/test-envs` либо `$XDG_CACHE_HOME/minishop/test-envs`
+(по умолчанию `~/.cache/minishop/test-envs`); `MINISHOP_TEST_CACHE_DIR` меняет
+корень. node_modules подключается ссылкой. После очистки checkout ссылка
+восстанавливается, установка по неизменённым manifest/lock не повторяется.
+Пути разных ОС, архитектур и версий Node изолированы.
+
+Linux-образ закрепляется в `deploy/docker/test-runtime.lock.json` по digest и
+fingerprint зависимостей. GitLab публикует только dependency stage в
+`3252a8/remnawave-minishop-test-runtime`; artifact с новым lock нужно проверить
+и добавить в dev. При смене входных файлов старый lock не используется; при
+недоступности реестра есть локальная сборка. Mutable tag никогда не заменяет
+digest уже проверенного lock. Для обновления: `test:env:refresh`, затем
+`node scripts/test_runtime.mjs publish` с авторизацией Docker Hub как `3252a8`.
+Не переиспользуйте тестовые базы данных между прогонами.
+
+Остановленный keeper с `minishop.local.keep=true` удерживает только образ и
+не запускает процессов. Очистка контейнеров обязана исключать эту метку:
+`docker container prune -f --filter "label!=minishop.local.keep=true"`.
+Не используйте неограниченный `docker system prune` для этого engine.
+Пределы активного pytest: 4 CPU / 4 GiB; переопределение —
+`MINISHOP_TEST_CPUS` и `MINISHOP_TEST_MEMORY`. Вне запуска ресурсы не резервируются.
+Подробные правила хранения и обновления: [test-environments.md](docs/test-environments.md).
+
+Без Docker используется `.venv/Scripts/python.exe` или pytest из PATH.
+`MINISHOP_LOCAL_TEST_RUNTIME=native` выбирает native явно;
+`MINISHOP_LOCAL_TEST_RUNTIME=container` разрешает контейнер и на Linux/в CI.
+Не сохраняйте рабочие секреты в образ, lock или snapshot.
 
 **Фронтенд** (`frontend/`):
 ```bash

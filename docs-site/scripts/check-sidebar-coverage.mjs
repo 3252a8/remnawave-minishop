@@ -19,7 +19,7 @@ function documentationRoute(relativePath) {
   const source = toPosix(relativePath).replace(/\.md$/iu, '');
   if (source === '../CHANGELOG') return 'changelog';
   if (source === 'index') return '';
-  if (source === 'architecture') return 'reference/architecture';
+  if (!source.includes('/')) return `reference/${source}`;
   if (source.endsWith('/index')) return source.slice(0, -'/index'.length);
   return source;
 }

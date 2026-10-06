@@ -50,6 +50,42 @@ jobs:
       - name: Validate compose config
         run: npm run dev:stand:config
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Warm current-source backend build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: backend
+          load: true
+          tags: 3252a8/remnawave-minishop-backend:qa-${{ github.sha }}
+          cache-from: type=gha,scope=backend,timeout=2m
+          provenance: false
+
+      - name: Warm current-source worker build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: worker
+          load: true
+          tags: 3252a8/remnawave-minishop-worker:qa-${{ github.sha }}
+          cache-from: type=gha,scope=worker,timeout=2m
+          provenance: false
+
+      - name: Warm current-source frontend build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: frontend
+          load: true
+          tags: 3252a8/remnawave-minishop-frontend:qa-${{ github.sha }}
+          cache-from: type=gha,scope=frontend,timeout=2m
+          provenance: false
+
       - name: Start dev stand
         env:
           PANEL_WRITE_MODE: live

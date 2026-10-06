@@ -178,6 +178,7 @@ export default defineConfig({
             { label: 'Контракт плагинов', slug: 'development/plugin-contract' },
             { label: 'Архитектура', slug: 'reference/architecture' },
             { label: 'Единый dev stand', slug: 'development/dev-stand' },
+            { label: 'Окружения тестов', slug: 'reference/test-environments' },
             { label: 'Рецепты изменений', slug: 'development/how-to' },
             { label: 'Карта Graphify', slug: 'development/graphify' },
             { label: 'Runes QA', slug: 'development/runes-migration-qa' },

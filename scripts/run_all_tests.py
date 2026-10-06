@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from qa_tools.compose import prune_optional_dependencies
+
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILES = ("docker-compose-dev.yml", "docker-compose.remnawave-dev.yml")
 SOURCE_VERSION = "2.8.1"
@@ -38,6 +43,11 @@ class FullTestRun:
         (self.output / "empty.env").write_text("", encoding="utf-8")
         self.compose_path = self.output / "compose.json"
         self.keep_stand = keep_stand
+        self.runtime_image = ""
+        self.built_images: set[str] = set()
+        self.node = shutil.which("node")
+        if not self.node:
+            raise RuntimeError("Node.js 24+ must be installed on the host")
         self.environment = dict(os.environ)
         # A developer's exported production settings must not override the QA env file.
         for filename in COMPOSE_FILES:
@@ -126,12 +136,20 @@ class FullTestRun:
         services: dict[str, Any] = config["services"]
         for unwanted in ("newt", "worker", "dev-mock-data"):
             services.pop(unwanted, None)
-        for service in services.values():
+        prune_optional_dependencies(services)
+        for name, service in services.items():
             service.pop("container_name", None)
             service.pop("ports", None)
             service.pop("profiles", None)
             service["restart"] = "no"
-            service.get("depends_on", {}).pop("dev-mock-data", None)
+            service["cpus"] = float(os.environ.get("MINISHOP_STAND_SERVICE_CPUS", "2"))
+            memory = os.environ.get("MINISHOP_STAND_SERVICE_MEMORY", "1g")
+            if "redis" in name:
+                memory = "256m"
+            elif name in {"postgres", "remnawave-db"}:
+                memory = "768m"
+            service["mem_limit"] = memory
+            service["memswap_limit"] = memory
             for mount in service.get("volumes", []):
                 if mount["target"] == "/app/data":
                     mount.clear()
@@ -141,6 +159,7 @@ class FullTestRun:
             if "build" in service:
                 target = service["build"]["target"]
                 service["image"] = f"{self.project}-{target}:local"
+                self.built_images.add(service["image"])
         for resource in (*config["volumes"].values(), *config["networks"].values()):
             resource.pop("name", None)
             resource.pop("external", None)
@@ -151,16 +170,23 @@ class FullTestRun:
                 "required": True,
             }
         services["qa"] = {
-            "image": f"{self.project}-tests:local",
-            "build": {
-                "context": str(ROOT),
-                "dockerfile": "deploy/docker/Dockerfile",
-                "target": "qa",
-            },
+            "image": self.runtime_image,
+            "entrypoint": [
+                "bash",
+                "-c",
+                "tar -xf /tmp/minishop-test-sources.tar -C /workspace && "
+                "exec timeout --signal=TERM --kill-after=30s "
+                '"$${MINISHOP_TEST_TIMEOUT:-2h}" "$@"',
+                "--",
+            ],
             "working_dir": "/workspace",
+            "cpus": float(os.environ.get("MINISHOP_TEST_CPUS", "4")),
+            "mem_limit": os.environ.get("MINISHOP_TEST_MEMORY", "4g"),
+            "memswap_limit": os.environ.get("MINISHOP_TEST_MEMORY", "4g"),
             "environment": {
                 "PYTHONPATH": "/workspace/backend:/workspace",
                 "PYTHONDONTWRITEBYTECODE": "1",
+                "MINISHOP_TEST_TIMEOUT": os.environ.get("MINISHOP_TEST_TIMEOUT", "2h"),
                 "COVERAGE_FILE": "/reports/.coverage",
                 "QA_FULLSTACK": "1",
                 "QA_ENV_FILE": "/reports/stand.env",
@@ -175,8 +201,16 @@ class FullTestRun:
                 "QA_DB_DSN": "postgresql://remnawave_minishop:remnawave_minishop@postgres:5432/remnawave_minishop",
                 "QA_PAYMENT_SECRET": self.values["QA_PAYMENT_SECRET"],
                 "MINISHOP_RUN_DOCKER_INTEGRATION": "1",
+                "CORE_PERFORMANCE_TEST_DATABASE_URL": "postgresql+asyncpg://remnawave_minishop:remnawave_minishop@postgres:5432/remnawave_minishop",
+                "CORE_PERFORMANCE_TEST_REDIS_URL": "redis://redis:6379/15",
             },
             "volumes": [
+                {
+                    "type": "bind",
+                    "source": str(self.output / "sources.tar"),
+                    "target": "/tmp/minishop-test-sources.tar",
+                    "read_only": True,
+                },
                 {"type": "bind", "source": str(self.output), "target": "/reports"},
                 {
                     "type": "bind",
@@ -227,10 +261,28 @@ class FullTestRun:
     def execute(self) -> None:
         self.run(["docker", "info", "--format", "{{.OSType}}"])
         self.run(["docker", "compose", "version", "--short"])
+        assert self.node is not None
+        self.run(
+            [
+                self.node,
+                "scripts/test_runtime.mjs",
+                "prepare",
+                "--output",
+                str(self.output / "runtime.json"),
+            ],
+            log="runtime.log",
+        )
+        self.runtime_image = json.loads((self.output / "runtime.json").read_text(encoding="utf-8"))[
+            "image"
+        ]
+        self.run(
+            [self.node, "scripts/test_sources.mjs", str(self.output / "sources.tar")],
+            log="snapshot.log",
+        )
         self.write_compose()
         try:
             self.run(self.compose("config", "--quiet"))
-            self.run(self.compose("build", "backend", "frontend", "qa"), log="build.log")
+            self.run(self.compose("build", "backend", "frontend"), log="build.log")
             self.run(
                 self.compose(
                     "up",
@@ -319,6 +371,23 @@ class FullTestRun:
                     self.run(
                         self.compose("down", "--volumes", "--remove-orphans"), log="cleanup.log"
                     )
+                    existing = [
+                        image
+                        for image in sorted(self.built_images)
+                        if subprocess.run(
+                            ["docker", "image", "inspect", image],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        ).returncode
+                        == 0
+                    ]
+                    if existing:
+                        self.run(
+                            ["docker", "image", "rm", *existing],
+                            log="image-cleanup.log",
+                        )
+                    for filename in ("sources.tar", "files.txt"):
+                        (self.output / filename).unlink(missing_ok=True)
 
 
 def main() -> int:

@@ -26,6 +26,7 @@ export default defineConfig({
     },
   },
   test: {
+    fsModuleCache: true,
     environment: "node",
     include: ["src/**/*.{test,spec}.{js,ts}"],
   },

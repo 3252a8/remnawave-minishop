@@ -1,4 +1,5 @@
 stages:
+  - verify
   - publish
   - dispatch
 
@@ -33,6 +34,34 @@ variables:
     - printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
   after_script:
     - docker logout
+
+publish-test-runtime:
+  extends: .publish-dockerhub-images
+  stage: verify
+  resource_group: dockerhub-test-runtime
+  variables:
+    MINISHOP_TEST_RUNTIME_CANDIDATE: "1"
+  before_script:
+    - apk add --no-cache nodejs git tar
+    - test "$DOCKERHUB_USERNAME" = "3252a8"
+    - printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+  script:
+    - if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then node scripts/test_runtime.mjs refresh; fi
+    - MINISHOP_LOCAL_TEST_RUNTIME=container node scripts/run_pytest.mjs tests/unit/test_full_test_run.py tests/unit/test_source_files.py
+    - node scripts/test_runtime.mjs publish
+  artifacts:
+    paths:
+      - deploy/docker/test-runtime.lock.json
+    expire_in: 90 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev" && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "schedule")'
+      changes:
+        - deploy/docker/Dockerfile
+        - deploy/docker/refresh_pip_vendor.py
+        - backend/requirements.txt
+        - requirements-dev.txt
+        - scripts/test_runtime.mjs
+        - .gitlab-ci.yml
 
 publish-dev-images:
   extends: .publish-dockerhub-images

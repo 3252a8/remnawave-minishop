@@ -7,6 +7,8 @@ name: PR checks
 on:
   pull_request:
     branches: [main, dev]
+  push:
+    branches: [dev]
   workflow_dispatch:
 
 concurrency:
@@ -91,8 +93,12 @@ jobs:
   # admin dialogs, dialog tabs, disclosure panels, activation handoff, and zero
   # console errors.
   webapp-e2e:
-    name: Webapp e2e smoke
+    name: Webapp e2e smoke (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -113,14 +119,14 @@ jobs:
         working-directory: frontend
 
       - name: Run webapp mock-smoke
-        run: npm run test:e2e
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         working-directory: frontend
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: frontend/playwright-report/
           retention-days: 7
 
@@ -181,6 +187,8 @@ jobs:
       POSTGRES_PORT: "5432"
       POSTGRES_DB: vpn_shop_db
       REDIS_URL: redis://127.0.0.1:6379/0
+      CORE_PERFORMANCE_TEST_DATABASE_URL: postgresql+asyncpg://app_user:app_password@127.0.0.1:5432/vpn_shop_db
+      CORE_PERFORMANCE_TEST_REDIS_URL: redis://127.0.0.1:6379/15
       BOT_TOKEN: "1234567890:AA_secret_bot_token_value"
       ADMIN_IDS: "1"
       WEBAPP_SESSION_SECRET: "test-webapp-session-secret"

@@ -26,8 +26,8 @@
     "typecheck:ts": "tsc --noEmit -p ./jsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
+    "test:e2e": "node ./e2e/run.mjs",
+    "test:e2e:ui": "node ./e2e/run.mjs --ui",
     "check": "npm run check:runes && npm run lint && npm run check:svelte && npm run typecheck:ts && npm run format:check",
     "fix": "npm run format && npm run lint:js:fix"
   },

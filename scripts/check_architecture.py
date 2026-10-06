@@ -6,7 +6,13 @@ import ast
 import fnmatch
 import json
 import re
+import sys
 from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from qa_tools.source_files import iter_source_files
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "scripts" / "architecture_gates.json"
@@ -28,15 +34,7 @@ def _is_allowed(path: str, allowlist: list[str]) -> bool:
 
 
 def _iter_text_files(scope: str, extensions: set[str]) -> list[Path]:
-    base = ROOT / scope
-    if not base.exists():
-        return []
-    if base.is_file():
-        return [base] if base.suffix.lower() in extensions else []
-
-    return [
-        file for file in base.rglob("*") if file.is_file() and file.suffix.lower() in extensions
-    ]
+    return list(iter_source_files(ROOT / scope, extensions))
 
 
 def _find_call_end(text: str, opening_parenthesis: int) -> int | None:
@@ -882,7 +880,7 @@ def _check_runtime_import_contract(cfg: dict, issues: list[str]) -> None:
         if not base.exists():
             continue
 
-        for file in base.rglob("*.py"):
+        for file in _iter_text_files(scope, {".py"}):
             if "tests" in file.parts:
                 continue
 
@@ -920,7 +918,7 @@ def _check_facade_import_contract(cfg: dict, issues: list[str]) -> None:
         if not base.exists():
             continue
 
-        for file in base.rglob("*.py"):
+        for file in _iter_text_files(scope, {".py"}):
             if "tests" in file.parts:
                 continue
             rel = _to_posix(file)

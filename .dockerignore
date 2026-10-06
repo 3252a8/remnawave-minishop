@@ -141,6 +141,11 @@ target/
 # Virtual environment
 .env*
 .venv/
+.venv*/
+graphify-out/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 venv/
 
 # PyCharm

@@ -4,6 +4,11 @@
     "node": ">=24"
   },
   "scripts": {
+    "test:env": "node scripts/test_runtime.mjs prepare",
+    "test:env:refresh": "node scripts/test_runtime.mjs refresh",
+    "test:env:gc": "node scripts/test_runtime.mjs gc",
+    "check:local": "node scripts/check_all.mjs",
+    "qa:local": "node scripts/check_all.mjs --all",
     "build:webapp": "npm --prefix frontend run build:webapp",
     "build:docs": "npm --prefix docs-site run build",
     "generate:readme-screenshot": "npm --prefix frontend run generate:readme-screenshot",
