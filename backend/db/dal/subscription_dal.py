@@ -548,7 +548,22 @@ async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_i
     reset_at = (
         select(User.trial_eligibility_reset_at).where(User.user_id == user_id).scalar_subquery()
     )
+    welcome_claimed_at = (
+        select(User.referral_welcome_bonus_claimed_at)
+        .where(User.user_id == user_id)
+        .scalar_subquery()
+    )
     subscription_anchor = func.coalesce(Subscription.start_date, Subscription.end_date)
+    # The referral welcome bonus is a gift for joining by invite, not the trial.
+    # Once the subscription it created has ended, it no longer blocks the trial.
+    # A purchase on that subscription replaces the "referral" provider, and any
+    # later subscription starts after the claim, so both keep blocking.
+    ended_welcome_bonus = and_(
+        welcome_claimed_at.is_not(None),
+        func.coalesce(Subscription.provider, "") == "referral",
+        subscription_anchor <= welcome_claimed_at,
+        or_(Subscription.is_active.is_not(True), Subscription.end_date <= now_utc),
+    )
     stmt = (
         select(Subscription.subscription_id)
         .where(
@@ -562,6 +577,7 @@ async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_i
                 and_(Subscription.is_active == True, Subscription.end_date > now_utc),
                 subscription_anchor > reset_at,
             ),
+            ~ended_welcome_bonus,
         )
         .limit(1)
     )
