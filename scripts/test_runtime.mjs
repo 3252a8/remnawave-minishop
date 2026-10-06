@@ -127,7 +127,9 @@ async function main() {
     // Explicit GC only touches our unstarted keepers, never running test containers.
     for (const id of result.stdout.trim().split(/\s+/).filter(Boolean)) {
       const name = probe(["inspect", "--format", "{{.Name}}", id]).stdout.trim().replace(/^\//, "");
-      if (name !== current.keeper) await run("docker", ["rm", id]);
+      if (/^minishop-core-test-runtime-[a-z0-9]+-[a-f0-9]{16}$/.test(name) && name !== current.keeper) {
+        await run("docker", ["rm", id]);
+      }
     }
     console.log("Old test runtime keepers released; unused layers can now be pruned");
     return;
