@@ -76,6 +76,35 @@ LOG, G, PLE, T10` (задан в `pyproject.toml` `[tool.ruff.lint]`); `per-file
 поэтому нового lint-исключения по файлу завести нельзя. `pytest.ini` держит
 `filterwarnings = error`: любой незапланированный warning валит прогон.
 
+### Локальные backend-тесты на Windows
+
+На Windows вне CI `npm test` использует локальный Linux engine Docker Desktop,
+если он доступен. Собирается существующий target `qa`, а снимок текущих исходников
+из Git, включая новые неигнорируемые файлы, распаковывается внутри контейнера.
+Частые обращения SQLite и отладочных стеков asyncio идут к файловой системе Linux.
+Первый запуск собирает зависимости; следующие используют кеш Docker.
+Рабочие `.env`-файлы в снимок не входят. Это действует также внутри
+`npm run check:backend` и `npm run check`.
+
+Если Docker Desktop недоступен, используется `.venv\Scripts\python.exe`,
+а без локального окружения — обычная команда `pytest`. Для native-окружения
+рекомендуется Python 3.12, как в CI:
+
+```powershell
+uv venv --python 3.12 .venv
+uv pip install --python .venv\Scripts\python.exe -r backend\requirements.txt -r requirements-dev.txt
+npm test
+npm test -- tests/unit/test_missing_panel_profile.py
+```
+
+Существующее окружение не заменяется автоматически. Для явного native-запуска
+установите `$env:MINISHOP_LOCAL_TEST_RUNTIME = "native"`. Прямой запуск
+`python -m pytest` использует Python из текущего `PATH`; для него сначала
+активируйте `.venv`. Если локально выставлен `CI=true` для Playwright, значение
+`MINISHOP_LOCAL_TEST_RUNTIME=container` явно разрешает контейнерный backend-прогон.
+GitHub Actions и GitLab CI сохраняют прежний запуск `pytest`; флаги, код завершения,
+отладочный режим asyncio и проверка warnings-as-errors передаются без изменений.
+
 **Фронтенд** (`frontend/`):
 ```bash
 npm run check        # eslint + svelte-check + prettier --check
