@@ -123,7 +123,10 @@
       </div>
     </div>
 
-    <div class="information-page-layout">
+    <div
+      class="information-page-layout"
+      class:information-page-layout--with-sidebar={navigationGroups.length > 0}
+    >
       {#if navigationGroups.length > 0}
         <aside class="information-page-sidebar">
           <Card class="information-page-navigation">
@@ -393,7 +396,7 @@
     }
   }
   @media (min-width: 900px) {
-    .information-page-layout {
+    .information-page-layout--with-sidebar {
       grid-template-columns: 300px minmax(0, 1fr);
     }
     .information-page-sidebar {

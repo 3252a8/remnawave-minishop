@@ -2,6 +2,80 @@ import { expect, test, type ConsoleMessage, type Locator, type Page } from "@pla
 
 const ADMIN_URL = "/demo/runtime/admin/stats?theme_preview=dark&mock=checkout-addons";
 
+for (const theme of ["dark", "light"] as const) {
+  for (const sidebar of [false, true]) {
+    test(`document width follows the viewport with sidebar=${sidebar} in ${theme} theme`, async ({
+      page,
+    }, testInfo) => {
+      await page.addInitScript((showInSidebar) => {
+        window.sessionStorage.setItem(
+          "minishop-demo-documents",
+          JSON.stringify([
+            {
+              title: "Document with a long navigation title and nested path",
+              slug: "support/guides/responsive-document",
+              role: "none",
+              show_in_settings: true,
+              show_in_sidebar: false,
+              group_title: "Documents",
+              sort_order: 0,
+              markdown: `# Responsive document\n\n${"LongUnbrokenValue".repeat(30)}\n\n\`\`\`text\n${"Wide code ".repeat(40)}\n\`\`\`\n\n| Item | Value |\n| --- | --- |\n| First | ${"Table value ".repeat(40)} |`,
+            },
+            {
+              title: "Another document",
+              slug: "another-document",
+              show_in_sidebar: showInSidebar,
+              markdown: "Published navigation document",
+            },
+            {
+              title: "Unpublished document",
+              slug: "unpublished-document",
+              show_in_sidebar: true,
+              markdown: " ",
+            },
+          ])
+        );
+      }, sidebar);
+      await page.setViewportSize({ width: 390, height: 900 });
+      await page.goto(
+        `/demo/runtime/docs/support/guides/responsive-document?theme_preview=${theme}`
+      );
+      const layout = page.locator(".information-page-layout");
+      const content = page.locator(".information-page-content");
+      await expect(page.locator(".information-markdown")).toContainText("Responsive document");
+      await expect(page.locator(".information-page-sidebar")).toHaveCount(sidebar ? 1 : 0);
+
+      for (const width of [390, 639, 640, 899, 900, 901, 1023, 1024, 1440, 900, 899, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect
+          .poll(async () => {
+            const layoutBox = await layout.boundingBox();
+            const contentBox = await content.boundingBox();
+            const sidebarBox = sidebar
+              ? await page.locator(".information-page-sidebar").boundingBox()
+              : null;
+            const gap = await layout.evaluate((element) =>
+              Number.parseFloat(getComputedStyle(element).columnGap)
+            );
+            const expectedWidth =
+              layoutBox!.width - (sidebarBox && width >= 900 ? sidebarBox.width + gap : 0);
+            return Math.abs(contentBox!.width - expectedWidth);
+          })
+          .toBeLessThanOrEqual(1);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+        ).toBeLessThanOrEqual(1);
+        expect(
+          await content.evaluate((element) => element.scrollWidth - element.clientWidth)
+        ).toBeLessThanOrEqual(1);
+        if (width === 900 || width === 1440) {
+          await page.screenshot({ path: testInfo.outputPath(`document-${width}.png`) });
+        }
+      }
+    });
+  }
+}
+
 function trackErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on("console", (message: ConsoleMessage) => {
