@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_runner import perform_sync
@@ -79,15 +79,18 @@ async def _verify_upgrade() -> None:
                     )
                 ).all()
             )
-            subscription_ids_before = set(
+            subscriptions_before = list(
                 (
-                    await session.scalars(
-                        select(Subscription.subscription_id).where(
-                            Subscription.user_id.in_(seeded_user_ids)
-                        )
+                    await session.execute(
+                        select(
+                            Subscription.subscription_id,
+                            Subscription.panel_user_uuid,
+                            Subscription.panel_subscription_uuid,
+                        ).where(Subscription.user_id.in_(seeded_user_ids))
                     )
                 ).all()
             )
+            subscription_ids_before = {row.subscription_id for row in subscriptions_before}
             assert subscription_ids_before
 
         async with sessions() as session:
@@ -105,6 +108,34 @@ async def _verify_upgrade() -> None:
             result = await perform_sync(service, session, settings, i18n)
             assert result["status"] == "completed", result["errors"]
             assert result["errors"] == [], result
+
+            # Replay both partial states left by older application versions:
+            # a reconciled user with untouched subscriptions, then a repaired
+            # subscription user reference with its old subscription UUID.
+            for restore_user_reference in (True, False):
+                for original in subscriptions_before:
+                    payload = {"panel_subscription_uuid": original.panel_subscription_uuid}
+                    if restore_user_reference:
+                        payload["panel_user_uuid"] = original.panel_user_uuid
+                    await session.execute(
+                        update(Subscription)
+                        .where(Subscription.subscription_id == original.subscription_id)
+                        .values(**payload)
+                    )
+                await session.commit()
+                result = await perform_sync(service, session, settings, i18n)
+                assert result["status"] == "completed", result["errors"]
+                assert result["errors"] == [], result
+                current_ids = set(
+                    (
+                        await session.scalars(
+                            select(Subscription.subscription_id).where(
+                                Subscription.user_id.in_(seeded_user_ids)
+                            )
+                        )
+                    ).all()
+                )
+                assert current_ids == subscription_ids_before
 
         async with sessions() as session:
             users = list(

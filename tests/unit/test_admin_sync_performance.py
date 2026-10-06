@@ -28,7 +28,7 @@ from bot.handlers.admin.sync_admin import (
     _subscription_update_delta,
 )
 from bot.handlers.admin.sync_admin_common import _subscription_update_reason_labels
-from bot.handlers.admin.sync_admin_runner import _select_existing_subscription_for_panel_sync
+from bot.handlers.admin.sync_admin_identity import _select_existing_subscription_for_panel_sync
 from bot.handlers.admin.sync_admin_summary import localized_sync_details
 from bot.middlewares.i18n import JsonI18n
 from db.models import Subscription
@@ -87,6 +87,86 @@ def test_panel_sync_does_not_adopt_different_linked_subscription() -> None:
     )
 
     assert selected is None
+
+
+@pytest.mark.parametrize("active", [True, False])
+def test_panel_sync_recovers_numeric_user_with_legacy_subscription_link(active: bool) -> None:
+    linked = Subscription(panel_subscription_uuid="58cbe42c-729a-43cc-a61a-24ec11fa9f8a")
+    selected = _select_existing_subscription_for_panel_sync(
+        user_id=42,
+        panel_uuid="42",
+        panel_subscription_uuid="native-short-link",
+        previous_panel_uuid=None,
+        subscriptions_by_panel_uuid={},
+        active_subscriptions_by_user_panel={(42, "42"): linked} if active else {},
+        subscriptions_by_user_panel={(42, "42"): linked},
+        numeric_generation=True,
+    )
+    assert selected is linked
+
+
+@pytest.mark.parametrize("numeric_generation", [True, False])
+@pytest.mark.parametrize("ambiguous", [True, False])
+def test_panel_sync_recovers_only_unambiguous_legacy_identity(
+    numeric_generation: bool, ambiguous: bool
+) -> None:
+    old_uuid = "3b54e1e6-b4d2-4f35-970d-454919f45b31"
+    linked = Subscription(panel_subscription_uuid="58cbe42c-729a-43cc-a61a-24ec11fa9f8a")
+    owned = {old_uuid: linked}
+    if ambiguous:
+        owned["another-panel-account"] = Subscription()
+    selected = _select_existing_subscription_for_panel_sync(
+        user_id=42,
+        panel_uuid="42",
+        panel_subscription_uuid="native-short-link",
+        previous_panel_uuid=None,
+        subscriptions_by_panel_uuid={},
+        active_subscriptions_by_user_panel={},
+        subscriptions_by_user_panel={(42, old_uuid): linked},
+        subscriptions_by_user={42: owned, 43: {old_uuid: Subscription()}},
+        numeric_generation=numeric_generation,
+    )
+    assert selected is (linked if numeric_generation and not ambiguous else None)
+
+
+@pytest.mark.parametrize(
+    ("panel_uuid", "old_link", "new_link", "numeric_generation"),
+    [
+        ("42", "another-short-link", "native-short-link", True),
+        ("42", "58cbe42c-729a-43cc-a61a-24ec11fa9f8a", "native-short-link", False),
+        ("42", "58cbe42c-729a-43cc-a61a-24ec11fa9f8a", "native-short-link", True),
+        ("legacy-panel", "58cbe42c-729a-43cc-a61a-24ec11fa9f8a", "native-short-link", True),
+        (
+            "42",
+            "58cbe42c-729a-43cc-a61a-24ec11fa9f8a",
+            "3b54e1e6-b4d2-4f35-970d-454919f45b31",
+            True,
+        ),
+    ],
+)
+def test_panel_sync_limits_legacy_link_recovery_to_numeric_upgrade(
+    panel_uuid: str, old_link: str, new_link: str, numeric_generation: bool
+) -> None:
+    linked = Subscription(panel_subscription_uuid=old_link)
+    selected = _select_existing_subscription_for_panel_sync(
+        user_id=42,
+        panel_uuid=panel_uuid,
+        panel_subscription_uuid=new_link,
+        previous_panel_uuid=None,
+        subscriptions_by_panel_uuid={},
+        active_subscriptions_by_user_panel={(42, panel_uuid): linked},
+        subscriptions_by_user_panel={(42, panel_uuid): linked},
+        numeric_generation=numeric_generation,
+    )
+    expected = (
+        linked
+        if panel_uuid == "42"
+        and numeric_generation
+        and new_link == ("native-short-link")
+        and old_link != "another-short-link"
+        else None
+    )
+    assert selected is expected
 
 
 def test_panel_description_for_user_excludes_email():

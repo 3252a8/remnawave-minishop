@@ -1,10 +1,12 @@
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.services.panel_api_compat import numeric_panel_user_id
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
 from db.advisory_locks import commit_subscription_background_sync_batch
@@ -23,6 +25,60 @@ from .sync_admin_common import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_uuid_reference(value: str) -> bool:
+    try:
+        UUID(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _select_existing_subscription_for_panel_sync(
+    *,
+    user_id: int,
+    panel_uuid: str,
+    panel_subscription_uuid: str,
+    previous_panel_uuid: str | None,
+    subscriptions_by_panel_uuid: dict[str, Subscription],
+    active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
+    subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
+    numeric_generation: bool = False,
+    subscriptions_by_user: dict[int, dict[str, Subscription]] | None = None,
+) -> Subscription | None:
+    existing = subscriptions_by_panel_uuid.get(panel_subscription_uuid)
+    if existing is not None:
+        return existing
+
+    active = active_subscriptions_by_user_panel.get((user_id, panel_uuid))
+    if active is not None and not active.panel_subscription_uuid:
+        return active
+    if previous_panel_uuid:
+        return subscriptions_by_user_panel.get((user_id, previous_panel_uuid))
+    if not numeric_generation or numeric_panel_user_id(panel_uuid) is None:
+        return None
+
+    # An older worker could update the user reference without updating the
+    # subscription link. Only adopt the explicit UUID -> short-link transition;
+    # a different existing short link still represents a distinct subscription.
+    current = active or subscriptions_by_user_panel.get((user_id, panel_uuid))
+    if current is not None:
+        if _is_uuid_reference(str(current.panel_subscription_uuid or "")) and not (
+            _is_uuid_reference(panel_subscription_uuid)
+        ):
+            return current
+        return None
+
+    # The user may already have a numeric reference while its subscriptions
+    # still have the old UUID. Multiple panel identities are ambiguous and must
+    # retain their separate subscription records.
+    owned = (subscriptions_by_user or {}).get(user_id, {})
+    if len(owned) == 1:
+        old_panel_uuid, subscription = next(iter(owned.items()))
+        if _is_uuid_reference(old_panel_uuid):
+            return active_subscriptions_by_user_panel.get((user_id, old_panel_uuid)) or subscription
+    return None
 
 
 async def _create_panel_user(
@@ -115,6 +171,7 @@ async def _prefetch_sync_indexes(
 
     active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription] = {}
     subscriptions_by_user_panel: dict[tuple[int, str], Subscription] = {}
+    subscriptions_by_user: dict[int, dict[str, Subscription]] = {}
     resolved_user_ids = {int(user.user_id) for user in users_by_user_id.values()}
     if panel_uuids or resolved_user_ids:
         identity_filters = []
@@ -144,6 +201,9 @@ async def _prefetch_sync_indexes(
             result.scalars().unique().all(), key=lambda row: row.end_date, reverse=True
         ):
             subscriptions_by_user_panel.setdefault((int(sub.user_id), sub.panel_user_uuid), sub)
+            subscriptions_by_user.setdefault(int(sub.user_id), {}).setdefault(
+                str(sub.panel_user_uuid), sub
+            )
             if not sub.is_active or sub.end_date <= datetime.now(UTC):
                 continue
             active_subscriptions_by_user_panel.setdefault(
@@ -158,6 +218,9 @@ async def _prefetch_sync_indexes(
         "subscriptions_by_panel_uuid": subscriptions_by_panel_uuid,
         "active_subscriptions_by_user_panel": active_subscriptions_by_user_panel,
         "subscriptions_by_user_panel": subscriptions_by_user_panel,
+        "subscriptions_by_user": subscriptions_by_user,
+        "numeric_generation": bool(panel_uuids)
+        and all(numeric_panel_user_id(value) is not None for value in panel_uuids),
         "panel_uuids_by_telegram_id": panel_uuids_by_telegram_id,
     }
 

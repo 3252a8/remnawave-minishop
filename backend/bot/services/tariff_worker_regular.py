@@ -38,6 +38,7 @@ from db.advisory_locks import (
     commit_subscription_background_sync_batch,
 )
 from db.dal import tariff_dal, user_dal
+from db.dal.subscription_panel_identity_dal import relink_panel_subscriptions
 from db.dal.tariff_read_batch import clear_tariff_read_batch, prefetch_tariff_read_batch
 from db.models import Subscription
 
@@ -496,6 +497,20 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     if numeric_panel_user_id(relinked_uuid) is not None and isinstance(
                         relinked_user, dict
                     ):
+                        subscription_uuid = str(
+                            getattr(link, "panel_subscription_uuid", None)
+                            or relinked_user.get("subscriptionUuid")
+                            or relinked_user.get("shortUuid")
+                            or ""
+                        )
+                        if subscription_uuid:
+                            await relink_panel_subscriptions(
+                                session,
+                                user_id=user_id,
+                                old_panel_user_uuid=current_uuid,
+                                new_panel_user_uuid=relinked_uuid,
+                                panel_subscription_uuid=subscription_uuid,
+                            )
                         sub.panel_user_uuid = relinked_uuid
                         logger.warning(
                             "TariffTrafficWorker: relinked subscription %s from a legacy "
@@ -524,6 +539,21 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                         )
                         panel_user = None
             if panel_user:
+                subscription_uuid = str(
+                    panel_user.get("subscriptionUuid") or panel_user.get("shortUuid") or ""
+                )
+                if (
+                    current_is_legacy
+                    and numeric_panel_user_id(canonical_uuid) is not None
+                    and (subscription_uuid)
+                ):
+                    await relink_panel_subscriptions(
+                        session,
+                        user_id=user_id,
+                        old_panel_user_uuid=current_uuid,
+                        new_panel_user_uuid=canonical_uuid,
+                        panel_subscription_uuid=subscription_uuid,
+                    )
                 logger.warning(
                     "TariffTrafficWorker: repaired subscription %s panel UUID %s -> %s",
                     sub.subscription_id,

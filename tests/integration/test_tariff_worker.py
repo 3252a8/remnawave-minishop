@@ -2895,6 +2895,72 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             db_user,
         )
 
+    async def test_partial_v3_relink_repairs_subscription_link_with_known_old_identity(self):
+        old_uuid = "3b54e1e6-b4d2-4f35-970d-454919f45b31"
+        db_user = SimpleNamespace(panel_user_uuid="42")
+        panel_user = {"uuid": "42", "id": 42, "shortUuid": "native-short-link"}
+        for use_canonical_link in (True, False):
+            with self.subTest(use_canonical_link=use_canonical_link):
+                subscription_service = SimpleNamespace(
+                    _get_or_create_panel_user_link=(
+                        AsyncMock(
+                            return_value=SimpleNamespace(
+                                panel_user_uuid="42",
+                                panel_subscription_uuid="native-short-link",
+                                panel_user=panel_user,
+                            )
+                        )
+                        if use_canonical_link
+                        else None
+                    )
+                )
+                worker = TariffTrafficWorker(
+                    settings=SimpleNamespace(),
+                    session_factory=SimpleNamespace(),
+                    panel_service=AsyncMock(spec=PanelApiService),
+                    subscription_service=subscription_service,
+                )
+                sub = SimpleNamespace(
+                    subscription_id=13,
+                    user_id=123,
+                    panel_user_uuid=old_uuid,
+                    panel_subscription_uuid="58cbe42c-729a-43cc-a61a-24ec11fa9f8a",
+                    is_active=True,
+                    status_from_panel="ACTIVE",
+                    skip_notifications=False,
+                )
+                session = AsyncMock()
+                relink_subscriptions = AsyncMock(return_value=1)
+                with (
+                    patch(
+                        "bot.services.tariff_worker.user_dal.get_user_by_id",
+                        new=AsyncMock(return_value=db_user),
+                    ),
+                    patch(
+                        "bot.services.tariff_worker_regular.relink_panel_subscriptions",
+                        new=relink_subscriptions,
+                    ),
+                ):
+                    result = await worker._repair_missing_panel_user_for_subscription(
+                        session,
+                        sub,
+                        panel_users_by_uuid={"42": panel_user},
+                        semaphore=asyncio.Semaphore(1),
+                        confirmed_missing=True,
+                    )
+                self.assertEqual(result, panel_user)
+                self.assertEqual(sub.panel_user_uuid, "42")
+                self.assertTrue(sub.is_active)
+                self.assertFalse(sub.skip_notifications)
+                self.assertEqual(sub.status_from_panel, "ACTIVE")
+                relink_subscriptions.assert_awaited_once_with(
+                    session,
+                    user_id=123,
+                    old_panel_user_uuid=old_uuid,
+                    new_panel_user_uuid="42",
+                    panel_subscription_uuid="native-short-link",
+                )
+
     def test_duplicate_active_subscriptions_sync_only_the_newest(self):
         older = SimpleNamespace(
             subscription_id=1,

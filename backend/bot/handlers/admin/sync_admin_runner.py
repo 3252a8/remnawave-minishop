@@ -56,6 +56,7 @@ from .sync_admin_identity import (
     _extract_lifetime_used_traffic_bytes,
     _merge_local_duplicate_panel_user_if_needed,
     _prefetch_sync_indexes,
+    _select_existing_subscription_for_panel_sync,
 )
 from .sync_admin_snapshot import capture_subscription_snapshot
 from .sync_admin_summary import (
@@ -68,29 +69,6 @@ from .sync_admin_summary import (
 logger = logging.getLogger(__name__)
 
 PANEL_SYNC_TRANSACTION_BATCH_SIZE = 100
-
-
-def _select_existing_subscription_for_panel_sync(
-    *,
-    user_id: int,
-    panel_uuid: str,
-    panel_subscription_uuid: str,
-    previous_panel_uuid: str | None,
-    subscriptions_by_panel_uuid: dict[str, Subscription],
-    active_subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
-    subscriptions_by_user_panel: dict[tuple[int, str], Subscription],
-) -> Subscription | None:
-    existing = subscriptions_by_panel_uuid.get(panel_subscription_uuid)
-    if existing is not None:
-        return existing
-
-    active = active_subscriptions_by_user_panel.get((user_id, panel_uuid))
-    if active is not None and not active.panel_subscription_uuid:
-        return active
-
-    if previous_panel_uuid:
-        return subscriptions_by_user_panel.get((user_id, previous_panel_uuid))
-    return None
 
 
 async def perform_sync(
@@ -211,6 +189,11 @@ async def _perform_sync_impl(
                     dict[tuple[int, str], Subscription],
                     sync_indexes["subscriptions_by_user_panel"],
                 )
+                subscriptions_by_user = cast(
+                    dict[int, dict[str, Subscription]],
+                    sync_indexes.get("subscriptions_by_user", {}),
+                )
+                numeric_generation = bool(sync_indexes.get("numeric_generation", False))
                 reload_batch = False
                 batch_started = time.monotonic()
             try:
@@ -644,6 +627,8 @@ async def _perform_sync_impl(
                                     active_subscriptions_by_user_panel
                                 ),
                                 subscriptions_by_user_panel=subscriptions_by_user_panel,
+                                subscriptions_by_user=subscriptions_by_user,
+                                numeric_generation=numeric_generation,
                             )
 
                             # If the panel reports the subscription as ACTIVE, deactivate all other active subscriptions first  # noqa: E501
