@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseQrLoginCode, telegramQrScanner } from "./qrLogin";
+import { parseQrLoginCode, qrLoginSiteLabel, telegramQrScanner } from "./qrLogin";
 
 const CODE = "AbCdEfGhIjKlMnOpQr_s-t";
 
@@ -30,5 +30,18 @@ describe("telegramQrScanner", () => {
       telegramQrScanner({ ...scanner, platform: "ios", isVersionAtLeast: () => false })
     ).toBeNull();
     expect(telegramQrScanner(null)).toBeNull();
+  });
+});
+
+describe("qrLoginSiteLabel", () => {
+  it("shows only the host people need to type", () => {
+    expect(qrLoginSiteLabel("https://shop.example")).toBe("shop.example");
+    expect(qrLoginSiteLabel("https://shop.example:8443/")).toBe("shop.example:8443");
+  });
+
+  it("falls back to nothing when the shop has no public address", () => {
+    expect(qrLoginSiteLabel("")).toBe("");
+    expect(qrLoginSiteLabel(undefined)).toBe("");
+    expect(qrLoginSiteLabel("not a url")).toBe("");
   });
 });

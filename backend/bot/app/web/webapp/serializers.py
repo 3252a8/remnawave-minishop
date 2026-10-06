@@ -51,6 +51,7 @@ from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredent
 from .assets import (
     _get_cached_webapp_settings,
 )
+from .auth_common import _public_webapp_base_url
 from .billing_status import refresh_payment_status_for_request
 from .billing_tariff_access import request_tariff_access_code
 from .common import (
@@ -536,6 +537,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
             "recommended_auth_providers": settings.webapp_recommended_auth_providers,
+            # What to open on another device; people who arrive through the bot never
+            # see the address, because the Mini App hides it.
+            "public_url": _public_webapp_base_url(settings, request),
             "menu_buttons": public_menu_buttons(
                 settings.MENU_BUTTONS_JSON,
                 lang,

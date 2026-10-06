@@ -19,9 +19,13 @@
   type Props = {
     api: ApiClient["api"];
     t: Translate;
+    /** The shop's host, shown so people know what to open on the other device. */
+    site?: string;
   };
 
-  let { api, t }: Props = $props();
+  let { api, t, site = "" }: Props = $props();
+
+  const scanHint = $derived(site ? t("wa_qr_scan_hint_site", { site }) : t("wa_qr_scan_hint"));
 
   let scanOpen = $state(false);
   let approveOpen = $state(false);
@@ -40,7 +44,7 @@
       scanOpen = true;
       return;
     }
-    scanner.showScanQrPopup({ text: t("wa_qr_scan_hint") }, (text: string) => {
+    scanner.showScanQrPopup({ text: scanHint }, (text: string) => {
       const code = parseQrLoginCode(text);
       if (!code) return false;
       approve(code);
@@ -57,6 +61,7 @@
 <QrScanDialog
   open={scanOpen}
   {t}
+  hint={scanHint}
   onscan={(code) => {
     scanOpen = false;
     approve(code);

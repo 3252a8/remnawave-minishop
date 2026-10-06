@@ -20238,6 +20238,7 @@ export interface operations {
               notification_preferences_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
+              public_url?: string;
               recommended_auth_providers?: string[];
               referral_program_enabled?: boolean;
               server_status_url?: string | null;

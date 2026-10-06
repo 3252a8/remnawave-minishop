@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { qrLoginSiteLabel } from "$lib/webapp/qrLogin.js";
   import { giftState } from "$lib/webapp/gifts.svelte.js";
   import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
   import type { AccountStore } from "../lib/webapp/stores/accountStore.js";
@@ -614,6 +615,7 @@
         qrLoginEnabled={(
           (appSettings.auth_providers || appSettings.authProviders || []) as string[]
         ).includes("qr")}
+        qrLoginSite={qrLoginSiteLabel(appSettings.public_url)}
         {routePrefix}
         {currentLang}
         {currentLanguageOption}

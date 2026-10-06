@@ -13,6 +13,7 @@
   type Props = {
     open?: boolean;
     t: Translate;
+    hint?: string;
     onscan: (code: string) => void;
     onclose: () => void;
   };
@@ -26,7 +27,7 @@
     getSupportedFormats?: () => Promise<string[]>;
   };
 
-  let { open = false, t, onscan, onclose }: Props = $props();
+  let { open = false, t, hint = "", onscan, onclose }: Props = $props();
 
   const SCAN_EVERY_MS = 250;
 
@@ -133,7 +134,7 @@
 <Dialog
   {open}
   title={t("wa_qr_scan_title")}
-  description={t("wa_qr_scan_hint")}
+  description={hint || t("wa_qr_scan_hint")}
   closeLabel={t("wa_close")}
   onclose={close}
   class="qr-scan-dialog"

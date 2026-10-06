@@ -69,6 +69,7 @@
     promoIsError?: boolean;
     promoStatus?: string;
     qrLoginEnabled?: boolean;
+    qrLoginSite?: string;
     serverStatusUrl?: string;
     serverStatusInternal?: boolean;
     supportUrl?: string;
@@ -129,6 +130,7 @@
     promoIsError = false,
     promoStatus = "",
     qrLoginEnabled = false,
+    qrLoginSite = "",
     serverStatusUrl = "",
     serverStatusInternal = false,
     supportUrl = "",
@@ -275,12 +277,16 @@
         <ScanQrCode size={21} />
         <span>
           <strong>{t("wa_settings_qr_login_scan")}</strong>
-          <small>{t("wa_settings_qr_login_scan_hint")}</small>
+          <small
+            >{qrLoginSite
+              ? t("wa_settings_qr_login_scan_hint_site", { site: qrLoginSite })
+              : t("wa_settings_qr_login_scan_hint")}</small
+          >
         </span>
         <ArrowRight size={17} />
       </button>
       <div class="settings-divider" aria-hidden="true"></div>
-      <QrLoginApprover bind:this={qrApprover} {api} {t} />
+      <QrLoginApprover bind:this={qrApprover} {api} {t} site={qrLoginSite} />
     {/if}
     {#if notificationPreferencesEnabled}
       <button

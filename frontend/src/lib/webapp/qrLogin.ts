@@ -51,6 +51,15 @@ export function telegramQrScanner(tg: unknown): TelegramQrScanner | null {
   return { showScanQrPopup: showScanQrPopup.bind(webApp) };
 }
 
+/** The bare host to open on the other device ("shop.example"), or "" when unknown. */
+export function qrLoginSiteLabel(publicUrl: unknown): string {
+  try {
+    return publicUrl ? new URL(String(publicUrl)).host : "";
+  } catch {
+    return "";
+  }
+}
+
 /** Read a sign-in code from the address once and drop it, so a reload cannot reuse it. */
 export function takeQrLoginCodeFromLocation(): string | null {
   if (typeof window === "undefined") return null;
