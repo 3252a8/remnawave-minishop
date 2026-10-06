@@ -165,6 +165,24 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             payload["email"] = db_user.email
         return payload
 
+    async def _can_adopt_unlinked_panel_user(
+        self, session: AsyncSession, db_user: User, candidate: dict[str, Any]
+    ) -> bool:
+        telegram_id = self._telegram_id_for_panel(db_user)
+        matching_telegram = bool(
+            telegram_id and self._coerce_panel_int(candidate.get("telegramId")) == telegram_id
+        )
+        matching_verified_email = bool(
+            getattr(db_user, "email_verified_at", None)
+            and db_user.email
+            and str(candidate.get("email") or "").strip().lower() == db_user.email.strip().lower()
+        )
+        candidate_uuid = str(candidate.get("uuid") or "")
+        if not candidate_uuid or not (matching_telegram or matching_verified_email):
+            return False
+        linked_account = await user_dal.get_user_by_panel_uuid(session, candidate_uuid)
+        return linked_account is None or linked_account.user_id == db_user.user_id
+
     def _plan_panel_tariff_tag(
         self,
         db_user: User,
@@ -268,12 +286,15 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     candidate = lookup.get("user")
                     if isinstance(candidate, dict):
                         panel_user_obj_from_api = candidate
+                elif not isinstance(lookup, dict) or lookup.get("not_found") is not True:
+                    identity_lookup_failed = True
             else:
                 panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                     current_local_panel_uuid
                 )
+                identity_lookup_failed = panel_user_obj_from_api is None
 
-        if not panel_user_obj_from_api and current_local_panel_uuid:
+        if not panel_user_obj_from_api:
             legacy_names: list[str] = []
             if db_user.panel_username:
                 legacy_names.append(str(db_user.panel_username))
@@ -289,11 +310,11 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     logger.error("Ambiguous legacy panel username for account %s", user_id)
                     return PanelUserLink(None, None, None, False, False, None)
 
-        if not panel_user_obj_from_api and current_local_panel_uuid and telegram_id_for_panel:
+        if not panel_user_obj_from_api and telegram_id_for_panel:
             panel_users_by_tg_id_list = await self.panel_service.get_users_by_filter(
                 telegram_id=telegram_id_for_panel
             )
-            identity_lookup_failed = panel_users_by_tg_id_list is None
+            identity_lookup_failed = identity_lookup_failed or panel_users_by_tg_id_list is None
         if panel_users_by_tg_id_list and len(panel_users_by_tg_id_list) == 1:
             panel_user_obj_from_api = panel_users_by_tg_id_list[0]
             logger.info(
@@ -325,7 +346,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 )
                 return PanelUserLink(None, None, None, False, False, None)
 
-        if not panel_user_obj_from_api and current_local_panel_uuid and db_user.email:
+        if not panel_user_obj_from_api and db_user.email:
             panel_users_by_email_list = await self.panel_service.get_users_by_filter(
                 email=db_user.email
             )
@@ -356,32 +377,6 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
             identity_lookup_failed = identity_lookup_failed or panel_users_by_username is None
             if panel_users_by_username and len(panel_users_by_username) == 1:
                 candidate = panel_users_by_username[0]
-                if not current_local_panel_uuid:
-                    candidate_telegram_id = self._coerce_panel_int(candidate.get("telegramId"))
-                    matching_telegram = bool(
-                        telegram_id_for_panel and candidate_telegram_id == telegram_id_for_panel
-                    )
-                    matching_verified_email = bool(
-                        getattr(db_user, "email_verified_at", None)
-                        and db_user.email
-                        and str(candidate.get("email") or "").strip().lower()
-                        == str(db_user.email).strip().lower()
-                    )
-                    candidate_uuid = str(candidate.get("uuid") or "")
-                    linked_account = (
-                        await user_dal.get_user_by_panel_uuid(session, candidate_uuid)
-                        if candidate_uuid
-                        else None
-                    )
-                    if (
-                        not candidate_uuid
-                        or not (matching_telegram or matching_verified_email)
-                        or (linked_account and linked_account.user_id != user_id)
-                    ):
-                        logger.error(
-                            "Panel username collision requires reconciliation for %s", user_id
-                        )
-                        return PanelUserLink(None, None, None, False, False, None)
                 panel_user_obj_from_api = candidate
                 logger.info(
                     "Found panel user by deterministic username '%s': identifier %s.",
@@ -404,6 +399,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     current_local_panel_uuid,
                 )
                 lookup_method = getattr(self.panel_service, "get_user_by_uuid_lookup", None)
+                lookup = None
                 if callable(lookup_method):
                     lookup = await lookup_method(current_local_panel_uuid)
                     if isinstance(lookup, dict):
@@ -418,7 +414,11 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                         current_local_panel_uuid
                     )
-                if not panel_user_obj_from_api:
+                if not panel_user_obj_from_api and not (
+                    isinstance(lookup, dict)
+                    and lookup.get("not_found") is True
+                    and not lookup.get("ok")
+                ):
                     logger.error(
                         "Existing panel link %s for account %s could not be verified; "
                         "manual reconciliation is required before creating another panel user.",
@@ -434,7 +434,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                         None,
                     )
 
-            else:
+            if not panel_user_obj_from_api:
                 if identity_lookup_failed:
                     logger.error(
                         "Refusing to create a panel user for local user %s because an identity "
@@ -443,7 +443,7 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     )
                     return PanelUserLink(None, None, None, False, False, None)
                 logger.info(
-                    "No panel user by TG ID & no local panel_uuid for TG user %s. Creating new "
+                    "All panel identity searches confirmed absence for user %s. Creating new "
                     "panel user '%s'.",
                     user_id,
                     panel_username_on_panel_standard,
@@ -502,6 +502,16 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                 local_link_updated_now,
                 None,
             )
+
+        if (
+            not panel_user_created_now
+            and not current_local_panel_uuid
+            and not await self._can_adopt_unlinked_panel_user(
+                session, db_user, panel_user_obj_from_api
+            )
+        ):
+            logger.error("Panel identity collision requires reconciliation for %s", user_id)
+            return PanelUserLink(None, None, None, False, False, None)
 
         if not panel_user_created_now and not panel_candidate_matches_account(
             db_user, panel_user_obj_from_api

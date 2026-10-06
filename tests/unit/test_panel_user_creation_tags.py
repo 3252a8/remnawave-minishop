@@ -143,7 +143,7 @@ def test_new_users_use_valid_reconcilable_tariff_tags(
     assert db_user.managed_panel_tariff_tag == (plan.desired_tag if plan.allowed else None)
 
 
-def test_missing_legacy_panel_link_does_not_create_a_replacement() -> None:
+def test_unverified_legacy_panel_link_does_not_create_a_replacement() -> None:
     mixin = PanelIdentityMixin()
     mixin.settings = SimpleNamespace(tariffs_config=None)
     db_user = SimpleNamespace(
@@ -155,7 +155,7 @@ def test_missing_legacy_panel_link_does_not_create_a_replacement() -> None:
         email=None,
     )
     mixin.panel_service = SimpleNamespace(
-        get_user_by_uuid_lookup=AsyncMock(return_value={"ok": False, "not_found": True}),
+        get_user_by_uuid_lookup=AsyncMock(return_value={"ok": False, "not_found": False}),
         get_users_by_filter=AsyncMock(return_value=[]),
         create_panel_user=AsyncMock(),
     )
