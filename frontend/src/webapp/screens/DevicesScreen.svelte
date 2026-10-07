@@ -21,6 +21,7 @@
     devicesCountLabel,
     devicesLimitLabel,
     devicesPercent,
+    devicesProgressState,
     hasFiniteDeviceLimit,
   } from "../../lib/webapp/devicesLabels.js";
   import { deviceClientLabel } from "../../lib/webapp/deviceClient.js";
@@ -77,6 +78,10 @@
   );
   const effectiveMaxDevices = $derived(devicesData?.max_devices ?? subscription?.max_devices);
   const hasFiniteDevices = $derived(hasFiniteDeviceLimit(devicesData, effectiveMaxDevices));
+  const progressState = $derived(
+    devicesProgressState(devicesData, devicesLoaded, effectiveMaxDevices)
+  );
+  const progressStatusText = $derived(t(`wa_devices_progress_${progressState}`));
   const hasReachedDeviceLimit = $derived(
     devicesLoaded && deviceLimitReached(devicesData, effectiveMaxDevices)
   );
@@ -123,9 +128,14 @@
       </div>
       <LinearProgress
         class="devices-progress"
-        value={devicesPercent(devicesData, effectiveMaxDevices)}
+        value={progressState === "pending" ? 0 : devicesPercent(devicesData, effectiveMaxDevices)}
         label={t("wa_devices_title")}
+        state={progressState}
+        aria-valuetext={progressStatusText}
       />
+      <StatusMessage class="devices-progress-status" data-state={progressState} role="status">
+        {progressStatusText}
+      </StatusMessage>
       {#if Number(subscription?.extra_hwid_devices || 0) > 0 && subscription?.extra_hwid_devices_valid_until_text}
         <p class="devices-topup-validity">
           {t("wa_hwid_devices_valid_until", {

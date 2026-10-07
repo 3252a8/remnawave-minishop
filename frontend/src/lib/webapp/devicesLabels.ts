@@ -1,6 +1,8 @@
 type DevicesData = Record<string, unknown> | null | undefined;
 type TranslateFn = (key: string, vars?: Record<string, unknown>, fallback?: string) => string;
 
+export type DevicesProgressState = "available" | "reached" | "unlimited" | "pending";
+
 function devicesCount(devicesData: DevicesData): number {
   const devices = devicesData?.devices;
   return Array.isArray(devices) ? devices.length : 0;
@@ -59,4 +61,32 @@ export function deviceLimitReached(
   const maxValue = maxDevicesOverride !== undefined ? maxDevicesOverride : devicesData?.max_devices;
   const current = Number(devicesData?.current_devices ?? devicesCount(devicesData));
   return Number.isFinite(current) && current >= Number(maxValue);
+}
+
+export function devicesProgressState(
+  devicesData: DevicesData,
+  devicesLoaded: boolean,
+  maxDevicesOverride?: unknown
+): DevicesProgressState {
+  if (!devicesLoaded || !devicesData) return "pending";
+  const maxValue = maxDevicesOverride !== undefined ? maxDevicesOverride : devicesData.max_devices;
+  if (
+    (typeof maxValue !== "number" && typeof maxValue !== "string") ||
+    String(maxValue).trim() === "" ||
+    !Number.isFinite(Number(maxValue))
+  ) {
+    return "pending";
+  }
+  if (Number(maxValue) <= 0) return "unlimited";
+
+  const currentValue = devicesData.current_devices;
+  const hasCurrentCount =
+    (typeof currentValue === "number" || typeof currentValue === "string") &&
+    String(currentValue).trim() !== "" &&
+    Number.isFinite(Number(currentValue)) &&
+    Number(currentValue) >= 0;
+  if (!hasCurrentCount && !Array.isArray(devicesData.devices)) return "pending";
+  if (currentValue != null && !hasCurrentCount) return "pending";
+
+  return deviceLimitReached(devicesData, maxDevicesOverride) ? "reached" : "available";
 }

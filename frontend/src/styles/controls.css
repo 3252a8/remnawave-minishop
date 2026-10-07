@@ -132,6 +132,11 @@ button:disabled {
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
+.progress[data-state="reached"] > span {
+  background: linear-gradient(90deg, var(--warning), color-mix(in srgb, var(--warning) 72%, white));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--warning) 40%, transparent);
+}
+
 .input {
   width: 100%;
   min-height: 46px;

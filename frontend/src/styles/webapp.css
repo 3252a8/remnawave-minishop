@@ -982,6 +982,16 @@ a {
   margin-top: 0;
 }
 
+.devices-progress-status {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.devices-progress-status[data-state="reached"] {
+  color: var(--warning-text);
+}
+
 .devices-topup-validity {
   margin: 0;
   color: var(--muted);
