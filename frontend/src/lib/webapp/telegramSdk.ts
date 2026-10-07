@@ -40,6 +40,30 @@ export function readTelegramMiniAppInitDataFromLocation() {
   return "";
 }
 
+function hasStoredTelegramLaunchParams(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    // The official SDK restores this record after same-tab full-page navigation.
+    // Fullscreen/theme records alone also exist in browsers and are not launch evidence.
+    const raw = window.sessionStorage.getItem("__telegram__initParams");
+    if (!raw) return false;
+    const params: unknown = JSON.parse(raw);
+    if (!params || typeof params !== "object" || Array.isArray(params)) return false;
+    const record = params as Record<string, unknown>;
+    if (typeof record.tgWebAppData === "string" && record.tgWebAppData.trim()) return true;
+    return (
+      typeof record.tgWebAppVersion === "string" &&
+      /^\d+\.\d+(?:\.\d+)?$/.test(record.tgWebAppVersion) &&
+      typeof record.tgWebAppPlatform === "string" &&
+      Boolean(record.tgWebAppPlatform.trim()) &&
+      record.tgWebAppPlatform !== "unknown"
+    );
+  } catch {
+    // Storage can be unavailable, blocked or contain an incomplete old record.
+    return false;
+  }
+}
+
 export function createTelegramSdk({
   scriptUrl = "",
   bootTimeoutMs = 0,
@@ -81,13 +105,15 @@ export function createTelegramSdk({
     }
     const queryText = window.location.search.replace(/^\?/, "");
     const hashText = window.location.hash.replace(/^#/, "");
-    const detected = [queryText, hashText].some((text) => {
-      if (!text) return false;
-      const params = new URLSearchParams(text);
-      return ["tgWebAppData", "tgWebAppVersion", "tgWebAppPlatform", "tgWebAppThemeParams"].some(
-        (key) => params.has(key)
-      );
-    });
+    const detected =
+      hasStoredTelegramLaunchParams() ||
+      [queryText, hashText].some((text) => {
+        if (!text) return false;
+        const params = new URLSearchParams(text);
+        return ["tgWebAppData", "tgWebAppVersion", "tgWebAppPlatform", "tgWebAppThemeParams"].some(
+          (key) => params.has(key)
+        );
+      });
     if (detected) launchParamsDetected = true;
     return detected;
   }

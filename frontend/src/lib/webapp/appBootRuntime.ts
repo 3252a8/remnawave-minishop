@@ -1,7 +1,6 @@
 import { publicInstallTokenFromPath } from "./routes.js";
 import { shellState } from "./shellState.svelte";
 import { refreshTelegramNotificationsAfterResume } from "./telegramNotificationsResume.js";
-import { applyPreferredTelegramViewportMode } from "./telegramViewport.js";
 import { runWebappBoot } from "./webappBoot.js";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -18,6 +17,7 @@ type AppBootRuntimeDeps = {
   mock: unknown;
   hasTelegramLaunchParams: () => boolean;
   loadTelegramSdk: () => Promise<unknown> | unknown;
+  prepareTelegramMiniApp: () => void;
   loadData: LoadData;
   showLogin: () => void;
   clearToken: () => void;
@@ -74,17 +74,7 @@ export function createAppBootRuntime(deps: AppBootRuntimeDeps) {
       },
       hasTelegramLaunchParams: deps.hasTelegramLaunchParams,
       loadTelegramSdk: deps.loadTelegramSdk,
-      prepareTelegramMiniApp: () => {
-        const telegram = shellState.tg;
-        if (!telegram) return;
-        try {
-          telegram.ready?.();
-          telegram.expand?.();
-          applyPreferredTelegramViewportMode(telegram);
-        } catch (_error) {
-          void _error;
-        }
-      },
+      prepareTelegramMiniApp: deps.prepareTelegramMiniApp,
       loadData: deps.loadData,
       showLogin: deps.showLogin,
       clearToken: deps.clearToken,

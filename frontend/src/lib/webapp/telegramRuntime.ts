@@ -1,13 +1,17 @@
 import { createTelegramLaunch } from "./telegramLaunch.js";
 import { createTelegramSdk } from "./telegramSdk";
 import { shellState } from "./shellState.svelte";
-import { createTelegramViewportBridge } from "./telegramViewport.js";
+import {
+  applyPreferredTelegramViewportMode,
+  createTelegramViewportBridge,
+} from "./telegramViewport.js";
 import {
   setTelegramEmojiDeviceStorage,
   type TelegramDeviceStorage,
 } from "./telegramEmojiDeviceCache";
 
-export type TelegramWebAppEvent = "fullscreenChanged" | "themeChanged";
+export type TelegramWebAppEvent =
+  "fullscreenChanged" | "fullscreenFailed" | "activated" | "themeChanged";
 
 export type TelegramWebApp = Record<string, unknown> & {
   initData?: string;
@@ -64,6 +68,7 @@ export type TelegramRuntime<Tg> = {
   hasLaunchParams: () => boolean;
   load: (timeoutMs?: number) => Promise<Tg>;
   readInitDataFromLocation: () => string;
+  prepareMiniApp: () => void;
   destroy: () => void;
 };
 
@@ -80,24 +85,55 @@ export function createTelegramRuntime<Tg = TelegramWebApp | null>({
   miniAppAuthTimeoutMs: number;
   scriptUrl: string;
 }): TelegramRuntime<Tg> {
+  let destroyed = false;
+  let preparationRequested = false;
+  let currentWebApp: TelegramWebApp | null = null;
+  let preparedWebApp: TelegramWebApp | null = null;
+
   function setInitData(initData: string) {
+    if (destroyed) return;
     shellState.telegramMiniAppInitData = initData || "";
     if (initData) shellState.telegramHasLaunchParams = true;
   }
 
   function setStatus(status: string) {
+    if (destroyed) return;
     shellState.telegramSdkStatus = status;
   }
 
   const viewportBridge = createTelegramViewportBridge();
 
+  function prepareMiniApp() {
+    if (destroyed) return;
+    preparationRequested = true;
+    const webApp = currentWebApp;
+    if (!webApp || preparedWebApp === webApp) return;
+    preparedWebApp = webApp;
+    for (const prepare of [webApp.ready, webApp.expand]) {
+      try {
+        prepare?.call(webApp);
+      } catch {
+        // A client rejecting one capability must not prevent the viewport setup.
+      }
+    }
+    try {
+      applyPreferredTelegramViewportMode(webApp);
+    } catch {
+      // Expanded mode remains usable when the native fullscreen request fails.
+    }
+    viewportBridge.syncFullscreenState();
+  }
+
   function setTelegram(telegram: Tg) {
+    if (destroyed) return;
     const webApp = telegram as TelegramWebApp | null;
+    currentWebApp = webApp;
     shellState.tg = webApp;
     viewportBridge.setTelegram(webApp);
     setTelegramEmojiDeviceStorage(
       webApp?.initData && webApp.isVersionAtLeast?.("9.0") ? (webApp.DeviceStorage ?? null) : null
     );
+    if (preparationRequested) prepareMiniApp();
   }
 
   const telegramSdk = createSdk({
@@ -135,6 +171,10 @@ export function createTelegramRuntime<Tg = TelegramWebApp | null>({
     hasLaunchParams: telegramLaunch.hasLaunchParams,
     load: telegramLaunch.load,
     readInitDataFromLocation: telegramLaunch.readInitDataFromLocation,
-    destroy: viewportBridge.destroy,
+    prepareMiniApp,
+    destroy: () => {
+      destroyed = true;
+      viewportBridge.destroy();
+    },
   };
 }

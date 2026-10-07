@@ -109,7 +109,7 @@ async function startServer() {
     // and those routes carry no file extension. An asset request that misses is
     // a broken build, so it 404s instead of being answered with the app shell —
     // HTML served as a module fails somewhere far away from the actual cause.
-    if (target && path.extname(target)) {
+    if (target && path.extname(new URL(req.url || "/", `http://${HOST}:${PORT}`).pathname)) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
       res.end(`not found: ${req.url}`);
       return;

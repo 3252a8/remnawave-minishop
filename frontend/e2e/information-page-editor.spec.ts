@@ -2,6 +2,182 @@ import { expect, test, type ConsoleMessage, type Locator, type Page } from "@pla
 
 const ADMIN_URL = "/demo/runtime/admin/stats?theme_preview=dark&mock=checkout-addons";
 
+for (const platform of ["ios", "android"] as const) {
+  test(`document and Home restore Telegram viewport without launch parameters on ${platform}`, async ({
+    page,
+  }) => {
+    const errors = trackErrors(page);
+    let sdkLoads = 0;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      window.sessionStorage.setItem(
+        "minishop-demo-documents",
+        JSON.stringify([
+          {
+            title: "Viewport document",
+            slug: "viewport-document",
+            show_in_settings: true,
+            show_in_sidebar: true,
+            markdown: "# Viewport document\n\nDocument content.",
+          },
+        ])
+      );
+    });
+    await page.route("https://telegram.org/js/telegram-web-app.js*", (route) => {
+      sdkLoads++;
+      return route.fulfill({
+        contentType: "application/javascript",
+        body: `
+        // Simulate the official SDK's saved initParams/fullscreen restoration.
+        const saved = JSON.parse(sessionStorage.getItem('__telegram__initParams') || '{}');
+        const params = { ...saved, ...Object.fromEntries(new URLSearchParams(location.hash.slice(1))) };
+        sessionStorage.setItem('__telegram__initParams', JSON.stringify(params));
+        if (params.tgWebAppFullscreen) sessionStorage.setItem('__telegram__isFullscreen', '"yes"');
+        const handlers = new Map();
+        const calls = { ready: 0, expand: 0 };
+        const webApp = {
+          initData: params.tgWebAppData || '', platform: params.tgWebAppPlatform || 'unknown',
+          isFullscreen: JSON.parse(sessionStorage.getItem('__telegram__isFullscreen') || 'null') === 'yes',
+          isVersionAtLeast: () => true,
+          ready: () => calls.ready++, expand: () => calls.expand++,
+          onEvent: (event, handler) => {
+            const listeners = handlers.get(event) || new Set();
+            listeners.add(handler); handlers.set(event, listeners);
+          },
+          offEvent: (event, handler) => handlers.get(event)?.delete(handler),
+          requestFullscreen: () => {},
+        };
+        window.Telegram = { WebApp: webApp };
+        window.telegramViewportTest = { calls, handlers, webApp };
+      `,
+      });
+    });
+
+    await page.goto(
+      `/demo/runtime/app/?screen=settings&theme_preview=dark#tgWebAppVersion=8.0&tgWebAppPlatform=${platform}&tgWebAppData=test-signed-data&tgWebAppFullscreen=1`
+    );
+    const root = page.locator("html");
+    await expect(root).toHaveAttribute("data-telegram-fullscreen", "true");
+    const documentLink = page.getByRole("link", { name: "Viewport document", exact: true });
+    await expect(documentLink).toBeVisible();
+    await expect(documentLink).toHaveAttribute("href", "/demo/runtime/viewport-document");
+    await documentLink.click();
+    await expect(page.locator(".information-markdown")).toContainText("Document content.");
+    await expect(root).toHaveAttribute("data-telegram-fullscreen", "true");
+    expect(new URL(page.url()).search).toBe("");
+    expect(new URL(page.url()).hash).toBe("");
+    await expect
+      .poll(() =>
+        page
+          .locator(".information-page-topbar")
+          .evaluate((element) => element.getBoundingClientRect().top)
+      )
+      .toBe(96);
+    const homeLink = page
+      .locator(".information-page-topbar")
+      .getByRole("link", { name: "Главная", exact: true });
+    await expect(homeLink).toHaveAttribute("href", "/demo/runtime/");
+    await homeLink.click();
+    await expect(root).toHaveAttribute("data-telegram-fullscreen", "true");
+    await expect(page.locator(".bottom-nav")).toBeVisible();
+    expect(new URL(page.url()).search).toBe("");
+    expect(new URL(page.url()).hash).toBe("");
+    expect(sdkLoads).toBe(3);
+
+    for (const label of ["Устройства", "Бонусы"]) {
+      await page.locator(".bottom-nav").getByRole("button", { name: label, exact: true }).click();
+      await expect
+        .poll(() =>
+          page
+            .locator(".phone-screen")
+            .evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingTop))
+        )
+        .toBeGreaterThanOrEqual(96);
+    }
+    await page.setViewportSize({ width: 740, height: 390 });
+    await page.evaluate(() => {
+      // Official SDK safe-area events update CSS; consumers must use current values.
+      const state = (
+        window as unknown as {
+          telegramViewportTest: {
+            webApp: { isFullscreen: boolean };
+            handlers: Map<string, Set<() => void>>;
+          };
+        }
+      ).telegramViewportTest;
+      document.documentElement.style.setProperty("--tg-content-safe-area-inset-top", "120px");
+      state.handlers.get("activated")?.forEach((handler) => handler());
+    });
+    await expect
+      .poll(() =>
+        page
+          .locator(".phone-screen")
+          .evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingTop))
+      )
+      .toBeGreaterThanOrEqual(120);
+    const lifecycle = await page.evaluate(() => {
+      const state = (
+        window as unknown as {
+          telegramViewportTest: {
+            calls: { ready: number; expand: number };
+            handlers: Map<string, Set<() => void>>;
+          };
+        }
+      ).telegramViewportTest;
+      return {
+        calls: state.calls,
+        viewportListeners: ["fullscreenChanged", "fullscreenFailed", "activated"].map(
+          (event) => state.handlers.get(event)?.size
+        ),
+      };
+    });
+    expect(lifecycle).toEqual({ calls: { ready: 1, expand: 1 }, viewportListeners: [1, 1, 1] });
+    expect(errors).toEqual([]);
+  });
+}
+
+test("ordinary document navigation ignores corrupt Telegram and fullscreen-only storage", async ({
+  page,
+}) => {
+  let sdkLoads = 0;
+  await page.route("https://telegram.org/js/telegram-web-app.js*", (route) => {
+    sdkLoads++;
+    return route.fulfill({ contentType: "application/javascript", body: "" });
+  });
+  await page.addInitScript(() => {
+    sessionStorage.setItem("__telegram__initParams", "broken JSON");
+    sessionStorage.setItem("__telegram__isFullscreen", '"yes"');
+    sessionStorage.setItem(
+      "minishop-demo-documents",
+      JSON.stringify([
+        {
+          title: "Browser document",
+          slug: "browser-document",
+          markdown: "Browser content.",
+        },
+      ])
+    );
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/demo/runtime/browser-document?theme_preview=dark");
+  await expect(page.locator(".information-markdown")).toContainText("Browser content.");
+  await expect(page.locator("html")).not.toHaveAttribute("data-telegram-fullscreen", "true");
+  await expect
+    .poll(() =>
+      page
+        .locator(".information-page-topbar")
+        .evaluate((element) => element.getBoundingClientRect().top)
+    )
+    .toBe(18);
+  await page
+    .locator(".information-page-topbar")
+    .getByRole("link", { name: "Главная", exact: true })
+    .click();
+  await expect(page.locator(".bottom-nav")).toBeVisible();
+  await expect(page.locator("html")).not.toHaveAttribute("data-telegram-fullscreen", "true");
+  expect(sdkLoads).toBe(0);
+});
+
 for (const theme of ["dark", "light"] as const) {
   for (const sidebar of [false, true]) {
     test(`document width follows the viewport with sidebar=${sidebar} in ${theme} theme`, async ({

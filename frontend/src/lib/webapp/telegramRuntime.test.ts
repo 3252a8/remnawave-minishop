@@ -123,6 +123,38 @@ describe("createTelegramRuntime", () => {
     expect(sdk.readInitDataFromLocation).toHaveBeenCalledOnce();
   });
 
+  it("prepares documents and the app once per SDK instance, including a late load", () => {
+    const { runtime, reportTelegram } = makeRuntime({ initData: "", telegram: null });
+    const webApp = {
+      platform: "ios",
+      isFullscreen: true,
+      ready: vi.fn(() => {
+        throw new Error("ready rejected");
+      }),
+      expand: vi.fn(),
+      requestFullscreen: vi.fn(),
+      onEvent: vi.fn(),
+      offEvent: vi.fn(),
+    };
+    runtime.prepareMiniApp();
+    reportTelegram(webApp);
+    runtime.prepareMiniApp();
+    runtime.prepareMiniApp();
+    expect(webApp.ready).toHaveBeenCalledOnce();
+    expect(webApp.expand).toHaveBeenCalledOnce();
+    expect(webApp.requestFullscreen).not.toHaveBeenCalled();
+    expect(webApp.onEvent).toHaveBeenCalledTimes(3);
+
+    runtime.destroy();
+    expect(webApp.offEvent).toHaveBeenCalledTimes(3);
+    const late = { ...webApp, ready: vi.fn(), expand: vi.fn(), onEvent: vi.fn() };
+    reportTelegram(late);
+    runtime.prepareMiniApp();
+    expect(shellState.tg).toBe(webApp);
+    expect(late.ready).not.toHaveBeenCalled();
+    expect(late.onEvent).not.toHaveBeenCalled();
+  });
+
   it("refreshes the shell-owned telegram binding", () => {
     const { runtime, state } = makeRuntime();
     state.telegram = { platform: "desktop" };

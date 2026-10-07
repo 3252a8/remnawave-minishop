@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { runWebappBoot } from "./webappBoot.js";
+import { createTelegramSdk } from "./telegramSdk.js";
 type TestOverrides = Record<string, unknown>;
 
 function installBrowser(search = "") {
@@ -50,6 +51,28 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
+  it("loads Telegram before restoring a cookie session on a clean return URL", async () => {
+    installBrowser();
+    Object.assign(window, {
+      sessionStorage: {
+        getItem: () => JSON.stringify({ tgWebAppVersion: "8.0", tgWebAppPlatform: "ios" }),
+      },
+    });
+    window.location.hash = "";
+    const sdk = createTelegramSdk();
+    const deps = makeDeps({
+      hasTelegramLaunchParams: () => sdk.hasLaunchParams(),
+      refreshSession: vi.fn(async () => ({ authenticated: true })),
+    });
+    await runWebappBoot(deps);
+    expect(deps.loadTelegramSdk).toHaveBeenCalledOnce();
+    expect(deps.prepareTelegramMiniApp.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.refreshSession.mock.invocationCallOrder[0]
+    );
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(window.history.replaceState).not.toHaveBeenCalled();
+  });
+
   it("preserves the session on a non-transient profile failure", async () => {
     installBrowser();
     const deps = makeDeps({

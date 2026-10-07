@@ -15,6 +15,13 @@
   import { renderMarkdown } from "$lib/webapp/markdown.js";
   import { createApiClient, unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
   import type { Translate } from "$lib/webapp/types.js";
+  import { createTelegramRuntime } from "$lib/webapp/telegramRuntime.js";
+  import {
+    TELEGRAM_WEBAPP_SCRIPT_URL,
+    TELEGRAM_SDK_BOOT_TIMEOUT_MS,
+    TELEGRAM_SDK_ACTION_TIMEOUT_MS,
+    TELEGRAM_MINI_APP_AUTH_TIMEOUT_MS,
+  } from "$lib/webapp/constants.js";
 
   const { api } = createApiClient();
 
@@ -53,6 +60,18 @@
 
   onMount(() => {
     let mounted = true;
+    const telegramRuntime = createTelegramRuntime({
+      scriptUrl: TELEGRAM_WEBAPP_SCRIPT_URL,
+      bootTimeoutMs: TELEGRAM_SDK_BOOT_TIMEOUT_MS,
+      actionTimeoutMs: TELEGRAM_SDK_ACTION_TIMEOUT_MS,
+      miniAppAuthTimeoutMs: TELEGRAM_MINI_APP_AUTH_TIMEOUT_MS,
+    });
+    telegramRuntime.prepareMiniApp();
+    if (telegramRuntime.hasLaunchParams()) {
+      void telegramRuntime.load().catch(() => {
+        // Public documents remain readable if SDK loading or native setup fails.
+      });
+    }
     const loadPage = async (): Promise<{ markdown: string; title: string } | null> => {
       try {
         if (documentSlug) {
@@ -97,6 +116,7 @@
 
     return () => {
       mounted = false;
+      telegramRuntime.destroy();
     };
   });
 </script>
