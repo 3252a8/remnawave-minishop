@@ -12033,6 +12033,11 @@ export interface components {
     /** WebAppPaymentCreatePayload */
     WebAppPaymentCreatePayload: {
       /**
+       * Balance Auto Renew
+       * @default false
+       */
+      balance_auto_renew: boolean;
+      /**
        * Balance Source
        * @default null
        */
@@ -12145,6 +12150,11 @@ export interface components {
     };
     /** WebAppPromoQuotePayload */
     WebAppPromoQuotePayload: {
+      /**
+       * Balance Auto Renew
+       * @default false
+       */
+      balance_auto_renew: boolean;
       /**
        * Balance Source
        * @default null
@@ -12263,6 +12273,11 @@ export interface components {
     };
     /** WebAppSubscriptionQuotePayload */
     WebAppSubscriptionQuotePayload: {
+      /**
+       * Balance Auto Renew
+       * @default false
+       */
+      balance_auto_renew: boolean;
       /**
        * Balance Source
        * @default null
@@ -17942,6 +17957,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -17950,6 +17966,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -18081,6 +18098,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -18089,6 +18107,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -18143,6 +18162,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -18151,6 +18171,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -19310,6 +19331,7 @@ export interface operations {
             }[];
             /** @constant */
             ok: true;
+            recurring_enabled?: boolean;
             sources: {
               adjustable?: boolean;
               amount?: string;
@@ -19318,6 +19340,7 @@ export interface operations {
               convertible?: boolean;
               currency?: string;
               id?: string;
+              recurring_available?: boolean;
               status?: string | null;
             }[];
             topup_max_amount: number;
@@ -20066,6 +20089,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -20074,6 +20098,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;

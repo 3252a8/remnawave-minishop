@@ -1,5 +1,5 @@
 import { unwrap } from "../publicApi";
-import type { PartnerBalancePaymentOptions } from "../billingActions";
+import type { CheckoutPromoOptions, PartnerBalancePaymentOptions } from "../billingActions";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
 import type {
   BillingOptionsResponse,
@@ -86,7 +86,7 @@ export type BillingStore = BillingState & {
   resumePendingPayment(payment: PendingPaymentView): Promise<void>;
   cancelPendingPayment(payment: PendingPaymentView): Promise<void>;
   setCheckoutPromoInput(value: string): void;
-  applyCheckoutPromo(): Promise<void>;
+  applyCheckoutPromo(options?: CheckoutPromoOptions): Promise<void>;
   clearCheckoutPromo(): void;
   openTopupModal(kind?: string, defaultMethod?: string): void;
   closeTopupModal(): void;

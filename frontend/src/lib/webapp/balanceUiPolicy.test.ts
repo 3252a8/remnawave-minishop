@@ -4,9 +4,18 @@ import {
   availableBalanceTopupMethods,
   shouldShowUserBalance,
   decimalTopupAmount,
+  balanceRecurringEligible,
 } from "./balanceUiPolicy.js";
 
 describe("user balance UI policy", () => {
+  it("offers recurring balance only for subscription periods, excluding gifts and add-ons", () => {
+    expect(balanceRecurringEligible({ sale_mode: "subscription" })).toBe(true);
+    expect(balanceRecurringEligible({ sale_mode: "subscription@standard" })).toBe(true);
+    expect(balanceRecurringEligible({ sale_mode: "subscription" }, true)).toBe(false);
+    expect(balanceRecurringEligible(null)).toBe(false);
+    for (const sale_mode of ["topup", "premium_topup", "hwid_device", "hwid_devices", "trial"])
+      expect(balanceRecurringEligible({ sale_mode })).toBe(false);
+  });
   it("accepts ordinary decimal amounts at currency precision", () => {
     expect(decimalTopupAmount("100,12", 2)).toBe(100.12);
     expect(decimalTopupAmount("100.125", 3)).toBe(100.125);

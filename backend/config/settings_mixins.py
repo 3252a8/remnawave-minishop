@@ -149,6 +149,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         ).strip()
         return BalanceSettings(
             enabled=self.USER_BALANCE_ENABLED,
+            recurring_enabled=self.USER_BALANCE_RECURRING_ENABLED,
             currency=currency,
             topup_min_amount=self.USER_BALANCE_TOPUP_MIN_AMOUNT,
             topup_max_amount=self.USER_BALANCE_TOPUP_MAX_AMOUNT,

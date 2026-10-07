@@ -20,6 +20,31 @@ describe("billing error translation", () => {
 });
 
 describe("billingActions partner balance funding", () => {
+  it("keeps the recurring balance consent and flexible limits in subscription payments", () => {
+    const actions = createBillingActions({ api: vi.fn() });
+    const body = actions.planPaymentBody(
+      { months: 3, tariff_key: "standard", sale_mode: "subscription" },
+      "balance",
+      {
+        balanceSource: "partner",
+        balanceAutoRenew: true,
+        checkoutAddons: { device_count: 2, regular_limit_gb: 250, premium_limit_gb: 50 },
+      }
+    );
+    expect(body).toMatchObject({
+      method: "balance",
+      balance_source: "partner",
+      balance_auto_renew: true,
+      checkout_addons: { device_count: 2, regular_limit_gb: 250, premium_limit_gb: 50 },
+    });
+    expect(actions.planPaymentBody({ months: 1 }, "card").balance_auto_renew).toBe(false);
+    expect(actions.topupPaymentBody({ months: 1 }, "card")).not.toHaveProperty(
+      "balance_auto_renew"
+    );
+    expect(actions.deviceTopupPaymentBody({ months: 1 }, "card")).not.toHaveProperty(
+      "balance_auto_renew"
+    );
+  });
   it("includes the selection in every supported checkout payload", () => {
     const actions = createBillingActions({ api: vi.fn() });
     const plan = {

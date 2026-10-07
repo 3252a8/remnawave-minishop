@@ -613,7 +613,10 @@ def _serialize_subscription(
         max_devices=active.get("max_devices"),
         subscription_is_trial=is_trial,
     )
-    can_topup_devices = device_topup_availability.allowed
+    from bot.services.balance_recurring import active_balance_recurrence
+
+    balance_recurrence = active_balance_recurrence(local_sub)
+    can_topup_devices = device_topup_availability.allowed and not balance_recurrence
     if settings.tariffs_config and active.get("tariff_key"):
         try:
             tariff = settings.tariffs_config.require_configured(str(active.get("tariff_key")))
@@ -635,6 +638,10 @@ def _serialize_subscription(
             premium_topup_always_available = False
 
     panel_short_uuid = str(active.get("panel_short_uuid") or "").strip()
+    if balance_recurrence:
+        can_topup_regular_traffic = False
+        can_topup_premium_traffic = False
+        can_topup_traffic = False
     share_token = str(
         install_share_token or getattr(local_sub, "install_share_token", "") or ""
     ).strip()

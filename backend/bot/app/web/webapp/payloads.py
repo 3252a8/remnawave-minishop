@@ -168,6 +168,7 @@ class WebAppPaymentCreatePayload(BaseModel):
     renew_hwid_devices: bool | None = None
     checkout_addons: WebAppCheckoutAddonsPayload | None = None
     balance_source: Literal["user", "partner"] | None = None
+    balance_auto_renew: bool = Field(default=False, strict=True)
     use_partner_balance: bool = False
     promo_code: ActivationCodeString | None = None
     description: LongTextString | None = None

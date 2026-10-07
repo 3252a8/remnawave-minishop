@@ -204,6 +204,7 @@ class Settings(
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
     USER_BALANCE_ENABLED: bool = Field(default=False)
+    USER_BALANCE_RECURRING_ENABLED: bool = Field(default=False)
     USER_BALANCE_CURRENCY: str = Field(
         default="",
         description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",

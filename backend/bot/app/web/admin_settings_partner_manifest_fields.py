@@ -6,7 +6,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_ENABLED",
         "bool",
-        "general",
+        "payments",
         "User balance",
         "Show a personal balance and allow users to top it up and spend it.",
         subsection="balance",
@@ -14,7 +14,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_CURRENCY",
         "string",
-        "general",
+        "payments",
         "User balance currency",
         "ISO-style currency code. Leave blank to follow the default payment currency.",
         subsection="balance",
@@ -22,7 +22,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_TOPUP_MIN_AMOUNT",
         "float",
-        "general",
+        "payments",
         "Minimum balance top-up",
         min=0.01,
         subsection="balance",
@@ -30,7 +30,7 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_TOPUP_MAX_AMOUNT",
         "float",
-        "general",
+        "payments",
         "Maximum balance top-up",
         min=0.01,
         subsection="balance",
@@ -38,8 +38,16 @@ PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "USER_BALANCE_TOPUP_PRESETS",
         "string",
-        "general",
+        "payments",
         "Balance top-up presets (JSON)",
+        subsection="balance",
+    ),
+    SettingField(
+        "USER_BALANCE_RECURRING_ENABLED",
+        "bool",
+        "payments",
+        "Auto-renewal from balance",
+        "Allow fully funded subscriptions to renew from the selected user or partner balance.",
         subsection="balance",
     ),
     SettingField(

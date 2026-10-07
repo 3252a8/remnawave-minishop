@@ -194,6 +194,7 @@ async def create_fully_partner_funded_payment(
     request: web.Request,
     payment_context: WebAppPaymentContext,
     allocation: PartnerCheckoutBalanceAllocation,
+    balance_auto_renew: bool = False,
 ) -> web.Response:
     try:
         payment = await create_webapp_payment_record(
@@ -203,6 +204,7 @@ async def create_fully_partner_funded_payment(
             status="succeeded_pending_finalization",
             provider="partner_balance",
             funding_source="internal_partner_balance",
+            balance_auto_renew=balance_auto_renew,
         )
     except PartnerError as exc:
         await payment_context.session.rollback()
@@ -298,12 +300,14 @@ async def create_fully_balance_funded_payment(
     request: web.Request,
     payment_context: WebAppPaymentContext,
     allocation: BalanceCheckoutAllocation,
+    balance_auto_renew: bool = False,
 ) -> web.Response:
     if isinstance(allocation, PartnerCheckoutBalanceAllocation):
         return await create_fully_partner_funded_payment(
             request=request,
             payment_context=payment_context,
             allocation=allocation,
+            balance_auto_renew=balance_auto_renew,
         )
     try:
         payment = await create_webapp_payment_record(
@@ -313,6 +317,7 @@ async def create_fully_balance_funded_payment(
             status="succeeded_pending_finalization",
             provider="user_balance",
             funding_source="internal_user_balance",
+            balance_auto_renew=balance_auto_renew,
         )
     except UserBalanceError as exc:
         await payment_context.session.rollback()

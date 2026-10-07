@@ -367,6 +367,7 @@ class Payment(Base):
     # Persistent attribution for merchant-initiated recurring charges. These
     # fields stay nullable for historic and ordinary one-off payments.
     is_auto_renew = Column(Boolean, nullable=False, default=False, index=True)
+    balance_auto_renew = Column(Boolean, nullable=False, default=False, server_default="false")
     renewal_subscription_id = Column(Integer, nullable=True, index=True)
     renewal_cycle_end = Column(DateTime(timezone=True), nullable=True)
     auto_renew_cycle_id = Column(

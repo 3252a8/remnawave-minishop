@@ -262,6 +262,7 @@ BALANCE_SOURCE_SCHEMA: dict[str, Any] = {
     "properties": {
         "id": STRING_SCHEMA,
         "available": BOOLEAN_SCHEMA,
+        "recurring_available": BOOLEAN_SCHEMA,
         "adjustable": BOOLEAN_SCHEMA,
         "convertible": BOOLEAN_SCHEMA,
         "status": NULLABLE_STRING_SCHEMA,
@@ -288,6 +289,7 @@ BALANCE_ENTRY_SCHEMA: dict[str, Any] = {
 BALANCE_SCHEMA: dict[str, Any] = ok_envelope_with(
     {
         "enabled": BOOLEAN_SCHEMA,
+        "recurring_enabled": BOOLEAN_SCHEMA,
         "currency": STRING_SCHEMA,
         "currency_scale": INTEGER_SCHEMA,
         "amount_minor": INTEGER_SCHEMA,

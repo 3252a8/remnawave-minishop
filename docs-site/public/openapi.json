@@ -16881,6 +16881,11 @@
       },
       "WebAppPaymentCreatePayload": {
         "properties": {
+          "balance_auto_renew": {
+            "default": false,
+            "title": "Balance Auto Renew",
+            "type": "boolean"
+          },
           "balance_source": {
             "anyOf": [
               {
@@ -17124,6 +17129,11 @@
       },
       "WebAppPromoQuotePayload": {
         "properties": {
+          "balance_auto_renew": {
+            "default": false,
+            "title": "Balance Auto Renew",
+            "type": "boolean"
+          },
           "balance_source": {
             "anyOf": [
               {
@@ -17407,6 +17417,11 @@
       },
       "WebAppSubscriptionQuotePayload": {
         "properties": {
+          "balance_auto_renew": {
+            "default": false,
+            "title": "Balance Auto Renew",
+            "type": "boolean"
+          },
           "balance_source": {
             "anyOf": [
               {
@@ -29413,6 +29428,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -29437,6 +29455,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -29814,6 +29835,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -29838,6 +29862,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -30001,6 +30028,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -30025,6 +30055,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -32519,6 +32552,9 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "recurring_enabled": {
+                      "type": "boolean"
+                    },
                     "sources": {
                       "items": {
                         "additionalProperties": false,
@@ -32543,6 +32579,9 @@
                           },
                           "id": {
                             "type": "string"
+                          },
+                          "recurring_available": {
+                            "type": "boolean"
                           },
                           "status": {
                             "type": [
@@ -34344,6 +34383,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -34368,6 +34410,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [

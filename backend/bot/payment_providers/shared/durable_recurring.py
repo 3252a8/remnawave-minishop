@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -217,7 +218,12 @@ async def prepare_durable_recurring_charge(
             return DurableRecurringPreparation(
                 result=RecurringChargeResult.failed("current_payment_missing")
             )
-        if context.retry_kind != "transport" or getattr(payment, "provider_payment_id", None):
+        if context.retry_kind == "financial":
+            if str(payment.status or "").lower() in auto_renew_dal.BLOCKING_PAYMENT_STATUSES:
+                return DurableRecurringPreparation(result=_existing_payment_result(payment))
+            payment = None
+            current_payment_id = None
+        elif context.retry_kind != "transport" or getattr(payment, "provider_payment_id", None):
             return DurableRecurringPreparation(result=_existing_payment_result(payment))
 
     transport_replays = int(cycle.transport_replays or 0)
@@ -231,6 +237,14 @@ async def prepare_durable_recurring_charge(
         transport_replays += 1
 
     attempt_number = max(1, int(cycle.financial_attempts or context.attempt_number or 1))
+    if context.retry_kind == "financial":
+        attempt_number += 1
+    attempt_key_source = f"{base_key}|financial-attempt:{attempt_number}"
+    payment_key = (
+        base_key
+        if attempt_number == 1
+        else f"renewal-{uuid.uuid5(uuid.NAMESPACE_URL, attempt_key_source).hex}"
+    )
     payment_payload = build_payment_record_payload(
         user_id=context.user_id,
         amount=float(context.amount),
@@ -251,7 +265,7 @@ async def prepare_durable_recurring_charge(
     )
     payment_payload.update(
         {
-            "idempotence_key": base_key,
+            "idempotence_key": payment_key,
             "auto_renew_cycle_id": cycle_id,
             "renewal_attempt_number": attempt_number,
             "renewal_consent_version": consent_version,
@@ -349,7 +363,7 @@ async def prepare_durable_recurring_charge(
             cycle_id=cycle_id,
             payment=payment,
             payment_id=payment_id,
-            request_id=base_key,
+            request_id=payment_key,
             attempt_number=attempt_number,
             transport_replays=transport_replays,
             fallback_retry_at=fallback_retry_at,

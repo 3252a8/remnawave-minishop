@@ -351,6 +351,7 @@ class PartnerCheckoutBalanceLifecycleTests(IsolatedAsyncioTestCase):
             status="succeeded_pending_finalization",
             provider="partner_balance",
             funding_source="internal_partner_balance",
+            balance_auto_renew=False,
         )
         finalize_call = finalize.await_args
         self.assertIsNotNone(finalize_call)

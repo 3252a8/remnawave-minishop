@@ -12,6 +12,7 @@
   import PartnerEncryptionDiagnostic from "./PartnerEncryptionDiagnostic.svelte";
   import PartnerSettingsDialogs from "./PartnerSettingsDialogs.svelte";
   import PartnerWithdrawalMethods from "./PartnerWithdrawalMethods.svelte";
+  import BalanceSettingsLink from "../BalanceSettingsLink.svelte";
   import {
     normalizeWithdrawalMethods,
     partnerSettingsScenario as initialSettingsScenario,
@@ -25,9 +26,11 @@
   let {
     at,
     onNavigateSection = () => {},
+    onOpenSettingsPath = () => {},
   }: {
     at: TranslateFn;
     onNavigateSection?: (section: string) => void;
+    onOpenSettingsPath?: (path: string[]) => void;
   } = $props();
 
   const settingsScenario = initialSettingsScenario();
@@ -362,6 +365,7 @@
 {/snippet}
 
 <div class="admin-settings-field-groups partner-settings-page">
+  <BalanceSettingsLink {at} destination="balance" {onOpenSettingsPath} />
   <section class="admin-settings-field-group">
     <header class="admin-settings-field-group-head">
       <strong>{at("partner_settings_state_title", {}, "Program state")}</strong>

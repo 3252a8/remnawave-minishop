@@ -11,7 +11,8 @@ import {
   demoAuthConfig,
 } from "./authDemo";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
-import { currentDemoBalance } from "./balance";
+import { currentDemoBalance, spendDemoBalance } from "./balance";
+import { balanceRecurringEligible } from "../balanceUiPolicy";
 import { applyDemoDeviceTopup, demoDeviceTopupPlan } from "./deviceTopup";
 import type { AdminDemoFixtures } from "./adminFixtures";
 import { demoPaymentStatuses, isDeviceTopupSaleMode, nextDemoPaymentId } from "./state";
@@ -51,7 +52,11 @@ function demoCheckoutQuote(body: DemoRecord) {
     addonsAmount += amount;
     items.push({ kind, ...option, amount });
   }
-  const subtotal = baseAmount + addonsAmount;
+  const renewal = (plan?.hwid_renewal || {}) as DemoRecord;
+  const hwidRenewalAmount = body.renew_hwid_devices
+    ? Number(stars ? renewal.stars_price || 0 : renewal.price || 0)
+    : 0;
+  const subtotal = baseAmount + addonsAmount + hwidRenewalAmount;
   return { stars, baseAmount, addonsAmount, subtotal, items };
 }
 
@@ -184,6 +189,12 @@ export function webappFallbackResponse(
         DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
       provider: DEV_MOCK.data.subscription?.provider || "cloudpayments",
     };
+    if (["user_balance", "partner_balance"].includes(String(DEV_MOCK.data.subscription.provider))) {
+      DEV_MOCK.data.subscription.can_topup_regular_traffic = !enabled;
+      DEV_MOCK.data.subscription.can_topup_premium_traffic = !enabled;
+      DEV_MOCK.data.subscription.can_topup_traffic = !enabled;
+      DEV_MOCK.data.subscription.can_topup_devices = !enabled;
+    }
     return {
       ok: true,
       auto_renew_enabled: enabled,
@@ -348,9 +359,22 @@ export function webappFallbackResponse(
     };
   }
   if (path === "/devices") return clone(DEV_MOCK.data.devices);
+  if (
+    path === "/devices/topup-options" &&
+    DEV_MOCK.data.subscription.auto_renew_enabled &&
+    ["user_balance", "partner_balance"].includes(String(DEV_MOCK.data.subscription.provider))
+  ) {
+    return { ok: false, error: "recurring_subscription_topup_forbidden" };
+  }
   if (path === "/devices/topup-options")
     return clone(DEV_MOCK.data.device_topup_options || { ok: true, plans: [] });
   if (cleanPath === "/tariffs/topup-options") {
+    if (
+      DEV_MOCK.data.subscription.auto_renew_enabled &&
+      ["user_balance", "partner_balance"].includes(String(DEV_MOCK.data.subscription.provider))
+    ) {
+      return { ok: false, error: "recurring_subscription_topup_forbidden" };
+    }
     const kind =
       new URLSearchParams(String(path || "").split("?")[1] || "").get("kind") || "regular";
     const payload = clone(DEV_MOCK.data.topup_options || { ok: true, plans: [] }) as DemoRecord & {
@@ -550,6 +574,47 @@ export function webappFallbackResponse(
   }
   if (path === "/payments" && String(options.method || "").toUpperCase() === "POST") {
     const body = jsonBody(options);
+    if (String(body.method || "").toLowerCase() === "balance" && body.balance_source) {
+      const sourceId = body.balance_source === "partner" ? "partner" : "user";
+      const recurring = Boolean(body.balance_auto_renew);
+      if (
+        recurring &&
+        (!currentDemoBalance().recurring_enabled ||
+          !balanceRecurringEligible(
+            { sale_mode: String(body.sale_mode || "subscription") },
+            Boolean(body.gift)
+          ))
+      ) {
+        return { ok: false, error: "balance_recurring_disabled" };
+      }
+      const quote = demoCheckoutQuote(body);
+      if (!spendDemoBalance(sourceId, quote.subtotal)) {
+        return { ok: false, error: "balance_insufficient" };
+      }
+      const provider = sourceId === "partner" ? "partner_balance" : "user_balance";
+      DEV_MOCK.data.subscription = {
+        ...DEV_MOCK.data.subscription,
+        active: true,
+        provider,
+        auto_renew_enabled: recurring,
+        auto_renew_available: recurring,
+        auto_renew_can_enable: recurring,
+        auto_renew_provider_label: sourceId === "partner" ? "Partner balance" : "Balance",
+        can_topup_regular_traffic: !recurring,
+        can_topup_premium_traffic: !recurring,
+        can_topup_traffic: !recurring,
+        can_topup_devices: !recurring,
+      };
+      const paymentId = nextDemoPaymentId();
+      demoPaymentStatuses.set(String(paymentId), {
+        status: "succeeded",
+        paid: true,
+        sale_mode: "subscription",
+        device_count: 0,
+        applied: true,
+      });
+      return { ok: true, action: "completed", payment_id: paymentId };
+    }
     if (isDeviceTopupSaleMode(body.sale_mode)) {
       const plan = demoDeviceTopupPlan(body);
       const deviceCount = Number(

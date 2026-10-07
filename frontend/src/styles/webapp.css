@@ -1847,6 +1847,11 @@ a {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+.payment-method-select-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .payment-method-select-content {
   z-index: 400;
   width: var(--bits-select-anchor-width);

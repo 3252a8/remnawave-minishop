@@ -219,7 +219,7 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
             provider = str(getattr(sub, "provider", "") or "").strip().lower()
             from bot.payment_providers import provider_label_map, provider_supports_recurring
             from bot.payment_providers.shared import service_supports_recurring
-            from db.dal import user_billing_dal
+            from bot.payment_providers.shared.recurring import has_recurring_payment_method
 
             if not auto_renew_toggle_allowed(provider, enable=enabled):
                 await session.rollback()
@@ -241,7 +241,7 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         "auto_renew_unavailable",
                         "Auto-renew is not available for this payment provider",
                     )
-                has_saved_method = await user_billing_dal.user_has_saved_payment_method(
+                has_saved_method = await has_recurring_payment_method(
                     session,
                     user_id,
                     provider=provider,

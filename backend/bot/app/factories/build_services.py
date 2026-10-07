@@ -15,6 +15,7 @@ from bot.payment_providers import (
 )
 from bot.payment_providers.shared import RecurringProviderService
 from bot.services.audience_segmentation import AudienceSegmentationService
+from bot.services.balance_recurring import BalanceRecurringService
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_service import NotificationService
 from bot.services.outbound_messaging import OutboundMessagingService
@@ -96,6 +97,17 @@ def build_core_services(
         payment_services.get("yookassa_service"),
     )
     subscription_service.recurring_provider_services = recurring_provider_services(payment_services)
+    for balance_provider in ("user_balance", "partner_balance"):
+        subscription_service.recurring_provider_services[balance_provider] = (
+            BalanceRecurringService(
+                settings,
+                provider=balance_provider,
+                subscription_service=subscription_service,
+                referral_service=referral_service,
+                bot=bot,
+                i18n=i18n,
+            )
+        )
     subscription_service.managed_recurring_provider_services = managed_recurring_provider_services(
         payment_services
     )

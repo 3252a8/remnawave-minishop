@@ -15,12 +15,14 @@
     methods = [],
     selectedMethod = "",
     mode = "dropdown",
+    disabled = false,
     t = (key) => key,
     onSelect = () => {},
   }: {
     methods?: PaymentMethod[];
     selectedMethod?: string;
     mode?: "dropdown" | "buttons" | string;
+    disabled?: boolean;
     t?: Translate;
     onSelect?: StringAction;
   } = $props();
@@ -85,12 +87,13 @@
 </script>
 
 {#if mode === "buttons"}
-  <PaymentMethodGrid {methods} {selectedMethod} {t} {onSelect} />
+  <PaymentMethodGrid {methods} {selectedMethod} {disabled} {t} {onSelect} />
 {:else}
   <div class="payment-method-picker">
     <span class="payment-method-picker-label">{t("wa_payment_method", {}, "Payment method")}</span>
     <Select.Root
       type="single"
+      {disabled}
       value={selectedMethod}
       items={methods.map((method) => ({
         value: methodId(method),

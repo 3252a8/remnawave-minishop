@@ -17,6 +17,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
+from bot.payment_providers.shared.recurring import has_recurring_payment_method
 from bot.services.panel_api_service import PanelApiService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
@@ -26,7 +27,7 @@ from bot.utils.callback_answer import (
     message_from_user,
 )
 from config.settings import Settings
-from db.dal import subscription_dal, user_billing_dal
+from db.dal import subscription_dal
 from db.models import Subscription
 
 from .core_common import (
@@ -143,7 +144,7 @@ async def toggle_autorenew_handler(
         if not service_supports_recurring(service):
             await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
             return
-        has_saved_card = await user_billing_dal.user_has_saved_payment_method(
+        has_saved_card = await has_recurring_payment_method(
             session,
             account_user_id,
             provider=provider,
@@ -209,7 +210,7 @@ async def confirm_autorenew_handler(
                     callback, i18n_data, settings, panel_service, subscription_service, session, bot
                 )
             return
-        has_saved_card = await user_billing_dal.user_has_saved_payment_method(
+        has_saved_card = await has_recurring_payment_method(
             session,
             account_user_id,
             provider=provider,

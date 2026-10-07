@@ -22,6 +22,18 @@ const field = (key: string, extra: Partial<AdminSettingField> = {}): AdminSettin
   }) as AdminSettingField;
 
 describe("settingsSections", () => {
+  it("keeps balance as a payment provider card with the shared money emoji", () => {
+    const groups = groupSectionFields({
+      id: "payments",
+      title: "Payments",
+      fields: [field("USER_BALANCE_RECURRING_ENABLED", { subsection: "balance" })],
+    } as AdminSettingsSection);
+    expect(groups[0].providerInfo).toMatchObject({
+      id: "user_balance",
+      logoFallback: "💸",
+      logoUrl: "",
+    });
+  });
   it("normalizes deep settings paths into stable route keys", () => {
     expect(normalizeSettingsPath("/Payments/Platega/Crypto/ignored")).toEqual([
       "Payments",

@@ -21,6 +21,7 @@
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
   import AdministratorsSubsection from "./AdministratorsSubsection.svelte";
   import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
+  import BalanceSettingsLink from "./BalanceSettingsLink.svelte";
   import NotificationDeliveryMatrix from "./NotificationDeliveryMatrix.svelte";
   import MenuButtonsField from "./MenuButtonsField.svelte";
   import TelegramMenuAppearance from "./TelegramMenuAppearance.svelte";
@@ -860,6 +861,7 @@
       {settingsOpenSections}
       {toggleSettingsSection}
       {onNavigateSection}
+      {onOpenSettingsPath}
     />
     {#each visibleSettingsSections as section (section.id)}
       {@const dirtyInSection = section.fields.filter((f) => Boolean(settingsDirty[f.key])).length}
@@ -929,6 +931,7 @@
                         open={subsectionIsOpen}
                         overriddenLabel={settingsOverriddenCountLabel(at, subOverridden)}
                         logoFallback={group.providerInfo?.logoFallback || ""}
+                        logoEmoji={section.id === "payments" && group.id === "balance"}
                         logoLabel={group.providerInfo?.label || subsectionTitle(group)}
                         logoUrl={group.providerInfo?.logoUrl || ""}
                         title={subsectionTitle(group)}
@@ -942,6 +945,9 @@
                           <div class="admin-settings-subsection-body">
                             {#if section.id === "login_methods"}
                               {@render renderLoginProviderHelp(group.id)}
+                            {/if}
+                            {#if section.id === "payments" && group.id === "balance"}
+                              <BalanceSettingsLink {at} {onOpenSettingsPath} />
                             {/if}
                             {#if group.providerInfo}
                               {@render renderProviderInfo(group.providerInfo)}

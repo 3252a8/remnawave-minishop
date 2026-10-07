@@ -16,6 +16,7 @@ from bot.app.web.webapp.payloads import (
     WebAppPlansViewedPayload,
     WebAppTariffChangePayload,
 )
+from bot.services.balance_recurring import active_balance_recurrence
 from bot.services.behavior_events import emit_plans_viewed
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.subscription_service_impl.core import SubscriptionService
@@ -79,6 +80,12 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
         if not sub or not sub.tariff_key:
             return _json_error(
                 400, "subscription_required", "Active tariff subscription is required"
+            )
+        if active_balance_recurrence(sub):
+            return _json_error(
+                409,
+                "balance_recurring_conflict",
+                "Disable balance auto-renew before buying separate add-ons",
             )
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         tariff = config.require_configured(sub.tariff_key)
@@ -330,6 +337,12 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
         sub = await subscription_dal.get_active_subscription_by_user_id(
             session, user_id, db_user.panel_user_uuid
         )
+        if active_balance_recurrence(sub):
+            return _json_error(
+                409,
+                "balance_recurring_conflict",
+                "Disable balance auto-renew before buying separate add-ons",
+            )
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         active = await subscription_service.get_active_subscription_details(session, user_id)
         availability = resolve_device_topup_availability(

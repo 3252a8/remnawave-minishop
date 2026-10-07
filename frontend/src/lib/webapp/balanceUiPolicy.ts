@@ -15,6 +15,16 @@ export function shouldShowUserBalance(balance: BalanceUiState): boolean {
   return Boolean(balance.enabled) || Number(balance.amount_minor || 0) > 0;
 }
 
+export function balanceRecurringEligible(
+  plan: { sale_mode?: string | null } | null | undefined,
+  gift = false
+): boolean {
+  const saleMode = String(plan?.sale_mode || "subscription")
+    .split("@", 1)[0]
+    .toLowerCase();
+  return Boolean(plan) && !gift && saleMode === "subscription";
+}
+
 const SUBSCRIPTION_ONLY_METHODS = new Set([
   "platega_subscription",
   "rollypay_subscription",

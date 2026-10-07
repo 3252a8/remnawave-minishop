@@ -26,9 +26,11 @@ from bot.app.web.webapp.payloads import (
 from bot.payment_providers.base import WebAppPaymentContext
 from bot.payment_providers.shared.entitlement_context import (
     EntitlementContextError,
+    build_entitlement_context_snapshot,
     build_entitlement_context_snapshot_from_values,
     snapshot_current_entitlement_context,
 )
+from bot.services.balance_recurring import BALANCE_RECURRING_ADDON_BASES
 from bot.services.checkout_addons import checkout_addon_grants
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_common import PartnerError
@@ -54,6 +56,7 @@ from config.tariffs_config import (
 )
 from db.dal import subscription_dal, user_dal
 
+from .billing_balance_method import balance_checkout_policy
 from .billing_checkout_adjustments import (
     CheckoutPromoResult,
     _resolve_checkout_promo,
@@ -63,6 +66,7 @@ from .billing_checkout_bundle import (
     build_checkout_bundle,
     normalize_checkout_device_selection,
 )
+from .billing_checkout_context import apply_checkout_promo_context
 from .billing_common import _parse_positive_int_units, _subscription_is_trial
 from .billing_partner_checkout import (
     allocate_checkout_balance,
@@ -569,6 +573,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
             promo_code=payment_payload.promo_code,
             entitlement_context_snapshot=quoted_entitlement_context_snapshot,
             balance_source=payment_payload.balance_source,
+            balance_auto_renew=payment_payload.balance_auto_renew,
             use_partner_balance=payment_payload.use_partner_balance,
             checkout_bundle_snapshot=checkout_bundle.snapshot,
             checkout_bundle_hash=checkout_bundle.digest,
@@ -598,6 +603,7 @@ async def _create_subscription_payment(
     tariff_change_quote_snapshot: str | None = None,
     entitlement_context_snapshot: str | None = None,
     balance_source: Literal["user", "partner"] | None = None,
+    balance_auto_renew: bool = False,
     use_partner_balance: bool = False,
     checkout_bundle_snapshot: str | None = None,
     checkout_bundle_hash: str | None = None,
@@ -607,6 +613,16 @@ async def _create_subscription_payment(
     settings: Settings = get_settings(request)
     checkout_grants = checkout_addon_grants(checkout_bundle_snapshot)
     selected_balance_source = balance_source or ("partner" if use_partner_balance else None)
+    balance_policy_error, balance_policy_subscription = await balance_checkout_policy(
+        session=session,
+        user_id=user_id,
+        settings=settings,
+        sale_mode=sale_mode,
+        source=selected_balance_source,
+        auto_renew=balance_auto_renew,
+    )
+    if balance_policy_error is not None:
+        return balance_policy_error
     if method == "balance" and selected_balance_source is None:
         return _json_error(400, "balance_source_required", "Select a balance source")
     payment_currency = (currency or default_payment_currency_code_for_settings(settings)).upper()
@@ -623,11 +639,17 @@ async def _create_subscription_payment(
         and not is_gift_sale(sale_mode)
     ):
         try:
-            entitlement_context_snapshot = await snapshot_current_entitlement_context(
-                session,
-                user_id=int(user_id),
-                sale_mode=sale_mode,
-            )
+            if _sale_mode_base(sale_mode) in BALANCE_RECURRING_ADDON_BASES:
+                entitlement_context_snapshot = build_entitlement_context_snapshot(
+                    sale_mode=sale_mode,
+                    active_subscription=balance_policy_subscription,
+                )
+            else:
+                entitlement_context_snapshot = await snapshot_current_entitlement_context(
+                    session,
+                    user_id=int(user_id),
+                    sale_mode=sale_mode,
+                )
         except EntitlementContextError as exc:
             logger.warning(
                 "Rejecting one-time checkout for stale entitlement context: "
@@ -859,45 +881,20 @@ async def _create_subscription_payment(
                 promo_support_error.code,
                 promo_support_error.message,
             )
-        payment_context = replace(
+        payment_context = apply_checkout_promo_context(
             payment_context,
             price=price,
             stars_price=stars_price,
             promo_code_id=promo_code_id,
-            promo_effect_summary=promo_result.effect_summary if promo_result else None,
-            promo_bonus_days=promo_result.effects.bonus_days if promo_result else None,
-            promo_regular_traffic_gb=(
-                promo_result.effects.regular_traffic_gb if promo_result else None
-            ),
-            promo_premium_traffic_gb=(
-                promo_result.effects.premium_traffic_gb if promo_result else None
-            ),
-            promo_discount_percent=promo_result.effects.discount_percent if promo_result else None,
-            promo_duration_multiplier=(
-                promo_result.effects.duration_multiplier
-                if promo_result and promo_result.effects.duration_multiplier != 1.0
-                else None
-            ),
-            promo_traffic_multiplier=(
-                promo_result.effects.traffic_multiplier
-                if promo_result and promo_result.effects.traffic_multiplier != 1.0
-                else None
-            ),
-            promo_applies_to=promo_result.effects.applies_to if promo_result else None,
-            promo_min_subscription_months=promo_result.effects.min_subscription_months
-            if promo_result
-            else None,
-            promo_min_traffic_gb=promo_result.effects.min_traffic_gb if promo_result else None,
-            checkout_discount_amount=promo_result.discount_amount if promo_result else None,
-            checkout_charged_months=promo_result.charged_months if promo_result else None,
-            checkout_charged_gb=promo_result.charged_gb if promo_result else None,
-            checkout_quoted_at=promo_result.quoted_at if promo_result else None,
-            **balance_checkout_context_fields(
-                None,
-                promo_base_amount=promo_result.base_amount if promo_result else None,
-            ),
+            promo_result=promo_result,
         )
         if promo_result is not None and method != "stars" and price <= 0:
+            if balance_auto_renew:
+                return _json_error(
+                    409,
+                    "balance_auto_renew_requires_full_payment",
+                    "Balance must cover a paid subscription",
+                )
             return await create_fully_discounted_payment(
                 request=request,
                 payment_context=payment_context,
@@ -916,6 +913,14 @@ async def _create_subscription_payment(
             )
         except (PartnerError, UserBalanceError) as exc:
             return _json_error(exc.status, exc.code, exc.message or str(exc))
+        if balance_auto_renew and (
+            balance_allocation is None or balance_allocation.external_minor != 0
+        ):
+            return _json_error(
+                409,
+                "balance_auto_renew_requires_full_payment",
+                "Balance must cover the entire subscription",
+            )
         if balance_allocation is not None:
             price = balance_allocation.external_amount
         payment_context = replace(
@@ -931,6 +936,7 @@ async def _create_subscription_payment(
                 request=request,
                 payment_context=payment_context,
                 allocation=balance_allocation,
+                balance_auto_renew=balance_auto_renew,
             )
         if not provider_spec.is_usable_for_payment_amount(
             settings,

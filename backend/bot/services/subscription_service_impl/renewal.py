@@ -352,9 +352,9 @@ class RenewalMixin(SubscriptionServiceMixinContract):
             logger.info("Auto-renew skipped: %s recurring charges are disabled", provider)
             return True
 
-        from db.dal.user_billing_dal import get_user_default_payment_method
+        from bot.payment_providers.shared.recurring import get_recurring_payment_method
 
-        default_pm = await get_user_default_payment_method(session, sub.user_id, provider=provider)
+        default_pm = await get_recurring_payment_method(session, sub.user_id, provider=provider)
         if not default_pm:
             logger.info(
                 "Auto-renew skipped: no saved %s payment method for user %s",

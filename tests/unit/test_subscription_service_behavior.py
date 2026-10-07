@@ -1713,7 +1713,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     AsyncMock(return_value={"active_devices": 0, "active_until": None}),
                 ),
                 patch(
-                    "bot.services.subscription_service_impl.lifecycle_activation.user_billing_dal.user_has_saved_payment_method",
+                    "bot.services.subscription_service_impl.payments.user_billing_dal.user_has_saved_payment_method",
                     AsyncMock(return_value=False),
                 ),
                 patch(

@@ -199,3 +199,82 @@ def test_existing_pending_cycle_is_returned_without_a_second_dispatch() -> None:
         asyncio.run(_existing_pending_cycle_is_returned_without_a_second_dispatch(monkeypatch))
     finally:
         monkeypatch.undo()
+
+
+@pytest.mark.parametrize("previous_status", ["failed_creation", "pending"])
+def test_financial_retry_uses_a_distinct_payment_and_recovers_its_unlinked_record(previous_status):
+    asyncio.run(_financial_retry(previous_status))
+
+
+async def _financial_retry(previous_status):
+    from dataclasses import replace
+
+    from bot.payment_providers.shared import RecurringRequestSnapshot
+    from bot.payment_providers.shared.recurring import BalancePaymentMethod
+
+    session = AsyncMock()
+    context = replace(
+        _context(session, auto_renew_cycle_id=11),
+        saved_method=BalancePaymentMethod(user_id=42, provider="user_balance"),
+        payment_method_db_id=None,
+        retry_kind="financial",
+    )
+    snapshot = RecurringRequestSnapshot(
+        amount=context.amount,
+        currency=context.currency,
+        months=context.months,
+        sale_mode=context.sale_mode,
+        description=context.description,
+        metadata=dict(context.metadata),
+        hwid_quote=None,
+        entitlement_context_snapshot=None,
+    )
+    cycle = SimpleNamespace(
+        cycle_id=11,
+        subscription_id=7,
+        user_id=42,
+        provider="user_balance",
+        base_idempotence_key=context.idempotence_key,
+        consent_version=3,
+        payment_method_id=None,
+        payment_method_provider_id="user_balance:42",
+        request_snapshot=snapshot.to_json(),
+        state="financial_retry",
+        stopped_reason=None,
+        current_payment_id=91,
+        transport_replays=0,
+        financial_attempts=1,
+    )
+    previous = SimpleNamespace(payment_id=91, status=previous_status, provider_payment_id=None)
+    unlinked_retry = SimpleNamespace(
+        payment_id=92, status="pending", provider_payment_id=None, provider_request_snapshot=None
+    )
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(auto_renew_dal, "get_cycle", AsyncMock(return_value=cycle))
+        monkeypatch.setattr(payment_dal, "get_payment_by_db_id", AsyncMock(return_value=previous))
+        create = AsyncMock(return_value=(unlinked_retry, False))
+        monkeypatch.setattr(payment_dal, "create_or_get_payment_record_by_idempotence_key", create)
+        monkeypatch.setattr(auto_renew_dal, "prepare_payment_dispatch", AsyncMock())
+        monkeypatch.setattr(auto_renew_dal, "record_payment_dispatch", AsyncMock())
+        monkeypatch.setattr(
+            auto_renew_dal, "validate_dispatch_context_for_update", AsyncMock(return_value=True)
+        )
+        preparation = await prepare_durable_recurring_charge(
+            context,
+            provider="user_balance",
+            saved_method_id="user_balance:42",
+            pending_status="pending",
+            max_transport_replays=4,
+            lease_seconds=60,
+        )
+    if previous_status == "pending":
+        assert preparation.dispatch is None
+        assert preparation.result is not None and preparation.result.initiated
+        create.assert_not_awaited()
+    else:
+        assert preparation.dispatch is not None
+        assert preparation.dispatch.payment_id == 92
+        assert preparation.dispatch.attempt_number == 2
+        payload = create.await_args.args[1]
+        assert payload["idempotence_key"] != context.idempotence_key
+        assert payload["renewal_attempt_number"] == 2

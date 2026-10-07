@@ -32,6 +32,44 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from config.subscription_periods import positive_period
+from db.models import UserPaymentMethod
+
+BALANCE_RECURRING_PROVIDERS = frozenset({"user_balance", "partner_balance"})
+
+
+@dataclass(frozen=True, slots=True)
+class BalancePaymentMethod:
+    """An internal funding source, never an external saved card or mandate."""
+
+    user_id: int
+    provider: str
+    method_id: None = None
+
+    @property
+    def provider_payment_method_id(self) -> str:
+        return f"{self.provider}:{self.user_id}"
+
+
+async def get_recurring_payment_method(
+    session: Any,
+    user_id: int,
+    *,
+    provider: str,
+) -> UserPaymentMethod | BalancePaymentMethod | None:
+    provider_key = str(provider or "").strip().lower()
+    if provider_key in BALANCE_RECURRING_PROVIDERS:
+        return BalancePaymentMethod(user_id=int(user_id), provider=provider_key)
+    from db.dal.user_billing_dal import get_user_default_payment_method
+
+    return await get_user_default_payment_method(session, user_id, provider=provider_key)
+
+
+async def has_recurring_payment_method(session: Any, user_id: int, *, provider: str) -> bool:
+    if str(provider or "").strip().lower() in BALANCE_RECURRING_PROVIDERS:
+        return True
+    from db.dal.user_billing_dal import user_has_saved_payment_method
+
+    return await user_has_saved_payment_method(session, user_id, provider=provider)
 
 
 @dataclass(frozen=True)

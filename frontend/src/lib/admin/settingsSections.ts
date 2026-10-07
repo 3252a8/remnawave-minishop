@@ -1,4 +1,5 @@
 import type { SettingField, SettingsSection } from "./stores/settingsStore";
+import { paymentProviderDisplay } from "./paymentTable";
 
 export type SettingsPath = string[];
 export type AdminSettingField = SettingField &
@@ -399,6 +400,15 @@ function providerLogoFallback(label: string): string {
 }
 
 export function groupProviderInfo(fields: AdminSettingField[]): GroupProviderInfo {
+  if (fields.some((field) => field.subsection === "balance")) {
+    return {
+      id: "user_balance",
+      label: "balance",
+      infoUrl: "",
+      logoUrl: "",
+      logoFallback: paymentProviderDisplay("partner_balance").fallbackEmoji,
+    };
+  }
   const field = (fields || []).find(
     (item) => item.provider_info_url || item.provider_logo_url || item.provider_label
   );

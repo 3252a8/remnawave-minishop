@@ -441,6 +441,10 @@ def managed_recurring_provider_services(
 
 
 def provider_supports_recurring(provider: str | None) -> bool:
+    from bot.payment_providers.shared.recurring import BALANCE_RECURRING_PROVIDERS
+
+    if str(provider or "").strip().lower() in BALANCE_RECURRING_PROVIDERS:
+        return True
     spec = get_provider_spec(provider or "")
     return bool(spec and spec.supports_recurring)
 
@@ -463,7 +467,14 @@ def provider_manages_recurring(provider: str | None) -> bool:
 
 
 def provider_label_map(settings: Any = None, language: str | None = None) -> dict[str, str]:
-    labels: dict[str, str] = {}
+    from bot.middlewares.i18n import get_i18n_instance
+
+    i18n = get_i18n_instance()
+    balance_language = language or (settings.DEFAULT_LANGUAGE if settings is not None else "en")
+    labels: dict[str, str] = {
+        "user_balance": i18n.gettext(balance_language, "wa_balance_source_user"),
+        "partner_balance": i18n.gettext(balance_language, "wa_balance_source_partner"),
+    }
     for spec in PAYMENT_PROVIDER_SPECS:
         presentation = resolve_provider_presentation(
             spec,

@@ -29,7 +29,6 @@ from db.dal import (
     payment_dal,
     subscription_dal,
     tariff_dal,
-    user_billing_dal,
     user_dal,
 )
 
@@ -478,24 +477,12 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                     "Failed to extend HWID device purchases for promo payment bonus of user %s",
                     user_id,
                 )
-        auto_renew_should_enable = False
-        try:
-            from bot.payment_providers import provider_supports_recurring
-            from bot.payment_providers.shared import service_supports_recurring
-
-            provider_key = str(provider or "").strip().lower()
-            recurring_service_for = getattr(self, "recurring_service_for", None)
-            recurring_service = (
-                recurring_service_for(provider_key) if callable(recurring_service_for) else None
-            )
-            if provider_supports_recurring(provider_key) and service_supports_recurring(
-                recurring_service
-            ):
-                auto_renew_should_enable = await user_billing_dal.user_has_saved_payment_method(
-                    session, user_id, provider=provider_key
-                )
-        except Exception:
-            logger.exception("Failed to evaluate auto-renew availability for user %s", user_id)
+        auto_renew_should_enable = await self._payment_auto_renew_enabled(
+            session,
+            user_id=user_id,
+            provider=provider,
+            payment=payment,
+        )
 
         if current_active_sub and current_billing_model == "traffic":
             topup_balance_bytes = self._traffic_package_carryover_bytes(

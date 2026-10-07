@@ -30,6 +30,7 @@ from .chain_0100_subscription_notification_periods import (
     CHAIN_0100_SUBSCRIPTION_NOTIFICATION_PERIODS,
 )
 from .chain_0101_qr_login_requests import CHAIN_0101_QR_LOGIN_REQUESTS
+from .chain_0102_balance_auto_renew import CHAIN_0102_BALANCE_AUTO_RENEW
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -61,4 +62,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0099_REGULAR_TOPUP_ACCOUNTING,
     *CHAIN_0100_SUBSCRIPTION_NOTIFICATION_PERIODS,
     *CHAIN_0101_QR_LOGIN_REQUESTS,
+    *CHAIN_0102_BALANCE_AUTO_RENEW,
 ]

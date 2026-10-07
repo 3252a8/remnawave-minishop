@@ -509,7 +509,10 @@ async def validate_dispatch_context_for_update(
     ):
         return False
     if cycle.payment_method_id is None:
-        return True
+        return str(cycle.provider).lower() not in {"user_balance", "partner_balance"} or (
+            isinstance(subscription.end_date, datetime)
+            and cycle_anchor_utc(subscription.end_date) == cycle_anchor_utc(cycle.renewal_cycle_end)
+        )
     payment_method = (
         await session.execute(
             select(UserPaymentMethod)

@@ -11,11 +11,13 @@
     settingsOpenSections,
     toggleSettingsSection,
     onNavigateSection = () => {},
+    onOpenSettingsPath = () => {},
   }: {
     at: TranslateFn;
     settingsOpenSections: string[];
     toggleSettingsSection: (sectionId: string) => void;
     onNavigateSection?: (section: string) => void;
+    onOpenSettingsPath?: (path: string[]) => void;
   } = $props();
 
   const referralOpen = $derived(settingsOpenSections.includes("referral"));
@@ -52,7 +54,7 @@
   {#if partnerOpen}
     <div id="admin-settings-section-partner" class="admin-accordion-content" data-state="open">
       <div class="admin-settings-fields program-settings-editor">
-        <PartnerProgramSettings {at} {onNavigateSection} />
+        <PartnerProgramSettings {at} {onNavigateSection} {onOpenSettingsPath} />
       </div>
     </div>
   {/if}
