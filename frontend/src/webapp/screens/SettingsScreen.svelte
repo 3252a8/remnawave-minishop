@@ -15,6 +15,7 @@
   } from "$components/ui/icons.js";
 
   import Card from "$components/ui/card.svelte";
+  import Spinner from "$components/ui/spinner.svelte";
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect, ThemeSelect } from "$components/patterns/webapp/index.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
@@ -168,26 +169,27 @@
   const showEmailAccount = $derived(emailAuthEnabled);
   let themeMenuOpen = $state(false);
   let qrApprover = $state<ReturnType<typeof QrLoginApprover>>();
-  let publicDocuments = $state<PublicInformationDocument[]>([]);
-  let settingsDocuments = $state<PublicInformationDocument[]>([]);
+  let publicDocuments = $state<PublicInformationDocument[] | null>(null);
+  const settingsDocuments = $derived(settingsInformationDocuments(publicDocuments ?? []));
   const hasNativePrivacyPolicy = $derived(
-    hasInformationDocumentRole(publicDocuments, "privacy_policy")
+    hasInformationDocumentRole(publicDocuments ?? [], "privacy_policy")
   );
   const hasNativeUserAgreement = $derived(
-    hasInformationDocumentRole(publicDocuments, "user_agreement")
+    hasInformationDocumentRole(publicDocuments ?? [], "user_agreement")
   );
 
   onMount(() => {
     let mounted = true;
-    if (!api) return () => {};
-    void api("/documents")
-      .then((response) => {
-        if (mounted) publicDocuments = publicInformationDocuments(unwrap(response));
-        if (mounted) settingsDocuments = settingsInformationDocuments(publicDocuments);
-      })
-      .catch(() => {
-        // Documents are optional public content; leave the settings list unchanged on an older API.
-      });
+    const loadDocuments = async () => {
+      try {
+        const documents = api ? publicInformationDocuments(unwrap(await api("/documents"))) : [];
+        if (mounted) publicDocuments = documents;
+      } catch {
+        // Resolve optional content before showing legacy links, including on an older API.
+        if (mounted) publicDocuments = [];
+      }
+    };
+    void loadDocuments();
     return () => {
       mounted = false;
     };
@@ -380,37 +382,48 @@
         onValueChange={setThemePreference}
       />
     {/if}
-    {#each settingsDocuments as document (document.slug)}
-      <a
-        class="settings-row settings-row-policy"
-        href={withRoutePrefix(documentHref(document.slug), routePrefix)}
-      >
-        <FileText size={21} />
-        <span><strong>{document.title}</strong></span>
-        <ArrowRight size={17} />
-      </a>
-    {/each}
-    {#if userAgreementUrl && !hasNativeUserAgreement}
-      <button
-        class="settings-row settings-row-policy"
-        type="button"
-        onclick={() => openExternalLink(userAgreementUrl)}
-      >
-        <FileText size={21} />
-        <span><strong>{t("wa_settings_user_agreement")}</strong></span>
-        <ArrowRight size={17} />
-      </button>
-    {/if}
-    {#if privacyPolicyUrl && !hasNativePrivacyPolicy}
-      <button
-        class="settings-row settings-row-policy"
-        type="button"
-        onclick={() => openExternalLink(privacyPolicyUrl)}
-      >
-        <Shield size={21} />
-        <span><strong>{t("wa_settings_privacy_policy")}</strong></span>
-        <ArrowRight size={17} />
-      </button>
+    {#if publicDocuments === null}
+      <div class="settings-row settings-documents-loading" role="status" aria-busy="true">
+        <Spinner />
+        <span><strong>{t("wa_loading")}</strong></span>
+      </div>
+    {:else}
+      {#each settingsDocuments as document (document.slug)}
+        <a
+          class="settings-row settings-row-policy"
+          href={withRoutePrefix(documentHref(document.slug), routePrefix)}
+        >
+          {#if document.role === "privacy_policy"}
+            <Shield size={21} />
+          {:else}
+            <FileText size={21} />
+          {/if}
+          <span><strong>{document.title}</strong></span>
+          <ArrowRight size={17} />
+        </a>
+      {/each}
+      {#if userAgreementUrl && !hasNativeUserAgreement}
+        <button
+          class="settings-row settings-row-policy"
+          type="button"
+          onclick={() => openExternalLink(userAgreementUrl)}
+        >
+          <FileText size={21} />
+          <span><strong>{t("wa_settings_user_agreement")}</strong></span>
+          <ArrowRight size={17} />
+        </button>
+      {/if}
+      {#if privacyPolicyUrl && !hasNativePrivacyPolicy}
+        <button
+          class="settings-row settings-row-policy"
+          type="button"
+          onclick={() => openExternalLink(privacyPolicyUrl)}
+        >
+          <Shield size={21} />
+          <span><strong>{t("wa_settings_privacy_policy")}</strong></span>
+          <ArrowRight size={17} />
+        </button>
+      {/if}
     {/if}
     {#if serverStatusInternal || serverStatusUrl}
       <button
