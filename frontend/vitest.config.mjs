@@ -28,6 +28,6 @@ export default defineConfig({
   test: {
     fsModuleCache: true,
     environment: "node",
-    include: ["src/**/*.{test,spec}.{js,ts}"],
+    include: ["src/**/*.{test,spec}.{js,ts}", "e2e/ports.test.mjs"],
   },
 });

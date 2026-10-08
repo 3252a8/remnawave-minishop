@@ -15,6 +15,7 @@ import { access, stat } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { browserPort, E2E_HOST } from "./ports.mjs";
 
 const frontendRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const repoRoot = path.resolve(frontendRoot, "..");
@@ -22,8 +23,8 @@ const docsSiteRoot = path.join(repoRoot, "docs-site");
 const publicRoot = path.join(docsSiteRoot, "public");
 const appShell = path.join(publicRoot, "demo", "runtime", "app", "index.html");
 
-const PORT = Number(process.env.PORT || 8091);
-const HOST = process.env.HOST || "127.0.0.1";
+const PORT = browserPort(process.env.PORT);
+const HOST = E2E_HOST;
 const SKIP_BUILD = process.env.PLAYWRIGHT_SKIP_DEMO_BUILD === "1";
 const isWindows = process.platform === "win32";
 
@@ -92,14 +93,17 @@ function sendFile(res, filePath, statusCode = 200) {
   createReadStream(filePath).pipe(res);
 }
 
+let ready = false;
 async function startServer() {
-  await access(appShell).catch(() => {
-    throw new Error(
-      `demo app shell not found at ${appShell}; build the demo first (npm run build:demo in docs-site)`
-    );
-  });
-
   const server = http.createServer(async (req, res) => {
+    if (!ready) {
+      res.writeHead(503, {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      res.end("demo build in progress");
+      return;
+    }
     const target = resolveRequestPath(req.url || "/");
     if (target && (await isFile(target))) {
       sendFile(res, target);
@@ -117,13 +121,30 @@ async function startServer() {
     sendFile(res, appShell);
   });
 
-  await new Promise((resolve) => server.listen(PORT, HOST, resolve));
-  console.log(`Serving demo runtime at http://${HOST}:${PORT}/demo/runtime/app/`);
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(PORT, HOST, resolve);
+  });
+  return server;
 }
 
-if (!SKIP_BUILD) {
-  await runDemoBuild();
-} else {
-  console.log("PLAYWRIGHT_SKIP_DEMO_BUILD=1 — serving existing demo runtime build");
+// Reserve the selected port before the build, which can take several minutes.
+// Readiness stays 503 until the fresh build succeeds; old assets are never served.
+const server = await startServer();
+try {
+  if (!SKIP_BUILD) {
+    await runDemoBuild();
+  } else {
+    console.log("PLAYWRIGHT_SKIP_DEMO_BUILD=1 — serving existing demo runtime build");
+  }
+  await access(appShell).catch(() => {
+    throw new Error(
+      `demo app shell not found at ${appShell}; build the demo first (npm run build:demo in docs-site)`
+    );
+  });
+  ready = true;
+  console.log(`Serving demo runtime at http://${HOST}:${PORT}/demo/runtime/app/`);
+} catch (error) {
+  await new Promise((resolve) => server.close(resolve));
+  throw error;
 }
-await startServer();

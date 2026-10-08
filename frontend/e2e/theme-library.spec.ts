@@ -324,7 +324,14 @@ for (const viewport of [
     }
     const opacity = picker.getByRole("slider", { name: "Непрозрачность" });
     await expect(opacity).toBeVisible();
+    // The portaled picker becomes visible before its focus scope finishes mounting.
+    await expect
+      .poll(() => picker.evaluate((element) => element.contains(document.activeElement)))
+      .toBe(true);
+    await opacity.focus();
+    await expect(opacity).toBeFocused();
     await opacity.press("Home");
+    await expect(opacity).toHaveAttribute("aria-valuenow", "0");
     for (let step = 0; step < 50; step += 1) await opacity.press("ArrowRight");
     await expect(accent.locator(".appearance-color-text")).toHaveValue("#11223380");
     await picker.getByRole("button", { name: "Закрыть палитру" }).click();
