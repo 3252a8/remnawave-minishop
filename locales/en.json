@@ -6013,5 +6013,6 @@
   "wa_qr_image_copied": "QR code image copied",
   "wa_qr_copy_unavailable": "Your browser did not allow copying the image. Download the PNG to save or share it.",
   "wa_qr_download_failed": "Could not save the image. Try opening this page in a browser.",
-  "wa_qr_image_failed": "Could not create the QR code. Try again."
+  "wa_qr_image_failed": "Could not create the QR code. Try again.",
+  "wa_referral_bonus_shared_terms": "Shared terms for these plans"
 }

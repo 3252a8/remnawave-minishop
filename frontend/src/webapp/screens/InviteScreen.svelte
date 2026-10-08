@@ -125,7 +125,14 @@
       <details class="referral-tariff-dropdown" open={referralBonusListMode === "expanded"}>
         <summary class="referral-tariff-summary">
           <span class="referral-tariff-copy">
-            <strong>{tariffBonus.title || tariffBonus.tariff_name}</strong>
+            <strong
+              >{Array.isArray(tariffBonus.tariff_names) && tariffBonus.tariff_names.length > 1
+                ? tariffBonus.tariff_names.join(", ")
+                : tariffBonus.title || tariffBonus.tariff_name}</strong
+            >
+            {#if Array.isArray(tariffBonus.tariff_names) && tariffBonus.tariff_names.length > 1}
+              <small>{t("wa_referral_bonus_shared_terms")}</small>
+            {/if}
             <small>
               {t("wa_referral_bonus_you_range", {
                 range: daysRange(tariffBonus.inviter_min_days, tariffBonus.inviter_max_days),

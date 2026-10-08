@@ -20,7 +20,7 @@
   буфера обмена. Отказ копирования показывает понятное сообщение и сохраняет скачивание.
   ([#123](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/123),
   [#124](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/124))
-  ([687ba6dd](https://gitlab.com/3252a8/remnawave-minishop/-/commit/687ba6dd2ce20024c9bcd2fa5a296a2289b3cea4))
+  ([687ba6dd](https://gitlab.com/3252a8/remnawave-minishop/-/commit/687ba6dd2ce20024c9bcd2fa5a296a2289b3cea4), [c0519541](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c051954100e0198b13b57bae8146653485dfc640))
 
 - **Автопродление с баланса.** Настройки баланса перенесены в платёжные системы отдельной
   карточкой с переходом в партнёрскую программу. `USER_BALANCE_RECURRING_ENABLED`, выключенный
@@ -48,6 +48,11 @@
   ([e167842b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e167842b74c591d997f75e38cfd79da15e2e95cd), [992e6168](https://gitlab.com/3252a8/remnawave-minishop/-/commit/992e616823db67eabf1b96f6ffdd4d8bccfc4201))
 
 ### Изменено
+
+- **Реферальные условия тарифов.** Одинаковые условия нескольких тарифов показаны
+  одним набором периодов с перечислением применимых тарифов. Разные длительности,
+  начисления периода и ограничения доступа сохраняют отдельные сводки.
+  ([#125](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/125))
 
 - **Приглашения и пробный период.** После окончания подписки, выданной за регистрацию
   по приглашению, доступен обычный триал. Покупка во время этой подписки и подписки,
