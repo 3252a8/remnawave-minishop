@@ -1,6 +1,7 @@
 <script lang="ts">
   import { CheckCircle2, Gift } from "$components/ui/icons.js";
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
+  import LinkQrDialog from "$components/patterns/webapp/LinkQrDialog.svelte";
   import type { GiftView } from "$lib/webapp/gifts.svelte.js";
   import type { Translate } from "$lib/webapp/types.js";
   let {
@@ -8,6 +9,10 @@
     t,
     oncopy = () => {},
   }: { gift: GiftView; t: Translate; oncopy?: (link: string) => void } = $props();
+  let qrOpen = $state(false);
+  $effect(() => {
+    if (!gift.link) qrOpen = false;
+  });
 </script>
 
 <article class="gift-card">
@@ -52,6 +57,8 @@
       value={gift.link}
       inputLabel={t("wa_copy_link_label")}
       copyLabel={t("wa_copy")}
+      qrLabel={t("wa_gift_qr_show")}
+      onqr={() => (qrOpen = true)}
       {oncopy}
     />
     <p class="gift-hint">{t("wa_gift_link_private")}</p>
@@ -64,6 +71,18 @@
       {t(`wa_gift_delivery_${gift.delivery_status || "pending"}`)}
     </p>{/if}
 </article>
+
+<LinkQrDialog
+  open={qrOpen && Boolean(gift.link)}
+  link={gift.link || ""}
+  title={t("wa_gift_qr_title")}
+  description={t("wa_gift_qr_description")}
+  caption={gift.tariff_title || t("wa_subscription_title")}
+  alt={t("wa_gift_qr_alt")}
+  closeLabel={t("wa_close")}
+  onclose={() => (qrOpen = false)}
+  {t}
+/>
 
 <style>
   .gift-card {
