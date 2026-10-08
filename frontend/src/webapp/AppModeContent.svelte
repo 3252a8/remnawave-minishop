@@ -318,6 +318,7 @@
   const goPartner = $derived(appActions.goPartner);
   const goSettings = $derived(appActions.goSettings);
   const goNotifications = $derived(appActions.goNotifications);
+  const goPaymentHistory = $derived(appActions.goPaymentHistory);
   const goSecurity = $derived(appActions.goSecurity);
   const goTrial = $derived(appActions.goTrial);
   const goStatus = $derived(appActions.goStatus);
@@ -626,6 +627,7 @@
       {partnerEnabled}
       {goSettings}
       {goNotifications}
+      {goPaymentHistory}
       {goSecurity}
       {goTrial}
       {goStatus}

@@ -5,6 +5,7 @@
     Home,
     LifeBuoy,
     Megaphone,
+    CreditCardCheck,
     Settings as SettingsIcon,
     Shield,
     ShieldCheck,
@@ -38,6 +39,7 @@
     partnerSettingsVisible?: boolean;
     onSettings?: Action;
     onNotifications?: Action;
+    onPaymentHistory?: Action;
     onSecurity?: Action;
     screen?: string;
     onSupport?: Action;
@@ -72,6 +74,7 @@
     onSupport = () => {},
     onSettings = () => {},
     onNotifications = () => {},
+    onPaymentHistory = () => {},
     onSecurity = () => {},
     t = (key) => key,
   }: Props = $props();
@@ -216,6 +219,15 @@
     </button>
   {/each}
   <div class="rail-settings-subnav">
+    <button
+      data-webapp-action="open-payment-history"
+      class:active={screen === "payment-history"}
+      type="button"
+      onclick={onPaymentHistory}
+    >
+      <CreditCardCheck size={18} />
+      <span class="bottom-nav-label">{t("wa_payment_history_title")}</span>
+    </button>
     <button class:active={screen === "notifications"} type="button" onclick={onNotifications}>
       <Megaphone size={18} />
       <span class="bottom-nav-label"

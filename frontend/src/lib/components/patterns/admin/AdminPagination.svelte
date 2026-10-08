@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowRight, ChevronLeft, ChevronRight } from "$components/ui/icons.js";
   import AdminButton from "./AdminButton.svelte";
+  import Button from "$components/ui/button.svelte";
   import Input from "$components/ui/input.svelte";
 
   type AdminTableLike = {
@@ -14,6 +15,7 @@
 
   let {
     meta = "",
+    appearance = "admin",
     prevLabel = "Back",
     nextLabel = "Next",
     table = null,
@@ -34,6 +36,7 @@
     onPageChange = null,
   }: {
     meta?: string;
+    appearance?: "admin" | "webapp";
     prevLabel?: string;
     nextLabel?: string;
     table?: AdminTableLike | null;
@@ -55,6 +58,7 @@
   } = $props();
 
   let jumpValue = $state("");
+  const ActionButton = $derived(appearance === "webapp" ? Button : AdminButton);
 
   const liveTable = $derived(table);
   const tablePage = $derived(liveTable ? Number(liveTable.currentPage || 1) - 1 : null);
@@ -153,7 +157,7 @@
   }
 </script>
 
-<div class="admin-pagination">
+<div class="admin-pagination" class:webapp-pagination={appearance === "webapp"}>
   <div class="admin-pagination-summary">
     {#if meta}
       <span class="admin-pagination-meta">{meta}</span>
@@ -171,46 +175,49 @@
     {/if}
   </div>
   <div class="admin-pagination-buttons">
-    <AdminButton
+    <ActionButton
       class="admin-pagination-nav"
       size="sm"
+      controlSize="md"
       disabled={computedPrevDisabled}
       onclick={handlePrev}
     >
       <ChevronLeft size={14} />
       {prevLabel}
-    </AdminButton>
+    </ActionButton>
     {#if hasPageNavigation}
       <div class="admin-pagination-pages" aria-label={pageLabel}>
         {#each pages as item (item.key)}
           {#if item.type === "ellipsis"}
             <span class="admin-pagination-ellipsis" aria-hidden="true">...</span>
           {:else}
-            <AdminButton
+            <ActionButton
               class={item.index === currentPage
                 ? "admin-pagination-page is-active"
                 : "admin-pagination-page"}
               size="sm"
+              controlSize="md"
               disabled={paginationDisabled}
               aria-current={item.index === currentPage ? "page" : undefined}
               aria-label={`${pageLabel} ${item.label}`}
               onclick={() => goToPage(item.index)}
             >
               {item.label}
-            </AdminButton>
+            </ActionButton>
           {/if}
         {/each}
       </div>
     {/if}
-    <AdminButton
+    <ActionButton
       class="admin-pagination-nav"
       size="sm"
+      controlSize="md"
       disabled={computedNextDisabled}
       onclick={handleNext}
     >
       {nextLabel}
       <ChevronRight size={14} />
-    </AdminButton>
+    </ActionButton>
   </div>
   {#if hasPageNavigation}
     <form
@@ -225,6 +232,7 @@
         <Input
           name="admin-pagination-jump"
           class="admin-pagination-jump-input"
+          controlSize="md"
           type="number"
           min="1"
           max={normalizedPageCount}
@@ -237,16 +245,65 @@
           disabled={paginationDisabled}
         />
       </label>
-      <AdminButton
+      <ActionButton
         class="admin-pagination-jump-button"
         size="sm"
+        controlSize="md"
         type="submit"
         disabled={!canJump}
         aria-label={goLabel}
         title={goLabel}
       >
         <ArrowRight size={13} />
-      </AdminButton>
+      </ActionButton>
     </form>
   {/if}
 </div>
+
+<style>
+  .webapp-pagination {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 16px;
+  }
+  .webapp-pagination .admin-pagination-summary,
+  .webapp-pagination .admin-pagination-buttons,
+  .webapp-pagination .admin-pagination-pages,
+  .webapp-pagination .admin-pagination-jump,
+  .webapp-pagination .admin-pagination-jump-label {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .webapp-pagination .admin-pagination-summary {
+    margin-right: auto;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .webapp-pagination :global(.admin-pagination-page.btn),
+  .webapp-pagination :global(.admin-pagination-jump-button.btn) {
+    min-width: 34px;
+    padding-inline: 8px;
+  }
+  .webapp-pagination :global(.admin-pagination-page.is-active) {
+    color: var(--accent-contrast);
+    background: var(--accent);
+  }
+  .webapp-pagination .admin-pagination-jump-label {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .webapp-pagination :global(.admin-pagination-jump-input) {
+    width: 64px;
+    padding: 6px 8px;
+  }
+  @media (max-width: 720px) {
+    .webapp-pagination .admin-pagination-summary,
+    .webapp-pagination .admin-pagination-buttons {
+      width: 100%;
+    }
+  }
+</style>

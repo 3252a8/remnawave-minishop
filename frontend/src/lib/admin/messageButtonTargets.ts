@@ -9,6 +9,7 @@ export const CUSTOMER_WEBAPP_SECTIONS = [
   "support",
   "settings",
   "notifications",
+  "payment-history",
 ] as const;
 
 export type MessageTargetOption = {

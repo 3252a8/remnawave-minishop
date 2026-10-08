@@ -54,6 +54,13 @@ export type SubscriptionGuidesPath = "/subscription-guides";
 export type PublicSubscriptionGuidesPath =
   BuiltApiPath<"/api/subscription-guides/public/{share_token}">;
 export type PaymentsPath = "/payments";
+export type PaymentHistoryPath = BuiltApiPath<"/api/payments/history">;
+
+export function buildPaymentHistoryPath(limit = 10, offset = 0): PaymentHistoryPath {
+  return builtApiPath<"/api/payments/history">(
+    `/payments/history?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+  );
+}
 export type PartnerWithdrawalCancelPath = BuiltApiPath<"/api/partner/withdrawals/{id}/cancel">;
 
 type MockContext = Record<string, unknown>;

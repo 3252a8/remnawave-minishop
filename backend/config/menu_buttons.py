@@ -28,6 +28,7 @@ WEBAPP_MENU_SECTIONS = frozenset(
         "support",
         "settings",
         "notifications",
+        "payment-history",
         "status",
     }
 )

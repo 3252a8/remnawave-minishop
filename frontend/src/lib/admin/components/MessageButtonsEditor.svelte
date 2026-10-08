@@ -142,6 +142,7 @@
     support: "Support",
     settings: "Settings",
     notifications: "Notification settings",
+    "payment-history": "Payment history",
   };
   const sectionOptions = $derived([
     ...CUSTOMER_WEBAPP_SECTIONS.map((section) => ({

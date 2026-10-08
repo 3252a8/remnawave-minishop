@@ -101,6 +101,7 @@
     support: "Support",
     settings: "Settings",
     notifications: "Notification settings",
+    "payment-history": "Payment history",
     status: "Service status",
   };
   const sectionOptions = $derived([

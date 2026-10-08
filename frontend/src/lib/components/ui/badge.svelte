@@ -8,15 +8,23 @@
     children?: Snippet;
     class?: string;
     variant?: BadgeVariant;
+    wrap?: boolean;
   };
 
-  let { variant = "default", class: className = "", children, ...rest }: Props = $props();
+  let {
+    variant = "default",
+    wrap = false,
+    class: className = "",
+    children,
+    ...rest
+  }: Props = $props();
 </script>
 
 <span
   data-slot="badge"
   class={cn(
     "admin-cn-badge",
+    wrap && "admin-cn-badge-wrap",
     variant === "outline" && "admin-cn-badge-outline",
     variant === "destructive" && "admin-cn-badge-destructive",
     variant === "success" && "admin-cn-badge-success",
@@ -27,3 +35,12 @@
 >
   {@render children?.()}
 </span>
+
+<style>
+  .admin-cn-badge-wrap {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+</style>

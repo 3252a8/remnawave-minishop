@@ -4113,6 +4113,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/payments/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Payment History */
+    get: operations["get_payment_history_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/payments/{payment_id}": {
     parameters: {
       query?: never;
@@ -10005,6 +10022,108 @@ export interface components {
        * @default null
        */
       yookassa_payment_id: string | null;
+    };
+    /** PaymentHistoryItemOut */
+    PaymentHistoryItemOut: {
+      /** Amount */
+      amount: number;
+      /**
+       * Checkout Discount Amount
+       * @default null
+       */
+      checkout_discount_amount: number | null;
+      /**
+       * Checkout Url
+       * @description Active checkout link, only for a payment awaiting payment.
+       * @default null
+       */
+      checkout_url: string | null;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Funding Source
+       * @default external
+       */
+      funding_source: string;
+      /**
+       * History State
+       * @enum {string}
+       */
+      history_state:
+        | "awaiting_payment"
+        | "processing"
+        | "crediting"
+        | "review"
+        | "completed"
+        | "refunded"
+        | "failed";
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Period Semantics
+       * @default null
+       */
+      period_semantics: string | null;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /**
+       * Purchased Gb
+       * @default null
+       */
+      purchased_gb: number | null;
+      /**
+       * Purchased Hwid Devices
+       * @default null
+       */
+      purchased_hwid_devices: number | null;
+      /** Purchases */
+      purchases?: components["schemas"]["PaymentPurchaseOut"][];
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Status
+       * @default null
+       */
+      status: string | null;
+      /**
+       * Subscription Duration Days
+       * @default null
+       */
+      subscription_duration_days: number | null;
+      /**
+       * Subscription Duration Months
+       * @default null
+       */
+      subscription_duration_months: number | null;
+      /**
+       * Traffic Premium Gb
+       * @default null
+       */
+      traffic_premium_gb: number | null;
+      /**
+       * Traffic Regular Gb
+       * @default null
+       */
+      traffic_regular_gb: number | null;
     };
     /** PaymentOut */
     PaymentOut: {
@@ -21040,6 +21159,33 @@ export interface operations {
             payment_id?: number;
             payment_url?: string | null;
             status?: string;
+          };
+        };
+      };
+    };
+  };
+  get_payment_history_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["PaymentHistoryItemOut"][];
+            limit: number;
+            offset: number;
+            /** @constant */
+            ok: true;
+            total: number;
           };
         };
       };

@@ -22,6 +22,7 @@ const START_PARAM_SECTIONS = [
   "support",
   "settings",
   "notifications",
+  "payment-history",
 ] as const;
 
 type StartParamSection = (typeof START_PARAM_SECTIONS)[number];

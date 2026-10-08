@@ -161,6 +161,31 @@ class MiniAppSectionButtonTests(unittest.TestCase):
             with self.subTest(section=section), self.assertRaises(MessageValidationError):
                 _resolve(MessageButtonInput(kind="webapp_section", label="Go", section=section))
 
+    def test_payment_history_button_supports_telegram_and_email(self) -> None:
+        [button] = _resolve(
+            MessageButtonInput(kind="webapp_section", label="Payments", section="payment-history")
+        )
+        self.assertEqual(button.url, f"{MINI_APP_HTTPS}?startapp=payment-history")
+        self.assertEqual(button.section, "payment-history")
+        markup = telegram_markup_for_buttons([button])
+        assert markup is not None
+        inline = markup.inline_keyboard[0][0]
+        self.assertIsNotNone(inline.web_app)
+        assert inline.web_app is not None
+        self.assertEqual(inline.web_app.url, button.url)
+        self.assertIsNone(inline.url)
+        self.assertEqual(email_links_for_buttons([button]), [("Payments", button.url)])
+
+    def test_payment_history_falls_back_to_telegram_main_mini_app_link(self) -> None:
+        [button] = _resolve(
+            MessageButtonInput(kind="webapp_section", label="Payments", section="payment-history"),
+            mini_app_url=MINI_APP_HTTP,
+        )
+        self.assertEqual(button.url, "https://t.me/shop_bot?startapp=payment-history")
+        markup = telegram_markup_for_buttons([button])
+        assert markup is not None
+        self.assertEqual(markup.inline_keyboard[0][0].url, button.url)
+
 
 class MessageCompositionTests(unittest.TestCase):
     def test_plain_dataclass_inputs_need_no_http_schema(self) -> None:

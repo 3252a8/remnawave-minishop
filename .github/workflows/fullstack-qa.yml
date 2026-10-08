@@ -94,9 +94,9 @@ jobs:
       - name: Run full-stack QA
         env:
           QA_FULLSTACK: "1"
-          QA_API_BASE_URL: http://127.0.0.1:8082
-          QA_WEBHOOK_BASE_URL: http://127.0.0.1:8080
-          QA_FRONTEND_URL: http://127.0.0.1:8082
+          QA_API_BASE_URL: http://127.0.0.1:18082
+          QA_WEBHOOK_BASE_URL: http://127.0.0.1:18080
+          QA_FRONTEND_URL: http://127.0.0.1:18082
           QA_REMNAWAVE_HEALTH_URL: http://127.0.0.1:3001/health
           QA_REMNAWAVE_API_URL: http://127.0.0.1:3000/api
           QA_REMNAWAVE_PRESET: ${{ matrix.remnawave }}

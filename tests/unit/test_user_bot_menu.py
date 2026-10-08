@@ -351,6 +351,30 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIn("main_action:bot_info", callbacks)
         self.assertIn("main_action:back_to_main", callbacks)
 
+    def test_bot_interface_opens_payment_history_inside_mini_app(self):
+        self.settings.SUBSCRIPTION_MINI_APP_URL = "https://app.example.com/webapp?lang=en"
+        markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+        [button] = [
+            button
+            for row in markup.inline_keyboard
+            for button in row
+            if button.text == self.i18n.gettext("en", "menu_payment_history_button")
+        ]
+        self.assertIsNotNone(button.web_app)
+        self.assertEqual(
+            button.web_app.url, "https://app.example.com/webapp/settings/payments?lang=en"
+        )
+        self.assertIsNone(button.callback_data)
+        self.assertIsNone(button.url)
+
+    def test_bot_interface_hides_payment_history_without_mini_app(self):
+        self.settings.SUBSCRIPTION_MINI_APP_URL = ""
+        markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+        self.assertNotIn(
+            self.i18n.gettext("en", "menu_payment_history_button"),
+            [button.text for row in markup.inline_keyboard for button in row],
+        )
+
     def test_bot_interface_hides_only_referral_action_for_partner_mode(self):
         markup = get_bot_interface_inline_keyboard(
             "en",

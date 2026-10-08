@@ -36,6 +36,7 @@ MENU_APPEARANCE_ENTRIES = (
     MenuAppearanceEntry("bot_interface", "menu_bot_interface_button", ("main",), "🤖"),
     MenuAppearanceEntry("subscribe", "menu_subscribe_inline", ("bot",), "🚀"),
     MenuAppearanceEntry("my_subscription", "menu_my_subscription_inline", ("bot",), "📋"),
+    MenuAppearanceEntry("payment_history", "menu_payment_history_button", ("bot",), "💳"),
     MenuAppearanceEntry("promo", "menu_apply_promo_button", ("bot",), "🎟️"),
     MenuAppearanceEntry("referral", "menu_referral_inline", ("bot",), "🎁"),
     MenuAppearanceEntry("language", "menu_language_settings_inline", ("bot",), "🌐"),

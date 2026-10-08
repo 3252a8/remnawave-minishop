@@ -95,6 +95,10 @@ export function createWebappNavigation({
     showSection("notifications", "settings");
   }
 
+  function goPaymentHistory() {
+    showSection("payment-history", "settings");
+  }
+
   function goSecurity() {
     showSection("security", "settings");
   }
@@ -111,6 +115,7 @@ export function createWebappNavigation({
     goPartner,
     goSettings,
     goNotifications,
+    goPaymentHistory,
     goSecurity,
     goStatus,
     goSupport,

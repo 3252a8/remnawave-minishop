@@ -25,6 +25,7 @@
   import ScreenLoading from "./screens/ScreenLoading.svelte";
   import SettingsScreen from "./screens/SettingsScreen.svelte";
   import NotificationSettingsScreen from "./screens/NotificationSettingsScreen.svelte";
+  import PaymentHistoryScreen from "./screens/PaymentHistoryScreen.svelte";
   import SecurityScreen from "./screens/SecurityScreen.svelte";
   import BalanceTopupDialog from "./payment-dialogs/BalanceTopupDialog.svelte";
   import type {
@@ -91,6 +92,7 @@
     partnerEnabled?: boolean;
     goSettings: VoidAction;
     goNotifications: VoidAction;
+    goPaymentHistory: VoidAction;
     goSecurity: VoidAction;
     goTrial: VoidAction;
     goStatus: (parent?: "home" | "settings") => void;
@@ -222,6 +224,7 @@
     partnerEnabled = false,
     goSettings,
     goNotifications,
+    goPaymentHistory,
     goSecurity,
     goTrial,
     goStatus,
@@ -395,6 +398,9 @@
       case "notifications":
         goNotifications();
         break;
+      case "payment-history":
+        goPaymentHistory();
+        break;
       case "status":
         goStatus("settings");
         break;
@@ -432,6 +438,7 @@
   {goSupport}
   {goSettings}
   {goNotifications}
+  {goPaymentHistory}
   {goSecurity}
   {t}
 >
@@ -663,6 +670,7 @@
         openBalanceTopup={() => (balanceTopupOpen = true)}
         {openMenuButton}
         openNotifications={goNotifications}
+        openPaymentHistory={goPaymentHistory}
         openSecurity={goSecurity}
         openServerStatus={() => goStatus("settings")}
         {applyPromo}
@@ -674,6 +682,8 @@
       />
     {:else if screen === "notifications" && notificationPreferencesEnabled}
       <NotificationSettingsScreen {api} {emailAuthEnabled} {goSettings} {t} {user} />
+    {:else if screen === "payment-history"}
+      <PaymentHistoryScreen {api} {currentLang} {goSettings} {t} />
     {:else if screen === "security"}
       <SecurityScreen
         {api}

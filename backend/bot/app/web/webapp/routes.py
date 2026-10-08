@@ -166,6 +166,7 @@ from .payloads import (
 from .payloads import (
     WebAppPaymentCreatePayload as WebAppPaymentCreatePayload,
 )
+from .payment_history import payment_history_route
 from .qr_login import (
     account_qr_login_approve_route,
     account_qr_login_claim_route,
@@ -257,6 +258,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/unsubscribe", index_route)
     app.router.add_get("/settings/notifications", index_route)
     app.router.add_get("/settings/security", index_route)
+    app.router.add_get("/settings/payments", index_route)
     app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)
     app.router.add_get("/support/{ticket_id:\\d+}", index_route)
@@ -357,6 +359,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     )
     app.router.add_get("/api/me", me_route)
     app.router.add_get("/api/balance", balance_route)
+    app.router.add_get("/api/payments/history", payment_history_route)
     app.router.add_post("/api/balance/topup", balance_topup_route)
     app.router.add_get("/api/status", server_status_route)
     app.router.add_get("/api/documents", documents_list_route)

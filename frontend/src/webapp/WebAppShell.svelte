@@ -24,6 +24,7 @@
     partnerSettingsVisible?: boolean;
     goSettings: Action;
     goNotifications: Action;
+    goPaymentHistory: Action;
     goSecurity: Action;
     goSupport: Action;
     hasUnlinkedIdentity?: boolean;
@@ -61,6 +62,7 @@
     goSupport,
     goSettings,
     goNotifications,
+    goPaymentHistory,
     goSecurity,
     t,
     children,
@@ -73,7 +75,7 @@
   style="position:relative;isolation:isolate"
 >
   <ThemeEffectSurface name="shell.background" />
-  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "notifications" || screen === "security" || screen === "status"}
+  {#if screen === "install" || screen === "invite" || screen === "partner" || screen === "devices" || screen === "support" || screen === "settings" || screen === "notifications" || screen === "payment-history" || screen === "security" || screen === "status"}
     <header class="app-header accent-title">
       <div class="brand-row">
         <BrandMark {brand} />
@@ -108,6 +110,7 @@
     onSupport={goSupport}
     onSettings={goSettings}
     onNotifications={goNotifications}
+    onPaymentHistory={goPaymentHistory}
     onSecurity={goSecurity}
     {t}
   />

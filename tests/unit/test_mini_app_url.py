@@ -117,6 +117,10 @@ class MiniAppUrlTests(unittest.TestCase):
             subscription_mini_app_path_url(s, "notifications"),
             "https://app.example.com/webapp/settings/notifications",
         )
+        self.assertEqual(
+            subscription_mini_app_path_url(s, "payment-history"),
+            "https://app.example.com/webapp/settings/payments",
+        )
 
     def test_subscription_mini_app_path_url_preserves_base_query(self):
         s = Settings(

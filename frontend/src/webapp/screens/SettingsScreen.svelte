@@ -6,6 +6,7 @@
     FileText,
     Handshake,
     Megaphone,
+    CreditCardCheck,
     ScanQrCode,
     Send,
     Server,
@@ -93,6 +94,7 @@
     openExternalLink?: OpenLinkAction;
     openMenuButton?: (button: MenuButtonView) => void;
     openNotifications?: VoidAction;
+    openPaymentHistory?: VoidAction;
     openSecurity?: VoidAction;
     openServerStatus?: VoidAction;
     applyPromo?: VoidAction;
@@ -154,6 +156,7 @@
     openExternalLink = () => {},
     openMenuButton = () => {},
     openNotifications = () => {},
+    openPaymentHistory = () => {},
     openSecurity = () => {},
     openServerStatus = () => {},
     applyPromo = () => {},
@@ -268,7 +271,19 @@
     </div>
   {/if}
   <div class="settings-links-block">
-    <div class="settings-divider" aria-hidden="true"></div>
+    <button
+      data-webapp-action="open-payment-history"
+      class="settings-row settings-row-payments"
+      type="button"
+      onclick={openPaymentHistory}
+    >
+      <CreditCardCheck size={21} />
+      <span>
+        <strong>{t("wa_payment_history_title")}</strong>
+        <small>{t("wa_payment_history_hint")}</small>
+      </span>
+      <ArrowRight size={17} />
+    </button>
     {#if qrLoginEnabled && api}
       <button
         data-webapp-action="scan-qr-login"
@@ -287,7 +302,6 @@
         </span>
         <ArrowRight size={17} />
       </button>
-      <div class="settings-divider" aria-hidden="true"></div>
       <QrLoginApprover bind:this={qrApprover} {api} {t} site={qrLoginSite} />
     {/if}
     {#if notificationPreferencesEnabled}
@@ -310,7 +324,6 @@
         </span>
         <ArrowRight size={17} />
       </button>
-      <div class="settings-divider" aria-hidden="true"></div>
     {/if}
     <button
       data-webapp-action="open-security"
@@ -326,7 +339,6 @@
       </span>
       <ArrowRight size={17} />
     </button>
-    <div class="settings-divider" aria-hidden="true"></div>
   </div>
   <UserExtensionPoint target="user.settings.codes">
     {#if promoActivationVisible}

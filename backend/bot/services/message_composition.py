@@ -58,6 +58,7 @@ MINI_APP_SECTIONS = (
     "support",
     "settings",
     "notifications",
+    "payment-history",
 )
 MAX_MESSAGE_BUTTONS = 4
 MAX_BUTTON_LABEL_LENGTH = 64

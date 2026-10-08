@@ -509,6 +509,16 @@ for (const [device, viewport] of [
     }
 
     await page.goto(adminUrl("gifts"));
+    await expect(page.locator(".admin-pagination-jump-input")).toBeVisible();
+    const paginationHeights = await page
+      .locator(".admin-pagination input, .admin-pagination button")
+      .evaluateAll((nodes) =>
+        nodes
+          .filter((node) => node.getClientRects().length)
+          .map((node) => node.getBoundingClientRect().height)
+      );
+    expect(paginationHeights.length).toBeGreaterThan(2);
+    expect(Math.max(...paginationHeights) - Math.min(...paginationHeights)).toBeLessThanOrEqual(1);
     const rows = page.locator(
       device === "desktop" ? ".gift-desktop tbody tr" : ".gift-mobile-card"
     );

@@ -213,9 +213,9 @@ Full-stack QA поверх поднятого стенда:
 
 ```powershell
 $env:QA_FULLSTACK = "1"
-$env:QA_API_BASE_URL = "http://127.0.0.1:8082"
-$env:QA_WEBHOOK_BASE_URL = "http://127.0.0.1:8080"
-$env:QA_FRONTEND_URL = "http://127.0.0.1:8082"
+$env:QA_API_BASE_URL = "http://127.0.0.1:18082"
+$env:QA_WEBHOOK_BASE_URL = "http://127.0.0.1:18080"
+$env:QA_FRONTEND_URL = "http://127.0.0.1:18082"
 $env:QA_REMNAWAVE_HEALTH_URL = "http://127.0.0.1:3001/health"
 $env:QA_DB_DSN = "postgresql://remnawave_minishop:remnawave_minishop@127.0.0.1:6768/remnawave_minishop"
 $env:QA_PAYMENT_SECRET = "dev_qa_payment_secret_change_me"
@@ -308,8 +308,14 @@ docker compose --env-file .env.remnawave-dev `
 
 ## Адреса сервисов
 
-- Mini Shop frontend: `http://127.0.0.1:8082`
-- Mini Shop backend health: `http://127.0.0.1:8080/healthz`
+Для dev stand закреплены отдельные порты хоста: **18082** для интерфейса и **18080**
+для backend. Они заданы в dev Compose и env example; переменные `FRONTEND_PORT` и
+`WEB_SERVER_PORT` позволяют переопределить их для параллельного стенда. При использовании
+старого `.env.remnawave-dev` обновите эти переменные, `SUBSCRIPTION_MINI_APP_URL` и
+`WEBHOOK_BASE_URL` на указанные ниже адреса.
+
+- Mini Shop frontend: `http://127.0.0.1:18082`
+- Mini Shop backend health: `http://127.0.0.1:18080/healthz`
 - Mini Shop PostgreSQL: `127.0.0.1:6768`
 - Remnawave Panel: `http://127.0.0.1:3000`
 - Remnawave metrics health: `http://127.0.0.1:3001/health`
@@ -383,9 +389,9 @@ dev-стек и не смешивать базы разных версий Remna
 ## Smoke-проверка стенда
 
 ```powershell
-curl.exe -fsS http://127.0.0.1:8080/healthz
+curl.exe -fsS http://127.0.0.1:18080/healthz
 curl.exe -fsS http://127.0.0.1:3001/health
-curl.exe -I -fsS http://127.0.0.1:8082/
+curl.exe -I -fsS http://127.0.0.1:18082/
 
 docker compose --env-file .env.remnawave-dev `
   -f docker-compose-dev.yml `
