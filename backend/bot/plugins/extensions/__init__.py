@@ -28,6 +28,12 @@ from .contracts import (
     JobHandler as JobHandler,
 )
 from .contracts import (
+    MessageShortcode as MessageShortcode,
+)
+from .contracts import (
+    MessageShortcodeContext as MessageShortcodeContext,
+)
+from .contracts import (
     OperationContext as OperationContext,
 )
 from .contracts import (

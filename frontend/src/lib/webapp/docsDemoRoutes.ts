@@ -3,7 +3,10 @@ import {
   normalizeAdminSection,
   normalizeSection,
   syncSectionPath,
+  stripRoutePrefix,
+  withRoutePrefix,
 } from "./routes.js";
+import { extensionLaunchPath } from "./launchParams.js";
 
 type DocsDemoRouteParams = {
   adminSection: string;
@@ -98,7 +101,23 @@ export function createDocsDemoRouter({
   }
 
   function routePathnameFromLocation() {
-    return routePathFromParams() || getWindow().location.pathname;
+    const currentWindow = getWindow() as WindowLike & {
+      Telegram?: { WebApp?: { initDataUnsafe?: { start_param?: string } } };
+    };
+    const currentPath = routePathFromParams() || currentWindow.location.pathname;
+    if (stripRoutePrefix(currentPath, routePrefix) !== "/") return currentPath;
+    const params = new URLSearchParams(currentWindow.location.search);
+    const path = [
+      currentWindow.Telegram?.WebApp?.initDataUnsafe?.start_param,
+      ...["startapp", "start_param", "tgWebAppStartParam"].map((key) => params.get(key)),
+    ]
+      .map(extensionLaunchPath)
+      .find(Boolean);
+    if (!path) return currentPath;
+    const url = new URL(currentWindow.location.href);
+    url.pathname = withRoutePrefix(path, routePrefix);
+    currentWindow.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    return url.pathname;
   }
 
   function cleanRouteQuery() {

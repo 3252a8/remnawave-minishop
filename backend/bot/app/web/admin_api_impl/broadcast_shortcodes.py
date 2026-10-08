@@ -39,6 +39,7 @@ from bot.services.broadcast_personalization import (
 )
 from bot.services.message_image_service import MessageImageError, prepare_message_image
 from bot.services.message_image_telegram import prepare_telegram_photo
+from bot.services.plugin_shortcodes import plugin_shortcodes
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
@@ -102,6 +103,15 @@ async def admin_broadcast_shortcodes_route(request: web.Request) -> web.Response
                 description=describe(spec.description_key),
             )
             for spec in SHORTCODES.values()
+        ]
+        + [
+            AdminBroadcastShortcodeOut(
+                name=name,
+                cost=spec.cost,
+                description=describe(spec.description_key),
+                owner=owner,
+            )
+            for name, (owner, spec) in plugin_shortcodes().items()
         ],
         allowed_tags=list(TELEGRAM_BROADCAST_ALLOWED_TAGS),
     )

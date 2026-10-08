@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from config.extension_targets import extension_page_parts
 from config.information_pages import normalize_information_page_path
 from config.link_targets import is_telegram_button_link, normalize_button_link
 
@@ -170,8 +171,9 @@ class MenuButton(BaseModel):
     @model_validator(mode="after")
     def validate_target(self) -> MenuButton:
         if self.kind == "webapp":
-            target = self.target.strip().lower().strip("/")
-            if target not in WEBAPP_MENU_SECTIONS:
+            raw_target = self.target.strip().lower()
+            target = raw_target if extension_page_parts(raw_target) else raw_target.strip("/")
+            if target not in WEBAPP_MENU_SECTIONS and not extension_page_parts(target):
                 raise ValueError(f"unsupported Web App section: {target}")
             self.target = target
         elif self.kind == "page":

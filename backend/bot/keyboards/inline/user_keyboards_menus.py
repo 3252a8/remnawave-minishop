@@ -100,6 +100,11 @@ def get_main_menu_inline_keyboard(
             default_language=settings.DEFAULT_LANGUAGE,
         )
         if button.kind in {"webapp", "page"}:
+            if button.target.startswith("/extensions/"):
+                from bot.plugins.message_catalog import active_message_page
+
+                if not active_message_page(button.target):
+                    continue
             target_url = subscription_mini_app_path_url(settings, button.target)
             if target_url:
                 builder.row(

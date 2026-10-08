@@ -2683,6 +2683,18 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Owner"
           }
         },
         "required": [
@@ -3481,6 +3493,42 @@
           "admin_ids"
         ],
         "title": "AdminMeOut",
+        "type": "object"
+      },
+      "AdminMessageTargetOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "owner"
+        ],
+        "title": "AdminMessageTargetOut",
+        "type": "object"
+      },
+      "AdminMessageTargetsOut": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMessageTargetOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "title": "AdminMessageTargetsOut",
         "type": "object"
       },
       "AdminPanelCompatibilityOut": {
@@ -23571,6 +23619,52 @@
           }
         ],
         "summary": "Admin Message Image",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/message/targets": {
+      "get": {
+        "operationId": "get_admin_message_targets_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminMessageTargetsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Message Targets",
         "tags": [
           "admin"
         ]

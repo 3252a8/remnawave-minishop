@@ -1,7 +1,11 @@
 <script lang="ts">
   import MessageLocaleTabs from "$lib/admin/components/MessageLocaleTabs.svelte";
+  import { onMount } from "svelte";
+  import { getAdminApi } from "$lib/admin/context";
+  import { createMessageTargets } from "$lib/admin/messageTargets.svelte.js";
   import {
     CUSTOMER_WEBAPP_SECTIONS,
+    withUnavailableTarget,
     isTelegramMessageButtonLink,
     normalizeMessageButtonLink,
   } from "$lib/admin/messageButtonTargets.js";
@@ -60,6 +64,10 @@
   let activeLanguage = $state("");
   let iconPickerButtonId = $state("");
   let iconPickerSearch = $state("");
+  const targets = createMessageTargets(getAdminApi());
+  onMount(() => {
+    void targets.load();
+  });
 
   const iconOptions = $derived(
     Object.keys(UiIcons)
@@ -95,12 +103,17 @@
     notifications: "Notification settings",
     status: "Service status",
   };
-  const sectionOptions = $derived(
-    [...CUSTOMER_WEBAPP_SECTIONS, "status"].map((section) => ({
+  const sectionOptions = $derived([
+    ...[...CUSTOMER_WEBAPP_SECTIONS, "status"].map((section) => ({
       value: section,
       label: at(`menu_buttons_section_${section}`, {}, sectionFallbacks[section]),
-    }))
-  );
+    })),
+    ...targets.sections.map((section) => ({
+      value: section.id,
+      label: section.label,
+      group: at("message_targets_plugin_group", { owner: section.owner }),
+    })),
+  ]);
 
   function commit(next: MenuButtonDraft[]): void {
     onValueChange(serializeMenuButtonDrafts(next));
@@ -189,6 +202,12 @@
 </script>
 
 <div class="menu-buttons-editor">
+  {#if targets.failed}<p class="admin-muted" role="status">
+      {at("message_targets_load_failed")}
+      <AdminButton size="sm" variant="ghost" onclick={() => void targets.load()}
+        >{at("retry")}</AdminButton
+      >
+    </p>{/if}
   <MessageLocaleTabs
     languages={availableLanguages}
     active={activeLanguage}
@@ -276,7 +295,9 @@
         {#if button.kind === "webapp"}
           <AdminSelect
             value={button.target}
-            items={sectionOptions}
+            items={withUnavailableTarget(sectionOptions, button.target, (target) =>
+              at("message_target_unavailable", { target })
+            )}
             ariaLabel={at("menu_buttons_webapp_section", {}, "Web App section")}
             onValueChange={(target) => updateButton(index, { target })}
           />

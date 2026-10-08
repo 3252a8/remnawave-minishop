@@ -49,6 +49,7 @@ class ExtensionRegistry:
             value.jobs,
             value.backups,
             value.storage,
+            value.message_shortcodes,
         ):
             seen: set[str] = set()
             for item in collection:
@@ -56,6 +57,16 @@ class ExtensionRegistry:
                 if item.id in seen:
                     raise ExtensionError("duplicate_extension_identifier")
                 seen.add(item.id)
+        if len(value.message_shortcodes) > 128:
+            raise ExtensionError("too_many_message_shortcodes")
+        for shortcode in value.message_shortcodes:
+            if (
+                not isinstance(shortcode.description_key, str)
+                or not 1 <= len(shortcode.description_key) <= 200
+                or shortcode.cost not in {"db", "panel"}
+                or not callable(shortcode.resolve)
+            ):
+                raise ExtensionError("invalid_message_shortcode")
         jobs = {job.id for job in value.jobs}
         for job in value.jobs:
             if not 1 <= job.timeout_seconds <= 3600 or not 1 <= job.max_attempts <= 100:

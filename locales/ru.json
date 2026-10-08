@@ -6014,5 +6014,10 @@
   "wa_qr_copy_unavailable": "Браузер не разрешил копирование изображения. Скачайте PNG и сохраните или отправьте файл.",
   "wa_qr_download_failed": "Не удалось сохранить изображение. Попробуйте открыть страницу в браузере.",
   "wa_qr_image_failed": "Не удалось создать QR-код. Повторите попытку.",
-  "wa_referral_bonus_shared_terms": "Общие условия для этих тарифов"
+  "wa_referral_bonus_shared_terms": "Общие условия для этих тарифов",
+  "admin_message_targets_plugin_group": "Плагин: {owner}",
+  "admin_message_target_unavailable": "Недоступная страница: {target}",
+  "admin_message_targets_load_failed": "Не удалось загрузить страницы плагинов. Сохранённые адреса остаются в кнопках.",
+  "admin_demo_plugin_page": "Дополнительные услуги",
+  "admin_demo_plugin_shortcode": "Название плана дополнительных услуг"
 }

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any, Literal
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 # ``{shortcode}`` — single-brace ASCII identifiers, consistent with the repo's
 # i18n placeholder style. Anything non-matching (non-ASCII, spaces) passes
 # through untouched.
-_SHORTCODE_RE = re.compile(r"\{([a-z_][a-z0-9_]*)\}")
+_SHORTCODE_RE = re.compile(r"\{([a-z_][a-z0-9_]*|[a-z][a-z0-9_-]{0,63}\.[a-z][a-z0-9_-]{0,63})\}")
 
 Cost = Literal["db", "panel"]
 
@@ -165,11 +165,17 @@ def extract_shortcodes(text: str) -> set[str]:
 
 def unknown_shortcodes(text: str) -> set[str]:
     """Identifier tokens that are not part of the registry (admin typos)."""
-    return extract_shortcodes(text) - set(SHORTCODES)
+    return extract_shortcodes(text) - shortcode_names()
 
 
 def known_shortcodes(text: str) -> set[str]:
-    return extract_shortcodes(text) & set(SHORTCODES)
+    return extract_shortcodes(text) & shortcode_names()
+
+
+def shortcode_names() -> set[str]:
+    from .plugin_shortcodes import plugin_shortcodes
+
+    return set(SHORTCODES) | set(plugin_shortcodes())
 
 
 @dataclass
@@ -199,6 +205,7 @@ class BroadcastUserContext:
     panel_user_uuid: str | None = None
     install_link: str | None = None
     config_link: str | None = None
+    plugin_values: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -230,7 +237,7 @@ async def load_broadcast_contexts(
     shortcodes (``install_link``, referral links) write missing values into the
     supplied session; commit happens with the surrounding route session.
     """
-    known = needed & set(SHORTCODES)
+    known = needed & shortcode_names()
     normalized_ids = [int(uid) for uid in dict.fromkeys(user_ids)]
     if not known or not normalized_ids:
         return {}
@@ -304,6 +311,24 @@ async def load_broadcast_contexts(
     if _CONFIG_LINK in known and panel_service is not None:
         await _load_config_links(settings, panel_service, contexts)
 
+    if known - set(SHORTCODES):
+        from bot.plugins.extensions import MessageShortcodeContext
+
+        from .plugin_shortcodes import load_plugin_shortcodes
+
+        await load_plugin_shortcodes(
+            MessageShortcodeContext(
+                session=session,
+                settings=settings,
+                user_ids=tuple(contexts),
+                languages={
+                    uid: str(ctx.language_code or settings.DEFAULT_LANGUAGE or "en")
+                    for uid, ctx in contexts.items()
+                },
+            ),
+            contexts,
+            known,
+        )
     return contexts
 
 
@@ -727,10 +752,15 @@ def render_broadcast_text(
     ``escape=False`` (email subject — plain text, not HTML) inserts raw values.
     """
 
+    names = shortcode_names()
+
     def replace(match: re.Match[str]) -> str:
         name = match.group(1)
-        if name not in SHORTCODES:
+        if name not in names:
             return match.group(0)
+        if name not in SHORTCODES:
+            value = ctx.plugin_values.get(name, "—") if ctx is not None else "—"
+            return html.escape(value) if escape else value
         value = _resolve_value(
             name,
             ctx,

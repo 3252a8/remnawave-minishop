@@ -2,12 +2,16 @@
   lang="ts"
   generics="Row extends { id: number; kind: string; label: string; url: string; promoCode: string; section: string; labels?: Record<string, string>; iconCustomEmojiId?: string | null; iconEmoji?: string }"
 >
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import { AdminButton, AdminCombobox, AdminSelect } from "$components/patterns/admin/index.js";
   import { Input, Sortable } from "$components/ui/index.js";
   import { Plus, Sparkles, Trash2, X } from "$components/ui/icons.js";
-  import { getAdminApiBlob } from "$lib/admin/context";
-  import { CUSTOMER_WEBAPP_SECTIONS } from "$lib/admin/messageButtonTargets.js";
+  import { getAdminApi, getAdminApiBlob } from "$lib/admin/context";
+  import { createMessageTargets } from "$lib/admin/messageTargets.svelte.js";
+  import {
+    CUSTOMER_WEBAPP_SECTIONS,
+    withUnavailableTarget,
+  } from "$lib/admin/messageButtonTargets.js";
   import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
   import EmojiGlyph from "$lib/telegramEmoji/EmojiGlyph.svelte";
   import EmojiPicker from "$lib/telegramEmoji/EmojiPicker.svelte";
@@ -31,6 +35,10 @@
   let paletteButtonId = $state<number | null>(null);
   let paletteTrigger: HTMLButtonElement | null = null;
   let chosenEmojis = $state<Record<string, EmojiItem>>({});
+  const targets = createMessageTargets(getAdminApi());
+  onMount(() => {
+    void targets.load();
+  });
 
   /** Caption being authored: the active language's, or the shared one. */
   function captionOf(button: Row): string {
@@ -135,12 +143,17 @@
     settings: "Settings",
     notifications: "Notification settings",
   };
-  const sectionOptions = $derived(
-    CUSTOMER_WEBAPP_SECTIONS.map((section) => ({
+  const sectionOptions = $derived([
+    ...CUSTOMER_WEBAPP_SECTIONS.map((section) => ({
       value: section,
       label: at(`broadcast_button_section_${section}`, {}, sectionFallbacks[section]),
-    }))
-  );
+    })),
+    ...targets.sections.map((section) => ({
+      value: section.id,
+      label: section.label,
+      group: at("message_targets_plugin_group", { owner: section.owner }),
+    })),
+  ]);
   // A kind outside the shared ones is host-owned and carries no promo code.
   const sharedKinds = new Set(["url", "promo_bot", "promo_webapp"]);
   const hasPromoButtons = $derived(
@@ -250,7 +263,9 @@
           class="message-button-target"
           controlSize="md"
           value={button.section}
-          items={sectionOptions}
+          items={withUnavailableTarget(sectionOptions, button.section, (target) =>
+            at("message_target_unavailable", { target })
+          )}
           placeholder={at("broadcast_button_section_select", {}, "Select a screen")}
           ariaLabel={at("broadcast_button_section_select", {}, "Select a screen")}
           onValueChange={(value) => onUpdate(index, { section: value } as Partial<Row>)}
@@ -285,6 +300,15 @@
     {/snippet}
   </Sortable>
 </div>
+
+{#if targets.failed}
+  <p class="admin-muted" role="status">
+    {at("message_targets_load_failed")}
+    <AdminButton size="sm" variant="ghost" onclick={() => void targets.load()}
+      >{at("retry")}</AdminButton
+    >
+  </p>
+{/if}
 
 {#if buttons.length < max}
   <div>

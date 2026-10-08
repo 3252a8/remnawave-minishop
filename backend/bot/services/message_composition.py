@@ -22,11 +22,13 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
+from bot.plugins.message_catalog import active_message_page
 from bot.services.message_button_icons import (
     email_button_label,
     unicode_button_label,
     validate_button_icon,
 )
+from config.extension_targets import extension_start_parameter
 from config.link_targets import normalize_button_link
 
 MESSAGE_CHANNELS = ("telegram", "email")
@@ -262,9 +264,10 @@ def mini_app_section_link(base_url: str | None, section: str | None) -> str | No
     """Mini App link that opens one of its screens through ``startapp``."""
 
     normalized = str(section or "").strip().lower()
-    if normalized not in MINI_APP_SECTIONS:
+    payload = extension_start_parameter(normalized)
+    if normalized not in MINI_APP_SECTIONS and not (payload and active_message_page(normalized)):
         return None
-    return mini_app_startapp_link(base_url, normalized)
+    return mini_app_startapp_link(base_url, payload or normalized)
 
 
 def promo_webapp_link(base_url: str | None, code: str | None) -> str | None:
@@ -386,14 +389,15 @@ def _resolve_section_button(
     section = str(button.section or "").strip().lower()
     if not section:
         raise MessageValidationError("button_section_required", label)
-    if section not in MINI_APP_SECTIONS:
+    payload = extension_start_parameter(section)
+    if section not in MINI_APP_SECTIONS and not (payload and active_message_page(section)):
         raise MessageValidationError("button_section_invalid", section)
 
     username = _clean_bot_username(bot_username)
     # A t.me startapp link still opens the Mini App authorized, so it is the
     # fallback whenever the configured Mini App URL is unusable as a web_app
     # target (plain http) or missing entirely.
-    fallback = f"https://t.me/{username}?startapp={section}" if username else ""
+    fallback = f"https://t.me/{username}?startapp={payload or section}" if username else ""
     link = mini_app_section_link(mini_app_url, section)
     if link and _is_https(link):
         return MessageButton(

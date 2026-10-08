@@ -53,6 +53,7 @@ from .information_pages import (
 from .logs import (
     admin_logs_route,
 )
+from .message_targets import admin_message_targets_route
 from .panel import (
     admin_panel_internal_squads_route,
 )
@@ -399,6 +400,7 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/broadcast/audience-counts", admin_broadcast_audience_counts_route)
     router.add_get("/api/admin/broadcast/shortcodes", admin_broadcast_shortcodes_route)
+    router.add_get("/api/admin/message/targets", admin_message_targets_route)
     router.add_post("/api/admin/broadcast/preview", admin_broadcast_preview_route)
     router.add_post("/api/admin/broadcast", admin_broadcast_route)
     router.add_get("/api/admin/broadcasts", admin_broadcasts_list_route)

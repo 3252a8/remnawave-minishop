@@ -221,6 +221,7 @@ class AdminBroadcastShortcodeOut(HttpResponseModel):
     name: str
     cost: str
     description: str
+    owner: str | None = None
 
 
 class AdminBroadcastShortcodesOut(HttpResponseModel):

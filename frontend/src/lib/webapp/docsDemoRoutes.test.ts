@@ -46,6 +46,22 @@ function makeWindow({
 }
 
 describe("docs demo routes", () => {
+  it("opens a plugin launch payload at the actual page path and preserves other parameters", () => {
+    const view = makeWindow({
+      pathname: "/prefix/",
+      search: "?startapp=ext_sample__tools__services&x=1",
+      href: "https://example.test/prefix/?startapp=ext_sample__tools__services&x=1",
+    });
+    const router = createDocsDemoRouter({
+      getWindow: () => asWindow(view),
+      isDocsDemo: false,
+      routePrefix: "/prefix",
+    });
+    expect(router.routePathnameFromLocation()).toBe("/prefix/extensions/sample__tools/services");
+    expect(view.replacedUrl()).toBe(
+      "/prefix/extensions/sample__tools/services?startapp=ext_sample__tools__services&x=1"
+    );
+  });
   it("normalizes explicit demo route paths", () => {
     expect(normalizeDocsDemoRoutePath("admin//users/")).toBe("/admin/users");
     expect(normalizeDocsDemoRoutePath(" / ")).toBe("/");

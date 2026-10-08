@@ -45,6 +45,53 @@ Plugin API, frontend host API и schema version остаются 1: новые �
 - Разделы «Бонусы» и «Поддержка» остаются в навигации при наличии вкладов плагина,
   даже если встроенная реферальная программа или тикеты выключены.
 
+## Экраны в кнопках и данные в сообщениях
+
+В `core_compatibility.requires` пакет может объявить `"message_composition": 1`.
+Страницы активных пакетов из `frontend.user.pages` доступны в выборе экрана во
+всех редакторах кнопок сообщений и меню. `GET /api/admin/message/targets` возвращает
+локализованные названия и владельцев; выключенные в настройках представления
+страницы не предлагаются. Админские секции и слоты не становятся целями клиентских
+кнопок. Доступ конкретного получателя по-прежнему определяет политика страницы.
+
+Сохраняемая цель — `/extensions/<owner>/<page-id>`. Telegram Mini App получает
+`startapp=ext_<owner>__<page-id>`; разделитель читается справа, поскольку `page-id`
+не содержит подчёркиваний. Удалённый или отключённый плагин не подменяет цель
+другим экраном: редактор сохраняет её как недоступную, а отправка отклоняется.
+
+Данные сообщений объявляются через `ExtensionContributions.message_shortcodes`:
+
+```python
+from bot.plugins.extensions import (
+    ExtensionContributions,
+    MessageShortcode,
+    MessageShortcodeContext,
+)
+
+
+async def remaining(context: MessageShortcodeContext) -> dict[int, str | None]:
+    # Query the plugin's own data once for this recipient batch.
+    return {user_id: "10" for user_id in context.user_ids}
+
+
+def extensions(self, ctx):
+    return ExtensionContributions(
+        message_shortcodes=(
+            MessageShortcode("remaining", "sample_remaining_description", remaining),
+        )
+    )
+```
+
+Для владельца `sample` токен имеет вид `{sample.remaining}`. Название локализуется
+плагином через `description_key`; `cost` принимает `db` или `panel`. Core загружает
+только использованные токены и существующих получателей, вызывает обработчик
+один раз на пакет, проверяет принадлежность значений получателям и экранирует HTML.
+Текстовые значения ограничены 8192 символами. Обработчик не должен завершать
+транзакцию сессии; его ошибка откатывается к savepoint, а отсутствующее значение
+показывается как `—`. Тайм-аут составляет 5 секунд для `db` и 15 для `panel`.
+Неизвестные токены сохраняются буквально. Реестр и подстановка общие для
+рассылок, личных сообщений и прочих потребителей общей композиции сообщений.
+
 ## Стабильные цели ЛК
 
 Для каждого раздела `home`, `invite`, `support`, `settings`, `install`, `devices`,

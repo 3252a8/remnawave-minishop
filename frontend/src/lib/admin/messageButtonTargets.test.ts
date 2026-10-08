@@ -4,9 +4,28 @@ import {
   CUSTOMER_WEBAPP_SECTIONS,
   isTelegramMessageButtonLink,
   normalizeMessageButtonLink,
+  withUnavailableTarget,
 } from "./messageButtonTargets.js";
 
 describe("message button targets", () => {
+  it("preserves an inactive plugin target as disabled without duplicating active options", () => {
+    const active = [{ value: "/extensions/sample/services", label: "Services" }];
+    expect(
+      withUnavailableTarget(
+        active,
+        "/extensions/disabled/services",
+        (target) => `Unavailable: ${target}`
+      )
+    ).toEqual([
+      ...active,
+      {
+        value: "/extensions/disabled/services",
+        label: "Unavailable: /extensions/disabled/services",
+        disabled: true,
+      },
+    ]);
+    expect(withUnavailableTarget(active, active[0].value, () => "missing")).toBe(active);
+  });
   it.each([
     ["@help_center", "https://t.me/help_center"],
     ["t.me/help_center", "https://t.me/help_center"],

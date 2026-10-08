@@ -241,7 +241,8 @@ export function syncSectionPath(
   }
   if (normalized === "extensions") {
     const current = stripRoutePrefix(window.location.pathname, routePrefix);
-    if (/^\/extensions\/[a-z][a-z0-9-]+\/[a-z][a-z0-9-]+$/.test(current)) targetPath = current;
+    if (/^\/extensions\/[a-z][a-z0-9_-]{0,63}\/[a-z][a-z0-9-]{1,63}$/.test(current))
+      targetPath = current;
   }
   targetPath = withRoutePrefix(targetPath, routePrefix);
   if (window.location.pathname === targetPath) return;

@@ -6,13 +6,14 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from bot.plugins.spec import PluginContext
+    from config.settings import Settings
 
 
 class ExtensionError(ValueError):
@@ -160,6 +161,26 @@ class BackupStorageProvider:
 
 
 @dataclass(frozen=True)
+class MessageShortcodeContext:
+    """Batch of existing recipients; callbacks must not commit the session."""
+
+    session: AsyncSession
+    settings: Settings
+    user_ids: tuple[int, ...]
+    languages: dict[int, str]
+
+
+@dataclass(frozen=True)
+class MessageShortcode:
+    """Plain text values exposed as ``{owner.id}``, escaped by Core at rendering."""
+
+    id: str
+    description_key: str
+    resolve: Callable[[MessageShortcodeContext], Awaitable[dict[int, str | None]]]
+    cost: Literal["db", "panel"] = "db"
+
+
+@dataclass(frozen=True)
 class ExtensionContributions:
     guides: tuple[GuideProvider, ...] = ()
     resources: tuple[ResourceProvider, ...] = ()
@@ -168,6 +189,7 @@ class ExtensionContributions:
     events: tuple[DurableSubscription, ...] = ()
     backups: tuple[BackupContributor, ...] = ()
     storage: tuple[BackupStorageProvider, ...] = ()
+    message_shortcodes: tuple[MessageShortcode, ...] = ()
     view_policy: ViewPolicy | None = None
     # Supported core commands, explicitly requested by the trusted plugin.
     permissions: frozenset[str] = field(default_factory=frozenset)

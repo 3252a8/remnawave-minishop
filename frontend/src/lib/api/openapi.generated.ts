@@ -1371,6 +1371,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/message/targets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Message Targets */
+    get: operations["get_admin_message_targets_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/panel/internal-squads": {
     parameters: {
       query?: never;
@@ -5885,6 +5902,11 @@ export interface components {
       description: string;
       /** Name */
       name: string;
+      /**
+       * Owner
+       * @default null
+       */
+      owner: string | null;
     };
     /** AdminBroadcastShortcodesOut */
     AdminBroadcastShortcodesOut: {
@@ -6238,6 +6260,20 @@ export interface components {
       admin_ids: number[];
       /** User Id */
       user_id: number;
+    };
+    /** AdminMessageTargetOut */
+    AdminMessageTargetOut: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Owner */
+      owner: string;
+    };
+    /** AdminMessageTargetsOut */
+    AdminMessageTargetsOut: {
+      /** Sections */
+      sections?: components["schemas"]["AdminMessageTargetOut"][];
     };
     /** AdminPanelCompatibilityOut */
     AdminPanelCompatibilityOut: {
@@ -15133,6 +15169,29 @@ export interface operations {
         };
         content: {
           "image/webp": string;
+        };
+      };
+    };
+  };
+  get_admin_message_targets_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminMessageTargetsOut"];
         };
       };
     };
