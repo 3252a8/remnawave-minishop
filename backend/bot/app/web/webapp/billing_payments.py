@@ -542,6 +542,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 payment_payload=payment_payload,
                 method=method,
                 pricing_context=checkout_pricing_context,
+                tariff_access_code=request_tariff_access_code(request),
             )
         except CheckoutBundleError as exc:
             return _json_error(400, exc.code, exc.message)

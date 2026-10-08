@@ -337,6 +337,7 @@ def build_checkout_bundle(
     payment_payload: Any,
     method: str,
     pricing_context: CheckoutPricingContext | None = None,
+    tariff_access_code: str | None = None,
 ) -> tuple[Any, CheckoutBundle]:
     if _sale_mode_base(base_quote.sale_mode) != "subscription":
         if any(
@@ -363,6 +364,7 @@ def build_checkout_bundle(
     tariff = tariffs_config.require_for_user(
         tariff_key,
         pricing_context.active_tariff_key if pricing_context else None,
+        tariff_access_code,
     )
     options = serialize_checkout_addons(
         tariff,
