@@ -4683,6 +4683,7 @@ a {
     min-height: 48px;
   }
 
+  .settings-links-block .settings-row-qr-login,
   .settings-links-block .settings-row-notifications,
   .settings-links-block .settings-row-security {
     grid-column: 1 / -1;
