@@ -610,10 +610,21 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "REFERRAL_ONE_BONUS_PER_REFEREE",
         "bool",
         "pricing",
-        "First-payment referral bonuses only",
+        "First qualifying referral event only",
         (
-            "When enabled, later purchases by the same invited user do not grant referral "
-            "bonuses to either side. The first successful payment still grants bonuses."
+            "Limit accrual for both participants to the first personal purchase or gift "
+            "activation counted through the gift referral option."
+        ),
+        subsection="referral",
+    ),
+    SettingField(
+        "REFERRAL_GIFT_ACTIVATION_ENABLED",
+        "bool",
+        "pricing",
+        "Count gift activation for referrals",
+        (
+            "Count successful recipient redemption through an existing invitation. "
+            "Disabled by default; no retrospective accrual."
         ),
         subsection="referral",
     ),

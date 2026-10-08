@@ -1,6 +1,6 @@
 """Paid transferable subscriptions; tokens are bearer credentials."""
 
-from sqlalchemy import BigInteger, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
 from db.base import Base
@@ -23,6 +23,7 @@ class SubscriptionGift(Base):
     )
     activation_end_at = Column(DateTime(timezone=True), nullable=True)
     activated_at = Column(DateTime(timezone=True), nullable=True)
+    referral_qualified = Column(Boolean, nullable=False, default=False, server_default="false")
     activation_attempted_at = Column(DateTime(timezone=True), nullable=True)
     bonus_days = Column(Integer, nullable=False, default=0)
     regular_bonus_gb = Column(Float, nullable=False, default=0)

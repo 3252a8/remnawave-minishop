@@ -445,7 +445,8 @@
 | `purchased_subscription_days` | `int | None` | `None` |
 | `tariff_key` | `str | None` | `None` |
 | `one_bonus_per_referee` | `bool | None` | `None` |
-| `reason` | `'payment' | 'welcome'` | обязательно |
+| `gift_id` | `int | None` | `None` |
+| `reason` | `'payment' | 'welcome' | 'gift_activation'` | обязательно |
 
 ## `subscription.auto_renew_failed`
 

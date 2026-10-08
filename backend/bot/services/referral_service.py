@@ -39,7 +39,7 @@ class ReferralService:
         settings: Settings,
         subscription_service: _SubscriptionServiceLike,
         bot: Bot | None,
-        i18n: JsonI18n,
+        i18n: JsonI18n | None,
     ):
         self.settings = settings
         self.subscription_service = subscription_service
@@ -57,6 +57,7 @@ class ReferralService:
         duration_days: int | None = None,
         defer: bool = False,
         recover: bool = False,
+        gift_id: int | None = None,
     ) -> dict[str, Any]:
 
         referee_final_end_date: datetime | None = None
@@ -86,7 +87,7 @@ class ReferralService:
             ):
                 inviter_user_id = None
             partner_client_bonus = False
-            if inviter_user_id is None:
+            if inviter_user_id is None and gift_id is None:
                 partner_client_bonus = await PartnerProgramService(
                     self.settings
                 ).client_payment_bonus_eligible(
@@ -118,6 +119,7 @@ class ReferralService:
                         referee_user_id,
                         exclude_payment_id=current_payment_db_id,
                         qualifying_subscription_only=True,
+                        include_gift_activations=not partner_client_bonus,
                         **({"before_payment_id": current_payment_db_id} if recover else {}),
                     )
                     if succeeded_count and succeeded_count > 0:
@@ -162,9 +164,10 @@ class ReferralService:
             referee_name_for_msg = referee_user_model.first_name or f"User {referee_user_id}"
 
             default_lang_for_placeholder = self.settings.DEFAULT_LANGUAGE
-            inviter_name_for_referee_msg = self.i18n.gettext(
-                default_lang_for_placeholder,
-                "friend_placeholder",
+            inviter_name_for_referee_msg = (
+                self.i18n.gettext(default_lang_for_placeholder, "friend_placeholder")
+                if self.i18n is not None
+                else "friend"
             )
             if inviter_user_model and inviter_user_model.first_name:
                 inviter_name_for_referee_msg = inviter_user_model.first_name
@@ -212,6 +215,7 @@ class ReferralService:
                             days=days,
                             tariff_key=tariff_key,
                             one_time=one_bonus_per_client,
+                            gift_id=gift_id,
                         )
                 return {"referee_bonus_applied_days": None, "referee_new_end_date": None}
             logger.info(
@@ -321,7 +325,8 @@ class ReferralService:
                     purchased_subscription_days=duration_days,
                     tariff_key=tariff_key,
                     one_bonus_per_referee=one_bonus_per_client,
-                    reason="payment",
+                    gift_id=gift_id,
+                    reason="gift_activation" if gift_id is not None else "payment",
                 ).to_payload()
             else:
                 referral_event_payload = None

@@ -18,6 +18,7 @@ async def enqueue_period_accrual(
     days: int,
     tariff_key: str | None,
     one_time: bool,
+    gift_id: int | None = None,
 ) -> None:
     existing = await session.scalar(
         select(ReferralPeriodAccrual.accrual_id).where(
@@ -36,6 +37,7 @@ async def enqueue_period_accrual(
     session.add(
         ReferralPeriodAccrual(
             payment_id=payment_id,
+            gift_id=gift_id,
             referee_user_id=referee_user_id,
             user_id=user_id,
             role=role,

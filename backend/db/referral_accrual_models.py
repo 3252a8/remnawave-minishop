@@ -17,6 +17,9 @@ class ReferralPeriodAccrual(Base):
     payment_id = Column(
         Integer, ForeignKey("payments.payment_id", ondelete="CASCADE"), nullable=False
     )
+    gift_id = Column(
+        Integer, ForeignKey("subscription_gifts.gift_id", ondelete="SET NULL"), nullable=True
+    )
     referee_user_id = Column(
         BigInteger, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
     )

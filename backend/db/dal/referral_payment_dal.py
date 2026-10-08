@@ -3,6 +3,7 @@
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from db.gift_models import SubscriptionGift
 from db.models import Payment
 
 
@@ -13,6 +14,7 @@ async def count_user_succeeded_payments(
     *,
     qualifying_subscription_only: bool = False,
     before_payment_id: int | None = None,
+    include_gift_activations: bool = False,
 ) -> int:
     """Count succeeded payments for a specific user.
 
@@ -38,6 +40,8 @@ async def count_user_succeeded_payments(
                     Payment.sale_mode.like("subscription|%"),
                 ),
                 Payment.amount > 0,
+                ~Payment.sale_mode.like("%|gift"),
+                ~Payment.sale_mode.like("%|gift|%"),
             ]
         )
     if exclude_payment_id is not None:
@@ -52,6 +56,19 @@ async def count_user_succeeded_payments(
         conditions.append(
             or_(time < boundary, and_(time == boundary, Payment.payment_id < before_payment_id))
         )
-    stmt = select(func.count(Payment.payment_id)).where(and_(*conditions))
+    payment_count = select(func.count(Payment.payment_id)).where(and_(*conditions))
+    if qualifying_subscription_only and include_gift_activations:
+        gift_conditions = [
+            SubscriptionGift.recipient_id == user_id,
+            SubscriptionGift.referral_qualified.is_(True),
+        ]
+        if exclude_payment_id is not None:
+            gift_conditions.append(SubscriptionGift.payment_id != exclude_payment_id)
+        if before_payment_id is not None:
+            gift_conditions.append(SubscriptionGift.activated_at < boundary)
+        gift_count = select(func.count(SubscriptionGift.gift_id)).where(*gift_conditions)
+        stmt = select(payment_count.scalar_subquery() + gift_count.scalar_subquery())
+    else:
+        stmt = payment_count
     result = await session.execute(stmt)
     return result.scalar() or 0

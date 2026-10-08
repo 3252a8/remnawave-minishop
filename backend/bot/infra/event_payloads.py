@@ -312,7 +312,19 @@ class ReferralBonusGrantedPayload(EventPayload):
     purchased_subscription_days: int | None = None
     tariff_key: str | None = None
     one_bonus_per_referee: bool | None = None
-    reason: Literal["payment", "welcome"]
+    gift_id: int | None = None
+    reason: Literal["payment", "welcome", "gift_activation"]
+
+    def to_payload(
+        self,
+        *,
+        exclude_unset: bool = False,
+        exclude_none: bool = False,
+    ) -> dict[str, Any]:
+        payload = super().to_payload(exclude_unset=exclude_unset, exclude_none=exclude_none)
+        if payload.get("gift_id") is None:
+            payload.pop("gift_id", None)
+        return payload
 
 
 class SupportTicketCreatedPayload(EventPayload):

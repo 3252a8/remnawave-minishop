@@ -7,6 +7,8 @@ from urllib.parse import urlencode, urlsplit
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.checkout_addons import checkout_addon_grants
+from bot.services.referral_service import ReferralService
+from bot.services.registration_invite_gate import referral_program_enabled
 from bot.services.subscription_order_terms import gift_tariff, read_subscription_terms
 from bot.services.trial_days import paid_subscription_period_start
 from config.subscription_periods import add_period_days
@@ -185,6 +187,26 @@ async def claim_gift(
     gift.status = "activated"
     gift.activated_at = datetime.now(UTC)
     gift.activation_end_at = result["end_date"]
+    if bool(
+        getattr(service.settings, "REFERRAL_GIFT_ACTIVATION_ENABLED", False)
+    ) and referral_program_enabled(service.settings):
+        # The payment/gift/recipient locks are still held. Commit the qualification
+        # and independently retryable obligations with the successful activation.
+        # Gift links never establish attribution or grant partner payment benefits.
+        await ReferralService(
+            service.settings, service, service.bot, service.i18n
+        ).apply_referral_bonuses_for_payment(
+            session,
+            user_id,
+            int(payment.subscription_duration_months or 0),
+            current_payment_db_id=int(payment.payment_id),
+            skip_if_active_before_payment=False,
+            tariff_key=payment.tariff_key,
+            duration_days=terms.duration_days,
+            defer=True,
+            gift_id=int(gift.gift_id),
+        )
+        gift.referral_qualified = True
     await message_log_dal.create_message_log_no_commit(
         session,
         {

@@ -120,6 +120,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0101_qr_login_requests",
     "0102_balance_auto_renew",
     "0103_promo_activation_merge_history",
+    "0104_gift_referral_qualification",
 ]
 
 

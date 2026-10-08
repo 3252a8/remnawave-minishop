@@ -14,6 +14,7 @@ from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.services.referral_accruals import utc_date
 from bot.services.referral_service import ReferralService
+from bot.services.subscription_gifts import is_gift_sale
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.subscription_periods import days_to_legacy_months
 from db.dal import subscription_dal, tariff_dal, user_dal
@@ -95,7 +96,11 @@ class ReferralAccrualWorker:
                         continue
                     await user_dal.lock_user_by_id(session, int(payment.user_id))
                     mode = str(payment.sale_mode or "").split("@", 1)[0].split("|", 1)[0]
-                    if mode == "subscription" and float(payment.amount) > 0:
+                    if (
+                        mode == "subscription"
+                        and not is_gift_sale(payment.sale_mode)
+                        and float(payment.amount) > 0
+                    ):
                         days = int(payment.subscription_duration_days or 0) or None
                         months = (
                             int(payment.subscription_duration_months or 0)
@@ -201,7 +206,8 @@ class ReferralAccrualWorker:
                 payment_db_id=int(accrual.payment_id),
                 tariff_key=accrual.tariff_key,
                 one_bonus_per_referee=accrual.one_time_referee_id is not None,
-                reason="payment",
+                gift_id=int(accrual.gift_id) if accrual.gift_id is not None else None,
+                reason="gift_activation" if accrual.gift_id is not None else "payment",
             )
             await session.commit()
         with contextlib.suppress(Exception):

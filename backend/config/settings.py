@@ -402,9 +402,18 @@ class Settings(
     # Referral program configuration
     GIFTS_ENABLED: bool = True
     REFERRAL_PROGRAM_ENABLED: bool = True
+    REFERRAL_GIFT_ACTIVATION_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Count successful gift redemption by an invited recipient for referral period accrual."
+        ),
+    )
     REFERRAL_ONE_BONUS_PER_REFEREE: bool = Field(
         default=True,
-        description="When true, referral payment bonuses are applied only on the invited user's first successful payment.",  # noqa: E501
+        description=(
+            "Limit referral period accrual to the first personal purchase "
+            "or qualifying gift activation."
+        ),
     )
     REFERRAL_WELCOME_BONUS_DAYS: int = Field(
         default=3,
