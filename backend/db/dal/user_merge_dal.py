@@ -11,8 +11,8 @@ from sqlalchemy import delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from bot.infra import events
 from bot.infra.event_payloads import AccountMergedPayload
+from db.transaction_events import defer_event_until_commit
 
 from ..models import (
     AccountAlias,
@@ -22,7 +22,6 @@ from ..models import (
     EmailVerificationCode,
     LegacyImportMapping,
     MessageLog,
-    PromoCodeActivation,
     QrLoginRequest,
     Subscription,
     SupportTicket,
@@ -52,6 +51,7 @@ from .user_merge_entitlements import (
     transfer_entitlement_ownership,
 )
 from .user_merge_invites import preserve_native_invitation, reassign_invitation_relations
+from .user_merge_promos import merge_promo_activation_history
 from .user_reads_dal import get_user_by_id
 
 logger = logging.getLogger(__name__)
@@ -149,26 +149,6 @@ async def _lock_users_for_merge(
     return users_by_id.get(int(source_user_id)), users_by_id.get(int(target_user_id))
 
 
-async def _accounts_share_promo_activation(
-    session: AsyncSession,
-    source_user_id: int,
-    target_user_id: int,
-) -> bool:
-    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
-        PromoCodeActivation.user_id == target_user_id
-    )
-    stmt = (
-        select(PromoCodeActivation.activation_id)
-        .where(
-            PromoCodeActivation.user_id == source_user_id,
-            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
-        )
-        .limit(1)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none() is not None
-
-
 async def merge_users(
     session: AsyncSession,
     *,
@@ -231,12 +211,6 @@ async def merge_users(
             "Both accounts already have different Telegram IDs.",
             message_key="account_merge_telegram_conflict",
             code="account_merge_telegram_conflict",
-        )
-    if await _accounts_share_promo_activation(session, source_user_id, target_user_id):
-        raise UserMergeConflictError(
-            "Both accounts already redeemed the same one-time code.",
-            message_key="account_merge_duplicate_promo_conflict",
-            code="account_merge_duplicate_promo_conflict",
         )
     source_provider_rows = (
         (
@@ -610,6 +584,7 @@ async def merge_users(
     from .extension_accounts_dal import merge as merge_extension_accounts
 
     await merge_extension_accounts(session, source_user_id, target_user_id)
+    await merge_promo_activation_history(session, source, target)
     await reassign_invitation_relations(session, source_user_id, target_user_id)
     await session.execute(
         update(LegacyImportMapping)
@@ -784,7 +759,8 @@ async def merge_users(
         target_user_id,
         reason,
     )
-    await events.emit_model(
+    defer_event_until_commit(
+        session,
         AccountMergedPayload(
             source_user_id=int(source_user_id),
             target_user_id=int(target_user_id),
@@ -800,6 +776,6 @@ async def merge_users(
             first_name=target.first_name,
             language=target.language_code,
             final_end_date=getattr(target_anchor_sub or source_active_sub, "end_date", None),
-        )
+        ),
     )
     return target

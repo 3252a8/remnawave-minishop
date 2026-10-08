@@ -188,6 +188,8 @@ from .users import (
     admin_user_traffic_strategy_route,
     admin_users_list_route,
 )
+from .users_merge import admin_user_merge_route
+from .users_merge_context import admin_user_merge_context_route
 
 
 def setup_admin_routes(app: web.Application) -> None:
@@ -301,6 +303,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/ban", admin_user_ban_route)
+    router.add_post("/api/admin/users/{user_id:-?\\d+}/merge", admin_user_merge_route)
+    router.add_get(
+        "/api/admin/users/{user_id:-?\\d+}/merge-context", admin_user_merge_context_route
+    )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/balance-adjustment",
         admin_user_balance_adjustment_route,

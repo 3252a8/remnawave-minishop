@@ -2,6 +2,8 @@ import { jsonBody } from "../demoMockRuntime.js";
 import { type CloneFn, type DemoRecord } from "./dataset";
 import { demoBroadcastFailures } from "./broadcastFailures";
 import { demoBroadcasts, setDemoBroadcasts } from "./state";
+import { issueReviewEnabled } from "./issueReview";
+import { SHORTCODE_TOKEN_RE } from "$lib/richtext/telegramHtml";
 
 const DEMO_SHORTCODE_META: [string, string, string][] = [
   ["first_name", "db", "First name"],
@@ -45,22 +47,35 @@ const DEMO_SHORTCODE_VALUES: Record<string, string> = {
   referral_code: "AB12CD",
   referral_bot_link: "https://t.me/demo_bot?start=ref_uAB12CD",
   referral_webapp_link: "https://app.example/?ref=uAB12CD",
+  "sample-tools.plan_label": "Additional services",
 };
 
 function demoBroadcastShortcodes(): { shortcodes: DemoRecord[]; allowed_tags: string[] } {
   return {
-    shortcodes: DEMO_SHORTCODE_META.map(([name, cost, description]) => ({
-      name,
-      cost,
-      description,
-    })),
+    shortcodes: [
+      ...DEMO_SHORTCODE_META.map(([name, cost, description]) => ({
+        name,
+        cost,
+        description,
+      })),
+      ...(issueReviewEnabled()
+        ? [
+            {
+              name: "sample-tools.plan_label",
+              cost: "db",
+              description: "Additional services plan",
+              owner: "sample-tools",
+            },
+          ]
+        : []),
+    ],
     allowed_tags: ["b", "i", "u", "s", "code", "a", "pre", "blockquote"],
   };
 }
 
 function renderDemoShortcodes(text: string): { text: string; unknown: string[] } {
   const unknown = new Set<string>();
-  const rendered = text.replace(/\{([a-z_][a-z0-9_]*)\}/g, (whole, name: string) => {
+  const rendered = text.replace(SHORTCODE_TOKEN_RE, (whole, name: string) => {
     if (name in DEMO_SHORTCODE_VALUES) return DEMO_SHORTCODE_VALUES[name];
     unknown.add(name);
     return whole;

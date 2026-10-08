@@ -962,6 +962,7 @@ export function createUsersStore({
 
   return Object.assign(store, {
     updateState,
+    invalidateUsersQueries,
     setActive,
     loadUsers,
     openUser,

@@ -90,6 +90,7 @@ async def _core_state_policy(ctx: PromoRedemptionContext) -> PromoRedemptionDeci
         ctx.session,
         int(promo.promo_code_id),
         ctx.user_id,
+        payment_id=ctx.payment_id,
     )
     if activation is not None:
         if ctx.payment_id is not None and int(getattr(activation, "payment_id", 0) or 0) == int(

@@ -2954,6 +2954,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/merge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Merge */
+    post: operations["post_admin_user_merge_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/merge-context": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Merge Context */
+    get: operations["get_admin_user_merge_context_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/message": {
     parameters: {
       query?: never;
@@ -6261,6 +6295,33 @@ export interface components {
       /** User Id */
       user_id: number;
     };
+    /** AdminMergeEligibilityOut */
+    AdminMergeEligibilityOut: {
+      /** Allowed */
+      allowed: boolean;
+      /**
+       * Reason
+       * @default null
+       */
+      reason: string | null;
+    };
+    /** AdminMergeIdentityOut */
+    AdminMergeIdentityOut: {
+      /**
+       * Display Name
+       * @default null
+       */
+      display_name: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /** Email Verified */
+      email_verified: boolean;
+      /** Provider */
+      provider: string;
+    };
     /** AdminMessageTargetOut */
     AdminMessageTargetOut: {
       /** Id */
@@ -7921,6 +7982,44 @@ export interface components {
        * @default null
        */
       max_devices: number | null;
+    };
+    /** AdminUserMergeBody */
+    AdminUserMergeBody: {
+      /** Confirmation User Id */
+      confirmation_user_id: number;
+      /** Source User Id */
+      source_user_id: number;
+    };
+    /** AdminUserMergeContextOut */
+    AdminUserMergeContextOut: {
+      /** Auth Identities */
+      auth_identities: components["schemas"]["AdminMergeIdentityOut"][];
+      merge_eligibility: components["schemas"]["AdminMergeEligibilityOut"];
+      /** Passkey Count */
+      passkey_count: number;
+      /** Password Available */
+      password_available: boolean;
+      /** User Id */
+      user_id: number;
+      /** Verified Emails */
+      verified_emails: string[];
+    };
+    /** AdminUserMergeOut */
+    AdminUserMergeOut: {
+      /**
+       * Final End Date
+       * @default null
+       */
+      final_end_date: string | null;
+      /**
+       * Panel Reconciliation Pending
+       * @default false
+       */
+      panel_reconciliation_pending: boolean;
+      /** Source User Id */
+      source_user_id: number;
+      /** User Id */
+      user_id: number;
     };
     /** AdminUserMessageBody */
     AdminUserMessageBody: {
@@ -18330,6 +18429,60 @@ export interface operations {
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
+        };
+      };
+    };
+  };
+  post_admin_user_merge_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserMergeBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserMergeOut"];
+        };
+      };
+    };
+  };
+  get_admin_user_merge_context_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserMergeContextOut"];
         };
       };
     };

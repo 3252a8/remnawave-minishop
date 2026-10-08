@@ -53,6 +53,7 @@ export {
   Map,
   Megaphone,
   Menu,
+  Merge,
   MessageSquare,
   MessageSquarePlus,
   Monitor,

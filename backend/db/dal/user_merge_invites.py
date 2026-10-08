@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import LegacyReferralCode, Payment, PromoCodeActivation, User
+from db.models import LegacyReferralCode, Payment, User
 from db.referral_accrual_models import ReferralPeriodAccrual
 from db.subscription_access_rotation_models import SubscriptionAccessRotation
 
@@ -81,7 +81,7 @@ async def reassign_invitation_relations(
 ) -> None:
     await merge_period_accruals(session, source_user_id, target_user_id)
     await reassign_invitation_aliases(session, source_user_id, target_user_id)
-    for model in (Payment, PromoCodeActivation, SubscriptionAccessRotation):
+    for model in (Payment, SubscriptionAccessRotation):
         await session.execute(
             update(model).where(model.user_id == source_user_id).values(user_id=target_user_id)
         )

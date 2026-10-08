@@ -364,6 +364,7 @@
 
             <UserActionsTab
               {at}
+              {fmtDate}
               {openedUser}
               {openedUserDetail}
               {userActionBusy}

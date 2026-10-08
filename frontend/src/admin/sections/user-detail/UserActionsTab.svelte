@@ -11,10 +11,11 @@
   import UserTrafficStrategyActionCard from "./UserTrafficStrategyActionCard.svelte";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
-  import type { SelectOption, TranslateFn } from "./userDetailTypes";
+  import type { SelectOption, TranslateFn, DateFormatter } from "./userDetailTypes";
 
   type Props = {
     at: TranslateFn;
+    fmtDate: DateFormatter;
     openedUser?: AdminUser | null;
     openedUserDetail?: AdminUserDetail | null;
     userActionBusy?: boolean;
@@ -55,6 +56,7 @@
 
   let {
     at,
+    fmtDate,
     openedUser = null,
     openedUserDetail = null,
     userActionBusy = false,
@@ -222,7 +224,14 @@
     />
   </AdminExtensionPoint>
 
-  <UserDangerActionsCard {at} {openedUser} {openedUserIsBanned} {userActionBusy} />
+  <UserDangerActionsCard
+    {at}
+    {fmtDate}
+    {openedUser}
+    {openedUserDetail}
+    {openedUserIsBanned}
+    {userActionBusy}
+  />
   <AdminExtensionPoint
     target="admin.users.detail.actions"
     context={{ user: openedUser, userDetail: openedUserDetail }}

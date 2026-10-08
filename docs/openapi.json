@@ -3495,6 +3495,73 @@
         "title": "AdminMeOut",
         "type": "object"
       },
+      "AdminMergeEligibilityOut": {
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "allowed"
+        ],
+        "title": "AdminMergeEligibilityOut",
+        "type": "object"
+      },
+      "AdminMergeIdentityOut": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "email_verified": {
+            "title": "Email Verified",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "email_verified"
+        ],
+        "title": "AdminMergeIdentityOut",
+        "type": "object"
+      },
       "AdminMessageTargetOut": {
         "properties": {
           "id": {
@@ -7487,6 +7554,102 @@
           }
         },
         "title": "AdminUserHwidDevicesOut",
+        "type": "object"
+      },
+      "AdminUserMergeBody": {
+        "properties": {
+          "confirmation_user_id": {
+            "title": "Confirmation User Id",
+            "type": "integer"
+          },
+          "source_user_id": {
+            "title": "Source User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_user_id",
+          "confirmation_user_id"
+        ],
+        "title": "AdminUserMergeBody",
+        "type": "object"
+      },
+      "AdminUserMergeContextOut": {
+        "properties": {
+          "auth_identities": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMergeIdentityOut"
+            },
+            "title": "Auth Identities",
+            "type": "array"
+          },
+          "merge_eligibility": {
+            "$ref": "#/components/schemas/AdminMergeEligibilityOut"
+          },
+          "passkey_count": {
+            "title": "Passkey Count",
+            "type": "integer"
+          },
+          "password_available": {
+            "title": "Password Available",
+            "type": "boolean"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "verified_emails": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verified Emails",
+            "type": "array"
+          }
+        },
+        "required": [
+          "user_id",
+          "auth_identities",
+          "verified_emails",
+          "passkey_count",
+          "password_available",
+          "merge_eligibility"
+        ],
+        "title": "AdminUserMergeContextOut",
+        "type": "object"
+      },
+      "AdminUserMergeOut": {
+        "properties": {
+          "final_end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Final End Date"
+          },
+          "panel_reconciliation_pending": {
+            "default": false,
+            "title": "Panel Reconciliation Pending",
+            "type": "boolean"
+          },
+          "source_user_id": {
+            "title": "Source User Id",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "source_user_id"
+        ],
+        "title": "AdminUserMergeOut",
         "type": "object"
       },
       "AdminUserMessageBody": {
@@ -30403,6 +30566,128 @@
           }
         ],
         "summary": "Admin User Hwid Device Limit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/merge": {
+      "post": {
+        "operationId": "post_admin_user_merge_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserMergeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserMergeOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Merge",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/merge-context": {
+      "get": {
+        "operationId": "get_admin_user_merge_context_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserMergeContextOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Merge Context",
         "tags": [
           "admin"
         ]

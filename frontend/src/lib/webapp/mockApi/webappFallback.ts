@@ -16,6 +16,7 @@ import { balanceRecurringEligible } from "../balanceUiPolicy";
 import { applyDemoDeviceTopup, demoDeviceTopupPlan } from "./deviceTopup";
 import type { AdminDemoFixtures } from "./adminFixtures";
 import { demoPaymentStatuses, isDeviceTopupSaleMode, nextDemoPaymentId } from "./state";
+import { issueReviewReferral } from "./issueReview";
 
 function demoCheckoutQuote(body: DemoRecord) {
   const method = String(body.method || "").toLowerCase();
@@ -208,6 +209,7 @@ export function webappFallbackResponse(
     const { user_id: legacyUserId, ...user } = DEV_MOCK.data.user;
     return clone({
       ...DEV_MOCK.data,
+      referral: issueReviewReferral(DEV_MOCK.data.referral, currentLang),
       user: { ...user, id: user.id ?? legacyUserId },
       settings: {
         ...DEV_MOCK.data.settings,

@@ -42,6 +42,18 @@ class _ScalarResult:
 
 
 class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
+    async def test_merged_payment_history_does_not_require_a_false_promo_override(self):
+        payment = _payment(promo_code_id=5)
+        session = AsyncMock()
+        with patch(
+            "bot.services.payment_fulfillment.promo_code_dal.get_user_activation_for_promo",
+            AsyncMock(return_value=SimpleNamespace(payment_id=77, merged_from_user_id=-7)),
+        ) as find_activation:
+            state = await payment_action_state(session, payment)
+        self.assertFalse(state["manual_finalize_requires_promo_confirmation"])
+        self.assertNotIn("promo_used_by_another_payment", state["manual_finalize_warnings"])
+        find_activation.assert_awaited_once_with(session, 5, 42, payment_id=77)
+
     async def test_action_state_requires_confirmation_for_reused_promo(self):
         payment = _payment(promo_code_id=5)
         with patch(

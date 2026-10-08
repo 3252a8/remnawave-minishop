@@ -549,20 +549,26 @@ async def increment_promo_code_usage(session: AsyncSession, promo_code_id: int) 
 
 
 async def get_user_activation_for_promo(
-    session: AsyncSession, promo_code_id: int, user_id: int
+    session: AsyncSession,
+    promo_code_id: int,
+    user_id: int,
+    *,
+    payment_id: int | None = None,
 ) -> PromoCodeActivation | None:
-    stmt = (
-        select(PromoCodeActivation)
-        .where(
-            PromoCodeActivation.promo_code_id == promo_code_id,
-            PromoCodeActivation.user_id == user_id,
-        )
-        .order_by(
-            PromoCodeActivation.is_manual_override.asc(),
-            PromoCodeActivation.activated_at.asc(),
-        )
-        .limit(1)
+    stmt = select(PromoCodeActivation).where(
+        PromoCodeActivation.promo_code_id == promo_code_id,
+        PromoCodeActivation.user_id == user_id,
     )
+    if payment_id is not None:
+        # All historical redemptions survive a merge; payment retries must
+        # find their own record rather than the first redemption of the code.
+        stmt = stmt.order_by((PromoCodeActivation.payment_id == payment_id).desc().nulls_last())
+    stmt = stmt.order_by(
+        PromoCodeActivation.is_manual_override.asc(),
+        PromoCodeActivation.merged_from_user_id.is_not(None).asc(),
+        PromoCodeActivation.activated_at.asc(),
+        PromoCodeActivation.activation_id.asc(),
+    ).limit(1)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -597,7 +603,9 @@ async def record_promo_activation(
         logger.error("Cannot record promo activation: User %s not found.", user_id)
         return None
 
-    existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
+    existing_activation = await get_user_activation_for_promo(
+        session, promo_code_id, user_id, payment_id=payment_id
+    )
     if existing_activation:
         logger.info(
             "User %s has already activated promo code %s. Activation ID: %s",
@@ -702,7 +710,9 @@ async def consume_promo_activation(
         logger.error("Cannot consume promo activation: User %s not found.", user_id)
         return None
 
-    existing_activation = await get_user_activation_for_promo(session, promo_code_id, user_id)
+    existing_activation = await get_user_activation_for_promo(
+        session, promo_code_id, user_id, payment_id=payment_id
+    )
     if existing_activation:
         existing_payment_id = int(getattr(existing_activation, "payment_id", 0) or 0)
         if payment_id is not None and existing_payment_id == int(payment_id):

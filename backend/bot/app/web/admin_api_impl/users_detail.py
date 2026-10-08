@@ -632,9 +632,11 @@ def _user_search_condition(query: str) -> ColumnElement[bool] | None:
         User.panel_username.ilike(like),
         User.account_id.cast(String).ilike(like),
     ]
-    if raw.isdigit():
+    numeric_token = raw.removeprefix("-")
+    if numeric_token.isascii() and numeric_token.isdecimal() and len(numeric_token) <= 19:
         numeric = int(raw)
-        conditions.extend([User.user_id == numeric, User.telegram_id == numeric])
+        if -(2**63) <= numeric < 2**63:
+            conditions.extend([User.user_id == numeric, User.telegram_id == numeric])
 
     return or_(*conditions)
 

@@ -1,19 +1,25 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { getRoleApi, getUsersStore } from "$lib/admin/context";
   import { AdminButton } from "$components/patterns/admin/index.js";
-  import { Key, Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
+  import { Key, Merge, Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
-  import type { TranslateFn } from "./userDetailTypes";
+  import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
+  import type { TranslateFn, DateFormatter } from "./userDetailTypes";
+  import UserMergeDialog from "./UserMergeDialog.svelte";
 
   let {
     at,
     openedUser = null,
+    openedUserDetail = null,
+    fmtDate,
     openedUserIsBanned = false,
     userActionBusy = false,
   }: {
     at: TranslateFn;
     openedUser?: AdminUser | null;
+    openedUserDetail?: AdminUserDetail | null;
+    fmtDate: DateFormatter;
     openedUserIsBanned?: boolean;
     userActionBusy?: boolean;
   } = $props();
@@ -24,7 +30,19 @@
   let roleAssignments = $state<Array<{ user_id: number; role: string }>>([]);
   let roleBusy = $state(false);
   let roleError = $state("");
+  let mergeOpen = $state(false);
+  let mergeTrigger: HTMLButtonElement | null = null;
   const targetId = $derived(Number(openedUser?.user_id || 0));
+  $effect(() => {
+    void targetId;
+    mergeOpen = false;
+  });
+
+  function closeMerge() {
+    mergeOpen = false;
+    const trigger = mergeTrigger;
+    void tick().then(() => trigger?.isConnected && trigger.focus());
+  }
   const targetIsOwner = $derived(
     roleAssignments.some((item) => item.user_id === targetId && item.role === "owner")
   );
@@ -69,15 +87,19 @@
 <section class="admin-danger-zone">
   <header class="admin-danger-zone-head">
     <strong>{at("user_danger_zone_title", {}, "Danger Zone")}</strong>
-    <small
-      >{at(
-        "user_danger_zone_subtitle",
-        {},
-        "These actions require confirmation and (for deletion) are irreversible"
-      )}</small
-    >
+    <small>{at("user_danger_zone_subtitle", {}, "Confirm first. Deletion is permanent.")}</small>
   </header>
   <div class="admin-action-grid">
+    <AdminButton
+      variant="dangerSoft"
+      data-admin-action="request-user-merge"
+      disabled={!openedUserDetail || userActionBusy || roleBusy}
+      onclick={(event) => {
+        mergeTrigger =
+          event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
+        mergeOpen = true;
+      }}><Merge size={14} />{at("user_merge_action")}</AdminButton
+    >
     {#if rolesAvailable && openedUser?.minishop_id && !targetIsOwner}
       <AdminButton
         variant="dangerSoft"
@@ -132,3 +154,22 @@
   </div>
   {#if roleError}<p class="admin-error" role="alert">{roleError.replaceAll("_", " ")}</p>{/if}
 </section>
+
+{#if openedUserDetail && mergeOpen}
+  <UserMergeDialog
+    open={mergeOpen}
+    target={openedUserDetail}
+    {at}
+    {fmtDate}
+    onclose={closeMerge}
+    oncomplete={(source, target) => {
+      for (const user of [source, target]) {
+        usersStore.invalidateUsersQueries(user.user_id);
+        if (user.minishop_id) usersStore.invalidateUsersQueries(user.minishop_id);
+      }
+      void usersStore.loadUsers({ refresh: true });
+    }}
+    onmerged={(detail) =>
+      usersStore.updateState({ openedUser: detail.user, openedUserDetail: detail })}
+  />
+{/if}

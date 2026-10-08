@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    and_,
     text,
 )
 from sqlalchemy.orm import relationship
@@ -930,6 +931,10 @@ class PromoCodeActivation(Base):
     granted_regular_traffic_gb = Column(Numeric(12, 3), nullable=True)
     granted_premium_traffic_gb = Column(Numeric(12, 3), nullable=True)
     is_manual_override = Column(Boolean, nullable=False, default=False)
+    # A historical standard redemption retained beside another account's
+    # standard redemption at merge. This is provenance, not a new grant or a
+    # manual override. The deleted account ID deliberately has no foreign key.
+    merged_from_user_id = Column(BigInteger, nullable=True)
 
     promo_code = relationship("PromoCode", back_populates="activations")
     user = relationship("User", back_populates="promo_code_activations")
@@ -941,8 +946,8 @@ class PromoCodeActivation(Base):
             "promo_code_id",
             "user_id",
             unique=True,
-            postgresql_where=is_manual_override.is_(False),
-            sqlite_where=is_manual_override.is_(False),
+            postgresql_where=and_(is_manual_override.is_(False), merged_from_user_id.is_(None)),
+            sqlite_where=and_(is_manual_override.is_(False), merged_from_user_id.is_(None)),
         ),
     )
 

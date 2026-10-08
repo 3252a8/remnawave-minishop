@@ -8,6 +8,7 @@ import { giftsDemoResponse } from "./mockApi/giftsDemo";
 import { advertisingDemoResponse } from "./mockApi/advertisingDemo";
 import { telegramMenuDemoResponse } from "./mockApi/telegramMenuDemo";
 import { accountMergeDemoResponse } from "./mockApi/accountMerge";
+import { issueReviewDemoResponse } from "./mockApi/issueReview";
 
 export async function mockApi(
   path: string,
@@ -21,6 +22,8 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const issueReview = issueReviewDemoResponse(path, options, currentLang);
+  if (issueReview !== undefined) return issueReview;
   const mergeResponse = accountMergeDemoResponse(cleanPath, options);
   if (mergeResponse !== undefined) return mergeResponse;
   const telegramMenu = telegramMenuDemoResponse(path, options);

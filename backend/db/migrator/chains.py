@@ -31,6 +31,7 @@ from .chain_0100_subscription_notification_periods import (
 )
 from .chain_0101_qr_login_requests import CHAIN_0101_QR_LOGIN_REQUESTS
 from .chain_0102_balance_auto_renew import CHAIN_0102_BALANCE_AUTO_RENEW
+from .chain_0103_promo_activation_merge_history import CHAIN_0103_PROMO_ACTIVATION_MERGE_HISTORY
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -63,4 +64,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0100_SUBSCRIPTION_NOTIFICATION_PERIODS,
     *CHAIN_0101_QR_LOGIN_REQUESTS,
     *CHAIN_0102_BALANCE_AUTO_RENEW,
+    *CHAIN_0103_PROMO_ACTIVATION_MERGE_HISTORY,
 ]
