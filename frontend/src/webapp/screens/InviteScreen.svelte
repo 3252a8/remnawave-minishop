@@ -297,4 +297,5 @@
   alt={t("wa_referral_qr_alt")}
   closeLabel={t("wa_close")}
   onclose={() => (qrLink = null)}
+  {t}
 />

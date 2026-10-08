@@ -18,6 +18,7 @@
   import { Select } from "$components/ui/primitives.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import QrImageActions from "$components/patterns/webapp/QrImageActions.svelte";
   import "./InstallGuideScreen.css";
   import { createHeightStageAnimator } from "$lib/webapp/motion/heightStage.js";
   import {
@@ -518,17 +519,27 @@
                 </div>
               </div>
               <div class="install-subscription-body">
-                <div class="install-qr-wrap" class:ready={qrDataUrl}>
-                  {#if qrDataUrl}
-                    <img
-                      class="motion-scale-in"
-                      src={qrDataUrl}
-                      alt={t("wa_install_qr_alt", {}, "Subscription QR code")}
-                    />
-                  {:else}
-                    <span class="install-qr-placeholder motion-shimmer" aria-hidden="true"></span>
-                  {/if}
-                </div>
+                <QrImageActions
+                  value={selectedConnectionLink}
+                  {t}
+                  filename="subscription-qr.png"
+                  layout="icon-column"
+                >
+                  {#snippet preview()}
+                    <div class="install-qr-wrap" class:ready={qrDataUrl}>
+                      {#if qrDataUrl}
+                        <img
+                          class="motion-scale-in"
+                          src={qrDataUrl}
+                          alt={t("wa_install_qr_alt", {}, "Subscription QR code")}
+                        />
+                      {:else}
+                        <span class="install-qr-placeholder motion-shimmer" aria-hidden="true"
+                        ></span>
+                      {/if}
+                    </div>
+                  {/snippet}
+                </QrImageActions>
                 <div class="install-actions install-subscription-actions">
                   <Button variant="secondary" onclick={copySubscriptionLink}>
                     <Copy size={16} />

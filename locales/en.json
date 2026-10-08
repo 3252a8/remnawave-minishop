@@ -6003,5 +6003,11 @@
   "admin_telegram_menu_unknown_button": "This button no longer exists. Reload the settings.",
   "admin_telegram_menu_unknown_language": "The selected language is unavailable.",
   "admin_telegram_menu_screen_unavailable": "The screen is disabled. Enable it before sending a test.",
-  "admin_telegram_menu_draft_restored": "Your unsaved draft was restored. Save it to apply the appearance."
+  "admin_telegram_menu_draft_restored": "Your unsaved draft was restored. Save it to apply the appearance.",
+  "wa_qr_copy_image": "Copy image",
+  "wa_qr_download_png": "Download PNG",
+  "wa_qr_image_copied": "QR code image copied",
+  "wa_qr_copy_unavailable": "Your browser did not allow copying the image. Download the PNG to save or share it.",
+  "wa_qr_download_failed": "Could not save the image. Try opening this page in a browser.",
+  "wa_qr_image_failed": "Could not create the QR code. Try again."
 }

@@ -8,6 +8,9 @@
    */
   import QrCodeTile from "./QrCodeTile.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import QrImageActions from "./QrImageActions.svelte";
+  import type { Translate } from "$lib/webapp/types.js";
+  import { tick } from "svelte";
 
   type Props = {
     open?: boolean;
@@ -19,6 +22,7 @@
     alt: string;
     closeLabel: string;
     onclose?: () => void;
+    t: Translate;
   };
 
   let {
@@ -30,14 +34,25 @@
     alt,
     closeLabel,
     onclose = () => {},
+    t,
   }: Props = $props();
+  $effect(() => {
+    if (!open) return;
+    const trigger = document.activeElement;
+    return () => {
+      void tick().then(() => {
+        if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+      });
+    };
+  });
 </script>
 
-<Dialog {open} {title} {description} {closeLabel} {onclose} class="link-qr-dialog">
+<Dialog {open} {title} {description} {closeLabel} {onclose} class="link-qr-dialog" portal>
   <div class="link-qr">
     <QrCodeTile value={open ? link : ""} {alt} />
     {#if caption}<strong class="link-qr-caption">{caption}</strong>{/if}
     <p class="link-qr-value">{link}</p>
+    <QrImageActions value={open ? link : ""} {t} />
   </div>
 </Dialog>
 
