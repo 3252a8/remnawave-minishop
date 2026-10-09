@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 LifecycleState = Literal["pending", "failed", "succeeded", "unknown"]
 
 RECONCILABLE_PROVIDER_KEYS = (
+    "anore",
     "cloudpayments",
     "cryptopay",
     "freekassa",
@@ -52,6 +53,7 @@ RECONCILABLE_PROVIDER_KEYS = (
 _EXPIRY_ONLY_PROVIDER_KEYS = {"cloudpayments", "overpay", "tribute"}
 
 _FAILED_STATUSES = {
+    "anore": {"expired"},
     "cryptopay": {"expired"},
     "heleket": {"cancel", "fail", "system_fail", "wrong_amount"},
     "lava": {"cancel", "cancelled", "error", "expired", "failed"},
@@ -72,6 +74,7 @@ _FAILED_STATUSES = {
     "severpay": {"decline", "fail"},
 }
 _SUCCESS_STATUSES = {
+    "anore": {"paid"},
     "cryptopay": {"paid"},
     "heleket": {"paid", "paid_over"},
     "oxapay": {"manual_accept", "paid"},
@@ -83,6 +86,7 @@ _SUCCESS_STATUSES = {
     "severpay": {"success"},
 }
 _PENDING_STATUSES = {
+    "anore": {"new"},
     "cloudpayments": {"authorized", "awaitingauthentication", "created", "pending"},
     "cryptopay": {"active"},
     "heleket": {"check"},
@@ -231,7 +235,24 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
     state_provider = provider
 
     payment_verified = False
-    if provider == "cloudpayments":
+    if provider == "anore":
+        success, data = await service.get_payment(provider_id)
+        if not success or str(data.get("id") or "") != provider_id:
+            return ProviderLifecycle("unknown")
+        order_id = data.get("order_id")
+        if order_id is not None and str(order_id) != str(payment.payment_id):
+            return ProviderLifecycle("unknown")
+        status = data.get("status")
+        payment_verified = bool(
+            _state_for(provider, status) == "succeeded"
+            and payment_amount_and_currency_match(
+                expected_amount=payment.amount,
+                expected_currency=payment.currency,
+                received_amount=data.get("amount"),
+                received_currency=data.get("currency"),
+            )
+        )
+    elif provider == "cloudpayments":
         success, data = await service.find_payment(int(payment.payment_id))
         invoice_id = str(data.get("InvoiceId") or data.get("invoiceId") or "").strip()
         if success and invoice_id and invoice_id != str(payment.payment_id):

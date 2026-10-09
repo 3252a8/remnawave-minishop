@@ -6121,5 +6121,20 @@
   "admin_user_merge_effect_promos": "История промокодов переносится. Использованные коды остаются использованными.",
   "admin_user_merge_effect_subscription": "Остаток оплаченной подписки прибавится к сроку. Для бесплатных периодов сохраняется более позднее окончание.",
   "admin_user_merge_effect_logins": "Входы, подтверждённая почта и ключи доступа переносятся. Если пароли есть у обоих, остаётся пароль сохраняемого аккаунта.",
-  "admin_user_merge_effect_recurring": "Автоплатёж переносится или отменяется при наличии другого. Если отмена не удалась, объединение не выполняется."
+  "admin_user_merge_effect_recurring": "Автоплатёж переносится или отменяется при наличии другого. Если отмена не удалась, объединение не выполняется.",
+  "admin_settings_field_anore_enabled_label": "Включить",
+  "admin_settings_field_anore_admin_only_enabled_label": "Только для администраторов",
+  "admin_settings_field_anore_api_key_label": "API-ключ",
+  "admin_settings_field_anore_webhook_secret_label": "Секрет подписи webhook",
+  "admin_settings_field_anore_shop_id_label": "ID кассы",
+  "admin_settings_field_anore_base_url_label": "Адрес API",
+  "admin_settings_field_anore_return_url_label": "URL возврата",
+  "admin_settings_field_anore_methods_label": "Методы оплаты: sbp,yoomoney,crypto",
+  "admin_settings_field_payment_anore_webapp_label_ru_label": "Название в Web App (RU)",
+  "admin_settings_field_payment_anore_webapp_label_en_label": "Название в Web App (EN)",
+  "admin_settings_field_payment_anore_webapp_icon_label": "Иконка в Web App",
+  "admin_settings_field_payment_anore_telegram_label_ru_label": "Название в Telegram (RU)",
+  "admin_settings_field_payment_anore_telegram_label_en_label": "Название в Telegram (EN)",
+  "admin_settings_field_payment_anore_telegram_emoji_label": "Эмодзи в Telegram",
+  "admin_settings_subsection_anore": "Anore"
 }

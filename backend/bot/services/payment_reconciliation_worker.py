@@ -90,7 +90,10 @@ class PaymentReconciliationWorker:
         for candidate in candidates:
             spec = get_provider_spec(str(candidate.provider or ""))
             service = self.services.get(spec.service_key) if spec and spec.service_key else None
-            if service is None or not getattr(service, "configured", False):
+            if service is None or not (
+                getattr(service, "can_reconcile_payments", False)
+                or getattr(service, "configured", False)
+            ):
                 continue
             try:
                 async with self.session_factory() as session:

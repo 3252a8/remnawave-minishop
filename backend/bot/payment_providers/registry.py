@@ -5,6 +5,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
 from . import (
+    anore,
     cloudpayments,
     cryptopay,
     freekassa,
@@ -36,6 +37,7 @@ from .shared import ProviderManagedRecurringService, RecurringProviderService
 logger = logging.getLogger(__name__)
 
 PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
+    anore.SPEC,
     freekassa.SPEC,
     platega.SBP_SPEC,
     platega.CARD_SPEC,

@@ -35,6 +35,7 @@ type MoneyFormatter = (value: number, currency?: string | null) => string;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 const PAYMENT_PROVIDER_LOGO_FILES: Record<string, string> = {
+  anore: "anore.png",
   cloudpayments: "cloudpayments.png",
   cryptopay: "cryptopay.png",
   freekassa: "freekassa.png",

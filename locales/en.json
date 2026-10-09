@@ -6121,5 +6121,20 @@
   "admin_user_merge_effect_promos": "Promo code history transfers. Used codes remain used.",
   "admin_user_merge_effect_subscription": "Remaining paid subscription time is added. Free periods keep the later expiry.",
   "admin_user_merge_effect_logins": "Sign-in methods, verified emails and passkeys transfer. If both have passwords, the retained account's password remains.",
-  "admin_user_merge_effect_recurring": "Recurring billing transfers or is cancelled if another exists. The merge fails if cancellation cannot complete."
+  "admin_user_merge_effect_recurring": "Recurring billing transfers or is cancelled if another exists. The merge fails if cancellation cannot complete.",
+  "admin_settings_field_anore_enabled_label": "Enabled",
+  "admin_settings_field_anore_admin_only_enabled_label": "Administrators only",
+  "admin_settings_field_anore_api_key_label": "API key",
+  "admin_settings_field_anore_webhook_secret_label": "Webhook signing secret",
+  "admin_settings_field_anore_shop_id_label": "Shop ID",
+  "admin_settings_field_anore_base_url_label": "API URL",
+  "admin_settings_field_anore_return_url_label": "Return URL",
+  "admin_settings_field_anore_methods_label": "Payment methods: sbp,yoomoney,crypto",
+  "admin_settings_field_payment_anore_webapp_label_ru_label": "Web App label (RU)",
+  "admin_settings_field_payment_anore_webapp_label_en_label": "Web App label (EN)",
+  "admin_settings_field_payment_anore_webapp_icon_label": "Web App icon",
+  "admin_settings_field_payment_anore_telegram_label_ru_label": "Telegram label (RU)",
+  "admin_settings_field_payment_anore_telegram_label_en_label": "Telegram label (EN)",
+  "admin_settings_field_payment_anore_telegram_emoji_label": "Telegram emoji",
+  "admin_settings_subsection_anore": "Anore"
 }
