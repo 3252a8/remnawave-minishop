@@ -41,6 +41,32 @@ def _message_log(**overrides):
 
 
 class AdminLogsLoadingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_user_logs_route_preserves_plugin_source_and_user_filter(self):
+        session_factory = _SessionFactory()
+        request = SimpleNamespace(
+            query={"user_id": "42", "sort": "event_asc"},
+            app={"async_session_factory": session_factory},
+        )
+        log_entry = _message_log(event_type="plugin:sample:sample.completed", content="Completed")
+        with (
+            patch.object(admin_logs_module, "_require_admin_user_id", return_value=1),
+            patch.object(
+                admin_logs_module.message_log_dal,
+                "get_user_message_logs",
+                AsyncMock(return_value=[log_entry]),
+            ) as get_user_logs,
+            patch.object(
+                admin_logs_module.message_log_dal,
+                "count_user_message_logs",
+                AsyncMock(return_value=1),
+            ),
+        ):
+            response = await admin_logs_module.admin_logs_route(request)
+        payload = json.loads(response.text)
+        self.assertEqual(payload["logs"][0]["event_type"], "plugin:sample:sample.completed")
+        self.assertEqual(payload["logs"][0]["user_id"], 42)
+        get_user_logs.assert_awaited_once_with(session_factory.session, 42, 50, 0, sort="event_asc")
+
     async def test_web_admin_logs_route_returns_serialized_rows(self):
         session_factory = _SessionFactory()
         request = SimpleNamespace(

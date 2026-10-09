@@ -2390,6 +2390,7 @@
   "admin_user_tab_message": "Сообщение",
   "admin_user_logs_section_title": "Логи пользователя",
   "admin_user_logs_admin_event": "Админ",
+  "admin_user_logs_plugin_event": "Плагин",
   "admin_refresh": "Обновить",
   "admin_user_label_active_until": "Активна до",
   "admin_user_label_tariff": "Тариф",

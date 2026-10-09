@@ -104,6 +104,25 @@ class PluginContext:
     dispatcher: Dispatcher | None = None
     services: dict[str, object] = field(default_factory=dict)
 
+    async def emit_event(
+        self,
+        plugin_name: str,
+        event_name: str,
+        payload: dict[str, Any],
+        *,
+        content: str | None = None,
+    ) -> None:
+        """Publish a plugin event and record its source in the user's logs.
+
+        Emit after committing user changes. The audit is best-effort and
+        requires an existing internal integer ``user_id`` in the payload.
+        Supply only a safe summary as ``content``; raw payloads are not logged.
+        Subscribers keep receiving the unchanged ``(event_name, dict)`` pair.
+        """
+        from .user_events import emit_plugin_event
+
+        await emit_plugin_event(self, plugin_name, event_name, payload, content=content)
+
     def require_session_factory(self) -> sessionmaker:
         if self.session_factory is None:
             raise RuntimeError("Plugin context has no session factory")

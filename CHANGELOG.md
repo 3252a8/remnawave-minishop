@@ -15,6 +15,11 @@
 
 ### Добавлено
 
+- **События плагинов в логах пользователя.** Публичный `PluginContext.emit_event()`
+  сохраняет источник `plugin:<имя>:<событие>`; в карточке пользователя есть отдельная
+  отметка «Плагин». Подписчики получают прежний payload, который не копируется в журнал.
+  ([#128](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/128))
+
 - **Cryptomus.** Криптосчета с ценой в RUB или USD доступны в Telegram и Web App.
   Отдельный способ автоплатежа поддерживает недельный, месячный и трёхмесячный
   план провайдера; отмена останавливает план у Cryptomus. Подписи, неполная
@@ -102,7 +107,7 @@
   По умолчанию настройка выключена.
   Правила привязки Telegram сохраняются; покупка до активации триала не начисляет эти дни.
   ([ac52973f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ac52973f820c417a8a0b163a5c2310cfbc46c9e8))
-  ([6ee74f80](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6ee74f80d0f4bb9041334450a6e3e671a8156c62), [e7a00a6f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e7a00a6fe2ceba5d65d7fbb862a81e16af493eeb))
+  ([6ee74f80](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6ee74f80d0f4bb9041334450a6e3e671a8156c62), [e7a00a6f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e7a00a6fe2ceba5d65d7fbb862a81e16af493eeb), [181c82d1](https://gitlab.com/3252a8/remnawave-minishop/-/commit/181c82d1dbee601e03d8662b81d9702d8b815eb1))
 
 - **Вход по QR-коду.** При включённом `QR_LOGIN_ENABLED` новое устройство показывает
   код магазина, а устройство с активной сессией сканирует его через Telegram или

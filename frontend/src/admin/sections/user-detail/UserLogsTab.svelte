@@ -118,6 +118,9 @@
               <td class="admin-cell-mono" data-label={at("event", {}, "Event")}>
                 <span class="admin-user-log-event">
                   <span>{entry.event_type || "—"}</span>
+                  {#if typeof entry.event_type === "string" && entry.event_type.startsWith("plugin:")}
+                    <AdminBadge>{at("user_logs_plugin_event", {}, "Plugin")}</AdminBadge>
+                  {/if}
                   {#if entry.is_admin_event}
                     <AdminBadge variant="warning"
                       >{at("user_logs_admin_event", {}, "Admin")}</AdminBadge

@@ -2390,6 +2390,7 @@
   "admin_user_tab_message": "Message",
   "admin_user_logs_section_title": "User logs",
   "admin_user_logs_admin_event": "Admin",
+  "admin_user_logs_plugin_event": "Plugin",
   "admin_refresh": "Refresh",
   "admin_user_label_active_until": "Active until",
   "admin_user_label_tariff": "Tariff",
