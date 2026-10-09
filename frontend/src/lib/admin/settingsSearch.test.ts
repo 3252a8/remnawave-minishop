@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSettingsSearchEntries, searchSettingsEntries } from "./settingsSearch";
+import {
+  buildSectionFieldSearchEntries,
+  buildSettingsSearchEntries,
+  searchSettingsEntries,
+} from "./settingsSearch";
 import type { AdminSettingField, AdminSettingsSection } from "./settingsSections";
 
 const field = (key: string, extra: Partial<AdminSettingField> = {}): AdminSettingField =>
@@ -63,5 +67,41 @@ describe("settingsSearch", () => {
     expect(searchSettingsEntries(entries, "new users").map((item) => item.key)).toEqual([
       "DEFAULT_LANGUAGE",
     ]);
+  });
+
+  it("finds settings rendered outside the generic list by label or name", () => {
+    const fieldsByKey = new Map([
+      [
+        "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL",
+        field("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", {
+          label: "Add welcome bonus days to the trial",
+          description: "Bonus days join the free trial.",
+        }),
+      ],
+    ]);
+    const programEntries = buildSectionFieldSearchEntries(
+      ["REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", "REFERRAL_NOT_IN_MANIFEST"],
+      fieldsByKey,
+      { sectionId: "referral", pathLabel: "Referral program" },
+      {
+        fieldLabelText: (item) => item.label,
+        fieldDescriptionText: (item) => item.description || "",
+      }
+    );
+
+    expect(programEntries).toHaveLength(1);
+    expect(programEntries[0]).toMatchObject({
+      key: "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL",
+      sectionId: "referral",
+      subsectionId: null,
+      label: "Add welcome bonus days to the trial",
+      pathLabel: "Referral program",
+      anchorKey: "settings-field:REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL",
+    });
+    for (const query of ["referral_welcome_bonus_adds_to_trial", "bonus days to the trial"]) {
+      expect(
+        searchSettingsEntries([...entries, ...programEntries], query).map((entry) => entry.key)
+      ).toEqual(["REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL"]);
+    }
   });
 });

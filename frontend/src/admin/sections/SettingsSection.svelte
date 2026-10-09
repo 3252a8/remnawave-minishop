@@ -19,11 +19,13 @@
     settingsSubsectionRoute,
   } from "$lib/admin/settingsSections";
   import {
+    buildSectionFieldSearchEntries,
     buildSettingsSearchEntries,
     normalizeSettingsSearchText,
     searchSettingsEntries,
     type SettingsSearchEntry,
   } from "$lib/admin/settingsSearch";
+  import { REFERRAL_SETTING_KEYS } from "$lib/admin/tariffSettings";
   import { filterServerStatusSettings } from "$lib/admin/serverStatusSettings";
   import type { ComponentType, SvelteComponent } from "svelte";
   import type {
@@ -127,6 +129,13 @@
   const filteredIconOptions = $derived(
     iconOptions.filter((name) => name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase()))
   );
+  const settingsFieldsByKey = $derived(
+    new Map(
+      settingsSections
+        .flatMap((section) => section.fields || [])
+        .map((field): [string, AdminSettingField] => [field.key, field])
+    )
+  );
   const settingsSearchEntries = $derived([
     ...buildSettingsSearchEntries(visibleSettingsSections, {
       sectionTitle,
@@ -134,6 +143,17 @@
       fieldLabelText,
       fieldDescriptionText,
     }),
+    // The referral program renders its settings on a screen of its own, outside
+    // the generic list, so they need their own entries to be found.
+    ...buildSectionFieldSearchEntries(
+      REFERRAL_SETTING_KEYS,
+      settingsFieldsByKey,
+      {
+        sectionId: "referral",
+        pathLabel: at("marketing_programs_referral", {}, "Referral program"),
+      },
+      { fieldLabelText, fieldDescriptionText }
+    ),
     ...programSearchEntries(),
     {
       key: "ADMINISTRATORS",

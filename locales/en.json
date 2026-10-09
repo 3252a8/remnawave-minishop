@@ -3185,7 +3185,7 @@
   "admin_settings_field_referral_gift_activation_enabled_label": "Count gift activation in the referral program",
   "admin_settings_field_referral_gift_activation_enabled_description": "Grant bonuses after successful recipient activation using their existing referral invitation. The gift link does not change the inviter. Enabled by default; past activations are not recalculated. The one-bonus rule is shared with personal purchases. Partner-client payment bonuses are excluded.",
   "admin_settings_field_referral_welcome_bonus_days_label": "Referral Welcome Bonus Days",
-  "admin_settings_field_referral_welcome_bonus_adds_to_trial_label": "Referral Welcome Bonus Adds To Trial",
+  "admin_settings_field_referral_welcome_bonus_adds_to_trial_label": "Add welcome bonus days to the trial",
   "admin_settings_field_referral_welcome_bonus_adds_to_trial_description": "When enabled and a free trial is available, invited users get no separate bonus subscription at sign-up; the welcome bonus days are added to their trial instead.",
   "admin_settings_field_referral_welcome_bonus_without_telegram_enabled_label": "Referral Welcome Bonus Without Telegram",
   "admin_settings_field_referral_welcome_bonus_without_telegram_enabled_description": "If disabled, email-only users must link Telegram before receiving the referral welcome bonus. Disposable email domains always require Telegram.",
