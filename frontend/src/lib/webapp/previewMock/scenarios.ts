@@ -5,6 +5,7 @@ import { currentDemoBalance } from "../mockApi/balance.js";
 import { checkoutAddons, DEV_MOCK, previewPeriodPlan } from "./devMock";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
+import { applyPaymentProvidersDemo } from "./paymentProviders";
 
 // The generated dataset is treated as a loose record: scenario code probes
 // optional fields that older snapshots may not carry.
@@ -251,6 +252,12 @@ export function applyPreviewMock(kind: unknown): void {
   const mode = String(kind || "")
     .trim()
     .toLowerCase();
+
+  if (mode === "payment-providers") {
+    applyPreviewMock("checkout-addons");
+    applyPaymentProvidersDemo();
+    return;
+  }
 
   if (mode === "future-providers") {
     applyPreviewMock("auth");

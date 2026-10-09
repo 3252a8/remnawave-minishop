@@ -65,6 +65,7 @@ WEBHOOK_PROFILES = {
     "service-route": {
         "anore",
         "cryptomus",
+        "cispay",
         "cloudpayments",
         "freekassa",
         "heleket",

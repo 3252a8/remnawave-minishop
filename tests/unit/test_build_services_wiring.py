@@ -165,6 +165,7 @@ class BuildServicesWiringTests(unittest.TestCase):
         expected_keys = {
             "anore_service",
             "cryptomus_service",
+            "cispay_service",
             "panel_service",
             "subscription_service",
             "referral_service",

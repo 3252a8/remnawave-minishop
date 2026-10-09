@@ -6,9 +6,10 @@ from typing import Any, cast
 
 from . import (
     anore,
+    cispay,
     cloudpayments,
-    cryptopay,
     cryptomus,
+    cryptopay,
     freekassa,
     heleket,
     lava,
@@ -41,6 +42,9 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     anore.SPEC,
     cryptomus.SPEC,
     cryptomus.SUBSCRIPTION_SPEC,
+    cispay.SPEC,
+    cispay.CARD_SUBSCRIPTION_SPEC,
+    cispay.SBP_SUBSCRIPTION_SPEC,
     freekassa.SPEC,
     platega.SBP_SPEC,
     platega.CARD_SPEC,

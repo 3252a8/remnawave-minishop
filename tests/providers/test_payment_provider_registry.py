@@ -179,6 +179,7 @@ def test_service_keys_and_statuses_come_from_provider_specs():
     assert set(iter_service_keys()) == {
         "anore_service",
         "cryptomus_service",
+        "cispay_service",
         "yookassa_service",
         "freekassa_service",
         "platega_service",

@@ -21,7 +21,12 @@
   оплата и повторные уведомления проверяются до выдачи покупки. P2P СБП
   не включён: Merchant API не описывает такой метод.
   ([#95](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/95))
+  ([b27a7465](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b27a7465fc150f1a8b0bc89e99607cccf63c6148))
 
+- **CisPay.** Разовые платежи картой, СБП и криптовалютой; отдельные автоплатежи
+  картой и СБП в RUB на 7–360 дней, с подтверждённой отменой и восстановлением
+  оплаченных циклов по истории провайдера. Иконки и настройки доступны в админке.
+  ([#94](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/94))
 - **Anore.** Разовые счета в RUB и USD доступны в Telegram и Web App; касса,
   методы оплаты и оформление настраиваются в админке. Подписанные уведомления
   и сверка статуса проверяют исходную сумму и валюту, повторная доставка не
@@ -185,6 +190,9 @@
   ([1f2b3782](https://gitlab.com/3252a8/remnawave-minishop/-/commit/1f2b3782d7c0c28873007905b731ae045ba1ca3d), [a507fd4b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/a507fd4b5bf2bc268b0438be0d5090699c5f3a2b))
 
 ### При обновлении
+
+- Автоплатежи CisPay включаются через `CISPAY_SUBSCRIPTION_CARD_ENABLED` и
+  `CISPAY_SUBSCRIPTION_SBP_ENABLED`; провайдер должен разрешить их магазину.
 
 - Миграция `0105` сохраняет владельца и исходную покупку рекуррентного плана.
   Автоплатежи Cryptomus включаются отдельно через `CRYPTOMUS_SUBSCRIPTION_ENABLED`;
