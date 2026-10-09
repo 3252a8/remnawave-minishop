@@ -22,7 +22,7 @@ from qa_tools.compose import prune_optional_dependencies
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE_FILES = ("docker-compose-dev.yml", "docker-compose.remnawave-dev.yml")
 SOURCE_VERSION = "2.8.1"
-TARGET_VERSION = "3.4.4"
+TARGET_VERSION = "3.4.5"
 
 
 def read_env(path: Path) -> dict[str, str]:

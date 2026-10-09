@@ -11,11 +11,11 @@
 make dev
 ```
 
-`make dev` применяет latest-пресет `3.4.4`, валидирует compose-конфиг и поднимает стенд.
+`make dev` применяет latest-пресет `3.4.5`, валидирует compose-конфиг и поднимает стенд.
 Для другого пресета используйте `$env:DEV_PRESET = "2.8.0"; make dev`. Эквивалентные npm-команды:
 
 ```powershell
-npm run dev:stand:use:3.4.4
+npm run dev:stand:use:3.4.5
 npm run dev:stand:config
 npm run dev:stand:up
 ```
@@ -31,9 +31,9 @@ npm run dev:stand:up
 
 ## Версии
 
-Пинованные версии latest-пресета, проверенные 2026-09-13:
+Пинованные версии latest-пресета, проверенные 2026-10-09:
 
-- Remnawave Panel `v3.4.4` (`remnawave/backend:3.4.4`)
+- Remnawave Panel `v3.4.5` (`remnawave/backend:3.4.5`)
 - Remnawave Node `v3.3.0` (`remnawave/node:3.3.0`)
 - Remnawave Subscription Page `7.2.6`
   (`remnawave/subscription-page:7.2.6`)
@@ -46,7 +46,7 @@ npm run dev:stand:up
 Чтобы вручную проверить другую связку Remnawave, поменяйте в `.env.remnawave-dev`:
 
 ```env
-REMNAWAVE_DEV_VERSION=3.4.4
+REMNAWAVE_DEV_VERSION=3.4.5
 REMNAWAVE_NODE_VERSION=3.3.0
 REMNAWAVE_SUBSCRIPTION_PAGE_VERSION=7.2.6
 ```
@@ -65,7 +65,7 @@ Full-stack QA проверяет, что env example и lock-файл не ра�
 
 Пресет не равен заявлению о поддержке. Сертифицированная матрица Core сейчас включает:
 
-- **current**: `3.4.4`, `3.4.3`, `3.4.2`, `3.4.1`, `3.3.2`, `3.3.0`, `3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0` (поколение API с numeric user id);
+- **current**: `3.4.5`, `3.4.4`, `3.4.3`, `3.4.2`, `3.4.1`, `3.3.2`, `3.3.0`, `3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0` (поколение API с numeric user id);
 - **maintenance**: `2.8.1` (поколение API с UUID user id).
 
 `2.8.0` и `2.7.4` сохранены как исторические пресеты для ручной диагностики, но не входят в
@@ -76,12 +76,16 @@ Full-stack QA проверяет, что env example и lock-файл не ра�
 Panel `3.4.1` и `3.4.2` остаются в API-матрице для регрессии, однако их следует
 немедленно обновить как минимум до `3.4.3`: эта версия закрывает
 [GHSA-8mcp-v46j-fp26](https://github.com/remnawave/backend/security/advisories/GHSA-8mcp-v46j-fp26).
-Текущий `3.4.4` не меняет используемые Core API-контракты и добавляет upstream-исправления
-очереди пользователей нод после сбоя Redis, рестартов нод, интерфейса и шаблонной даты
-сброса трафика.
+Текущий [Panel `3.4.5`](https://f.docs.rw/t/topic/354/26) сохраняет используемые Core
+HTTP-контракты и исправляет точный фильтр по ID пользователя и принадлежность
+Torrent-Blocker отчётов. Выпуск также исправляет gRPC `multiMode` в генераторе
+Xray-конфига, добавляет схему плагина `postStart` и флаг панели
+`SERVICE_SNI_VERIFICATION` для соединения с нодой. Эти настройки принадлежат панели;
+дополнительные настройки Core для обновления не требуются.
 
-Доступны четырнадцать пресетов:
+Доступны пятнадцать пресетов:
 
+- `3.4.5`: Panel `3.4.5`, Node `3.3.0`, Subscription Page `7.2.6`.
 - `3.4.4`: Panel `3.4.4`, Node `3.3.0`, Subscription Page `7.2.6`.
 - `3.4.3`: Panel `3.4.3`, Node `3.3.0`, Subscription Page `7.2.6`.
 - `3.4.2`: Panel `3.4.2`, Node `3.3.0`, Subscription Page `7.2.6`.
@@ -113,7 +117,7 @@ npm run dev:stand:up
 
 ```powershell
 npm run dev:stand:down
-npm run dev:stand:use:3.4.4
+npm run dev:stand:use:3.4.5
 npm run dev:stand:config
 npm run dev:stand:up
 ```
@@ -247,7 +251,7 @@ npm run qa:all
 
 Команда собирает текущий Core и отдельный Linux-образ с `sh`, `bash`, OpenSSL и
 тестовыми зависимостями. Она поднимает изолированный стенд Remnawave 2.8.1,
-проверяет его API, обновляет панель до 3.4.4 на **той же базе** и выполняет весь
+проверяет его API, обновляет панель до 3.4.5 на **той же базе** и выполняет весь
 `tests/`, включая установщик, триал, оплату и сверку идентификаторов после
 обновления. Затем запускаются проверки архитектуры, документации, линтеров,
 типов, интерфейса, сборка и Playwright. Пропуск любого серверного теста завершает
@@ -272,7 +276,7 @@ npm run qa:all -- --keep-stand
 
 ```powershell
 $env:QA_FULLSTACK = "1"
-$env:QA_REMNAWAVE_PRESET = "3.4.4" # или 2.8.1 после смены пресета
+$env:QA_REMNAWAVE_PRESET = "3.4.5" # или 2.8.1 после смены пресета
 python -m pytest -q tests/qa/test_remnawave_panel_contract.py
 ```
 
@@ -433,10 +437,10 @@ CI workflow `.github/workflows/fullstack-qa.yml` запускает этот с�
 - `push` в `main` и `dev`;
 - ручной `workflow_dispatch`.
 
-Каждый push/PR проверяет сертифицированные current и maintenance пресеты (`3.4.4`, `3.4.3`, `3.4.2`,
+Каждый push/PR проверяет сертифицированные current и maintenance пресеты (`3.4.5`, `3.4.4`, `3.4.3`, `3.4.2`,
 `3.4.1`, `3.3.2`, `3.3.0`, `3.2.3`, `3.2.1`, `3.2.0`, `3.1.0`, `3.0.0`, `2.8.1`)
 отдельными job. По расписанию и вручную дополнительно выполняется same-database upgrade
-`2.8.1 → 3.4.4`:
+`2.8.1 → 3.4.5`:
 панель обновляется на существующем volume, затем Core синхронизирует сидированных пользователей и
 проверяет, что локальные UUID-алиасы заменились на decimal numeric ids без потери подписок.
 
