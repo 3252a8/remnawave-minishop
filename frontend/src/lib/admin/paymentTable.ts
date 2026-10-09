@@ -37,6 +37,7 @@ type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: st
 const PAYMENT_PROVIDER_LOGO_FILES: Record<string, string> = {
   anore: "anore.png",
   cloudpayments: "cloudpayments.png",
+  cryptomus: "cryptomus.png",
   cryptopay: "cryptopay.png",
   freekassa: "freekassa.png",
   heleket: "heleket.png",
@@ -69,13 +70,17 @@ export function paymentProviderDisplay(
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-  const logoKey = providerKey.startsWith("platega")
-    ? "platega"
-    : providerKey.startsWith("rollypay")
-      ? "rollypay"
-      : providerKey.startsWith("wata")
-        ? "wata"
-        : providerKey;
+  const logoKey = providerKey.startsWith("anore")
+    ? "anore"
+    : providerKey.startsWith("cryptomus")
+      ? "cryptomus"
+      : providerKey.startsWith("platega")
+        ? "platega"
+        : providerKey.startsWith("rollypay")
+          ? "rollypay"
+          : providerKey.startsWith("wata")
+            ? "wata"
+            : providerKey;
   const logoFile = PAYMENT_PROVIDER_LOGO_FILES[logoKey];
 
   if (providerKey === "promo" || providerKey === "admin_gift") {

@@ -78,6 +78,17 @@ class PaymentReconciliationWorker:
 
     async def tick(self) -> None:
         await self._retry_failure_notifications()
+        seen_services: set[int] = set()
+        for service in self.services.values():
+            if id(service) in seen_services:
+                continue
+            seen_services.add(id(service))
+            reconcile = getattr(service, "reconcile_recurring_payments", None)
+            if reconcile is not None and getattr(service, "manages_recurrence", False):
+                try:
+                    await reconcile()
+                except Exception:
+                    logger.exception("Provider-managed recurring reconciliation failed")
         async with self.session_factory() as session:
             payments = await payment_reconciliation_dal.list_candidates(
                 session,
@@ -92,6 +103,7 @@ class PaymentReconciliationWorker:
             service = self.services.get(spec.service_key) if spec and spec.service_key else None
             if service is None or not (
                 getattr(service, "can_reconcile_payments", False)
+                or getattr(service, "manages_recurrence", False)
                 or getattr(service, "configured", False)
             ):
                 continue

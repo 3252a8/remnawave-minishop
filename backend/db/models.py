@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from db import subscription_notification_models
+from db import provider_mandate_models, subscription_notification_models
 from db.base import Base
 from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
@@ -994,3 +994,4 @@ SubscriptionLifecycleNotification = (
 )
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
 WataSubscription = wata_models.WataSubscription
+ProviderMandate = provider_mandate_models.ProviderMandate

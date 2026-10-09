@@ -298,6 +298,16 @@ def remnashop_payment_gateway_overrides(
             )
         return _provider_mapping_result(gateway_type, ["heleket"], overrides, warnings)
 
+    if gateway_type == "CRYPTOMUS":
+        _add_override(overrides, "CRYPTOMUS_ENABLED", active)
+        _add_override(overrides, "CRYPTOMUS_MERCHANT_ID", settings.get("merchant_id"))
+        _add_override(overrides, "CRYPTOMUS_API_KEY", settings.get("api_key"))
+        if currency and currency not in {"RUB", "USD"}:
+            warnings.append(
+                f"Minishop supports RUB/USD prices for Cryptomus; source currency: {currency}."
+            )
+        return _provider_mapping_result(gateway_type, ["cryptomus"], overrides, warnings)
+
     if gateway_type == "PAYKILLA":
         _add_override(overrides, "PAYKILLA_ENABLED", active)
         _add_override(

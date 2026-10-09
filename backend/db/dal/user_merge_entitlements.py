@@ -19,6 +19,7 @@ from db.models import (
     HwidDevicePurchase,
     PlategaSubscription,
     PromoCode,
+    ProviderMandate,
     RollyPaySubscription,
     Subscription,
     TrafficTopup,
@@ -369,6 +370,7 @@ async def transfer_entitlement_ownership(
     for model in (
         AutoRenewCycle,
         PlategaSubscription,
+        ProviderMandate,
         PromoCode,
         RollyPaySubscription,
         TributeEntitlement,
@@ -447,6 +449,15 @@ async def inspect_recurring_merge(
         for provider, statement in provider_statements:
             if await _has_row(session, statement):
                 managed_providers.append(provider)
+        mandate_providers = await session.execute(
+            select(ProviderMandate.provider)
+            .where(
+                ProviderMandate.user_id == user_id,
+                ProviderMandate.status.in_(("pending", "active", "paused", "past_due")),
+            )
+            .distinct()
+        )
+        managed_providers.extend(str(provider) for provider in mandate_providers.scalars().all())
         local_recurring = bool(
             subscription is not None and getattr(subscription, "auto_renew_enabled", False)
         )

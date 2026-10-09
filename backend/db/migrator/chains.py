@@ -33,6 +33,7 @@ from .chain_0101_qr_login_requests import CHAIN_0101_QR_LOGIN_REQUESTS
 from .chain_0102_balance_auto_renew import CHAIN_0102_BALANCE_AUTO_RENEW
 from .chain_0103_promo_activation_merge_history import CHAIN_0103_PROMO_ACTIVATION_MERGE_HISTORY
 from .chain_0104_gift_referral_qualification import CHAIN_0104_GIFT_REFERRAL_QUALIFICATION
+from .chain_0105_provider_mandates import CHAIN_0105_PROVIDER_MANDATES
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -67,4 +68,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0102_BALANCE_AUTO_RENEW,
     *CHAIN_0103_PROMO_ACTIVATION_MERGE_HISTORY,
     *CHAIN_0104_GIFT_REFERRAL_QUALIFICATION,
+    *CHAIN_0105_PROVIDER_MANDATES,
 ]

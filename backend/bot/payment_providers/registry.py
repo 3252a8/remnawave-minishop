@@ -8,6 +8,7 @@ from . import (
     anore,
     cloudpayments,
     cryptopay,
+    cryptomus,
     freekassa,
     heleket,
     lava,
@@ -38,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     anore.SPEC,
+    cryptomus.SPEC,
+    cryptomus.SUBSCRIPTION_SPEC,
     freekassa.SPEC,
     platega.SBP_SPEC,
     platega.CARD_SPEC,

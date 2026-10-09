@@ -27,6 +27,7 @@ LifecycleState = Literal["pending", "failed", "succeeded", "unknown"]
 
 RECONCILABLE_PROVIDER_KEYS = (
     "anore",
+    "cryptomus",
     "cloudpayments",
     "cryptopay",
     "freekassa",
@@ -54,6 +55,7 @@ _EXPIRY_ONLY_PROVIDER_KEYS = {"cloudpayments", "overpay", "tribute"}
 
 _FAILED_STATUSES = {
     "anore": {"expired"},
+    "cryptomus": {"cancel", "fail", "system_fail"},
     "cryptopay": {"expired"},
     "heleket": {"cancel", "fail", "system_fail", "wrong_amount"},
     "lava": {"cancel", "cancelled", "error", "expired", "failed"},
@@ -75,6 +77,7 @@ _FAILED_STATUSES = {
 }
 _SUCCESS_STATUSES = {
     "anore": {"paid"},
+    "cryptomus": {"paid", "paid_over"},
     "cryptopay": {"paid"},
     "heleket": {"paid", "paid_over"},
     "oxapay": {"manual_accept", "paid"},
@@ -87,6 +90,7 @@ _SUCCESS_STATUSES = {
 }
 _PENDING_STATUSES = {
     "anore": {"new"},
+    "cryptomus": {"check", "confirm_check", "wrong_amount", "wrong_amount_waiting"},
     "cloudpayments": {"authorized", "awaitingauthentication", "created", "pending"},
     "cryptopay": {"active"},
     "heleket": {"check"},
@@ -235,14 +239,18 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
     state_provider = provider
 
     payment_verified = False
-    if provider == "anore":
+    if provider in {"anore", "cryptomus"}:
         success, data = await service.get_payment(provider_id)
         if not success or str(data.get("id") or "") != provider_id:
             return ProviderLifecycle("unknown")
         order_id = data.get("order_id")
-        if order_id is not None and str(order_id) != str(payment.payment_id):
+        if (provider != "anore" or order_id is not None) and str(order_id) != str(
+            payment.payment_id
+        ):
             return ProviderLifecycle("unknown")
         status = data.get("status")
+        if provider == "cryptomus" and status == "wrong_amount" and data.get("is_final") is True:
+            status = "fail"
         payment_verified = bool(
             _state_for(provider, status) == "succeeded"
             and payment_amount_and_currency_match(
@@ -250,6 +258,14 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
                 expected_currency=payment.currency,
                 received_amount=data.get("amount"),
                 received_currency=data.get("currency"),
+            )
+            and (
+                provider != "cryptomus"
+                or payment_amount_matches(
+                    expected_amount=payment.amount,
+                    received_amount=data.get("payment_amount"),
+                    allow_overpayment=True,
+                )
             )
         )
     elif provider == "cloudpayments":
@@ -447,7 +463,9 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
         order_id = data.get("order_id") if success else None
         if order_id is None and success:
             order_id = data.get("orderId")
-        if order_id is not None and str(order_id) != str(payment.payment_id):
+        if (provider != "anore" or order_id is not None) and str(order_id) != str(
+            payment.payment_id
+        ):
             return ProviderLifecycle("unknown")
         status = data.get("status") or data.get("Status")
         if success and _state_for("pally", status) == "succeeded":

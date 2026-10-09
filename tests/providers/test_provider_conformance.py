@@ -64,6 +64,7 @@ WEBHOOK_PROFILES = {
     "base-template": {"cryptopay", "qa", "tribute"},
     "service-route": {
         "anore",
+        "cryptomus",
         "cloudpayments",
         "freekassa",
         "heleket",

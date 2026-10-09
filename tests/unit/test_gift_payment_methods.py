@@ -18,6 +18,8 @@ from bot.services.subscription_gifts import gift_payment_method_available
 
 GIFT_PAYMENT_METHODS = (
     ("anore", True),
+    ("cryptomus", True),
+    ("cryptomus_subscription", False),
     ("freekassa", True),
     ("platega_sbp", True),
     ("platega_card", True),
