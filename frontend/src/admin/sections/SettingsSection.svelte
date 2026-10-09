@@ -485,8 +485,9 @@
   function scrollToSettingsAnchor(anchorKey: string): void {
     if (typeof window === "undefined") return;
     cancelPendingSettingsAnchorScroll();
-    armSettingsAnchorScrollCancel();
     scheduleSettingsAnchorScrollFrame(() => {
+      // The initiating pointer/key event must finish before it can cancel navigation.
+      armSettingsAnchorScrollCancel();
       scheduleSettingsAnchorScrollFrame(() => {
         scrollSettingsAnchorIntoView(anchorKey, prefersReducedMotion.current ? "auto" : "smooth", {
           focus: true,

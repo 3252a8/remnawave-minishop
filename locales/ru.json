@@ -3184,7 +3184,7 @@
   "admin_settings_field_referral_one_bonus_per_referee_description": "Первое подходящее событие — успешная личная покупка или активация подарка, если её учёт включён. Если включено, последующие покупки и активации того же приглашённого не начисляют реферальные бонусы ни ему, ни пригласившему.",
   "admin_settings_field_referral_gift_activation_enabled_label": "Засчитывать активацию подарка по реф. программе",
   "admin_settings_field_referral_gift_activation_enabled_description": "При успешной активации подарка получателем начислять бонусы по его существующему реферальному приглашению. Ссылка на подарок не меняет пригласившего. По умолчанию включено; прошлые активации не пересчитываются. Правило «один бонус» общее для личной покупки и активации подарка. Партнёрские бонусы клиенту за оплату не начисляются.",
-  "admin_settings_field_referral_welcome_bonus_days_label": "Приветственный бонус (дней)",
+  "admin_settings_field_referral_welcome_bonus_days_label": "Приветственный бонус, дней",
   "admin_settings_field_referral_welcome_bonus_adds_to_trial_label": "Добавлять приветственный бонус к триалу",
   "admin_settings_field_referral_welcome_bonus_adds_to_trial_description": "Если включено и бесплатный триал доступен, при регистрации по приглашению отдельная бонусная подписка не создаётся: дни приветственного бонуса добавляются к пробному периоду приглашённого.",
   "admin_settings_field_referral_welcome_bonus_without_telegram_enabled_label": "Приветственный бонус без Telegram",
