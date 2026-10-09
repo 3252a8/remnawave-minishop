@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { REFERRAL_SETTING_KEYS } from "../src/lib/admin/tariffSettings";
 
 const locales: Record<"ru" | "en", Record<string, string>> = {
   ru: JSON.parse(readFileSync("../locales/ru.json", "utf8")),
@@ -177,6 +178,153 @@ for (const width of [1280, 390]) {
       await expect(content).toHaveCount(0);
       await trigger.click();
       await expect(giftSwitch).toBeChecked();
+      expect(errors).toEqual([]);
+    });
+  }
+}
+
+for (const width of [1280, 390]) {
+  for (const language of ["ru", "en"] as const) {
+    test(`welcome bonus trial switch can be saved and reset at ${width}px in ${language}`, async ({
+      page,
+    }, testInfo) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript((lang) => {
+        localStorage.setItem("rw_minishop_demo_language", lang);
+      }, language);
+      await page.goto("/demo/runtime/admin/settings/referral?theme_preview=dark");
+
+      const copy = locales[language];
+      const content = page.locator("#admin-settings-section-referral");
+      const trigger = page.locator('[aria-controls="admin-settings-section-referral"]');
+      const trialRow = content.locator(".admin-setting").filter({
+        has: page.getByText("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", { exact: true }),
+      });
+      const welcome = trialRow.locator("xpath=..");
+      const trialSwitch = trialRow.getByRole("switch", {
+        name: copy.admin_settings_field_referral_welcome_bonus_adds_to_trial_label,
+        exact: true,
+      });
+      const reset = trialRow.getByRole("button", { name: copy.admin_reset, exact: true });
+      const saving = page.getByRole("button", { name: copy.admin_saving, exact: true });
+      const save = page.getByRole("main").last().getByRole("button", {
+        name: copy.admin_save,
+        exact: true,
+      });
+
+      await expect(trialSwitch).toBeVisible();
+      await expect(trialSwitch).not.toBeChecked();
+      await expect(trialRow.locator("small")).toHaveText(
+        copy.admin_settings_field_referral_welcome_bonus_adds_to_trial_description
+      );
+      await expect(
+        welcome.locator(".admin-setting").filter({
+          has: page.getByText("REFERRAL_WELCOME_BONUS_DAYS", { exact: true }),
+        })
+      ).toBeVisible();
+
+      await trialSwitch.click();
+      await expect(trialSwitch).toBeChecked();
+      await expect(save).toBeVisible();
+      await reset.click();
+      await expect(trialSwitch).not.toBeChecked();
+      await expect(reset).toHaveCount(0);
+      await expect(save).toHaveCount(0);
+
+      await trialSwitch.focus();
+      await page.keyboard.press("Space");
+      await expect(trialSwitch).toBeChecked();
+      await save.click();
+      await expect(saving).toHaveCount(0);
+      await expect(save).toHaveCount(0);
+      await expect(content).toBeVisible();
+      await trigger.click();
+      await expect(content).toHaveCount(0);
+      await trigger.click();
+      await expect(trialSwitch).toBeChecked();
+      await expect(reset).toHaveCount(0);
+
+      const bounds = await trialSwitch.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+      expect(
+        await welcome.evaluate((element) => element.scrollWidth - element.clientWidth)
+      ).toBeLessThanOrEqual(2);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      ).toBeLessThanOrEqual(2);
+      await welcome.screenshot({
+        path: testInfo.outputPath(`welcome-trial-${width}-${language}.png`),
+      });
+      expect(errors).toEqual([]);
+    });
+  }
+}
+
+for (const width of [1280, 390]) {
+  for (const language of ["ru", "en"] as const) {
+    test(`settings search finds every referral setting by name and visible label at ${width}px in ${language}`, async ({
+      page,
+    }, testInfo) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript((lang) => {
+        localStorage.setItem("rw_minishop_demo_language", lang);
+      }, language);
+      await page.goto("/demo/runtime/admin/settings/referral?theme_preview=dark");
+
+      const copy = locales[language];
+      const search = page.getByRole("searchbox", {
+        name: copy.admin_settings_search_aria,
+        exact: true,
+      });
+      const content = page.locator("#admin-settings-section-referral");
+      const trigger = page.locator('[aria-controls="admin-settings-section-referral"]');
+      const labels = new Map<string, string>();
+      for (const key of REFERRAL_SETTING_KEYS) {
+        const row = content.locator(".admin-setting").filter({
+          has: page.getByText(key, { exact: true }),
+        });
+        labels.set(key, await row.locator("strong").first().innerText());
+      }
+      await trigger.click();
+      await expect(content).toHaveCount(0);
+
+      for (const key of REFERRAL_SETTING_KEYS) {
+        const label = labels.get(key)!;
+        const result = page.getByRole("option").filter({
+          has: page.getByText(key, { exact: true }),
+        });
+        for (const query of [key, label]) {
+          await search.fill(query);
+          await expect(result).toHaveCount(1);
+          await expect(result.locator("strong")).toHaveText(label);
+          if (query === label && key === "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL") {
+            await page.locator("#admin-settings-search-results").screenshot({
+              path: testInfo.outputPath(`settings-search-${width}-${language}.png`),
+            });
+          }
+          if (query === key) await search.press("Enter");
+          else await result.click();
+
+          const row = content.locator(".admin-setting").filter({
+            has: page.getByText(key, { exact: true }),
+          });
+          await expect(row).toHaveClass(/is-search-highlighted/);
+          await expect(row).toBeInViewport();
+          if (query === label && key === "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL") {
+            await row.screenshot({
+              path: testInfo.outputPath(`settings-search-hit-${width}-${language}.png`),
+            });
+          }
+          await trigger.click();
+          await expect(content).toHaveCount(0);
+        }
+      }
       expect(errors).toEqual([]);
     });
   }

@@ -42,6 +42,7 @@ function demoRuntimeSettingValue(key: string): unknown {
       DEV_MOCK.config.referralWelcomeBonusDays ?? DEV_MOCK.data.referral?.welcome_bonus_days ?? 3,
     REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED:
       DEV_MOCK.config.referralWelcomeWithoutTelegramEnabled ?? true,
+    REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL: false,
     REFERRAL_ONE_BONUS_PER_REFEREE:
       DEV_MOCK.config.referralOneBonusPerReferee ??
       DEV_MOCK.data.referral?.one_bonus_per_referee ??

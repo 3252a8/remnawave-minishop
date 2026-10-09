@@ -8,12 +8,14 @@
 
   let {
     at,
+    highlightedSettingKey = "",
     settingsOpenSections,
     toggleSettingsSection,
     onNavigateSection = () => {},
     onOpenSettingsPath = () => {},
   }: {
     at: TranslateFn;
+    highlightedSettingKey?: string;
     settingsOpenSections: string[];
     toggleSettingsSection: (sectionId: string) => void;
     onNavigateSection?: (section: string) => void;
@@ -36,7 +38,7 @@
   {#if referralOpen}
     <div id="admin-settings-section-referral" class="admin-accordion-content" data-state="open">
       <div class="admin-settings-fields program-settings-editor">
-        <ReferralProgramSettings {at} />
+        <ReferralProgramSettings {at} {highlightedSettingKey} />
       </div>
     </div>
   {/if}

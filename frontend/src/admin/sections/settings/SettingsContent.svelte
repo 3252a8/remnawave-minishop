@@ -858,6 +858,7 @@
   <div class="admin-accordion">
     <ProgramSettingsSections
       {at}
+      {highlightedSettingKey}
       {settingsOpenSections}
       {toggleSettingsSection}
       {onNavigateSection}

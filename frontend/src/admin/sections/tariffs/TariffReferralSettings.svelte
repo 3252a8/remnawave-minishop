@@ -17,6 +17,7 @@
     referralLinkResetViolatesRequirement as resolveReferralLinkResetViolatesRequirement,
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
+  import { settingsFieldAnchorKey } from "$lib/admin/settingsSections";
   import type { SettingField } from "$lib/admin/stores/settingsStore";
   import type { Tariff } from "$lib/admin/stores/tariffsStore";
 
@@ -24,11 +25,14 @@
 
   let {
     at,
+    highlightedSettingKey = "",
     settingsDirty = {},
     settingsFieldMap = new Map<string, SettingField>(),
     standalone = false,
   }: {
     at: TranslateFn;
+    /** Setting chosen in the settings search, outlined like generic rows. */
+    highlightedSettingKey?: string;
     settingsDirty?: SettingsDirtyState;
     settingsFieldMap?: Map<string, SettingField>;
     /** Drop the disclosure chrome when the host screen already provides one. */
@@ -163,6 +167,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_PROGRAM_ENABLED", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_PROGRAM_ENABLED"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_PROGRAM_ENABLED")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -240,6 +247,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_WEBAPP_LINK_ENABLED"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_WEBAPP_LINK_ENABLED")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -297,6 +307,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_TELEGRAM_LINK_ENABLED", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_TELEGRAM_LINK_ENABLED"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_TELEGRAM_LINK_ENABLED")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -390,6 +403,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_WELCOME_BONUS_DAYS"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_WELCOME_BONUS_DAYS")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -427,6 +443,10 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey ===
+              "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -551,6 +571,9 @@
             <div
               class="admin-setting admin-trial-setting-row"
               class:is-dirty={isSettingDirty(rule.key, settingsDirty)}
+              class:is-search-highlighted={highlightedSettingKey === rule.key}
+              data-settings-anchor={settingsFieldAnchorKey(rule.key)}
+              tabindex="-1"
             >
               <div class="admin-setting-meta">
                 <strong>
