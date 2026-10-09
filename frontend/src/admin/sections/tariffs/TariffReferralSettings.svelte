@@ -424,6 +424,66 @@
             </div>
           </div>
 
+          <div
+            class="admin-setting admin-trial-setting-row"
+            class:is-dirty={isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+          >
+            <div class="admin-setting-meta">
+              <strong>
+                {at(
+                  "settings_field_referral_welcome_bonus_adds_to_trial_label",
+                  {},
+                  "Add welcome days to trial"
+                )}
+                {#if isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+                  <AdminBadge variant="warning"
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                  >
+                {/if}
+              </strong>
+              <code>REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL</code>
+              <small>
+                {at(
+                  "settings_field_referral_welcome_bonus_adds_to_trial_description",
+                  {},
+                  "When enabled and a free trial is available, welcome days are added to the trial instead of granting a separate subscription at sign-up."
+                )}
+              </small>
+            </div>
+            <div class="admin-setting-control">
+              <div class="admin-setting-switch">
+                <Switch.Root
+                  aria-label={at(
+                    "settings_field_referral_welcome_bonus_adds_to_trial_label",
+                    {},
+                    "Add welcome days to trial"
+                  )}
+                  checked={boolValue("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")}
+                  onCheckedChange={(checked) =>
+                    setSetting("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", checked)}
+                  class="admin-switch-root"
+                >
+                  <Switch.Thumb class="admin-switch-thumb" />
+                </Switch.Root>
+                <span>
+                  {boolValue("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")
+                    ? at("enabled", {}, "Enabled")
+                    : at("disabled", {}, "Disabled")}
+                </span>
+              </div>
+              {#if isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+                <AdminButton
+                  size="sm"
+                  variant="ghost"
+                  onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")}
+                >
+                  <X size={12} />
+                  {at("reset", {}, "Reset")}
+                </AdminButton>
+              {/if}
+            </div>
+          </div>
+
           <div class="admin-setting admin-trial-setting-row">
             <div class="admin-setting-meta">
               <strong>
