@@ -624,7 +624,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Count gift activation for referrals",
         (
             "Count successful recipient redemption through an existing invitation. "
-            "Disabled by default; no retrospective accrual."
+            "Enabled by default; no retrospective accrual."
         ),
         subsection="referral",
     ),

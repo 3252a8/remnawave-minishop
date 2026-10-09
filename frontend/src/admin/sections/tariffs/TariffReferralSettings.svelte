@@ -94,7 +94,7 @@
       description: at(
         "tariffs_referral_gift_activation_enabled_hint",
         {},
-        "Grant bonuses after successful recipient activation using their existing referral invitation. The gift link does not change the inviter. Disabled by default; past activations are not recalculated. The one-bonus rule is shared with personal purchases. Partner-client payment bonuses are excluded."
+        "Grant bonuses after successful recipient activation using their existing referral invitation. The gift link does not change the inviter. Enabled by default; past activations are not recalculated. The one-bonus rule is shared with personal purchases. Partner-client payment bonuses are excluded."
       ),
     },
   ]);

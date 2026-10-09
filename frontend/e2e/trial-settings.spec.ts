@@ -116,7 +116,7 @@ for (const width of [1280, 390]) {
       });
 
       await expect(giftSwitch).toBeVisible();
-      await expect(giftSwitch).not.toBeChecked();
+      await expect(giftSwitch).toBeChecked();
       await expect(giftRow.locator("small")).toHaveText(
         copy.admin_tariffs_referral_gift_activation_enabled_hint
       );
@@ -128,16 +128,16 @@ for (const width of [1280, 390]) {
       ).toBeVisible();
 
       await giftSwitch.click();
-      await expect(giftSwitch).toBeChecked();
+      await expect(giftSwitch).not.toBeChecked();
       await expect(save).toBeVisible();
       await reset.click();
-      await expect(giftSwitch).not.toBeChecked();
+      await expect(giftSwitch).toBeChecked();
       await expect(reset).toHaveCount(0);
       await expect(save).toHaveCount(0);
 
       await giftSwitch.focus();
       await page.keyboard.press("Space");
-      await expect(giftSwitch).toBeChecked();
+      await expect(giftSwitch).not.toBeChecked();
       await save.click();
       await expect(saving).toHaveCount(0);
       await expect(save).toHaveCount(0);
@@ -145,8 +145,14 @@ for (const width of [1280, 390]) {
       await trigger.click();
       await expect(content).toHaveCount(0);
       await trigger.click();
-      await expect(giftSwitch).toBeChecked();
+      await expect(giftSwitch).not.toBeChecked();
       await expect(reset).toHaveCount(0);
+
+      await giftSwitch.click();
+      await expect(giftSwitch).toBeChecked();
+      await reset.click();
+      await expect(giftSwitch).not.toBeChecked();
+      await expect(save).toHaveCount(0);
 
       const bounds = await giftSwitch.boundingBox();
       expect(bounds).not.toBeNull();
@@ -170,7 +176,7 @@ for (const width of [1280, 390]) {
       await trigger.click();
       await expect(content).toHaveCount(0);
       await trigger.click();
-      await expect(giftSwitch).not.toBeChecked();
+      await expect(giftSwitch).toBeChecked();
       expect(errors).toEqual([]);
     });
   }

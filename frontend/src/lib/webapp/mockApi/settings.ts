@@ -46,7 +46,7 @@ function demoRuntimeSettingValue(key: string): unknown {
       DEV_MOCK.config.referralOneBonusPerReferee ??
       DEV_MOCK.data.referral?.one_bonus_per_referee ??
       false,
-    REFERRAL_GIFT_ACTIVATION_ENABLED: false,
+    REFERRAL_GIFT_ACTIVATION_ENABLED: true,
     REFERRAL_WEBAPP_LINK_ENABLED: DEV_MOCK.config.referralWebappLinkEnabled ?? true,
     REFERRAL_TELEGRAM_LINK_ENABLED: DEV_MOCK.config.referralTelegramLinkEnabled ?? true,
     PARTNER_PROGRAM_ENABLED:

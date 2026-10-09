@@ -14586,7 +14586,7 @@
         "section_order": 11,
         "subsection": "referral",
         "label": "Count gift activation for referrals",
-        "description": "Count successful recipient redemption through an existing invitation. Disabled by default; no retrospective accrual.",
+        "description": "Count successful recipient redemption through an existing invitation. Enabled by default; no retrospective accrual.",
         "i18n_label_key": "admin_settings_field_referral_gift_activation_enabled_label",
         "i18n_description_key": "admin_settings_field_referral_gift_activation_enabled_description",
         "i18n_subsection_key": "admin_settings_subsection_referral",

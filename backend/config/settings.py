@@ -403,7 +403,7 @@ class Settings(
     GIFTS_ENABLED: bool = True
     REFERRAL_PROGRAM_ENABLED: bool = True
     REFERRAL_GIFT_ACTIVATION_ENABLED: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Count successful gift redemption by an invited recipient for referral period accrual."
         ),
