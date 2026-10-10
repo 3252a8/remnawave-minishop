@@ -38,6 +38,14 @@ export type CheckoutTariffSummary = {
   premiumTraffic: CheckoutTariffLimit;
 };
 
+export type TariffLimitFact = CheckoutTariffLimit & {
+  kind: CheckoutAddonKind;
+  label: string;
+  unavailable: boolean;
+  adjustable?: boolean;
+  valueText?: string;
+};
+
 export type BillingPlan = WebappRecord & {
   access_via_link?: boolean;
   available_payment_method_ids?: string[] | null;
@@ -86,12 +94,22 @@ export type BillingPlan = WebappRecord & {
   traffic_packages?: unknown[];
   valid_until_text?: string | null;
 };
-export type TariffCatalogEntry = {
+export type TariffCatalogEntry = Pick<
+  BillingPlan,
+  | "checkout_addons"
+  | "effective_hwid_device_limit"
+  | "premium_enabled"
+  | "premium_monthly_gb"
+  | "premium_title"
+  | "premium_traffic_limit_strategy"
+  | "premium_unlimited"
+  | "traffic_limit_strategy"
+> & {
   billing_model: string;
   description: string;
   is_default: boolean;
   key: string;
-  monthly_gb: number;
+  monthly_gb: number | null;
   plans_count: number;
   title: string;
   traffic_packages: number[];
@@ -118,9 +136,10 @@ export type PaymentMethodMinimum = {
 
 function firstFiniteValue(...values: unknown[]): number | null {
   for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
+    if (typeof value !== "number" && typeof value !== "string") continue;
+    if (typeof value === "string" && !value.trim()) continue;
     const number = Number(value);
-    if (Number.isFinite(number)) return number;
+    if (Number.isFinite(number) && number >= 0) return number;
   }
   return null;
 }
@@ -132,16 +151,18 @@ export function checkoutTariffSummary(plan: BillingPlan | null | undefined): Che
     plan?.effective_hwid_device_limit,
     plan?.hwid_device_limit
   );
-  const traffic = firstFiniteValue(addons.traffic?.base_units, plan?.monthly_gb);
+  const traffic = firstFiniteValue(
+    addons.traffic?.base_units,
+    plan?.monthly_gb,
+    plan?.billing_model === "traffic" ? plan?.traffic_gb : null
+  );
   const premiumEnabled = plan?.premium_enabled;
   const premiumAddon = addons.premium_traffic;
   const premiumAvailable = premiumEnabled !== false || Boolean(premiumAddon);
   const premium = premiumAvailable
     ? firstFiniteValue(premiumAddon?.base_units, plan?.premium_monthly_gb)
     : null;
-  const premiumKnown =
-    premiumAvailable &&
-    (typeof premiumEnabled === "boolean" || premium !== null || Boolean(premiumAddon));
+  const premiumKnown = premiumAvailable && (premium !== null || plan?.premium_unlimited === true);
 
   return {
     devices: {
@@ -160,6 +181,92 @@ export function checkoutTariffSummary(plan: BillingPlan | null | undefined): Che
       unlimited: premiumEnabled !== false && plan?.premium_unlimited === true,
     },
   };
+}
+
+export function tariffLimitTitle(
+  plan: BillingPlan | null | undefined,
+  kind: CheckoutAddonKind,
+  unlimited: boolean,
+  { t }: { t: TranslateFn }
+): string {
+  if (kind === "devices") return t("wa_checkout_addon_devices", {}, "Devices");
+  const strategy = String(
+    kind === "premium_traffic"
+      ? plan?.premium_traffic_limit_strategy || plan?.traffic_limit_strategy || ""
+      : plan?.traffic_limit_strategy || ""
+  ).toUpperCase();
+  const period = unlimited
+    ? ""
+    : strategy.includes("MONTH")
+      ? t("wa_checkout_period_month", {}, "per month")
+      : strategy.includes("WEEK")
+        ? t("wa_checkout_period_week", {}, "per week")
+        : strategy.includes("DAY")
+          ? t("wa_checkout_period_day", {}, "per day")
+          : strategy.includes("NO_RESET")
+            ? t("wa_checkout_period_no_reset", {}, "without reset")
+            : "";
+  const premiumTitle = String(plan?.premium_title || "").trim();
+  if (kind === "premium_traffic" && premiumTitle) {
+    if (unlimited) return premiumTitle;
+    return period
+      ? t(
+          "wa_checkout_named_traffic_with_period",
+          { name: premiumTitle, period },
+          `${premiumTitle} ${period}`
+        )
+      : t("wa_checkout_named_traffic_period", { name: premiumTitle }, `${premiumTitle} per period`);
+  }
+  if (unlimited) {
+    return kind === "traffic"
+      ? t("wa_checkout_addon_traffic", {}, "Traffic")
+      : t("wa_checkout_addon_premium_traffic", {}, "Premium traffic");
+  }
+  if (!period) {
+    return kind === "traffic"
+      ? t("wa_checkout_tariff_traffic_period", {}, "Traffic per period")
+      : t("wa_checkout_tariff_premium_period", {}, "Premium traffic per period");
+  }
+  return kind === "traffic"
+    ? t("wa_checkout_tariff_traffic_with_period", { period }, `Traffic ${period}`)
+    : t("wa_checkout_tariff_premium_with_period", { period }, `Premium traffic ${period}`);
+}
+
+export function tariffLimitFacts(
+  plan: BillingPlan | null | undefined,
+  { t }: { t: TranslateFn }
+): TariffLimitFact[] {
+  const summary = checkoutTariffSummary(plan);
+  const kinds: CheckoutAddonKind[] = ["devices", "traffic", "premium_traffic"];
+  return kinds.map((kind) => {
+    const limit = kind === "premium_traffic" ? summary.premiumTraffic : summary[kind];
+    const fact: TariffLimitFact = {
+      ...limit,
+      kind,
+      label: tariffLimitTitle(plan, kind, limit.unlimited, { t }),
+      unavailable:
+        kind === "premium_traffic" &&
+        ((plan?.premium_enabled === false && !plan.checkout_addons?.premium_traffic) ||
+          (limit.known && !limit.unlimited && limit.units === 0)),
+    };
+    if (kind === "traffic" && plan?.billing_model === "traffic") {
+      const packages = (plan.traffic_packages || [])
+        .map((value) => firstFiniteValue(value))
+        .filter((value): value is number => value !== null && value > 0)
+        .sort((a, b) => a - b);
+      if (packages.length) {
+        const min = packages[0];
+        const max = packages[packages.length - 1];
+        fact.known = true;
+        fact.unlimited = false;
+        fact.label = tariffLimitTitle(plan, kind, false, { t });
+        fact.units = min;
+        fact.valueText =
+          min === max ? formatTrafficGb(min) : `${formatTrafficGb(min)} – ${formatTrafficGb(max)}`;
+      }
+    }
+    return fact;
+  });
 }
 
 export const TELEGRAM_STARS_MINI_APP_REQUIRED = "telegram_stars_mini_app_required";
@@ -226,14 +333,36 @@ export function buildTariffCatalog(
               : "period")
         ),
         is_default: Boolean(plan?.is_default_tariff),
-        monthly_gb: Number(plan?.monthly_gb || 0),
+        monthly_gb: firstFiniteValue(plan?.monthly_gb),
+        effective_hwid_device_limit: firstFiniteValue(
+          plan?.effective_hwid_device_limit,
+          plan?.hwid_device_limit
+        ),
+        checkout_addons: plan.checkout_addons,
+        premium_enabled: plan.premium_enabled,
+        premium_monthly_gb: plan.premium_monthly_gb,
+        premium_title: plan.premium_title,
+        premium_traffic_limit_strategy: plan.premium_traffic_limit_strategy,
+        premium_unlimited: plan.premium_unlimited,
+        traffic_limit_strategy: plan.traffic_limit_strategy,
         traffic_packages: [],
         plans_count: 0,
       } satisfies TariffCatalogEntry);
     if (!entry.description && plan?.description) entry.description = String(plan.description);
     if (plan?.is_default_tariff) entry.is_default = true;
-    if (!entry.monthly_gb && Number(plan?.monthly_gb || 0) > 0)
-      entry.monthly_gb = Number(plan.monthly_gb);
+    if (entry.monthly_gb === null) entry.monthly_gb = firstFiniteValue(plan.monthly_gb);
+    if (entry.effective_hwid_device_limit === null)
+      entry.effective_hwid_device_limit = firstFiniteValue(
+        plan.effective_hwid_device_limit,
+        plan.hwid_device_limit
+      );
+    entry.checkout_addons ??= plan.checkout_addons;
+    entry.premium_enabled ??= plan.premium_enabled;
+    entry.premium_monthly_gb ??= plan.premium_monthly_gb;
+    entry.premium_title ??= plan.premium_title;
+    entry.premium_traffic_limit_strategy ??= plan.premium_traffic_limit_strategy;
+    entry.premium_unlimited ??= plan.premium_unlimited;
+    entry.traffic_limit_strategy ??= plan.traffic_limit_strategy;
     const trafficGb = Number(plan?.traffic_gb || 0);
     if (trafficGb > 0) entry.traffic_packages.push(trafficGb);
     entry.plans_count += 1;
@@ -376,7 +505,9 @@ export function tariffLimitLabel(
     const max = values[values.length - 1];
     return min === max ? formatTrafficGb(min) : `${formatTrafficGb(min)} - ${formatTrafficGb(max)}`;
   }
-  if (Number(tariff.monthly_gb || 0) > 0) return formatTrafficGb(tariff.monthly_gb);
+  const monthly = firstFiniteValue(tariff.monthly_gb);
+  if (monthly === null) return t("wa_checkout_tariff_not_specified", {}, "Not specified");
+  if (monthly > 0) return formatTrafficGb(monthly);
   return t("wa_unlimited_traffic");
 }
 

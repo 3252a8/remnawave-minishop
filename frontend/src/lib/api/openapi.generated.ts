@@ -21974,13 +21974,22 @@ export interface operations {
               }[];
               billing_model: string;
               description: string;
+              effective_hwid_device_limit?: number | null;
+              hwid_device_limit?: number | null;
               monthly_gb?: number | null;
               /** @description Raw switch calculation details from the subscription service. */
               options?: {
                 [key: string]: unknown;
               };
+              premium_enabled?: boolean;
+              premium_monthly_gb?: number | null;
+              premium_title?: string;
+              premium_traffic_limit_strategy?: string;
+              premium_unlimited?: boolean;
               tariff_key: string;
               title: string;
+              traffic_limit_strategy?: string;
+              traffic_packages?: number[];
             }[];
           };
         };

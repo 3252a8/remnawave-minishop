@@ -6,7 +6,9 @@
   import {
     checkoutTariffSummary,
     isStarsPaymentMethod,
+    tariffLimitTitle,
     type BillingPlan,
+    type TariffLimitFact,
   } from "$lib/webapp/tariffs.js";
   import type {
     CheckoutAddonDefinition,
@@ -14,7 +16,7 @@
     CheckoutAddonSelection,
     Translate,
   } from "$lib/webapp/types.js";
-  import AnimatedNumber from "./AnimatedNumber.svelte";
+  import TariffLimitFacts from "./TariffLimitFacts.svelte";
 
   let {
     addons = {},
@@ -47,7 +49,25 @@
   } = $props();
 
   const kinds: CheckoutAddonKind[] = ["devices", "traffic", "premium_traffic"];
+  const description = $derived(String(tariffDescription || plan?.description || "").trim());
   const summary = $derived(checkoutTariffSummary(plan));
+  const facts = $derived<TariffLimitFact[]>(
+    kinds.map((kind) => ({
+      kind,
+      label: title(kind),
+      known: limitKnown(kind),
+      units: totalValue(kind),
+      unlimited: limitUnlimited(kind),
+      unavailable:
+        kind === "premium_traffic" &&
+        !definitionFor(kind) &&
+        ((plan?.premium_enabled === false &&
+          !plan.checkout_addons?.premium_traffic &&
+          !addons.premium_traffic) ||
+          (limitKnown(kind) && !limitUnlimited(kind) && totalValue(kind) <= 0)),
+      adjustable: Boolean(definitionFor(kind)),
+    }))
+  );
   const hasAdjustableLimits = $derived(
     kinds.some((kind) => Number(addons[kind]?.options?.length || 0) > 1)
   );
@@ -58,9 +78,9 @@
   let titleDescriptionWrapped = $state(false);
   let titleLineElement: HTMLElement | undefined;
   let tariffTitleElement: HTMLElement | undefined;
-  let tariffDescriptionLineElement: HTMLElement | undefined;
-  let tariffDescriptionElement: HTMLElement | undefined;
-  let tariffSeparatorElement: HTMLElement | undefined;
+  let tariffDescriptionLineElement = $state<HTMLElement>();
+  let tariffDescriptionElement = $state<HTMLElement>();
+  let tariffSeparatorElement = $state<HTMLElement>();
   let titleResizeObserver: ResizeObserver | undefined;
   let titleMeasureFrame: number | undefined;
   const editorExpanded = $derived(phase === "opening" || phase === "open");
@@ -99,10 +119,6 @@
     return summary.premiumTraffic.units;
   }
 
-  function valueSuffix(kind: CheckoutAddonKind): string {
-    return kind === "devices" ? "" : " GB";
-  }
-
   function limitKnown(kind: CheckoutAddonKind): boolean {
     if (definitionFor(kind)) return true;
     if (kind === "devices") return summary.devices.known;
@@ -126,17 +142,6 @@
     return String(plan?.traffic_limit_strategy || "").toUpperCase();
   }
 
-  function trafficPeriod(kind: CheckoutAddonKind): string {
-    const strategy = trafficStrategy(kind);
-    if (strategy.includes("MONTH")) return t("wa_checkout_period_month", {}, "per month");
-    if (strategy.includes("WEEK")) return t("wa_checkout_period_week", {}, "per week");
-    if (strategy.includes("DAY")) return t("wa_checkout_period_day", {}, "per day");
-    if (strategy.includes("NO_RESET")) {
-      return t("wa_checkout_period_no_reset", {}, "without reset");
-    }
-    return "";
-  }
-
   function trafficResetHint(kind: CheckoutAddonKind): string {
     const strategy = trafficStrategy(kind);
     if (strategy.includes("MONTH")) return t("wa_traffic_reset_monthly", {}, "Monthly reset");
@@ -147,37 +152,7 @@
   }
 
   function title(kind: CheckoutAddonKind): string {
-    if (kind === "devices") return t("wa_checkout_addon_devices", {}, "Devices");
-    const premiumTitle = String(plan?.premium_title || "").trim();
-    if (kind === "premium_traffic" && premiumTitle) {
-      if (limitUnlimited(kind)) return premiumTitle;
-      const period = trafficPeriod(kind);
-      return period
-        ? t(
-            "wa_checkout_named_traffic_with_period",
-            { name: premiumTitle, period },
-            `${premiumTitle} ${period}`
-          )
-        : t(
-            "wa_checkout_named_traffic_period",
-            { name: premiumTitle },
-            `${premiumTitle} per period`
-          );
-    }
-    if (limitUnlimited(kind)) {
-      return kind === "traffic"
-        ? t("wa_checkout_addon_traffic", {}, "Traffic")
-        : t("wa_checkout_addon_premium_traffic", {}, "Premium traffic");
-    }
-    const period = trafficPeriod(kind);
-    if (!period) {
-      return kind === "traffic"
-        ? t("wa_checkout_tariff_traffic_period", {}, "Traffic per period")
-        : t("wa_checkout_tariff_premium_period", {}, "Premium traffic per period");
-    }
-    return kind === "traffic"
-      ? t("wa_checkout_tariff_traffic_with_period", { period }, `Traffic ${period}`)
-      : t("wa_checkout_tariff_premium_with_period", { period }, `Premium traffic ${period}`);
+    return tariffLimitTitle(plan, kind, limitUnlimited(kind), { t });
   }
 
   function subtitle(kind: CheckoutAddonKind): string {
@@ -286,27 +261,6 @@
   });
 </script>
 
-{#snippet addonValue(kind: CheckoutAddonKind)}
-  <span class="checkout-addon-value">
-    {#if limitUnlimited(kind)}
-      <span class="checkout-addon-unlimited">
-        {t("wa_checkout_tariff_unlimited", {}, "Unlimited")}
-      </span>
-    {:else if limitKnown(kind)}
-      <AnimatedNumber
-        value={totalValue(kind)}
-        suffix={valueSuffix(kind)}
-        ariaLabel={`${totalValue(kind)}${valueSuffix(kind)}`}
-        format={{ maximumFractionDigits: 2 }}
-        animated={animateValues}
-        updateIntervalMs={sliderInteracting ? 420 : 0}
-      />
-    {:else}
-      <span aria-label={t("wa_checkout_tariff_not_specified", {}, "Not specified")}>—</span>
-    {/if}
-  </span>
-{/snippet}
-
 {#snippet limitIcon(kind: CheckoutAddonKind)}
   <span class="checkout-tariff-limit-icon" aria-hidden="true">
     {#if kind === "devices"}
@@ -319,26 +273,9 @@
   </span>
 {/snippet}
 
-{#snippet summaryFacts()}
-  <div class="checkout-tariff-facts">
-    {#each kinds as kind}
-      {@const definition = definitionFor(kind)}
-      {#if kind !== "premium_traffic" || definition || limitKnown(kind)}
-        <div class:adjustable={Boolean(definition)} class="checkout-tariff-fact">
-          {@render addonValue(kind)}
-          <span class="checkout-tariff-fact-label">
-            {@render limitIcon(kind)}
-            <span class="checkout-addon-label">{title(kind)}</span>
-          </span>
-        </div>
-      {/if}
-    {/each}
-  </div>
-{/snippet}
-
 {#snippet editorControls()}
   <div class="checkout-tariff-editor-facts">
-    {#each kinds as kind}
+    {#each kinds as kind (kind)}
       {@const definition = definitionFor(kind)}
       {#if definition}
         <div class="checkout-tariff-editor-fact">
@@ -406,20 +343,20 @@
       <strong bind:this={tariffTitleElement}>
         {tariffTitle || plan?.tariff_name || plan?.title || ""}
       </strong>
-      <span class="checkout-tariff-description-line" bind:this={tariffDescriptionLineElement}>
-        <span
-          class="checkout-tariff-title-separator"
-          aria-hidden="true"
-          bind:this={tariffSeparatorElement}
-        >
-          —
+      {#if description}
+        <span class="checkout-tariff-description-line" bind:this={tariffDescriptionLineElement}>
+          <span
+            class="checkout-tariff-title-separator"
+            aria-hidden="true"
+            bind:this={tariffSeparatorElement}
+          >
+            —
+          </span>
+          <small bind:this={tariffDescriptionElement}>
+            {description}
+          </small>
         </span>
-        <small bind:this={tariffDescriptionElement}>
-          {tariffDescription ||
-            plan?.description ||
-            t("wa_tariff_no_description", {}, "Tariff description is not configured")}
-        </small>
-      </span>
+      {/if}
     </span>
     {#if hasAdjustableLimits}
       <button
@@ -445,7 +382,7 @@
   </header>
 
   <div class="checkout-tariff-summary-static">
-    {@render summaryFacts()}
+    <TariffLimitFacts {facts} {animateValues} updateIntervalMs={sliderInteracting ? 420 : 0} {t} />
   </div>
 
   {#if hasAdjustableLimits}

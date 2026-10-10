@@ -6,6 +6,7 @@ import { checkoutAddons, DEV_MOCK, previewPeriodPlan } from "./devMock";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
 import { applyPaymentProvidersDemo } from "./paymentProviders";
+import { applyTariffLimitsDemo } from "./tariffLimits.js";
 
 // The generated dataset is treated as a loose record: scenario code probes
 // optional fields that older snapshots may not carry.
@@ -252,6 +253,15 @@ export function applyPreviewMock(kind: unknown): void {
   const mode = String(kind || "")
     .trim()
     .toLowerCase();
+
+  if (mode === "tariff-limits" || mode === "tariff-limits-purchase") {
+    applyTariffLimitsDemo();
+    if (mode === "tariff-limits-purchase") {
+      DEV_MOCK.data.subscription.active = false;
+      DEV_MOCK.data.subscription.status = "INACTIVE";
+    }
+    return;
+  }
 
   if (mode === "payment-providers") {
     applyPreviewMock("checkout-addons");

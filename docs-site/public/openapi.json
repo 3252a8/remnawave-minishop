@@ -39116,6 +39116,18 @@
                           "description": {
                             "type": "string"
                           },
+                          "effective_hwid_device_limit": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "hwid_device_limit": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
                           "monthly_gb": {
                             "type": [
                               "number",
@@ -39127,11 +39139,38 @@
                             "description": "Raw switch calculation details from the subscription service.",
                             "type": "object"
                           },
+                          "premium_enabled": {
+                            "type": "boolean"
+                          },
+                          "premium_monthly_gb": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "premium_title": {
+                            "type": "string"
+                          },
+                          "premium_traffic_limit_strategy": {
+                            "type": "string"
+                          },
+                          "premium_unlimited": {
+                            "type": "boolean"
+                          },
                           "tariff_key": {
                             "type": "string"
                           },
                           "title": {
                             "type": "string"
+                          },
+                          "traffic_limit_strategy": {
+                            "type": "string"
+                          },
+                          "traffic_packages": {
+                            "items": {
+                              "type": "number"
+                            },
+                            "type": "array"
                           }
                         },
                         "required": [

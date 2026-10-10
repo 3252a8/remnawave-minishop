@@ -11,6 +11,7 @@
     firstAvailableMethod,
     methodSelectable,
     methodsForPlan,
+    tariffLimitFacts,
   } from "../lib/webapp/tariffs.js";
   import { premiumTitle as premiumTitleFn } from "../lib/webapp/traffic.js";
   import { formatCompactNumber, formatMoney } from "../lib/webapp/formatters.js";
@@ -25,6 +26,7 @@
   } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "./CheckoutPromoRow.svelte";
   import PartnerBalanceDiscount from "./payment-dialogs/PartnerBalanceDiscount.svelte";
+  import TariffLimitFacts from "$components/patterns/webapp/TariffLimitFacts.svelte";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import type {
     BillingOptionsResponse,
@@ -463,25 +465,38 @@
     {:else if changeOptions?.targets?.length}
       <p class="section-kicker">{t("wa_tariff_change_targets_title")}</p>
       <div class="tariff-action-list">
-        {#each changeOptions.targets as target}
+        {#each changeOptions.targets as target (target.tariff_key)}
           <button
             class:active={selectedChangeTarget?.tariff_key === target.tariff_key}
             class="tariff-action-card"
             type="button"
+            aria-pressed={selectedChangeTarget?.tariff_key === target.tariff_key}
             onclick={() => {
               selectedChangeTarget = target;
               selectedChangeAction = target.actions?.[0] || null;
             }}
           >
-            <span>
+            <div class="tariff-action-heading">
               <strong>{target.title}</strong>
-              <small>{target.description}</small>
-            </span>
-            <em
-              >{target.billing_model === "traffic"
-                ? t("wa_tariff_model_traffic")
-                : t("wa_tariff_model_period")}</em
-            >
+              <TariffLimitFacts compact inline facts={tariffLimitFacts(target, { t })} {t} />
+            </div>
+            <div class="tariff-action-copy">
+              {#if target.description?.trim()}
+                <small>{target.description}</small>
+              {/if}
+              <span class="tariff-action-meta">
+                <em
+                  >{target.billing_model === "traffic"
+                    ? t("wa_tariff_model_traffic")
+                    : t("wa_tariff_model_period")}</em
+                >
+                {#if selectedChangeTarget?.tariff_key === target.tariff_key}
+                  <CheckCircle2 size={18} />
+                {:else}
+                  <ArrowRight size={17} />
+                {/if}
+              </span>
+            </div>
           </button>
         {/each}
       </div>
@@ -832,3 +847,61 @@
     {/if}
   </div>
 </Dialog>
+
+<style>
+  .tariff-action-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .tariff-action-heading {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+  }
+
+  .tariff-action-heading strong {
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
+  }
+
+  .tariff-action-copy {
+    display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    align-items: flex-end;
+    gap: 4px 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .tariff-action-copy > small {
+    min-width: 0;
+    flex: 1 1 12rem;
+    line-height: 1.35;
+  }
+
+  .tariff-action-meta {
+    display: flex;
+    min-width: 0;
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .tariff-action-meta em {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+</style>

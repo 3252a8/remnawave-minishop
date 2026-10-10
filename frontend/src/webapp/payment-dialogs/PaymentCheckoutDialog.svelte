@@ -42,7 +42,6 @@
     planDisplayTitle as planDisplayTitleFn,
     planSubtitle as planSubtitleFn,
     planUnitHint as planUnitHintFn,
-    tariffLimitLabel as tariffLimitLabelFn,
     priceLabel as priceLabelFn,
     firstAvailableMethod,
     isTrialPaymentPlan,
@@ -56,7 +55,6 @@
     CheckoutAddonKind,
     CheckoutAddonSelection,
     PlanView,
-    TariffView,
   } from "$lib/webapp/types.js";
   let {
     api,
@@ -675,9 +673,6 @@
         : "",
     };
   }
-  function tariffLimitLabel(tariff: TariffView) {
-    return tariffLimitLabelFn(tariff, { t });
-  }
   function checkoutPromoBlock() {
     return (
       !isTrialPaymentPlan(selectedPlan) &&
@@ -911,7 +906,10 @@
         <CheckoutTariffPicker
           tariffs={tariffCatalog}
           {selectedTariffKey}
-          metaLabel={tariffLimitLabel}
+          metaLabel={(tariff) =>
+            tariff.billing_model === "traffic"
+              ? t("wa_tariff_model_traffic")
+              : t("wa_tariff_model_period")}
           {selectTariff}
           {t}
         />

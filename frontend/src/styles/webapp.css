@@ -1628,33 +1628,6 @@ a {
   color: var(--text);
 }
 
-.checkout-tariff-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  min-width: 0;
-}
-
-.checkout-tariff-fact {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 3px;
-  padding: 0 8px;
-}
-
-.checkout-tariff-fact + .checkout-tariff-fact {
-  border-left: 1px solid var(--border);
-}
-
-.checkout-tariff-fact-label {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 5px;
-}
-
 .checkout-tariff-limit-icon {
   display: inline-grid;
   width: 22px;
@@ -1662,11 +1635,6 @@ a {
   flex: 0 0 auto;
   place-items: center;
   color: var(--muted);
-}
-
-.checkout-tariff-fact .checkout-tariff-limit-icon {
-  width: 14px;
-  height: 14px;
 }
 
 .checkout-tariff-editor-facts {
@@ -1748,19 +1716,6 @@ a {
   line-height: 1.3;
 }
 
-.checkout-addon-value {
-  color: var(--text);
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 900;
-  letter-spacing: -0.035em;
-}
-
-.checkout-addon-unlimited {
-  font-size: 12px;
-  letter-spacing: -0.015em;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .checkout-tariff-editor-mode,
   .checkout-tariff-editor-inner {
@@ -1771,35 +1726,6 @@ a {
 @media (max-width: 520px) {
   .checkout-tariff-summary-static {
     padding-bottom: 7px;
-  }
-
-  .checkout-tariff-facts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .checkout-tariff-fact {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 11px 5px 6px;
-  }
-
-  .checkout-tariff-fact + .checkout-tariff-fact {
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
-
-  .checkout-tariff-fact .checkout-addon-value {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    text-align: right;
-  }
-
-  .checkout-tariff-fact-label {
-    grid-column: 1;
-    grid-row: 1;
   }
 }
 
@@ -2369,7 +2295,7 @@ a {
   text-align: left;
 }
 
-.tariff-action-card span {
+.tariff-action-card > span {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -4522,9 +4448,21 @@ a {
   .app-shell .home-brand .brand-mark,
   .app-shell .home-brand .brand-mark.brand-mark-lg,
   .app-shell .home-brand .brand-mark.brand-mark-xl {
-    width: min(calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1)), 100cqh, 100cqw);
-    height: min(calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1)), 100cqh, 100cqw);
-    font-size: min(calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1)), 70cqh, 70cqw);
+    width: min(
+      calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1)),
+      100cqh,
+      100cqw
+    );
+    height: min(
+      calc(clamp(180px, 18vw, 260px) * var(--home-logo-scale-effective, 1)),
+      100cqh,
+      100cqw
+    );
+    font-size: min(
+      calc(clamp(124px, 13vw, 184px) * var(--home-logo-scale-effective, 1)),
+      70cqh,
+      70cqw
+    );
   }
 
   .home-bottom {
