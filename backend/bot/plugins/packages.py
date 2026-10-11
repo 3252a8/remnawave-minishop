@@ -188,7 +188,8 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
             if (
                 not isinstance(name, str)
                 or type(version) is not int
-                or CORE_PLUGIN_CAPABILITIES.get(name) != version
+                or version < 1
+                or CORE_PLUGIN_CAPABILITIES.get(name, 0) < version
             ):
                 raise PluginPackageError("incompatible_core_capability")
     runtime = manifest.get("runtime")

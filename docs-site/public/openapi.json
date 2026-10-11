@@ -5918,6 +5918,18 @@
       },
       "AdminSupportMessageOut": {
         "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Label"
+          },
           "author_name": {
             "anyOf": [
               {
@@ -5961,6 +5973,18 @@
             },
             "title": "Buttons",
             "type": "array"
+          },
+          "connector_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Connector Source"
           },
           "created_at": {
             "anyOf": [
@@ -6098,6 +6122,11 @@
             "title": "Category",
             "type": "string"
           },
+          "change_cursor": {
+            "default": 0,
+            "title": "Change Cursor",
+            "type": "integer"
+          },
           "closed_at": {
             "anyOf": [
               {
@@ -6152,6 +6181,11 @@
           "priority": {
             "title": "Priority",
             "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "status": {
             "title": "Status",
@@ -14685,6 +14719,18 @@
       },
       "SupportMessageOut": {
         "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Label"
+          },
           "author_role": {
             "title": "Author Role",
             "type": "string"
@@ -14716,6 +14762,18 @@
             },
             "title": "Buttons",
             "type": "array"
+          },
+          "connector_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Connector Source"
           },
           "created_at": {
             "anyOf": [
@@ -14809,6 +14867,11 @@
             "title": "Category",
             "type": "string"
           },
+          "change_cursor": {
+            "default": 0,
+            "title": "Change Cursor",
+            "type": "integer"
+          },
           "closed_at": {
             "anyOf": [
               {
@@ -14863,6 +14926,11 @@
           "priority": {
             "title": "Priority",
             "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "status": {
             "title": "Status",

@@ -3,6 +3,7 @@
   import { buttonsForPayload } from "$lib/admin/stores/broadcastStore.svelte";
   import type { BroadcastButtonDraft } from "$lib/admin/stores/broadcastStore.svelte";
   import { supportMessageImageUrl } from "$lib/messageImage";
+  import { escapeHtml } from "$lib/richtext/escape";
   import { onMount, tick } from "svelte";
   import {
     AdminButton,
@@ -16,6 +17,7 @@
   } from "$components/patterns/admin/index.js";
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
+  import AdminExtensionPoint from "./AdminExtensionPoint.svelte";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
   import { Sliders } from "$components/ui/icons.js";
   import type {
@@ -148,6 +150,27 @@
     { value: "created_asc", label: at("sort_created_asc", {}, "Oldest created") },
   ]);
   const ticketReady = $derived(Boolean(openedTicket && openedTicket.ticket_id === openedTicketId));
+  const ticketExtensionContext = $derived.by(() => {
+    const ticket = openedTicket;
+    const ticketId = Number(openedTicketId);
+    const revision = ticket?.revision ?? 1;
+    return {
+      ticketId,
+      ticket,
+      revision,
+      insertReplyDraft: (text: string) => {
+        if (Number(openedTicketId) !== ticketId || (openedTicket?.revision ?? 1) !== revision)
+          return false;
+        reply = escapeHtml(text.slice(0, maxBodyLength));
+        if (composerInternalNote) supportStore.toggleInternalNote();
+        return true;
+      },
+      refreshTicket: async () => {
+        if (Number(openedTicketId) === ticketId)
+          await supportStore.openTicket(ticketId, { skipPush: true });
+      },
+    };
+  });
   const modalTitle = $derived(
     ticketReady
       ? openedTicket?.subject || ""
@@ -256,9 +279,12 @@
   }
 
   function messageAuthorName(message: SupportMessage): string {
+    if (message?.author_label) return message.author_label;
     if (message?.author_name) return message.author_name;
     if (message?.author_role === "user") return ticketUserDisplayName();
     if (message?.author_role === "admin") return at("support_role_admin", {}, "Admin");
+    if (message?.author_role === "connector")
+      return at("support_role_connector", {}, "Automated support");
     return "";
   }
 
@@ -494,6 +520,7 @@
       {#if peerTyping}
         <TypingIndicator label={at("support_user_typing", {}, "User is typing…")} />
       {/if}
+      <AdminExtensionPoint target="admin.support.ticket.content" context={ticketExtensionContext} />
       <SupportComposer
         bind:value={reply}
         bind:image={replyImage}

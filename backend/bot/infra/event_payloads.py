@@ -336,6 +336,30 @@ class SupportTicketCreatedPayload(EventPayload):
     priority: str
 
 
+class SupportMessageCreatedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "support.message_created"
+
+    user_id: int
+    ticket_id: int
+    message_id: int
+    author_role: str
+    is_internal_note: bool
+    revision: int
+    change_cursor: int
+    source: str | None = None
+
+
+class SupportTicketUpdatedPayload(EventPayload):
+    EVENT_NAME: ClassVar[str] = "support.ticket_updated"
+
+    user_id: int
+    ticket_id: int
+    status: str
+    revision: int
+    change_cursor: int
+    assigned_admin_id: int | None = None
+
+
 class PanelWebhookReceivedPayload(EventPayload):
     EVENT_NAME: ClassVar[str] = "panel.webhook_received"
 

@@ -7293,6 +7293,11 @@ export interface components {
     /** AdminSupportMessageOut */
     AdminSupportMessageOut: {
       /**
+       * Author Label
+       * @default null
+       */
+      author_label: string | null;
+      /**
        * Author Name
        * @default null
        */
@@ -7313,6 +7318,11 @@ export interface components {
       body_format: string;
       /** Buttons */
       buttons?: components["schemas"]["SupportMessageButtonOut"][];
+      /**
+       * Connector Source
+       * @default null
+       */
+      connector_source: string | null;
       /**
        * Created At
        * @default null
@@ -7369,6 +7379,11 @@ export interface components {
       /** Category */
       category: string;
       /**
+       * Change Cursor
+       * @default 0
+       */
+      change_cursor: number;
+      /**
        * Closed At
        * @default null
        */
@@ -7390,6 +7405,11 @@ export interface components {
       last_message_role: string | null;
       /** Priority */
       priority: string;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
       /** Status */
       status: string;
       /** Subject */
@@ -11122,6 +11142,11 @@ export interface components {
     };
     /** SupportMessageOut */
     SupportMessageOut: {
+      /**
+       * Author Label
+       * @default null
+       */
+      author_label: string | null;
       /** Author Role */
       author_role: string;
       /**
@@ -11138,6 +11163,11 @@ export interface components {
       body_format: string;
       /** Buttons */
       buttons?: components["schemas"]["SupportMessageButtonOut"][];
+      /**
+       * Connector Source
+       * @default null
+       */
+      connector_source: string | null;
       /**
        * Created At
        * @default null
@@ -11175,6 +11205,11 @@ export interface components {
       /** Category */
       category: string;
       /**
+       * Change Cursor
+       * @default 0
+       */
+      change_cursor: number;
+      /**
        * Closed At
        * @default null
        */
@@ -11196,6 +11231,11 @@ export interface components {
       last_message_role: string | null;
       /** Priority */
       priority: string;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
       /** Status */
       status: string;
       /** Subject */

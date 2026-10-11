@@ -77,7 +77,7 @@
   const messageRole = $derived(role || "system");
   const serviceMessage = $derived(isInternalNote || messageRole === "system");
   const outgoing = $derived(
-    (perspective === "admin" && (messageRole === "admin" || serviceMessage)) ||
+    (perspective === "admin" && (["admin", "connector"].includes(messageRole) || serviceMessage)) ||
       (!serviceMessage && perspective !== "admin" && messageRole === "user")
   );
   const roleLabel = $derived(
@@ -92,7 +92,9 @@
     messageDisplayHtml(body, bodyFormat, { customEmoji: Boolean(loadCustomEmojiMedia) })
   );
   const messageButtons = $derived((buttons || []).filter((button) => button?.label && button?.url));
-  const showSupportAvatar = $derived(!isInternalNote && messageRole === "admin");
+  const showSupportAvatar = $derived(
+    !isInternalNote && ["admin", "connector"].includes(messageRole)
+  );
   const showUserAvatar = $derived(!isInternalNote && messageRole === "user");
   const showReceipt = $derived(outgoing && !serviceMessage);
   const messageRead = $derived(

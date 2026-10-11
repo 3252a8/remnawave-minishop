@@ -122,6 +122,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0103_promo_activation_merge_history",
     "0104_gift_referral_qualification",
     "0105_provider_mandates",
+    "0106_support_connector",
 ]
 
 

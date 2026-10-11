@@ -220,6 +220,7 @@ def test_user_reply_refreshes_ticket_after_notification_update(monkeypatch):
     )
     service.build_user_snapshot = AsyncMock(return_value={})
     service._schedule_notification = discard_notification
+    service._emit_message_created = AsyncMock()
     monkeypatch.setattr(service, "_ensure_user_allowed", ensure_user_allowed)
     monkeypatch.setattr(service, "_enforce_user_message_limits", enforce_limits)
     monkeypatch.setattr(
