@@ -49,8 +49,8 @@ from .sync_admin_common import (
     _subscription_update_reason_labels,
     _sync_lock,
 )
+from .sync_admin_duplicates import _absorb_duplicate_panel_identity, _preferred_panel_identity
 from .sync_admin_identity import (
-    _absorb_duplicate_panel_identity,
     _bind_panel_email_to_user,
     _create_panel_user,
     _extract_lifetime_used_traffic_bytes,
@@ -165,6 +165,7 @@ async def _perform_sync_impl(
             if panel_user.get("uuid")
         }
 
+        handled_panel_uuids: set[str] = set()
         for panel_offset, panel_user_dict in enumerate(panel_users_data):
             if reload_batch:
                 sync_indexes = await _prefetch_sync_indexes(
@@ -209,13 +210,14 @@ async def _perform_sync_impl(
                     sync_errors.append(f"Panel user missing UUID: {panel_user_dict}")
                     logger.warning("Skipping panel user without UUID: %s", panel_user_dict)
                     continue
+                if str(panel_uuid) in handled_panel_uuids:
+                    continue
 
                 # Track users without telegram ID
                 if not telegram_id_from_panel:
                     users_without_telegram_id += 1
 
-                # Keep the persisted native panel link. Panel records sharing its
-                # Telegram ID are duplicates whose remaining periods are absorbed.
+                # A proven Telegram duplicate can adopt an external native panel link.
                 # Panel email and a coincidentally equal internal ID prove nothing.
                 existing_user = users_by_panel_uuid.get(panel_uuid)
                 is_panel_telegram_duplicate = False
@@ -240,6 +242,12 @@ async def _perform_sync_impl(
                             f"Panel user {panel_uuid} has conflicting Telegram identity; "
                             "manual review required"
                         )
+                        continue
+                    if (
+                        existing_user.panel_user_uuid == panel_uuid
+                        and len(panel_uuids_by_telegram_id.get(telegram_id_from_panel, set())) > 1
+                    ):
+                        # Reconcile before a stale snapshot can replace paid local state.
                         continue
 
                 if not existing_user:
@@ -410,6 +418,23 @@ async def _perform_sync_impl(
                         )
                     if linked_uuid_still_present:
                         is_duplicate_panel_identity = True
+                        preferred_uuid = _preferred_panel_identity(
+                            existing_user,
+                            [
+                                panel_users_by_uuid[uuid]
+                                for uuid in panel_uuids_by_telegram_id.get(
+                                    int(existing_user.telegram_id), set()
+                                )
+                            ],
+                        )
+                        if preferred_uuid is None:
+                            sync_errors.append(
+                                f"Panel Telegram identity {telegram_id_from_panel} has ambiguous "
+                                "external accounts; manual review required"
+                            )
+                            continue
+                        if preferred_uuid not in {linked_uuid, panel_uuid}:
+                            continue
                         (
                             existing_user,
                             can_absorb_duplicate_panel_user,
@@ -443,7 +468,10 @@ async def _perform_sync_impl(
                             settings=settings,
                             subscriptions_by_panel_uuid=subscriptions_by_panel_uuid,
                             active_subscriptions_by_user_panel=(active_subscriptions_by_user_panel),
+                            preserve_duplicate_identity=preferred_uuid == panel_uuid,
                         )
+                        handled_panel_uuids.update((str(linked_uuid), str(panel_uuid)))
+                        users_by_panel_uuid[str(existing_user.panel_user_uuid)] = existing_user
                         subscriptions_created += int(merge_result["subscriptions_created"])
                         subscriptions_updated += int(merge_result["subscriptions_updated"])
                         subscriptions_synced_count += int(
@@ -463,14 +491,16 @@ async def _perform_sync_impl(
                                 panel_uuids_by_telegram_id.get(
                                     telegram_id_from_panel,
                                     set(),
-                                ).discard(str(panel_uuid))
-                            users_by_panel_uuid.pop(str(panel_uuid), None)
+                                ).discard(str(merge_result.get("deleted_panel_uuid", panel_uuid)))
+                            users_by_panel_uuid.pop(
+                                str(merge_result.get("deleted_panel_uuid", panel_uuid)), None
+                            )
                             logger.info(
                                 "Sync local update: user_id=%s telegram_id=%s panel_uuid=%s "
                                 "reasons=%s",
                                 actual_user_id,
                                 existing_user.telegram_id,
-                                linked_uuid,
+                                existing_user.panel_user_uuid,
                                 "duplicate_panel_identity_resolved",
                             )
                         else:
@@ -481,8 +511,8 @@ async def _perform_sync_impl(
                         logger.warning(
                             "Sync: duplicate panel users share telegramId %s; kept local panel UUID %s and processed duplicate panel UUID %s.",  # noqa: E501
                             telegram_id_from_panel,
-                            linked_uuid,
-                            panel_uuid,
+                            existing_user.panel_user_uuid,
+                            merge_result.get("deleted_panel_uuid", panel_uuid),
                         )
                         continue
                     elif existing_user.panel_user_uuid != panel_uuid:
