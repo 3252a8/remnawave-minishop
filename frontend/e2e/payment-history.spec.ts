@@ -132,3 +132,95 @@ for (const width of [1440, 390]) {
     });
   });
 }
+
+for (const width of [1440, 780, 390]) {
+  test.describe(`payment history geometry at ${width}px`, () => {
+    test(`payment history keeps list geometry during updates at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(() => {
+        const setTimeout = window.setTimeout.bind(window);
+        window.setTimeout = (handler, timeout, ...args) =>
+          setTimeout(handler, timeout === 120 ? 800 : timeout, ...args);
+      });
+      await page.goto("/demo/runtime/settings/payments?theme_preview=dark");
+      const list = page.locator(".payment-history-list");
+      const rows = page.locator("[data-payment-history-id]");
+      await expect(list).toHaveAttribute("aria-busy", "false");
+      await expect(rows).toHaveCount(10);
+      const geometry = () =>
+        list.evaluate((element) => ({
+          top: element.offsetTop,
+          height: element.getBoundingClientRect().height,
+        }));
+      const initial = await geometry();
+      const expectStableList = async () => {
+        const current = await geometry();
+        expect(Math.abs(current.top - initial.top)).toBeLessThanOrEqual(1);
+        expect(Math.abs(current.height - initial.height)).toBeLessThanOrEqual(1);
+      };
+      const expectLoading = async () => {
+        await expect(list).toHaveAttribute("aria-busy", "true");
+        await expect(list.getByRole("status")).toHaveText("Загрузка...");
+        await expect(list.locator(".payment-history-skeleton .ui-skeleton").first()).toBeVisible();
+        await expect(rows.first()).toBeHidden();
+        await expectStableList();
+      };
+
+      await page.getByRole("button", { name: "Далее", exact: true }).click();
+      await expectLoading();
+      await list.scrollIntoViewIfNeeded();
+      const loadingShot = test.info().outputPath(`payment-history-loading-${width}.png`);
+      await page.screenshot({ path: loadingShot });
+      await test.info().attach(`payment-history-loading-${width}`, {
+        path: loadingShot,
+        contentType: "image/png",
+      });
+      await expect(list).toHaveAttribute("aria-busy", "false");
+      await expect(rows).toHaveCount(3);
+      await expectStableList();
+
+      const refresh = page.locator(".payment-history-heading button");
+      await page.evaluate(() => {
+        const url = new URL(location.href);
+        url.searchParams.set("mock", "payment-history-empty");
+        history.replaceState(history.state, "", url);
+      });
+      await refresh.click();
+      await expectLoading();
+      await expect(page.getByRole("heading", { name: "Платежей пока нет" })).toBeVisible();
+      await expect(rows).toHaveCount(0);
+      await expectStableList();
+      const emptyShot = test.info().outputPath(`payment-history-empty-${width}.png`);
+      await page.screenshot({ path: emptyShot });
+      await test.info().attach(`payment-history-empty-${width}`, {
+        path: emptyShot,
+        contentType: "image/png",
+      });
+      await refresh.click();
+      await expect(list).toHaveAttribute("aria-busy", "true");
+      await expect(page.getByRole("heading", { name: "Платежей пока нет" })).toBeHidden();
+      await expectStableList();
+      await expect(list).toHaveAttribute("aria-busy", "false");
+      await expectStableList();
+
+      await page.evaluate(() => {
+        const url = new URL(location.href);
+        url.searchParams.set("mock", "payment-history-error");
+        history.replaceState(history.state, "", url);
+      });
+      await refresh.click();
+      await expect(list).toHaveAttribute("aria-busy", "false");
+      await expect(list.getByRole("alert")).toBeVisible();
+      await expectStableList();
+      await page.getByRole("button", { name: "Повторить", exact: true }).click();
+      await expect(list).toHaveAttribute("aria-busy", "true");
+      await expectStableList();
+      await expect(list).toHaveAttribute("aria-busy", "false");
+      await expect(list.getByRole("alert")).toBeVisible();
+      await expectStableList();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      ).toBeLessThanOrEqual(2);
+    });
+  });
+}

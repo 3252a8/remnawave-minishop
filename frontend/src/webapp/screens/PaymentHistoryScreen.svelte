@@ -4,9 +4,12 @@
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import Badge from "$components/ui/badge.svelte";
-  import Spinner from "$components/ui/spinner.svelte";
   import { Tooltip } from "$components/ui/primitives.js";
-  import { AdminPagination, AdminTable } from "$components/patterns/admin/index.js";
+  import {
+    AdminPagination,
+    AdminTable,
+    AdminTableSkeleton,
+  } from "$components/patterns/admin/index.js";
   import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
   import PaymentPurchasesCell from "../../admin/sections/PaymentPurchasesCell.svelte";
   import { paymentDescriptionDisplay, paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
@@ -38,6 +41,10 @@
   let loading = $state(true);
   let failed = $state(false);
   let openStatusTooltip = $state<number | null>(null);
+  let listHeight = $state(0);
+  let listWidth = $state(0);
+  let reservation = $state({ width: 0, height: 0 });
+  const reservedHeight = $derived(reservation.width === listWidth ? reservation.height : 0);
   let controller: AbortController | undefined;
   let requestSequence = 0;
 
@@ -72,10 +79,14 @@
   }
 
   async function loadPage(nextPage: number, quiet = false): Promise<void> {
+    if (total !== null) {
+      reservation = { width: listWidth, height: Math.max(reservedHeight, listHeight) };
+    }
     const sequence = ++requestSequence;
     controller?.abort();
     controller = new AbortController();
     loading = !quiet;
+    if (!quiet) openStatusTooltip = null;
     failed = false;
     try {
       const result = unwrap(
@@ -136,107 +147,123 @@
 
   <section
     class="payment-history-list"
+    bind:clientHeight={listHeight}
+    bind:clientWidth={listWidth}
+    style:min-height={`${reservedHeight}px`}
     aria-label={t("wa_payment_history_title")}
     aria-busy={loading}
   >
-    {#if loading}
-      <div class="payment-history-state" role="status">
-        <Spinner /><span>{t("wa_loading")}</span>
-      </div>
-    {/if}
-    {#if failed}
-      <Card class="payment-history-state">
-        <p role="alert">{t("wa_payment_history_load_failed")}</p>
-        <Button variant="secondary" onclick={() => void loadPage(page)}>{t("wa_retry")}</Button>
-      </Card>
-    {/if}
-    {#if !loading && !failed && total === 0}
-      <Card class="payment-history-empty">
-        <CreditCardCheck size={32} />
-        <h2>{t("wa_payment_history_empty")}</h2>
-        <p>{t("wa_payment_history_empty_hint")}</p>
-      </Card>
-    {:else if items.length}
-      <AdminTable appearance="webapp" layout="fixed" minWidth="960px">
-        <colgroup>
-          <col style="width: 82px" />
-          <col style="width: 110px" />
-          <col style="width: 90px" />
-          <col style="width: 80px" />
-          <col style="width: 105px" />
-          <col style="width: 145px" />
-          <col style="width: 178px" />
-          <col style="width: 140px" />
-        </colgroup>
-        <thead
-          ><tr
-            >{#each headers as header (header)}<th scope="col">{header}</th>{/each}</tr
-          ></thead
-        >
-        <tbody>
-          {#each items as item (item.payment_id)}
-            {@const status = paymentHistoryStatus(item, t)}
-            <tr data-payment-history-id={item.payment_id}>
-              <td data-label={headers[0]} data-numeric><strong>#{item.payment_id}</strong></td>
-              <td data-label={headers[1]}><PaymentPurchasesCell payment={item} {at} /></td>
-              <td data-label={headers[2]} data-numeric>{money(item.amount, item.currency)}</td>
-              <td data-label={headers[3]} data-numeric>{paymentDiscountDisplay(item, money)}</td>
-              <td data-label={headers[4]}><PaymentProviderCell provider={item.provider} {at} /></td>
-              <td data-label={headers[5]}>{paymentDescriptionDisplay(item, at)}</td>
-              <td data-label={headers[6]}>
-                <Tooltip.Root
-                  open={openStatusTooltip === item.payment_id}
-                  onOpenChange={(open) => {
-                    if (open) openStatusTooltip = item.payment_id;
-                    else if (openStatusTooltip === item.payment_id) openStatusTooltip = null;
-                  }}
-                  delayDuration={180}
-                  disableCloseOnTriggerClick={item.history_state !== "awaiting_payment" ||
-                    !item.checkout_url}
-                >
-                  {#if item.history_state === "awaiting_payment" && item.checkout_url}
-                    <Tooltip.Trigger>
-                      {#snippet child({ props })}
-                        <a
-                          {...props}
-                          class="payment-history-status-trigger payment-history-checkout"
-                          href={item.checkout_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          data-payment-history-checkout={item.payment_id}
+    <div class="payment-history-content">
+      {#if loading}
+        <span class="payment-history-loading-label" role="status">{t("wa_loading")}</span>
+        <div class="payment-history-skeleton" inert>
+          <AdminTableSkeleton
+            {headers}
+            rows={items.length || 3}
+            appearance="webapp"
+            layout="fixed"
+            minWidth="960px"
+          />
+        </div>
+      {/if}
+      <div class="payment-history-result" class:loading inert={loading}>
+        {#if failed}
+          <Card class="payment-history-state">
+            <p role="alert">{t("wa_payment_history_load_failed")}</p>
+            <Button variant="secondary" onclick={() => void loadPage(page)}>{t("wa_retry")}</Button>
+          </Card>
+        {:else if total === 0}
+          <Card class="payment-history-empty">
+            <CreditCardCheck size={32} />
+            <h2>{t("wa_payment_history_empty")}</h2>
+            <p>{t("wa_payment_history_empty_hint")}</p>
+          </Card>
+        {:else if items.length}
+          <AdminTable appearance="webapp" layout="fixed" minWidth="960px">
+            <colgroup>
+              <col style="width: 82px" />
+              <col style="width: 110px" />
+              <col style="width: 90px" />
+              <col style="width: 80px" />
+              <col style="width: 105px" />
+              <col style="width: 145px" />
+              <col style="width: 178px" />
+              <col style="width: 140px" />
+            </colgroup>
+            <thead
+              ><tr
+                >{#each headers as header (header)}<th scope="col">{header}</th>{/each}</tr
+              ></thead
+            >
+            <tbody>
+              {#each items as item (item.payment_id)}
+                {@const status = paymentHistoryStatus(item, t)}
+                <tr data-payment-history-id={item.payment_id}>
+                  <td data-label={headers[0]} data-numeric><strong>#{item.payment_id}</strong></td>
+                  <td data-label={headers[1]}><PaymentPurchasesCell payment={item} {at} /></td>
+                  <td data-label={headers[2]} data-numeric>{money(item.amount, item.currency)}</td>
+                  <td data-label={headers[3]} data-numeric>{paymentDiscountDisplay(item, money)}</td
+                  >
+                  <td data-label={headers[4]}
+                    ><PaymentProviderCell provider={item.provider} {at} /></td
+                  >
+                  <td data-label={headers[5]}>{paymentDescriptionDisplay(item, at)}</td>
+                  <td data-label={headers[6]}>
+                    <Tooltip.Root
+                      open={openStatusTooltip === item.payment_id}
+                      onOpenChange={(open) => {
+                        if (open) openStatusTooltip = item.payment_id;
+                        else if (openStatusTooltip === item.payment_id) openStatusTooltip = null;
+                      }}
+                      delayDuration={180}
+                      disableCloseOnTriggerClick={item.history_state !== "awaiting_payment" ||
+                        !item.checkout_url}
+                    >
+                      {#if item.history_state === "awaiting_payment" && item.checkout_url}
+                        <Tooltip.Trigger>
+                          {#snippet child({ props })}
+                            <a
+                              {...props}
+                              class="payment-history-status-trigger payment-history-checkout"
+                              href={item.checkout_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              data-payment-history-checkout={item.payment_id}
+                            >
+                              <Badge wrap variant={status.variant}>{status.label}</Badge>
+                            </a>
+                          {/snippet}
+                        </Tooltip.Trigger>
+                      {:else}
+                        <Tooltip.Trigger
+                          class="payment-history-status-trigger"
+                          type="button"
+                          onclick={() => (openStatusTooltip = item.payment_id)}
                         >
                           <Badge wrap variant={status.variant}>{status.label}</Badge>
-                        </a>
-                      {/snippet}
-                    </Tooltip.Trigger>
-                  {:else}
-                    <Tooltip.Trigger
-                      class="payment-history-status-trigger"
-                      type="button"
-                      onclick={() => (openStatusTooltip = item.payment_id)}
-                    >
-                      <Badge wrap variant={status.variant}>{status.label}</Badge>
-                    </Tooltip.Trigger>
-                  {/if}
-                  <Tooltip.Portal>
-                    <Tooltip.Content
-                      class="payment-method-tooltip"
-                      role="tooltip"
-                      side="top"
-                      sideOffset={6}
-                      collisionPadding={12}
-                    >
-                      {status.hint}
-                    </Tooltip.Content>
-                  </Tooltip.Portal>
-                </Tooltip.Root>
-              </td>
-              <td data-label={headers[7]}>{date(item.created_at)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </AdminTable>
-    {/if}
+                        </Tooltip.Trigger>
+                      {/if}
+                      <Tooltip.Portal>
+                        <Tooltip.Content
+                          class="payment-method-tooltip"
+                          role="tooltip"
+                          side="top"
+                          sideOffset={6}
+                          collisionPadding={12}
+                        >
+                          {status.hint}
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  </td>
+                  <td data-label={headers[7]}>{date(item.created_at)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </AdminTable>
+        {/if}
+      </div>
+    </div>
     {#if total !== null && total > 0}
       <AdminPagination
         appearance="webapp"
@@ -295,6 +322,25 @@
   }
   .payment-history-list {
     min-width: 0;
+  }
+  .payment-history-content {
+    position: relative;
+    min-height: 220px;
+  }
+  .payment-history-result.loading {
+    visibility: hidden;
+  }
+  .payment-history-skeleton {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  .payment-history-loading-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   :global(.payment-history-status-trigger) {
     display: inline-flex;
