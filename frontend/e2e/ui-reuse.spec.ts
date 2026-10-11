@@ -3,6 +3,45 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
+for (const width of [1440, 768, 390]) {
+  test(`hosted payment methods stay inside provider cards at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(adminUrl("settings/payments"));
+    const cards = page.locator(".admin-settings-subsection");
+    for (const [provider, methods] of [
+      ["Cryptomus", ["cryptomus_subscription"]],
+      ["CisPay", ["cispay_subscription_card", "cispay_subscription_sbp"]],
+    ] as const) {
+      const card = cards.filter({
+        has: page.locator(`[data-settings-anchor="settings-subsection:payments:${provider}"]`),
+      });
+      await expect(card).toHaveCount(1);
+      const trigger = card.locator(".admin-settings-subsection-trigger");
+      await expect(trigger).toBeVisible();
+      await trigger.screenshot({
+        path: testInfo.outputPath(`${provider.toLowerCase()}-${width}.png`),
+      });
+      if ((await trigger.getAttribute("data-state")) === "closed") await trigger.click();
+      for (const method of methods) {
+        const group = card.locator(
+          `[data-settings-anchor="settings-field-group:payments:${provider}:${method}"]`
+        );
+        await expect(group).toBeVisible();
+        await expect(group.locator(".admin-setting")).toHaveCount(2);
+        await noOverflow(group);
+        await group.scrollIntoViewIfNeeded();
+        await group.screenshot({ path: testInfo.outputPath(`${method}-${width}.png`) });
+      }
+      await noOverflow(card);
+    }
+    await expect(
+      cards.filter({ hasText: /Cryptomus · автоплатежи|CisPay · (карта|СБП), автоплатежи/ })
+    ).toHaveCount(0);
+  });
+}
+
 async function noOverflow(element: Locator, vertical = false) {
   const bounds = await element.evaluate((node) => ({
     x: node.scrollWidth - node.clientWidth,

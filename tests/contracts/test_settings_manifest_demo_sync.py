@@ -48,6 +48,22 @@ class SettingsManifestDemoSyncTests(unittest.TestCase):
         section_ids = {section["id"] for section in committed}
         self.assertIn("remnawave", section_ids)
 
+    def test_hosted_payment_methods_share_one_provider_subsection(self):
+        sections = build_demo_settings_sections()
+        payments = next(section for section in sections if section["id"] == "payments")
+        for prefix, subsection in (("CRYPTOMUS_", "Cryptomus"), ("CISPAY_", "CisPay")):
+            with self.subTest(provider=subsection):
+                fields = [
+                    field
+                    for field in payments["fields"]
+                    if field["key"].startswith((prefix, f"PAYMENT_{prefix}"))
+                ]
+                self.assertTrue(fields)
+                self.assertEqual({field["subsection"] for field in fields}, {subsection})
+                keys = [field["key"] for field in fields]
+                self.assertEqual(len(keys), len(set(keys)))
+                self.assertTrue(any("SUBSCRIPTION_" in key for key in keys))
+
 
 if __name__ == "__main__":
     unittest.main()

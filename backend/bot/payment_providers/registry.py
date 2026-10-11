@@ -517,13 +517,15 @@ def pending_statuses() -> list[str]:
 
 def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, ProviderManifestField]]:
     """Yield (spec, manifest_field) for every fragment declared on a provider SPEC."""
+    emitted_keys: set[str] = set()
     for spec in PAYMENT_PROVIDER_SPECS:
-        emitted_keys: set[str] = set()
         for field in spec.manifest_fields:
             emitted_keys.add(field.key)
             yield spec, field
+        # A shared service may declare a method's admin-only field on its base SPEC.
         admin_only_field = provider_admin_only_manifest_field(spec)
         if admin_only_field is not None and admin_only_field.key not in emitted_keys:
+            emitted_keys.add(admin_only_field.key)
             yield spec, admin_only_field
 
 

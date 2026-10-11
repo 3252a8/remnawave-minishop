@@ -6182,5 +6182,10 @@
   "admin_settings_subsection_cispay_sbp_recurring": "CisPay SBP recurring",
   "admin_settings_subsection_anore": "Anore",
   "admin_settings_subsection_cryptomus": "Cryptomus",
-  "admin_settings_subsection_cispay": "CisPay"
+  "admin_settings_subsection_cispay": "CisPay",
+  "admin_settings_group_provider_common": "Common settings",
+  "admin_settings_group_provider_one_off": "One-off payments",
+  "admin_settings_group_provider_recurring": "Recurring payments",
+  "admin_settings_group_provider_card_recurring": "Card recurring payments",
+  "admin_settings_group_provider_sbp_recurring": "SBP recurring payments"
 }

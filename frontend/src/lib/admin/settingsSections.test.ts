@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import settingsManifest from "../webapp/settingsManifest.generated.json";
 
 import {
   groupSectionFields,
@@ -43,6 +44,48 @@ describe("settingsSections", () => {
     expect(settingsPathKey(["Payments & Billing", "Wata Crypto"])).toBe(
       "payments-and-billing/wata-crypto"
     );
+  });
+
+  it("keeps hosted payment methods inside one card per provider", () => {
+    const payments = settingsManifest.find((section) => section.id === "payments");
+    const section: AdminSettingsSection = {
+      id: "payments",
+      title: "Payments",
+      fields: (payments?.fields || []).filter((item) =>
+        /^(PAYMENT_)?(CRYPTOMUS|CISPAY)_/.test(item.key)
+      ) as AdminSettingField[],
+    };
+    const groups = groupSectionFields(section);
+    expect(groups.map((group) => group.id)).toEqual(["Cryptomus", "CisPay"]);
+    for (const group of groups) {
+      const keys = group.fields.map((item) => item.key);
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(group.providerInfo?.logoUrl).toBe(`/provider-logos/${group.id.toLowerCase()}.png`);
+      const methods = semanticFieldGroups(section, group);
+      const provider = group.id.toLowerCase();
+      expect(methods.map((method) => method.id)).toEqual([
+        `${provider}_common`,
+        `${provider}_one_off`,
+        ...(provider === "cryptomus"
+          ? ["cryptomus_subscription"]
+          : ["cispay_subscription_card", "cispay_subscription_sbp"]),
+      ]);
+      for (const method of methods.filter((item) => item.id.includes("subscription"))) {
+        expect(method.fields).toHaveLength(2);
+        expect(method.fields.every((item) => item.key.includes("SUBSCRIPTION_"))).toBe(true);
+      }
+    }
+    for (const [provider, method, legacy] of [
+      ["cryptomus", "subscription", "cryptomus-recurring"],
+      ["cispay", "subscription-card", "cispay-card-recurring"],
+      ["cispay", "subscription-sbp", "cispay-sbp-recurring"],
+    ]) {
+      const target = resolveSettingsPath(["payments", provider, method], [section]);
+      expect(target?.fieldGroup?.id).toBe(`${provider}_${method.replaceAll("-", "_")}`);
+      expect(resolveSettingsPath(["payments", legacy], [section])?.anchorKey).toBe(
+        target?.anchorKey
+      );
+    }
   });
 
   it("groups subsection fields and attaches webhook metadata", () => {

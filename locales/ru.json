@@ -6182,5 +6182,10 @@
   "admin_settings_subsection_cispay_sbp_recurring": "CisPay · СБП, автоплатежи",
   "admin_settings_subsection_anore": "Anore",
   "admin_settings_subsection_cryptomus": "Cryptomus",
-  "admin_settings_subsection_cispay": "CisPay"
+  "admin_settings_subsection_cispay": "CisPay",
+  "admin_settings_group_provider_common": "Общие настройки",
+  "admin_settings_group_provider_one_off": "Разовые платежи",
+  "admin_settings_group_provider_recurring": "Автоплатежи",
+  "admin_settings_group_provider_card_recurring": "Автоплатежи картой",
+  "admin_settings_group_provider_sbp_recurring": "Автоплатежи через СБП"
 }
