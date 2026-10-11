@@ -604,7 +604,7 @@
                 disabled={busy || applyBusy}
                 >{selected.installation.source?.url
                   ? at("plugins_check_update", {}, "Check and install update")
-                  : at("plugins_add", {}, "Add plugin")}</AdminButton
+                  : at("plugins_update", {}, "Update plugin")}</AdminButton
               >
               <AdminButton
                 size="sm"
@@ -626,6 +626,8 @@
   {at}
   open={importOpen}
   generation={inventory.generation}
+  installations={inventory.installations}
+  initialPluginId={selected?.installation ? selected.id : ""}
   initialRepository={selected?.installation?.source?.url || ""}
   initialRef={selected?.installation?.source?.ref || ""}
   onclose={() => (importOpen = false)}

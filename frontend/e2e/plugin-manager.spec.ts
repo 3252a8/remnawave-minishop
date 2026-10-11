@@ -242,12 +242,12 @@ test("an enabled package is removed with one request and visible restart progres
     .click();
   await page.getByRole("tab", { name: "Обновления" }).click();
   const actions = page.locator(".plugin-update-actions");
-  const add = actions.getByRole("button", { name: "Добавить плагин" });
+  const update = actions.getByRole("button", { name: "Обновить плагин" });
   const remove = actions.getByRole("button", { name: "Удалить пакет" });
   await expect(remove).toHaveClass(/admin-btn-danger/);
-  const addBox = await add.boundingBox();
+  const updateBox = await update.boundingBox();
   const removeBox = await remove.boundingBox();
-  expect(addBox && removeBox && Math.abs(addBox.y - removeBox.y)).toBeLessThan(1);
+  expect(updateBox && removeBox && Math.abs(updateBox.y - removeBox.y)).toBeLessThan(1);
   await remove.click();
   const dialog = page.locator(".plugin-remove-dialog");
   await expect(dialog.getByText("Перезапуск сервера и фонового процесса")).toBeVisible();
@@ -263,120 +263,140 @@ test("an enabled package is removed with one request and visible restart progres
 });
 
 for (const scenario of [
-  { width: 1280, ref: "release/stable" },
-  { width: 390, ref: "" },
+  { width: 1280, ref: "release/stable", enabled: true, trustedUpdate: true },
+  { width: 1280, ref: "release/stable", enabled: false, trustedUpdate: true },
+  { width: 390, ref: "", enabled: true, trustedUpdate: false },
+  { width: 390, ref: "", enabled: false, trustedUpdate: true },
 ]) {
-  test(`install and update preserve repository ref after a lost response (${scenario.width})`, async ({
+  test(`install and update preserve repository ref and ${scenario.enabled ? "enabled" : "disabled"} state after a lost response (${scenario.width})`, async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width: scenario.width, height: 900 });
-    await page.addInitScript(() => {
-      type Api = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
-      type AdminBundle = {
-        mount: (target: HTMLElement, props: { api: Api } & Record<string, unknown>) => unknown;
-      };
-      let bundle: AdminBundle | undefined;
-      let generation = 2;
-      let digest = "";
-      let version = "";
-      let readsSinceChange = 0;
-      let previewIndex = 0;
-      let candidate: Record<string, unknown> = {};
-      let installedSource: Record<string, unknown> = {};
-      const operations: Array<Record<string, unknown>> = [];
-      Object.defineProperty(window, "SubscriptionWebAppAdmin", {
-        configurable: true,
-        get: () => bundle,
-        set(value: AdminBundle) {
-          const mount = value.mount;
-          value.mount = (target, props) =>
-            mount(target, {
-              ...props,
-              api: async (path, options) => {
-                if (path === "/admin/plugins") {
-                  readsSinceChange += 1;
-                  return {
-                    ok: true,
-                    generation,
-                    installations: digest
-                      ? {
-                          sample: {
-                            digest,
-                            version,
-                            name: "Sample plugin",
-                            publisher: "Example publisher",
-                            enabled: false,
-                            status: "installed",
-                            source: installedSource,
-                          },
-                        }
-                      : {},
-                    bundled: [],
-                    operations,
-                    observations: {
-                      backend: { generation, status: readsSinceChange > 1 ? "active" : "starting" },
-                      worker: { generation, status: readsSinceChange > 2 ? "active" : "starting" },
-                    },
-                  };
-                }
-                if (path === "/admin/plugins/repository/preview") {
-                  previewIndex += 1;
-                  const requested = JSON.parse(String(options?.body || "{}"));
-                  candidate = {
-                    ok: true,
-                    digest: (previewIndex === 1 ? "a" : "b").repeat(64),
-                    manifest: {
-                      id: "sample",
-                      name: "Sample plugin",
-                      version: `${previewIndex}.0.0`,
-                      publisher: "Example publisher",
-                      publisher_fingerprint: "fingerprint",
-                    },
-                    trusted: true,
-                    trust_reason: "",
-                    source: {
-                      url: "https://github.com/example/sample",
-                      kind: "github",
-                      ref: requested.ref,
-                      requested_ref: requested.ref,
-                      commit: (previewIndex === 1 ? "a" : "b").repeat(40),
-                      artifact: "package.zip",
-                    },
-                  };
-                  return candidate;
-                }
-                if (path === "/admin/plugins/repository/stage") {
-                  const body = JSON.parse(String(options?.body || "{}"));
-                  const source = candidate.source as Record<string, unknown>;
-                  if (body.ref !== source.ref || body.commit !== source.commit)
-                    throw new Error("stage lost the requested ref or reviewed commit");
-                  installedSource = source;
-                  return { ...candidate, operation_id: `op-${previewIndex}` };
-                }
-                if (path === "/admin/plugins/install") {
-                  const body = JSON.parse(String(options?.body || "{}"));
-                  digest = body.digest;
-                  version = `${previewIndex}.0.0`;
-                  generation += 1;
-                  readsSinceChange = 0;
-                  operations.push({
-                    id: body.operation_id,
-                    plugin: "sample",
-                    digest,
-                    action: "install",
-                    status: "completed",
-                  });
-                  throw new Error("connection closed during restart");
-                }
-                if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
-                if (path === "/admin/plugins/runtime") return { ok: true, plugins: [] };
-                return props.api(path, options);
-              },
-            });
-          bundle = value;
-        },
-      });
-    });
+    await page.addInitScript(
+      ({ trustedUpdate }) => {
+        type Api = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+        type AdminBundle = {
+          mount: (target: HTMLElement, props: { api: Api } & Record<string, unknown>) => unknown;
+        };
+        let bundle: AdminBundle | undefined;
+        let generation = 2;
+        let digest = "";
+        let version = "";
+        let enabled = false;
+        let readsSinceChange = 0;
+        let previewIndex = 0;
+        let candidate: Record<string, unknown> = {};
+        let installedSource: Record<string, unknown> = {};
+        const operations: Array<Record<string, unknown>> = [];
+        Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+          configurable: true,
+          get: () => bundle,
+          set(value: AdminBundle) {
+            const mount = value.mount;
+            value.mount = (target, props) =>
+              mount(target, {
+                ...props,
+                api: async (path, options) => {
+                  if (path === "/admin/plugins") {
+                    readsSinceChange += 1;
+                    return {
+                      ok: true,
+                      generation,
+                      installations: digest
+                        ? {
+                            sample: {
+                              digest,
+                              version,
+                              name: "Sample plugin",
+                              publisher: "Example publisher",
+                              enabled,
+                              status: "installed",
+                              source: installedSource,
+                            },
+                          }
+                        : {},
+                      bundled: [],
+                      operations,
+                      observations: {
+                        backend: {
+                          generation,
+                          status: readsSinceChange > 1 ? "active" : "starting",
+                        },
+                        worker: {
+                          generation,
+                          status: readsSinceChange > 2 ? "active" : "starting",
+                        },
+                      },
+                    };
+                  }
+                  if (path === "/admin/plugins/repository/preview") {
+                    previewIndex += 1;
+                    const requested = JSON.parse(String(options?.body || "{}"));
+                    candidate = {
+                      ok: true,
+                      digest: (previewIndex === 1 ? "a" : "b").repeat(64),
+                      manifest: {
+                        id: "sample",
+                        name: "Sample plugin",
+                        version: `${previewIndex}.0.0`,
+                        publisher: "Example publisher",
+                        publisher_fingerprint: "fingerprint",
+                        publisher_public_key: "publisher-key",
+                      },
+                      trusted: previewIndex === 1 || trustedUpdate,
+                      trust_reason: "publisher_not_trusted",
+                      source: {
+                        url: "https://github.com/example/sample",
+                        kind: "github",
+                        ref: requested.ref,
+                        requested_ref: requested.ref,
+                        commit: (previewIndex === 1 ? "a" : "b").repeat(40),
+                        artifact: "package.zip",
+                      },
+                    };
+                    return candidate;
+                  }
+                  if (path === "/admin/plugins/trust") return { ok: true };
+                  if (path === "/admin/plugins/repository/stage") {
+                    const body = JSON.parse(String(options?.body || "{}"));
+                    const source = candidate.source as Record<string, unknown>;
+                    if (body.ref !== source.ref || body.commit !== source.commit)
+                      throw new Error("stage lost the requested ref or reviewed commit");
+                    installedSource = source;
+                    return { ...candidate, operation_id: `op-${previewIndex}` };
+                  }
+                  if (path === "/admin/plugins/install") {
+                    const body = JSON.parse(String(options?.body || "{}"));
+                    digest = body.digest;
+                    version = `${previewIndex}.0.0`;
+                    generation += 1;
+                    readsSinceChange = 0;
+                    operations.push({
+                      id: body.operation_id,
+                      plugin: "sample",
+                      digest,
+                      action: "install",
+                      status: "completed",
+                    });
+                    throw new Error("connection closed during restart");
+                  }
+                  if (path === "/admin/plugins/sample/enabled") {
+                    enabled = Boolean(JSON.parse(String(options?.body || "{}"))?.enabled);
+                    generation += 1;
+                    readsSinceChange = 0;
+                    throw new Error("connection closed during restart");
+                  }
+                  if (path === "/admin/plugins/updates") return { ok: true, updates: {} };
+                  if (path === "/admin/plugins/runtime") return { ok: true, plugins: [] };
+                  return props.api(path, options);
+                },
+              });
+            bundle = value;
+          },
+        });
+      },
+      { trustedUpdate: scenario.trustedUpdate }
+    );
 
     await page.goto("/demo/runtime/admin/plugins");
     for (const expected of ["Плагин установлен.", "Плагин обновлён."]) {
@@ -391,6 +411,12 @@ for (const scenario of [
         await page.getByRole("button", { name: "Проверить и установить обновление" }).click();
       }
       const importDialog = page.locator(".plugin-import-dialog");
+      await expect(
+        importDialog.getByRole("heading", {
+          name: expected === "Плагин установлен." ? "Добавить плагин" : "Обновить плагин",
+          exact: true,
+        })
+      ).toBeVisible();
       if (expected === "Плагин установлен.")
         await importDialog.getByRole("button", { name: "Git-репозиторий" }).click();
       await importDialog
@@ -400,7 +426,47 @@ for (const scenario of [
       await expect(refInput).toHaveValue(expected === "Плагин установлен." ? "" : scenario.ref);
       if (expected === "Плагин установлен.") await refInput.fill(scenario.ref);
       await importDialog.getByRole("button", { name: "Проверить репозиторий" }).click();
-      await importDialog.getByRole("button", { name: "Установить выключенным" }).click();
+      if (expected === "Плагин установлен.") {
+        await expect(
+          importDialog.getByText(
+            "Пакет устанавливается выключенным. После проверки включите его в библиотеке.",
+            { exact: true }
+          )
+        ).toBeVisible();
+        await importDialog
+          .getByRole("button", { name: "Установить выключенным", exact: true })
+          .click();
+      } else {
+        await expect(
+          importDialog.getByText(
+            `После обновления плагин останется ${scenario.enabled ? "включённым" : "выключенным"}.`,
+            { exact: true }
+          )
+        ).toBeVisible();
+        await expect(
+          importDialog.getByText("Проверка и обновление", { exact: false })
+        ).toBeVisible();
+        await expect(
+          importDialog.getByRole("button", { name: /установить выключенным/i })
+        ).toHaveCount(0);
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)
+        ).toBe(true);
+        expect(
+          await importDialog.evaluate((dialog) => dialog.scrollWidth - dialog.clientWidth)
+        ).toBeLessThanOrEqual(1);
+        await page.screenshot({
+          path: testInfo.outputPath("plugin-update-review.png"),
+          fullPage: true,
+          animations: "disabled",
+        });
+        await importDialog
+          .getByRole("button", {
+            name: scenario.trustedUpdate ? "Обновить плагин" : "Подтвердить и обновить плагин",
+            exact: true,
+          })
+          .click();
+      }
       const applyDialog = page.locator(".plugin-apply-dialog");
       await expect(applyDialog.getByText("Ожидаем перезапуска приложения…")).toBeVisible();
       expect(await page.evaluate(() => sessionStorage.getItem("minishop-plugin-apply"))).toContain(
@@ -409,8 +475,24 @@ for (const scenario of [
       await expect(applyDialog.getByText(`${expected} Приложение готово к работе.`)).toBeVisible();
       await applyDialog.getByRole("button", { name: "Закрыть" }).last().click();
       expect(await page.evaluate(() => sessionStorage.getItem("minishop-plugin-apply"))).toBeNull();
-      if (expected === "Плагин установлен.")
-        await expect(page.locator('[data-plugin-id="sample"]')).toBeVisible();
+      if (expected === "Плагин установлен.") {
+        const card = page.locator('[data-plugin-id="sample"]');
+        await expect(card).toBeVisible();
+        await expect(card.getByRole("switch")).not.toBeChecked();
+        if (scenario.enabled) {
+          await card.getByRole("switch").click();
+          await expect(
+            applyDialog.getByText("Плагин включён. Приложение готово к работе.")
+          ).toBeVisible();
+          await applyDialog.getByRole("button", { name: "Закрыть" }).last().click();
+          await expect(card.getByRole("switch")).toBeChecked();
+        }
+      } else {
+        await page.getByRole("button", { name: "Все плагины" }).click();
+        const card = page.locator('[data-plugin-id="sample"]');
+        await expect(card.getByRole("switch")).toBeChecked({ checked: scenario.enabled });
+        await expect(card.getByRole("button", { name: /2\.0\.0/ })).toBeVisible();
+      }
     }
   });
 }

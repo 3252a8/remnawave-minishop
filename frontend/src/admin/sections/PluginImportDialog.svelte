@@ -29,6 +29,8 @@
     at,
     open,
     generation,
+    installations,
+    initialPluginId = "",
     initialRepository = "",
     initialRef = "",
     onclose,
@@ -38,6 +40,8 @@
     at: TranslateFn;
     open: boolean;
     generation: number;
+    installations: Record<string, { enabled: boolean }>;
+    initialPluginId?: string;
     initialRepository?: string;
     initialRef?: string;
     onclose: () => void;
@@ -58,6 +62,36 @@
   let selectedFile = $state<File | null>(null);
   let busy = $state(false);
   let error = $state("");
+  const candidateInstallation = $derived(
+    candidate ? installations[candidate.manifest.id] : undefined
+  );
+  const isUpdate = $derived(
+    Boolean(candidate ? candidateInstallation : installations[initialPluginId])
+  );
+  const stateNote = $derived(
+    candidateInstallation
+      ? candidateInstallation.enabled
+        ? at("plugins_update_enabled_note", {}, "The plugin will remain enabled after the update.")
+        : at(
+            "plugins_update_disabled_note",
+            {},
+            "The plugin will remain disabled after the update."
+          )
+      : at(
+          "plugins_install_note",
+          {},
+          "The package is installed disabled. Enable it from the library after review."
+        )
+  );
+  const actionLabel = $derived(
+    isUpdate
+      ? candidate?.trusted
+        ? at("plugins_update", {}, "Update plugin")
+        : at("plugins_trust_and_update", {}, "Confirm and update plugin")
+      : candidate?.trusted
+        ? at("plugins_install", {}, "Install disabled")
+        : at("plugins_trust_and_install", {}, "Trust publisher and install disabled")
+  );
 
   const sourceLabels = $derived({
     archive: at("appearance_demo_archive", {}, "ZIP archive"),
@@ -216,7 +250,7 @@
 
 <Dialog
   {open}
-  title={at("plugins_add", {}, "Add plugin")}
+  title={isUpdate ? at("plugins_update", {}, "Update plugin") : at("plugins_add", {}, "Add plugin")}
   closeLabel={at("close", {}, "Close")}
   {onclose}
   class="admin-dialog plugin-import-dialog"
@@ -226,7 +260,9 @@
       <span class:current={!candidate}>1 · {at("plugins_source", {}, "Source")}</span>
       <span class="step-line"></span>
       <span class:current={Boolean(candidate)}
-        >2 · {at("plugins_review", {}, "Review and install")}</span
+        >2 · {isUpdate
+          ? at("plugins_review_update", {}, "Review and update")
+          : at("plugins_review", {}, "Review and install")}</span
       >
     </div>
     {#if !candidate}
@@ -299,15 +335,8 @@
             )}
           </p>
         {/if}
-      {:else}
-        <p class="import-note">
-          <Check size={16} />{at(
-            "plugins_install_note",
-            {},
-            "The package is installed disabled. Enable it from the library after review."
-          )}
-        </p>
       {/if}
+      <p class="import-note"><Check size={16} />{stateNote}</p>
     {/if}
     {#if busy}<p role="status">{at("plugins_working", {}, "Checking the package…")}</p>{/if}
     {#if error}<p class="import-error" role="alert">{error}</p>{/if}
@@ -321,13 +350,7 @@
       {/if}
       {#if candidate?.trusted || candidate?.manifest.publisher_public_key}
         <AdminButton variant="primary" disabled={busy} onclick={install}
-          ><Upload size={14} />{candidate?.trusted
-            ? at("plugins_install", {}, "Install disabled")
-            : at(
-                "plugins_trust_and_install",
-                {},
-                "Trust publisher and install disabled"
-              )}</AdminButton
+          ><Upload size={14} />{actionLabel}</AdminButton
         >
       {/if}
     </footer>
@@ -340,6 +363,7 @@
   }
   .import-layout {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
     min-width: 0;
     color: var(--admin-text);
@@ -422,6 +446,7 @@
   }
   .import-footer {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     gap: 10px;
     padding-top: 16px;
