@@ -9,7 +9,15 @@ from urllib.parse import urlsplit
 from bot.services.message_composition import MINI_APP_SECTIONS, mini_app_section_link
 from bot.services.panel_activity import panel_user_last_connected_datetime
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_guides_resolution import (
+    PANEL_DEFAULT_SUBPAGE_CONFIG_UUID,
+    _default_panel_subscription_page_config_uuid,
+    _panel_external_squad_uuid_from_user,
+    _panel_subpage_config_uuid,
+    resolve_panel_subscription_guides_config,
+)
 from config.subscription_guides_config import (
+    SubscriptionGuidesConfigError,
     subscription_guides_status,
     validate_panel_subscription_guides_config,
 )
@@ -143,15 +151,18 @@ async def connection_diagnostics(
         return result
     try:
         async with asyncio.timeout(8), PanelApiService(settings) as panel:
+            user: object
+            devices: object
             user, devices = await asyncio.gather(
                 panel.get_user_by_uuid(panel_user_uuid, use_cache=False),
                 panel.get_user_devices(panel_user_uuid, force_refresh=True),
+                return_exceptions=True,
             )
-            if user and str(user.get("uuid", panel_user_uuid)) == panel_user_uuid:
+            if isinstance(user, dict) and str(user.get("uuid", panel_user_uuid)) == panel_user_uuid:
                 # Some panel versions include an owner reference on device records.
                 scoped = (
                     None
-                    if devices is None
+                    if not isinstance(devices, list)
                     else [
                         item
                         for item in devices
@@ -160,36 +171,75 @@ async def connection_diagnostics(
                 )
                 result.update(project_panel_diagnostics(user, scoped))
                 result["panel_source"] = "live"
-                node_uuid = result.get("last_server_uuid")
-                if isinstance(node_uuid, str) and not result.get("last_server"):
-                    statistics = await panel.get_nodes_statistics()
-                    nodes = statistics.get("nodes", []) if isinstance(statistics, dict) else []
-                    if isinstance(nodes, list):
-                        node = next(
-                            (
-                                item
-                                for item in nodes
-                                if isinstance(item, dict)
-                                and item.get("nodeUuid", item.get("uuid")) == node_uuid
-                            ),
-                            None,
-                        )
-                        if isinstance(node, dict):
+
+                async def server_summary() -> None:
+                    node_uuid = result.get("last_server_uuid")
+                    if isinstance(node_uuid, str) and not result.get("last_server"):
+                        node = await panel.get_node_summary(node_uuid)
+                        if (
+                            isinstance(node, dict)
+                            and str(node.get("uuid", "")).lower() == node_uuid.lower()
+                        ):
                             result["last_server"] = {
-                                "uuid": node_uuid,
-                                "name": _string(node.get("nodeName", node.get("name"))),
-                                "countryCode": _string(node.get("countryCode")),
+                                key: _string(node.get(key))
+                                for key in ("uuid", "name", "countryCode")
                             }
-                resolved_short = short_uuid or _string(user.get("shortUuid"))
-                if resolved_short and prefer_panel:
-                    config = await panel.get_subscription_page_config_by_short_uuid(resolved_short)
-                    if isinstance(config, dict):
-                        result["download_links"] = guide_links(
-                            validate_panel_subscription_guides_config(
-                                config, allow_default_when_missing=True
-                            )
-                        )
+
+                async def download_configuration() -> None:
+                    resolved_short = _string(user.get("shortUuid")) or short_uuid
+                    if not resolved_short or not prefer_panel:
+                        return
+                    config = await _resolved_guide_configuration(
+                        panel, settings, user, resolved_short
+                    )
+                    result["download_links"] = guide_links(config)
+
+                # Optional node reads must not suppress the owner's client configuration.
+                await asyncio.gather(
+                    server_summary(), download_configuration(), return_exceptions=True
+                )
     except Exception:
         # No provider error bodies or credentials enter the support projection.
         pass
     return result
+
+
+async def _resolved_guide_configuration(
+    panel: PanelApiService, settings: Any, user: dict[str, Any], short_uuid: str
+) -> dict[str, Any]:
+    async def configuration_by_uuid(config_uuid: str) -> dict[str, Any]:
+        detail = await panel.get_subscription_page_config_by_uuid(config_uuid)
+        if detail is None:
+            raise SubscriptionGuidesConfigError("Panel configuration is unavailable")
+        return validate_panel_subscription_guides_config(detail)
+
+    async def owner_configuration() -> str:
+        squad_uuid = _panel_external_squad_uuid_from_user(user)
+        if not squad_uuid:
+            return ""
+        squad = await panel.get_external_squad(squad_uuid)
+        return _panel_subpage_config_uuid(squad)
+
+    async def default_configuration() -> dict[str, Any]:
+        selected = str(getattr(settings, "SUBSCRIPTION_PAGE_CONFIG_UUID", "") or "").strip()
+        selected = selected or await _default_panel_subscription_page_config_uuid(panel)
+        selected = selected or PANEL_DEFAULT_SUBPAGE_CONFIG_UUID
+        try:
+            return await configuration_by_uuid(selected)
+        except SubscriptionGuidesConfigError:
+            if selected == PANEL_DEFAULT_SUBPAGE_CONFIG_UUID:
+                raise
+            return await configuration_by_uuid(PANEL_DEFAULT_SUBPAGE_CONFIG_UUID)
+
+    try:
+        detail = await panel.get_subscription_page_config_by_short_uuid(short_uuid)
+        if not isinstance(detail, dict):
+            raise SubscriptionGuidesConfigError("Resolved configuration is unavailable")
+        return await resolve_panel_subscription_guides_config(
+            detail,
+            owner_configuration=owner_configuration,
+            configuration_by_uuid=configuration_by_uuid,
+            default_configuration=default_configuration,
+        )
+    except SubscriptionGuidesConfigError:
+        return await default_configuration()

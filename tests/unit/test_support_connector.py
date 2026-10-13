@@ -313,6 +313,108 @@ def test_download_links_prefer_resolved_customer_configuration_to_stock_defaults
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("through_squad", [False, True])
+@pytest.mark.parametrize("devices_failed", [False, True])
+def test_assigned_panel_guides_use_live_short_id_and_survive_node_lookup_failure(
+    through_squad: bool,
+    devices_failed: bool,
+) -> None:
+    from bot.services import support_connector_diagnostics as diagnostics
+    from config.subscription_guides_config import default_subscription_guides_config_text
+
+    async def run() -> None:
+        config = json.loads(default_subscription_guides_config_text())
+        for platform in config["platforms"].values():
+            for app in platform["apps"]:
+                for block in app["blocks"]:
+                    for button in block["buttons"]:
+                        if button["type"] == "external":
+                            button["link"] = "https://apps.example.test/assigned-download"
+        panel = MagicMock()
+        panel.__aenter__ = AsyncMock(return_value=panel)
+        panel.__aexit__ = AsyncMock()
+        panel.get_user_by_uuid = AsyncMock(
+            return_value={
+                "uuid": "owner-panel",
+                "shortUuid": "live-short",
+                "externalSquadUuid": "owner-squad",
+                "userTraffic": {"lastConnectedNodeUuid": "owner-node"},
+            }
+        )
+        panel.get_user_devices = AsyncMock(
+            return_value=[],
+            side_effect=RuntimeError("Private device error") if devices_failed else None,
+        )
+        panel.get_node_summary = AsyncMock(side_effect=RuntimeError("Private upstream detail"))
+        panel.get_subscription_page_config_by_short_uuid = AsyncMock(
+            return_value={
+                "webpageAllowed": True,
+                **({} if through_squad else {"subpageConfigUuid": "owner-config"}),
+            }
+        )
+        panel.get_external_squad = AsyncMock(return_value={"subpageConfigUuid": "owner-config"})
+        panel.get_subscription_page_config_by_uuid = AsyncMock(return_value={"config": config})
+        settings = settings_stub(
+            PANEL_API_URL="https://panel.example.test",
+            PANEL_API_KEY="synthetic",
+            SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED=True,
+            SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED=False,
+        )
+        with (
+            patch.object(diagnostics, "PanelApiService", return_value=panel),
+            patch.object(diagnostics, "subscription_guides_status", return_value={"config": None}),
+        ):
+            result = await diagnostics.connection_diagnostics(
+                settings, "owner-panel", "stale-short"
+            )
+        links = result["download_links"]
+        assert isinstance(links, list) and links
+        assert all(link["url"] == "https://apps.example.test/assigned-download" for link in links)
+        assert result["last_server"] is None and result["last_server_uuid"] == "owner-node"
+        assert "Private upstream detail" not in str(result)
+        assert "Private device error" not in str(result)
+        assert result["devices"] is None if devices_failed else result["devices"] == []
+        panel.get_subscription_page_config_by_short_uuid.assert_awaited_once_with("live-short")
+        panel.get_subscription_page_config_by_uuid.assert_awaited_once_with("owner-config")
+        if through_squad:
+            panel.get_external_squad.assert_awaited_once_with("owner-squad")
+        else:
+            panel.get_external_squad.assert_not_awaited()
+
+    asyncio.run(run())
+
+
+def test_node_directory_summary_excludes_addresses_and_other_nodes() -> None:
+    from bot.services.panel_api_service import PanelApiService
+
+    async def run() -> None:
+        panel = PanelApiService(
+            settings_stub(PANEL_API_URL="https://panel.example.test", PANEL_API_KEY="synthetic")
+        )
+        panel._request = AsyncMock(
+            return_value={
+                "response": {
+                    "nodes": [
+                        {"uuid": "another-node", "name": "Another node", "address": "10.0.0.2"},
+                        {
+                            "uuid": "owner-node",
+                            "name": "Example node",
+                            "countryCode": "NL",
+                            "address": "10.0.0.1",
+                            "apiKey": "PRIVATE-KEY",
+                        },
+                    ]
+                }
+            }
+        )
+        result = await panel.get_node_summary("owner-node")
+        assert result == {"uuid": "owner-node", "name": "Example node", "countryCode": "NL"}
+        assert "10.0.0" not in str(result) and "PRIVATE-KEY" not in str(result)
+        assert await panel.get_node_summary("missing-node") is None
+
+    asyncio.run(run())
+
+
 def test_readonly_replay_and_account_rebinding_never_create_a_new_message() -> None:
     async def run(factory: Any, service: SupportService, ticket_id: int) -> None:
         context = await service.get_ticket_context(ticket_id, expected_user_id=1)
