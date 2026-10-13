@@ -10,7 +10,7 @@ aiogram==3.31.0
     # via -r backend/requirements.in
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.3
+aiohttp==3.14.5
     # via
     #   -r backend/requirements.in
     #   aiogram
@@ -23,7 +23,7 @@ annotated-types==0.8.0
     # via pydantic
 anyio==4.15.1
     # via httpx
-asyncpg==0.31.0
+asyncpg==0.32.0
     # via -r backend/requirements.in
 attrs==26.1.0
     # via aiohttp
@@ -50,7 +50,7 @@ deprecated==3.0.0
     # via yookassa
 distro==1.9.0
     # via yookassa
-dnspython==2.8.0
+dnspython==2.9.0
     # via email-validator
 email-validator==2.3.0
     # via -r backend/requirements.in
@@ -75,7 +75,7 @@ idna==3.20
     #   yarl
 magic-filter==1.0.12
     # via aiogram
-multidict==6.9.1
+multidict==7.1.0
     # via
     #   aiohttp
     #   yarl
@@ -85,7 +85,7 @@ pillow==12.3.0
     # via
     #   -r backend/requirements.in
     #   pillow-heif
-pillow-heif==1.8.0
+pillow-heif==1.8.1
     # via -r backend/requirements.in
 propcache==0.5.4
     # via
@@ -97,7 +97,7 @@ pyasn1==0.6.4
     #   webauthn
 pyasn1-modules==0.4.2
     # via webauthn
-pycparser==3.0
+pycparser==3.11
     # via cffi
 pydantic==2.13.5
     # via
@@ -155,5 +155,5 @@ wrapt==2.5.0
     # via deprecated
 yarl==1.25.1
     # via aiohttp
-yookassa==3.12.1
+yookassa==3.13.0
     # via -r backend/requirements.in

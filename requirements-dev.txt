@@ -4,10 +4,10 @@
 # extraction and activation-script fixes (GHSA-qwm4-qh6w-59xr,
 # GHSA-p58f-9548-mpm2).
 pip>=26.2.1,<27
-virtualenv>=21.7.13,<22
+virtualenv>=21.14.7,<22
 aiosqlite>=0.22.1,<1
 mypy>=2.4.0,<3
-pre-commit>=4.6.2,<5
+pre-commit>=4.7.0,<5
 pytest>=9.1.1,<10
 pytest-cov>=7.1.0,<8
-ruff==0.16.10
+ruff==0.17.0

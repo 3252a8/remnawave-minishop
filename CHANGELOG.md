@@ -30,7 +30,8 @@
   вставить готовый текст с кнопками одним действием, сохраняя редактор при ошибке
   или смене тикета.
   ([64ff99b6](https://gitlab.com/3252a8/remnawave-minishop/-/commit/64ff99b60416b68237049df9343cd4682af80099),
-  [eaaf506d](https://gitlab.com/3252a8/remnawave-minishop/-/commit/eaaf506d3e3009b5ed4c54f412c419959421ad81))
+  [eaaf506d](https://gitlab.com/3252a8/remnawave-minishop/-/commit/eaaf506d3e3009b5ed4c54f412c419959421ad81),
+  [74fcf09f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/74fcf09f3164d5f74dbdeedc87075ac359d1b361))
 
 - **Лимиты тарифов в Mini App.** При покупке подписки, подарка и смене тарифа
   количество устройств, обычный и премиум-трафик показаны компактными бейджами
@@ -156,6 +157,12 @@
   ([e167842b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e167842b74c591d997f75e38cfd79da15e2e95cd), [992e6168](https://gitlab.com/3252a8/remnawave-minishop/-/commit/992e616823db67eabf1b96f6ffdd4d8bccfc4201), [83c8a3af](https://gitlab.com/3252a8/remnawave-minishop/-/commit/83c8a3afc7b0b3acb3805e6d6cdd2812a6b5cbdc))
 
 ### Изменено
+
+- **Зависимости и сборка.** Обновлены совместимые Python-пакеты, библиотеки
+  веб-интерфейса и документации, инструменты проверки кода. Lock-файлы
+  пересозданы штатными генераторами; базовые образы Node и Docker CLI
+  закреплены по актуальным неизменяемым digest. Проверка подписанных артефактов
+  использует исправленный Cosign 3.1.3 с проверкой контрольной суммы исполняемого файла.
 
 - **Remnawave Panel 3.4.5.** Версия добавлена в сертифицированную матрицу API
   и стала текущим пресетом dev-стенда. Проверяются чтение и запись на живой панели,
