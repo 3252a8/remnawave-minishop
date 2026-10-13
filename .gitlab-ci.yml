@@ -13,9 +13,11 @@ variables:
   DOCKER_DRIVER: overlay2
   COSIGN_YES: "true"
   COSIGN_EXPERIMENTAL: "1"
+  TRIVY_TIMEOUT: "30m"
 
 .publish-dockerhub-images:
   stage: publish
+  timeout: 2h
   retry:
     max: 1
     when:
