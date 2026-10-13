@@ -1,6 +1,6 @@
-"""Support connector API v2 for external service integrations.
+"""Support connector API v3 for external service integrations.
 
-Version 2 is additive: all version 1 exports remain supported.
+Version 3 adds diagnostic facts and optional message buttons; earlier exports remain supported.
 Internal implementation paths may change without requiring a new plugin ZIP.
 """
 
@@ -9,6 +9,7 @@ from bot.app.web.support_schemas import AdminSupportMessageOut as AdminSupportMe
 from bot.app.web.support_schemas import AdminSupportUserOut as AdminSupportUserOut
 from bot.app.web.support_schemas import SupportTicketOut as SupportTicketOut
 from bot.plugins.capabilities import CORE_PLUGIN_CAPABILITIES
+from bot.services.message_composition import MessageButtonInput as MessageButtonInput
 from bot.services.message_image_service import MessageImageError as MessageImageError
 from bot.services.message_image_service import UploadedMessageImage as UploadedMessageImage
 from bot.services.message_image_service import load_message_image as load_message_image

@@ -181,7 +181,7 @@ def test_portable_source_package_accepts_newer_core_revision(
             tmp_path,
             _archive(
                 private,
-                core_compatibility={"mode": "capabilities", "requires": {"support_connector": 3}},
+                core_compatibility={"mode": "capabilities", "requires": {"support_connector": 4}},
             ),
         )
     with pytest.raises(PluginPackageError, match="portable_backend_requires_python_source"):

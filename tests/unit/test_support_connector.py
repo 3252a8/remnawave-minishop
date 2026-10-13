@@ -1,9 +1,11 @@
 """Persistent connector behavior, including retry after a committed send."""
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import func, select
@@ -13,7 +15,7 @@ from bot.services.support_connector_contracts import SupportConnectorConflict
 from bot.services.support_service import SupportService, TicketNotFound
 from db.activity_models import SupportChangeClock
 from db.dal import support_dal
-from db.models import Base, SupportTicket, SupportTicketMessage, User
+from db.models import Base, Payment, Subscription, SupportTicket, SupportTicketMessage, User
 from tests.support.settings_stub import settings_stub
 
 
@@ -165,5 +167,195 @@ def test_reconciliation_has_bounded_pages_and_rollback_does_not_advance_watermar
             assert following[0].last_message_id > 0
             with pytest.raises(ValueError):
                 await support_dal.list_changed_tickets(session, limit=501)
+
+    scenario(run)
+
+
+def test_connector_buttons_are_stored_and_part_of_idempotent_payload() -> None:
+    from bot.plugins.support_connector import MessageButtonInput
+    from bot.services.support_message_buttons import support_buttons_payload
+
+    async def run(factory: Any, service: SupportService, ticket_id: int) -> None:
+        options = {
+            "expected_user_id": 1,
+            "expected_revision": 1,
+            "idempotency_key": "buttons-job",
+            "source": "example.connector",
+            "author_label": "Automated support",
+        }
+        buttons = [
+            MessageButtonInput(kind="url", label="Instructions", url="https://example.test/help")
+        ]
+        first = await service.reply_from_connector(
+            ticket_id, "Answer with instructions", buttons=buttons, **options
+        )
+        retry = await service.reply_from_connector(
+            ticket_id, "Answer with instructions", buttons=buttons, **options
+        )
+        assert retry.duplicate and first.message_id == retry.message_id
+        async with factory() as session:
+            message = await session.get(SupportTicketMessage, first.message_id)
+            assert message is not None
+            assert support_buttons_payload(message.buttons)[0]["url"] == "https://example.test/help"
+        with pytest.raises(SupportConnectorConflict, match="idempotency_mismatch"):
+            await service.reply_from_connector(
+                ticket_id, "Answer with instructions", buttons=[], **options
+            )
+
+    scenario(run)
+
+
+def test_device_projection_keeps_hwid_and_does_not_invent_last_connection() -> None:
+    from bot.services.support_connector_diagnostics import project_panel_diagnostics
+
+    result = project_panel_diagnostics(
+        {"status": "ACTIVE"},
+        [
+            {
+                "hwid": "test-device",
+                "deviceModel": "Phone",
+                "platform": "iOS",
+                "userAgent": "Example client",
+                "updatedAt": "2026-10-13T11:00:00Z",
+            }
+        ],
+    )
+    assert result["last_connected_at"] is None
+    assert result["last_server"] is None
+    devices = result["devices"]
+    assert isinstance(devices, list) and isinstance(devices[0], dict)
+    assert devices[0]["hwid"] == "test-device"
+
+
+def test_context_uses_current_panel_binding_and_only_owner_payment_statuses() -> None:
+    from bot.services import support_connector_service
+
+    async def run(factory: Any, service: SupportService, ticket_id: int) -> None:
+        async with factory() as session:
+            user = await session.get(User, 1)
+            assert user is not None
+            user.panel_user_uuid = "current-panel-account"
+            session.add(
+                Subscription(
+                    user_id=1,
+                    panel_user_uuid="previous-panel-account",
+                    install_share_token="a" * 32,
+                    is_active=True,
+                    end_date=datetime.now(UTC) + timedelta(days=30),
+                )
+            )
+            session.add_all(
+                [
+                    Payment(user_id=1, amount=100, currency="RUB", status="pending"),
+                    Payment(user_id=1, amount=200, currency="RUB", status="succeeded"),
+                    Payment(user_id=2, amount=900, currency="RUB", status="succeeded"),
+                ]
+            )
+            await session.commit()
+        with patch.object(
+            support_connector_service,
+            "connection_diagnostics",
+            AsyncMock(return_value={"panel_source": "unavailable"}),
+        ):
+            context = await service.get_ticket_context(ticket_id, expected_user_id=1)
+        assert context.facts["installation_url"] is None
+        assert context.facts["subscription_active"] is False
+        assert context.facts["payment_status_counts"] == {"pending": 1, "succeeded": 1}
+        payments = context.facts["payments"]
+        assert isinstance(payments, list) and len(payments) == 2
+        assert all(item["amount"] != 900 for item in payments)
+
+    scenario(run)
+
+
+def test_download_links_prefer_resolved_customer_configuration_to_stock_defaults() -> None:
+    from bot.services import support_connector_diagnostics as diagnostics
+    from config.subscription_guides_config import default_subscription_guides_config_text
+
+    async def run() -> None:
+        config = json.loads(default_subscription_guides_config_text())
+        for platform in config["platforms"].values():
+            for app in platform["apps"]:
+                for block in app["blocks"]:
+                    for button in block["buttons"]:
+                        if button["type"] == "external":
+                            button["link"] = "https://apps.example.test/configured-download"
+        panel = MagicMock()
+        panel.__aenter__ = AsyncMock(return_value=panel)
+        panel.__aexit__ = AsyncMock()
+        panel.get_user_by_uuid = AsyncMock(
+            return_value={"uuid": "owner-panel", "shortUuid": "owner-short", "status": "ACTIVE"}
+        )
+        panel.get_user_devices = AsyncMock(return_value=[])
+        panel.get_subscription_page_config_by_short_uuid = AsyncMock(
+            return_value={"response": {"config": config}}
+        )
+        settings = settings_stub(
+            PANEL_API_URL="https://panel.example.test",
+            PANEL_API_KEY="synthetic",
+            SUBSCRIPTION_PAGE_CONFIG_PANEL_ENABLED=True,
+            SUBSCRIPTION_PAGE_CONFIG_JSON_OVERRIDE_ENABLED=False,
+        )
+        with (
+            patch.object(diagnostics, "PanelApiService", return_value=panel),
+            patch.object(
+                diagnostics,
+                "subscription_guides_status",
+                return_value={"config": json.loads(default_subscription_guides_config_text())},
+            ),
+        ):
+            result = await diagnostics.connection_diagnostics(settings, "owner-panel", None)
+        links = result["download_links"]
+        assert isinstance(links, list) and links
+        assert all(item["url"] == "https://apps.example.test/configured-download" for item in links)
+        panel.get_subscription_page_config_by_short_uuid.assert_awaited_once_with("owner-short")
+
+    asyncio.run(run())
+
+
+def test_readonly_replay_and_account_rebinding_never_create_a_new_message() -> None:
+    async def run(factory: Any, service: SupportService, ticket_id: int) -> None:
+        context = await service.get_ticket_context(ticket_id, expected_user_id=1)
+        binding = context.facts["account_binding"]
+        assert isinstance(binding, str)
+        with pytest.raises(SupportConnectorConflict, match="reply_not_committed"):
+            await service.reply_from_connector(
+                ticket_id,
+                "Prepared answer",
+                expected_user_id=1,
+                expected_revision=1,
+                idempotency_key="replay-key",
+                source="example.connector",
+                author_label="Automated support",
+                replay_only=True,
+            )
+        async with factory() as session:
+            user = await session.get(User, 1)
+            assert user is not None
+            user.panel_user_uuid = "rebound-account"
+            await session.commit()
+        with pytest.raises(SupportConnectorConflict, match="account_binding_changed"):
+            await service.reply_from_connector(
+                ticket_id,
+                "Prepared answer",
+                expected_user_id=1,
+                expected_revision=1,
+                idempotency_key="binding-key",
+                source="example.connector",
+                author_label="Automated support",
+                expected_account_binding=binding,
+            )
+        first = await send(service, ticket_id)
+        retry = await service.reply_from_connector(
+            ticket_id,
+            "Approved answer",
+            expected_user_id=1,
+            expected_revision=1,
+            idempotency_key="job-1",
+            source="example.connector",
+            author_label="Automated support",
+            replay_only=True,
+        )
+        assert retry.duplicate and first.message_id == retry.message_id
 
     scenario(run)

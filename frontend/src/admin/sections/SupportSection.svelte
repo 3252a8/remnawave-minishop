@@ -2,6 +2,10 @@
   import { getAdminSupportStore, getBroadcastStore } from "$lib/admin/context";
   import { buttonsForPayload } from "$lib/admin/stores/broadcastStore.svelte";
   import type { BroadcastButtonDraft } from "$lib/admin/stores/broadcastStore.svelte";
+  import {
+    supportReplyButtonsFromDescriptors,
+    supportReplyTextForInsertion,
+  } from "$lib/admin/supportReplyDraft";
   import { supportMessageImageUrl } from "$lib/messageImage";
   import { escapeHtml } from "$lib/richtext/escape";
   import { onMount, tick } from "svelte";
@@ -18,6 +22,7 @@
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import AdminExtensionPoint from "./AdminExtensionPoint.svelte";
+  import type { AdminSupportReplyButton, AdminSupportTicketContext } from "./extensionTypes";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
   import { Sliders } from "$components/ui/icons.js";
   import type {
@@ -158,18 +163,31 @@
       ticketId,
       ticket,
       revision,
-      insertReplyDraft: (text: string) => {
-        if (Number(openedTicketId) !== ticketId || (openedTicket?.revision ?? 1) !== revision)
+      replyButtonsSupported: true,
+      insertReplyDraft: (text: string, buttons?: readonly AdminSupportReplyButton[]) => {
+        if (
+          typeof text !== "string" ||
+          !openedTicket ||
+          Number(openedTicket.ticket_id) !== ticketId ||
+          Number(openedTicketId) !== ticketId ||
+          (openedTicket.revision ?? 1) !== revision
+        )
           return false;
-        reply = escapeHtml(text.slice(0, maxBodyLength));
+        const nextText = supportReplyTextForInsertion(text, maxBodyLength, buttons === undefined);
+        if (nextText === null) return false;
+        const nextButtons =
+          buttons === undefined ? undefined : supportReplyButtonsFromDescriptors(buttons);
+        if (nextButtons === null) return false;
         if (composerInternalNote) supportStore.toggleInternalNote();
+        reply = escapeHtml(nextText);
+        if (nextButtons !== undefined) replyButtons = nextButtons;
         return true;
       },
       refreshTicket: async () => {
         if (Number(openedTicketId) === ticketId)
           await supportStore.openTicket(ticketId, { skipPush: true });
       },
-    };
+    } satisfies AdminSupportTicketContext & { ticket: SupportTicket | null };
   });
   const modalTitle = $derived(
     ticketReady

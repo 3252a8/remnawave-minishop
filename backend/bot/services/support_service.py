@@ -20,6 +20,7 @@ from bot.infra.event_payloads import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services import support_connector_service
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.message_composition import MessageButtonInput
 from bot.services.message_image_service import PreparedMessageImage, persist_message_image
 from bot.services.notification_service import NotificationService
 from bot.services.support_connector_contracts import SupportConnectorReply, SupportTicketContext
@@ -146,6 +147,9 @@ class SupportService:
             self, ticket_id, expected_user_id=expected_user_id, after_message_id=after_message_id
         )
 
+    def encode_reply_buttons(self, buttons: list[MessageButtonInput]) -> str | None:
+        return support_connector_service.encode_reply_buttons(self, buttons)
+
     async def reply_from_connector(
         self,
         ticket_id: int,
@@ -156,6 +160,9 @@ class SupportService:
         idempotency_key: str,
         source: str,
         author_label: str,
+        buttons: list[MessageButtonInput] | None = None,
+        expected_account_binding: str | None = None,
+        replay_only: bool = False,
     ) -> SupportConnectorReply:
         return await support_connector_service.reply_from_connector(
             self,
@@ -166,6 +173,9 @@ class SupportService:
             idempotency_key=idempotency_key,
             source=source,
             author_label=author_label,
+            buttons=buttons,
+            expected_account_binding=expected_account_binding,
+            replay_only=replay_only,
         )
 
     @staticmethod
