@@ -19,8 +19,8 @@ ARG CI_COMMIT_REF_NAME=""
 ARG REMNAWAVE_MINISHOP_BUILD_PROVENANCE="custom"
 ARG REMNAWAVE_MINISHOP_BUILD_TAG=""
 ARG REMNAWAVE_MINISHOP_BUILD_COMMIT=""
-COPY .git ./.git
-RUN set -eu; \
+RUN --mount=type=bind,source=.git,target=/repo/.git \
+    set -eu; \
     tag="$REMNAWAVE_MINISHOP_BUILD_TAG"; \
     sha="$REMNAWAVE_MINISHOP_BUILD_COMMIT"; \
     branch="${REMNAWAVE_MINISHOP_BRANCH:-${GIT_BRANCH:-${BRANCH_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-}}}}}"; \
@@ -113,10 +113,10 @@ RUN useradd -u 10001 -m appuser
 COPY backend/requirements.txt backend/requirements.txt
 COPY deploy/docker/refresh_pip_vendor.py /tmp/refresh_pip_vendor.py
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade "pip==26.2.1" && \
-    pip install --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
+    pip install --no-compile --upgrade "pip==26.2.1" && \
+    pip install --no-compile --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
       "urllib3==2.8.0" "msgpack==1.2.1" "setuptools==80.9.0" && \
-    pip install --no-cache-dir -r backend/requirements.txt && \
+    pip install --no-compile -r backend/requirements.txt && \
     python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
     rm -rf /tmp/pip-vendor-fixes /tmp/refresh_pip_vendor.py
 
