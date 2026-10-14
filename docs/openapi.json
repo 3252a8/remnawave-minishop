@@ -2683,6 +2683,18 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Owner"
           }
         },
         "required": [
@@ -3481,6 +3493,109 @@
           "admin_ids"
         ],
         "title": "AdminMeOut",
+        "type": "object"
+      },
+      "AdminMergeEligibilityOut": {
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "allowed"
+        ],
+        "title": "AdminMergeEligibilityOut",
+        "type": "object"
+      },
+      "AdminMergeIdentityOut": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "email_verified": {
+            "title": "Email Verified",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "email_verified"
+        ],
+        "title": "AdminMergeIdentityOut",
+        "type": "object"
+      },
+      "AdminMessageTargetOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "owner"
+        ],
+        "title": "AdminMessageTargetOut",
+        "type": "object"
+      },
+      "AdminMessageTargetsOut": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMessageTargetOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "title": "AdminMessageTargetsOut",
         "type": "object"
       },
       "AdminPanelCompatibilityOut": {
@@ -5803,6 +5918,18 @@
       },
       "AdminSupportMessageOut": {
         "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Label"
+          },
           "author_name": {
             "anyOf": [
               {
@@ -5846,6 +5973,18 @@
             },
             "title": "Buttons",
             "type": "array"
+          },
+          "connector_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Connector Source"
           },
           "created_at": {
             "anyOf": [
@@ -5983,6 +6122,11 @@
             "title": "Category",
             "type": "string"
           },
+          "change_cursor": {
+            "default": 0,
+            "title": "Change Cursor",
+            "type": "integer"
+          },
           "closed_at": {
             "anyOf": [
               {
@@ -6037,6 +6181,11 @@
           "priority": {
             "title": "Priority",
             "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "status": {
             "title": "Status",
@@ -7439,6 +7588,102 @@
           }
         },
         "title": "AdminUserHwidDevicesOut",
+        "type": "object"
+      },
+      "AdminUserMergeBody": {
+        "properties": {
+          "confirmation_user_id": {
+            "title": "Confirmation User Id",
+            "type": "integer"
+          },
+          "source_user_id": {
+            "title": "Source User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_user_id",
+          "confirmation_user_id"
+        ],
+        "title": "AdminUserMergeBody",
+        "type": "object"
+      },
+      "AdminUserMergeContextOut": {
+        "properties": {
+          "auth_identities": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMergeIdentityOut"
+            },
+            "title": "Auth Identities",
+            "type": "array"
+          },
+          "merge_eligibility": {
+            "$ref": "#/components/schemas/AdminMergeEligibilityOut"
+          },
+          "passkey_count": {
+            "title": "Passkey Count",
+            "type": "integer"
+          },
+          "password_available": {
+            "title": "Password Available",
+            "type": "boolean"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "verified_emails": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verified Emails",
+            "type": "array"
+          }
+        },
+        "required": [
+          "user_id",
+          "auth_identities",
+          "verified_emails",
+          "passkey_count",
+          "password_available",
+          "merge_eligibility"
+        ],
+        "title": "AdminUserMergeContextOut",
+        "type": "object"
+      },
+      "AdminUserMergeOut": {
+        "properties": {
+          "final_end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Final End Date"
+          },
+          "panel_reconciliation_pending": {
+            "default": false,
+            "title": "Panel Reconciliation Pending",
+            "type": "boolean"
+          },
+          "source_user_id": {
+            "title": "Source User Id",
+            "type": "integer"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "user_id",
+          "source_user_id"
+        ],
+        "title": "AdminUserMergeOut",
         "type": "object"
       },
       "AdminUserMessageBody": {
@@ -11940,6 +12185,232 @@
         "title": "PaymentDetailOut",
         "type": "object"
       },
+      "PaymentHistoryItemOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "checkout_discount_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkout Discount Amount"
+          },
+          "checkout_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Active checkout link, only for a payment awaiting payment.",
+            "title": "Checkout Url"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currency"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "funding_source": {
+            "default": "external",
+            "title": "Funding Source",
+            "type": "string"
+          },
+          "history_state": {
+            "enum": [
+              "awaiting_payment",
+              "processing",
+              "crediting",
+              "review",
+              "completed",
+              "refunded",
+              "failed"
+            ],
+            "title": "History State",
+            "type": "string"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "period_semantics": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Period Semantics"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider"
+          },
+          "purchased_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Purchased Gb"
+          },
+          "purchased_hwid_devices": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Purchased Hwid Devices"
+          },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentPurchaseOut"
+            },
+            "title": "Purchases",
+            "type": "array"
+          },
+          "sale_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sale Mode"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "subscription_duration_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Duration Days"
+          },
+          "subscription_duration_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Duration Months"
+          },
+          "traffic_premium_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Premium Gb"
+          },
+          "traffic_regular_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Traffic Regular Gb"
+          }
+        },
+        "required": [
+          "payment_id",
+          "amount",
+          "history_state"
+        ],
+        "title": "PaymentHistoryItemOut",
+        "type": "object"
+      },
       "PaymentOut": {
         "properties": {
           "amount": {
@@ -14248,6 +14719,18 @@
       },
       "SupportMessageOut": {
         "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Author Label"
+          },
           "author_role": {
             "title": "Author Role",
             "type": "string"
@@ -14279,6 +14762,18 @@
             },
             "title": "Buttons",
             "type": "array"
+          },
+          "connector_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Connector Source"
           },
           "created_at": {
             "anyOf": [
@@ -14372,6 +14867,11 @@
             "title": "Category",
             "type": "string"
           },
+          "change_cursor": {
+            "default": 0,
+            "title": "Change Cursor",
+            "type": "integer"
+          },
           "closed_at": {
             "anyOf": [
               {
@@ -14426,6 +14926,11 @@
           "priority": {
             "title": "Priority",
             "type": "string"
+          },
+          "revision": {
+            "default": 1,
+            "title": "Revision",
+            "type": "integer"
           },
           "status": {
             "title": "Status",
@@ -16881,6 +17386,11 @@
       },
       "WebAppPaymentCreatePayload": {
         "properties": {
+          "balance_auto_renew": {
+            "default": false,
+            "title": "Balance Auto Renew",
+            "type": "boolean"
+          },
           "balance_source": {
             "anyOf": [
               {
@@ -17124,6 +17634,11 @@
       },
       "WebAppPromoQuotePayload": {
         "properties": {
+          "balance_auto_renew": {
+            "default": false,
+            "title": "Balance Auto Renew",
+            "type": "boolean"
+          },
           "balance_source": {
             "anyOf": [
               {
@@ -17321,6 +17836,61 @@
         "title": "WebAppPromoQuotePayload",
         "type": "object"
       },
+      "WebAppQrLoginApprovePayload": {
+        "properties": {
+          "number": {
+            "maximum": 99,
+            "minimum": 0,
+            "title": "Number",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 22,
+            "minLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "number"
+        ],
+        "title": "WebAppQrLoginApprovePayload",
+        "type": "object"
+      },
+      "WebAppQrLoginClaimPayload": {
+        "properties": {
+          "code": {
+            "maxLength": 22,
+            "minLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "WebAppQrLoginClaimPayload",
+        "type": "object"
+      },
+      "WebAppQrLoginRequestPayload": {
+        "properties": {
+          "request_id": {
+            "maxLength": 22,
+            "minLength": 22,
+            "pattern": "^[A-Za-z0-9_-]{22}$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "WebAppQrLoginRequestPayload",
+        "type": "object"
+      },
       "WebAppSetPasswordPayload": {
         "properties": {
           "code": {
@@ -17352,6 +17922,11 @@
       },
       "WebAppSubscriptionQuotePayload": {
         "properties": {
+          "balance_auto_renew": {
+            "default": false,
+            "title": "Balance Auto Renew",
+            "type": "boolean"
+          },
           "balance_source": {
             "anyOf": [
               {
@@ -19479,6 +20054,179 @@
           }
         ],
         "summary": "Account Password Request",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/qr-login/approve": {
+      "post": {
+        "operationId": "post_account_qr_login_approve_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginApprovePayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attempts_left": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Qr Login Approve",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/qr-login/claim": {
+      "post": {
+        "operationId": "post_account_qr_login_claim_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginClaimPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "browser": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "ip": {
+                      "type": "string"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "os": {
+                      "type": "string"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "request_id",
+                    "browser",
+                    "os",
+                    "ip",
+                    "expires_in"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Qr Login Claim",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/api/account/qr-login/deny": {
+      "post": {
+        "operationId": "post_account_qr_login_deny_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Account Qr Login Deny",
         "tags": [
           "account"
         ]
@@ -23328,6 +24076,52 @@
           }
         ],
         "summary": "Admin Message Image",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/message/targets": {
+      "get": {
+        "operationId": "get_admin_message_targets_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminMessageTargetsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Message Targets",
         "tags": [
           "admin"
         ]
@@ -29185,6 +29979,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -29209,6 +30006,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -29586,6 +30386,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -29610,6 +30413,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -29773,6 +30579,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -29797,6 +30606,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -30048,6 +30860,128 @@
           }
         ],
         "summary": "Admin User Hwid Device Limit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/merge": {
+      "post": {
+        "operationId": "post_admin_user_merge_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserMergeBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserMergeOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Merge",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/merge-context": {
+      "get": {
+        "operationId": "get_admin_user_merge_context_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserMergeContextOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Merge Context",
         "tags": [
           "admin"
         ]
@@ -31819,6 +32753,163 @@
         ]
       }
     },
+    "/api/auth/qr/cancel": {
+      "post": {
+        "operationId": "post_qr_login_cancel_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Qr Login Cancel",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/qr/poll": {
+      "post": {
+        "operationId": "post_qr_login_poll_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebAppQrLoginRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "match_number": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "telegram_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Qr Login Poll",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/qr/start": {
+      "post": {
+        "operationId": "post_qr_login_start_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "expires_in": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "poll_interval": {
+                      "type": "integer"
+                    },
+                    "qr_url": {
+                      "type": "string"
+                    },
+                    "request_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "request_id",
+                    "qr_url",
+                    "expires_in",
+                    "poll_interval"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "summary": "Qr Login Start",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/session": {
       "get": {
         "operationId": "get_session_route",
@@ -32134,6 +33225,9 @@
                       "const": true,
                       "type": "boolean"
                     },
+                    "recurring_enabled": {
+                      "type": "boolean"
+                    },
                     "sources": {
                       "items": {
                         "additionalProperties": false,
@@ -32158,6 +33252,9 @@
                           },
                           "id": {
                             "type": "string"
+                          },
+                          "recurring_available": {
+                            "type": "boolean"
                           },
                           "status": {
                             "type": [
@@ -33959,6 +35056,9 @@
                           "const": true,
                           "type": "boolean"
                         },
+                        "recurring_enabled": {
+                          "type": "boolean"
+                        },
                         "sources": {
                           "items": {
                             "additionalProperties": false,
@@ -33983,6 +35083,9 @@
                               },
                               "id": {
                                 "type": "string"
+                              },
+                              "recurring_available": {
+                                "type": "boolean"
                               },
                               "status": {
                                 "type": [
@@ -34649,6 +35752,9 @@
                           "type": "boolean"
                         },
                         "payment_methods_display_mode": {
+                          "type": "string"
+                        },
+                        "public_url": {
                           "type": "string"
                         },
                         "recommended_auth_providers": {
@@ -36191,6 +37297,64 @@
           }
         ],
         "summary": "Create Payment",
+        "tags": [
+          "payments"
+        ]
+      }
+    },
+    "/api/payments/history": {
+      "get": {
+        "operationId": "get_payment_history_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "$ref": "#/components/schemas/PaymentHistoryItemOut"
+                      },
+                      "type": "array"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "items",
+                    "total",
+                    "limit",
+                    "offset"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Payment History",
         "tags": [
           "payments"
         ]
@@ -38020,6 +39184,18 @@
                           "description": {
                             "type": "string"
                           },
+                          "effective_hwid_device_limit": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "hwid_device_limit": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
                           "monthly_gb": {
                             "type": [
                               "number",
@@ -38031,11 +39207,38 @@
                             "description": "Raw switch calculation details from the subscription service.",
                             "type": "object"
                           },
+                          "premium_enabled": {
+                            "type": "boolean"
+                          },
+                          "premium_monthly_gb": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "premium_title": {
+                            "type": "string"
+                          },
+                          "premium_traffic_limit_strategy": {
+                            "type": "string"
+                          },
+                          "premium_unlimited": {
+                            "type": "boolean"
+                          },
                           "tariff_key": {
                             "type": "string"
                           },
                           "title": {
                             "type": "string"
+                          },
+                          "traffic_limit_strategy": {
+                            "type": "string"
+                          },
+                          "traffic_packages": {
+                            "items": {
+                              "type": "number"
+                            },
+                            "type": "array"
                           }
                         },
                         "required": [

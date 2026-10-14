@@ -67,6 +67,7 @@ class PaymentSettings(BaseModel):
 
 class BalanceSettings(BaseModel):
     enabled: bool = False
+    recurring_enabled: bool = False
     currency: str = "RUB"
     topup_min_amount: float = Field(default=100, gt=0, allow_inf_nan=False)
     topup_max_amount: float = Field(default=100000, gt=0, allow_inf_nan=False)

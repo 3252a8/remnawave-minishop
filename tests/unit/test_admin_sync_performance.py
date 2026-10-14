@@ -1039,9 +1039,20 @@ def test_absorb_duplicate_panel_identity_extends_kept_user_and_deletes_duplicate
             setattr(sub, key, value)
         return sub
 
-    with patch(
-        "bot.handlers.admin.sync_admin.subscription_dal.update_subscription",
-        AsyncMock(side_effect=update_subscription),
+    with (
+        patch(
+            "bot.handlers.admin.sync_admin.subscription_dal.get_subscription_by_panel_subscription_uuid",
+            AsyncMock(
+                side_effect=lambda _session, uuid: {
+                    "sub-keep": target_sub,
+                    "sub-duplicate": duplicate_sub,
+                }.get(uuid)
+            ),
+        ),
+        patch(
+            "bot.handlers.admin.sync_admin.subscription_dal.update_subscription",
+            AsyncMock(side_effect=update_subscription),
+        ),
     ):
         result = asyncio.run(
             _absorb_duplicate_panel_identity(

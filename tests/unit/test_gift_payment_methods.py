@@ -17,6 +17,12 @@ from bot.payment_providers import iter_provider_specs
 from bot.services.subscription_gifts import gift_payment_method_available
 
 GIFT_PAYMENT_METHODS = (
+    ("anore", True),
+    ("cryptomus", True),
+    ("cryptomus_subscription", False),
+    ("cispay", True),
+    ("cispay_subscription_card", False),
+    ("cispay_subscription_sbp", False),
     ("freekassa", True),
     ("platega_sbp", True),
     ("platega_card", True),

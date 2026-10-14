@@ -12,11 +12,77 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
+from db.activity_models import SupportChangeClock
+from db.support_contracts import SupportTicketChange
+
 from ..models import SupportTicket, SupportTicketMessage, User
 
 ACTIVE_STATUSES = {"open", "awaiting_user", "awaiting_admin"}
 CLOSED_STATUSES = {"resolved", "closed"}
 _UNSET = object()
+
+
+async def advance_ticket_revision(
+    session: AsyncSession, ticket: SupportTicket, *, created: bool = False
+) -> None:
+    # A sequence alone is not a safe polling cursor: transaction 2 can commit
+    # before transaction 1. The counter row remains locked until this commit,
+    # so a consumer cannot advance past a change that is still uncommitted.
+    result = await session.execute(
+        update(SupportChangeClock)
+        .where(SupportChangeClock.id == 1)
+        .values(cursor=SupportChangeClock.cursor + 1)
+        .returning(SupportChangeClock.cursor)
+    )
+    ticket.change_cursor = int(result.scalar_one())
+    ticket.revision = 1 if created else int(ticket.revision or 1) + 1
+
+
+async def get_change_cursor(session: AsyncSession) -> int:
+    result = await session.execute(
+        select(SupportChangeClock.cursor).where(SupportChangeClock.id == 1)
+    )
+    return int(result.scalar_one())
+
+
+async def list_changed_tickets(
+    session: AsyncSession, *, after_cursor: int = 0, limit: int = 100
+) -> list[SupportTicketChange]:
+    if after_cursor < 0 or not 1 <= limit <= 500:
+        raise ValueError("invalid_support_change_page")
+    latest_public_message = (
+        select(func.max(SupportTicketMessage.message_id))
+        .where(
+            SupportTicketMessage.ticket_id == SupportTicket.ticket_id,
+            SupportTicketMessage.is_internal_note.is_(False),
+        )
+        .correlate(SupportTicket)
+        .scalar_subquery()
+    )
+    result = await session.execute(
+        select(
+            SupportTicket.change_cursor,
+            SupportTicket.ticket_id,
+            SupportTicket.user_id,
+            SupportTicket.revision,
+            latest_public_message,
+            SupportTicket.status,
+        )
+        .where(SupportTicket.change_cursor > after_cursor)
+        .order_by(SupportTicket.change_cursor)
+        .limit(limit)
+    )
+    return [
+        SupportTicketChange(
+            int(cursor),
+            int(ticket_id),
+            int(user_id),
+            int(revision),
+            int(message_id or 0),
+            str(status),
+        )
+        for cursor, ticket_id, user_id, revision, message_id, status in result.all()
+    ]
 
 
 def _status_condition(status: str | None) -> Any:
@@ -67,6 +133,7 @@ async def create_ticket(
         created_at=now,
     )
     session.add(message)
+    await advance_ticket_revision(session, ticket, created=True)
     await session.flush()
     await session.refresh(ticket)
     return ticket
@@ -82,8 +149,16 @@ async def add_message(
     body_format: str = "text",
     buttons: str | None = None,
     image_id: str | None = None,
+    connector_source: str | None = None,
+    author_label: str | None = None,
+    idempotency_key: str | None = None,
 ) -> SupportTicketMessage | None:
-    stmt = select(SupportTicket).where(SupportTicket.ticket_id == ticket_id).with_for_update()
+    stmt = (
+        select(SupportTicket)
+        .where(SupportTicket.ticket_id == ticket_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     result = await session.execute(stmt)
     ticket = result.scalar_one_or_none()
     if not ticket:
@@ -100,6 +175,9 @@ async def add_message(
         image_id=image_id,
         is_internal_note=bool(is_internal_note),
         created_at=now,
+        connector_source=connector_source,
+        author_label=author_label,
+        idempotency_key=idempotency_key,
     )
     session.add(message)
 
@@ -110,11 +188,12 @@ async def add_message(
         ticket.unread_admin_count = int(ticket.unread_admin_count or 0) + 1
         if ticket.status not in CLOSED_STATUSES:
             ticket.status = "awaiting_admin"
-    elif author_role == "admin" and not is_internal_note:
+    elif author_role in {"admin", "connector"} and not is_internal_note:
         ticket.unread_user_count = int(ticket.unread_user_count or 0) + 1
         if ticket.status not in CLOSED_STATUSES:
             ticket.status = "awaiting_user"
 
+    await advance_ticket_revision(session, ticket)
     await session.flush()
     await session.refresh(message)
     return message
@@ -147,6 +226,7 @@ async def get_ticket(
     include_internal: bool = False,
     after_message_id: int | None = None,
     user_id: int | None = None,
+    limit: int | None = None,
 ) -> tuple[SupportTicket | None, list[SupportTicketMessage]]:
     stmt = (
         select(SupportTicket)
@@ -165,12 +245,20 @@ async def get_ticket(
         msg_stmt = msg_stmt.where(SupportTicketMessage.message_id > after_message_id)
     if not include_internal:
         msg_stmt = msg_stmt.where(SupportTicketMessage.is_internal_note.is_(False))
-    msg_stmt = msg_stmt.order_by(
-        SupportTicketMessage.created_at.asc(),
-        SupportTicketMessage.message_id.asc(),
-    )
+    if limit is not None:
+        if not 1 <= limit <= 500:
+            raise ValueError("invalid_support_message_page")
+        msg_stmt = msg_stmt.order_by(SupportTicketMessage.message_id.desc()).limit(limit)
+    else:
+        msg_stmt = msg_stmt.order_by(
+            SupportTicketMessage.created_at.asc(),
+            SupportTicketMessage.message_id.asc(),
+        )
     msg_result = await session.execute(msg_stmt)
-    return ticket, list(msg_result.scalars().all())
+    messages = list(msg_result.scalars().all())
+    if limit is not None:
+        messages.reverse()
+    return ticket, messages
 
 
 async def list_user_tickets(
@@ -289,7 +377,7 @@ async def mark_read(session: AsyncSession, ticket_id: int, role: str) -> None:
             .where(
                 and_(
                     SupportTicketMessage.ticket_id == ticket_id,
-                    SupportTicketMessage.author_role == "admin",
+                    SupportTicketMessage.author_role.in_({"admin", "connector"}),
                     SupportTicketMessage.is_internal_note.is_(False),
                     SupportTicketMessage.read_by_user_at.is_(None),
                 )
@@ -326,7 +414,13 @@ async def update_ticket(
     assigned_admin_id: object = _UNSET,
     closed_by_admin_id: int | None = None,
 ) -> SupportTicket | None:
-    ticket = await session.get(SupportTicket, ticket_id)
+    result = await session.execute(
+        select(SupportTicket)
+        .where(SupportTicket.ticket_id == ticket_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    ticket = result.scalar_one_or_none()
     if not ticket:
         return None
     now = datetime.now(UTC)
@@ -345,6 +439,7 @@ async def update_ticket(
     if assigned_admin_id is not _UNSET:
         ticket.assigned_admin_id = assigned_admin_id
     ticket.updated_at = now
+    await advance_ticket_revision(session, ticket)
     await session.flush()
     await session.refresh(ticket)
     return ticket

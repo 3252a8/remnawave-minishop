@@ -9,7 +9,24 @@ export const CUSTOMER_WEBAPP_SECTIONS = [
   "support",
   "settings",
   "notifications",
+  "payment-history",
 ] as const;
+
+export type MessageTargetOption = {
+  value: string;
+  label: string;
+  group?: string;
+  disabled?: boolean;
+};
+export function withUnavailableTarget(
+  items: MessageTargetOption[],
+  value: string,
+  label: (target: string) => string
+): MessageTargetOption[] {
+  return !value || items.some((item) => item.value === value)
+    ? items
+    : [...items, { value, label: label(value), disabled: true }];
+}
 
 const TELEGRAM_HOSTS = new Set(["t.me", "telegram.me", "www.t.me", "www.telegram.me"]);
 const TELEGRAM_SHORT_PREFIXES = ["t.me/", "telegram.me/", "www.t.me/", "www.telegram.me/"];

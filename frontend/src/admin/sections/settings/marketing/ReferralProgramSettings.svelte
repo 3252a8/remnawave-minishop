@@ -7,7 +7,8 @@
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
-  let { at }: { at: TranslateFn } = $props();
+  let { at, highlightedSettingKey = "" }: { at: TranslateFn; highlightedSettingKey?: string } =
+    $props();
 
   const settingsStore = getSettingsStore();
   const tariffsStore = getTariffsStore();
@@ -29,4 +30,10 @@
 
 <!-- Only the referral settings themselves. Per-tariff bonus days stay in the
      tariff editor, and the screen header owns the single Save. -->
-<TariffReferralSettings {at} {settingsDirty} {settingsFieldMap} standalone />
+<TariffReferralSettings
+  {at}
+  {highlightedSettingKey}
+  {settingsDirty}
+  {settingsFieldMap}
+  standalone
+/>

@@ -50,26 +50,50 @@ def _serialize_tariff_referral_bonus_details(settings: Settings, lang: str) -> l
         )
 
     summaries: list[dict[str, Any]] = []
+    groups: dict[tuple[object, ...], dict[str, Any]] = {}
     for tariff in period_tariffs:
         details = _serialize_tariff_period_referral_bonus_details(tariff, lang)
         if not details:
             continue
         inviter_values = [int(item["inviter_days"]) for item in details]
         friend_values = [int(item["friend_days"]) for item in details]
-        summaries.append(
-            {
-                "id": f"tariff:{tariff.key}",
-                "type": "tariff_summary",
-                "tariff_key": tariff.key,
-                "tariff_name": tariff.name(lang),
-                "title": tariff.name(lang),
-                "inviter_min_days": min(inviter_values),
-                "inviter_max_days": max(inviter_values),
-                "friend_min_days": min(friend_values),
-                "friend_max_days": max(friend_values),
-                "details": details,
-            }
+        # Compare every offered duration, including periods without rewards.
+        # Access-controlled offers must retain their own applicability boundary.
+        signature: tuple[object, ...] = (
+            getattr(tariff, "access_code", None),
+            tuple(
+                sorted(
+                    (
+                        tariff.period_duration_days(int(period)),
+                        tariff.referral_inviter_bonus_days(int(period)),
+                        tariff.referral_referee_bonus_days(int(period)),
+                    )
+                    for period in tariff.enabled_periods
+                )
+            ),
         )
+        if signature in groups:
+            summary = groups[signature]
+            summary["tariff_keys"].append(tariff.key)
+            summary["tariff_names"].append(tariff.name(lang))
+            summary["title"] = ", ".join(summary["tariff_names"])
+            continue
+        summary = {
+            "id": f"tariff:{tariff.key}",
+            "type": "tariff_summary",
+            "tariff_key": tariff.key,
+            "tariff_name": tariff.name(lang),
+            "title": tariff.name(lang),
+            "inviter_min_days": min(inviter_values),
+            "inviter_max_days": max(inviter_values),
+            "friend_min_days": min(friend_values),
+            "friend_max_days": max(friend_values),
+            "details": details,
+            "tariff_keys": [tariff.key],
+            "tariff_names": [tariff.name(lang)],
+        }
+        groups[signature] = summary
+        summaries.append(summary)
     return summaries
 
 

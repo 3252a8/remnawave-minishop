@@ -6,6 +6,18 @@ from bot.plugins.package_ui_composition import validate_admin_slots
 from bot.plugins.package_user_ui import validate_user_frontend
 
 
+def test_support_ticket_panel_is_additive_and_cannot_replace_the_reply_composer():
+    slot = {
+        "id": "ticket-panel",
+        "view": "ticket-panel",
+        "label": "Ticket",
+        "target": "admin.support.ticket.content",
+    }
+    validate_admin_slots({"slots": [slot]})
+    with pytest.raises(ValueError, match="protected_ui_slot_target"):
+        validate_admin_slots({"slots": [{**slot, "placement": "replace"}]})
+
+
 def test_nested_user_pages_and_section_cards_are_additive():
     value = {
         "entry": "user.js",

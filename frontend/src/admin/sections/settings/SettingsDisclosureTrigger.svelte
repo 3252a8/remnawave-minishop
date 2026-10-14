@@ -10,6 +10,7 @@
     dirtyLabel?: string;
     level?: DisclosureLevel;
     logoFallback?: string;
+    logoEmoji?: boolean;
     logoLabel?: string;
     logoUrl?: string;
     onToggle: () => void;
@@ -25,6 +26,7 @@
     dirtyLabel = "",
     level = "section",
     logoFallback = "",
+    logoEmoji = false,
     logoLabel = "",
     logoUrl = "",
     onToggle,
@@ -62,9 +64,16 @@
   >
     <span class={titleClass}>
       {#if logoUrl || logoFallback}
-        <span class="admin-provider-logo" title={logoLabel || title} aria-hidden="true">
+        <span
+          class="admin-provider-logo"
+          class:admin-provider-logo-emoji={logoEmoji}
+          title={logoLabel || title}
+          aria-hidden="true"
+        >
           {#if logoUrl && !logoFailed}
             <img src={logoUrl} alt="" loading="lazy" onerror={() => (logoFailed = true)} />
+          {:else if logoEmoji}
+            <span>{fallbackText}</span>
           {:else}
             <span class="admin-provider-logo-fallback">{fallbackText}</span>
           {/if}

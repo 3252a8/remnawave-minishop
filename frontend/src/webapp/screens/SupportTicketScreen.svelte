@@ -21,6 +21,7 @@
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type MessageRecord = Record<string, unknown> & {
     author_name?: string;
+    author_label?: string;
     author_role?: string;
     body?: string;
     body_format?: string;
@@ -129,6 +130,7 @@
   }
 
   function messageAuthorName(message: MessageRecord) {
+    if (message?.author_label) return message.author_label;
     if (message?.author_name) return message.author_name;
     return message?.author_role === "user" ? t("wa_support_role_user") : "";
   }

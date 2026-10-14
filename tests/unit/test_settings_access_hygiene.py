@@ -4,7 +4,6 @@ import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SETTINGS_PATH = PROJECT_ROOT / "backend" / "config" / "settings.py"
 SETTINGS_MIXINS_PATH = PROJECT_ROOT / "backend" / "config" / "settings_mixins.py"
 
 INTENTIONAL_ABSENT_SETTINGS_NAMES = {
@@ -27,14 +26,21 @@ def _class_def(tree: ast.Module, name: str) -> ast.ClassDef:
 
 
 def _defined_settings_attrs() -> set[str]:
-    settings_class = _class_def(_module_tree(SETTINGS_PATH), "Settings")
     mixin_class = _class_def(_module_tree(SETTINGS_MIXINS_PATH), "SettingsComputedMixin")
 
-    attrs = {
-        item.target.id
-        for item in settings_class.body
-        if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
-    }
+    attrs: set[str] = set()
+    for filename, class_name in (
+        ("settings.py", "Settings"),
+        ("settings_auth.py", "AuthenticationSettings"),
+    ):
+        settings_class = _class_def(
+            _module_tree(PROJECT_ROOT / "backend" / "config" / filename), class_name
+        )
+        attrs.update(
+            item.target.id
+            for item in settings_class.body
+            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name)
+        )
     attrs.update(
         item.name
         for item in mixin_class.body

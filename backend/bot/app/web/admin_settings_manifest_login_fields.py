@@ -227,4 +227,23 @@ LOGIN_METHOD_SETTINGS_FIELDS: tuple[SettingField, ...] = (
         max=900,
         subsection="passkey",
     ),
+    SettingField(
+        "QR_LOGIN_ENABLED",
+        "bool",
+        "login_methods",
+        "QR login",
+        description=(
+            "The browser shows a QR code; a device that is already signed in scans it and "
+            "confirms with the number on screen. The new device never contacts Telegram."
+        ),
+        subsection="qr",
+    ),
+    SettingField(
+        "QR_LOGIN_WIDE_BUTTON",
+        "bool",
+        "login_methods",
+        "Wide login button",
+        description="Keep a full-width button when compact login methods are enabled.",
+        subsection="qr",
+    ),
 )

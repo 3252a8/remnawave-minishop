@@ -17,6 +17,7 @@ from bot.app.web import subscription_webapp
 from bot.app.web.admin_api_impl import themes as admin_themes
 from bot.app.web.webapp import assets as webapp_assets
 from bot.app.web.webapp import assets_branding, assets_static, cache_helpers
+from bot.app.web.webapp.serializers_billing_options import _serialize_tariff_change_target
 from bot.services import legal_document_links
 from config.settings import Settings
 from config.webapp_themes_config import WebappThemesConfig, builtin_webapp_themes_config
@@ -118,6 +119,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 POSTGRES_PASSWORD="app_password",
                 TARIFFS_CONFIG_PATH=str(path),
                 TRAFFIC_PACKAGES="10:199",
+                USER_HWID_DEVICE_LIMIT=7,
             )
 
             plans = subscription_webapp._serialize_plans(settings, "en")
@@ -131,6 +133,22 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
                 settings,
                 "en",
                 tariff_access_code="ab" * 16,
+            )
+            config = settings.tariffs_config
+            assert config is not None
+            target = _serialize_tariff_change_target(
+                settings,
+                config,
+                config.require_configured("standard"),
+                {"mode": "period_to_period"},
+                "en",
+            )
+            traffic_target = _serialize_tariff_change_target(
+                settings,
+                config,
+                config.require_configured("traffic"),
+                {"mode": "period_to_traffic"},
+                "en",
             )
 
         self.assertEqual([plan["tariff_key"] for plan in plans], ["standard", "traffic"])
@@ -163,6 +181,18 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[1]["stars_price"], 2500)
         self.assertEqual(plans[1]["traffic_limit_strategy"], "NO_RESET")
         self.assertEqual(plans[1]["premium_traffic_limit_strategy"], "NO_RESET")
+        self.assertEqual(target["effective_hwid_device_limit"], 5)
+        self.assertEqual(target["monthly_gb"], 100)
+        self.assertTrue(target["premium_enabled"])
+        self.assertEqual(target["premium_title"], "Fast lane")
+        self.assertEqual(target["premium_monthly_gb"], 25)
+        self.assertFalse(target["premium_unlimited"])
+        self.assertEqual(target["traffic_limit_strategy"], "WEEK")
+        self.assertEqual(target["premium_traffic_limit_strategy"], "DAY")
+        self.assertEqual(traffic_target["effective_hwid_device_limit"], 7)
+        self.assertFalse(traffic_target["premium_enabled"])
+        self.assertEqual(traffic_target["traffic_packages"], [50])
+        self.assertEqual(traffic_target["traffic_limit_strategy"], "NO_RESET")
 
     def test_serialize_plans_preserves_enabled_period_order(self):
         with tempfile.TemporaryDirectory() as tmpdir:

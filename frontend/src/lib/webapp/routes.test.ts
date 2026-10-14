@@ -26,6 +26,12 @@ describe("admin user links", () => {
 });
 
 describe("sectionFromPath", () => {
+  it("recognizes payment history as a Settings subsection", () => {
+    expect(sectionFromPath("/settings/payments")).toBe("payment-history");
+    expect(sectionFromPath("/demo/runtime/settings/payments", "/demo/runtime")).toBe(
+      "payment-history"
+    );
+  });
   it("recognizes notification preferences as a Settings subsection", () => {
     expect(sectionFromPath("/settings/notifications")).toBe("notifications");
     expect(sectionFromPath("/demo/runtime/settings/notifications", "/demo/runtime")).toBe(

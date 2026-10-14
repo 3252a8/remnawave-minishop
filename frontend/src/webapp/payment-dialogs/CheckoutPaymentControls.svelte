@@ -24,12 +24,15 @@
     partnerMinimum = 0,
     prefetchedBalance,
     balancePreloadComplete = false,
+    balanceRecurringEligible = false,
+    balanceAutoRenew = $bindable(true),
     balanceSource = $bindable<"user" | "partner" | null>(null),
     partnerBalanceDiscount = $bindable(0),
     hasMethods = false,
     balanceFullyCovers = false,
     paymentMethods = [],
     selectedMethod = "",
+    effectiveMethod = "",
     payerEmail = $bindable(""),
     payerPhone = $bindable(""),
     paymentMethodsDisplayMode = "dropdown",
@@ -64,12 +67,15 @@
     partnerMinimum?: number;
     prefetchedBalance?: BalanceResponse | null;
     balancePreloadComplete?: boolean;
+    balanceRecurringEligible?: boolean;
+    balanceAutoRenew?: boolean;
     balanceSource?: "user" | "partner" | null;
     partnerBalanceDiscount?: number;
     hasMethods?: boolean;
     balanceFullyCovers?: boolean;
     paymentMethods?: PaymentMethodView[];
     selectedMethod?: string;
+    effectiveMethod?: string;
     payerEmail?: string;
     payerPhone?: string;
     paymentMethodsDisplayMode?: "dropdown" | "buttons" | string;
@@ -96,23 +102,23 @@
     priceUpdateIntervalMs?: number;
     t?: Translate;
   } = $props();
+  const paymentMethod = $derived(effectiveMethod || selectedMethod);
 </script>
 
 <div class="payment-divider" aria-hidden="true"></div>
-{#if balanceFullyCovers}
-  <p>{t("wa_balance_fully_funded")}</p>
-{:else if hasMethods}
+{#if hasMethods}
   <PaymentMethodPicker
     methods={paymentMethods}
     {selectedMethod}
     mode={paymentMethodsDisplayMode}
+    disabled={balanceFullyCovers}
     {t}
     onSelect={selectPaymentMethod}
   />
 {:else}
   <EmptyCard>{t("wa_payment_methods_not_configured")}</EmptyCard>
 {/if}
-{#if String(selectedMethod || "").toLowerCase() === "wata_subscription"}
+{#if String(paymentMethod || "").toLowerCase() === "wata_subscription"}
   <div class="wata-subscription-contacts">
     <p>{t("wa_wata_subscription_contacts_hint")}</p>
     <label>
@@ -164,6 +170,8 @@
   minimumExternalAmount={partnerMinimum}
   {prefetchedBalance}
   {balancePreloadComplete}
+  recurringEligible={balanceRecurringEligible}
+  bind:autoRenew={balanceAutoRenew}
   bind:source={balanceSource}
   bind:discount={partnerBalanceDiscount}
   {t}
@@ -185,7 +193,7 @@
         <s
           ><AnimatedPrice
             plan={promoPrice.base}
-            method={selectedMethod}
+            method={paymentMethod}
             {animated}
             replaceAnimations={replacePriceAnimations}
             updateIntervalMs={priceUpdateIntervalMs}
@@ -194,7 +202,7 @@
         <b
           ><AnimatedPrice
             plan={promoPrice.discounted}
-            method={selectedMethod}
+            method={paymentMethod}
             {animated}
             replaceAnimations={replacePriceAnimations}
             updateIntervalMs={priceUpdateIntervalMs}
@@ -204,7 +212,7 @@
     {:else}
       <AnimatedPrice
         plan={quotedPlan}
-        method={selectedMethod}
+        method={paymentMethod}
         {animated}
         replaceAnimations={replacePriceAnimations}
         updateIntervalMs={priceUpdateIntervalMs}

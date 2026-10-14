@@ -367,9 +367,14 @@ EXPECTED_EVENT_WIRING = {
 def test_emit_points_are_wired():
     for module_path, event_contracts in EXPECTED_EVENT_WIRING.items():
         source = Path(module_path).read_text(encoding="utf-8")
-        assert "events.emit(" in source or "events.emit_model(" in source, (
-            f"{module_path} lost its event emit call"
-        )
+        if module_path == "backend/db/dal/user_merge_dal.py":
+            assert "defer_event_until_commit(" in source, (
+                "Account merging must defer its event until the transaction commits"
+            )
+        else:
+            assert "events.emit(" in source or "events.emit_model(" in source, (
+                f"{module_path} lost its event emit call"
+            )
         for constant, payload_model in event_contracts:
             assert getattr(events, constant), f"unknown event constant {constant}"
             assert payload_model in source, f"{module_path} no longer builds {payload_model}"

@@ -10,6 +10,7 @@ export type WebappSection =
   | "devices"
   | "support"
   | "settings"
+  | "payment-history"
   | "notifications"
   | "security"
   | "status"
@@ -30,6 +31,7 @@ export function normalizeSection(value: unknown): WebappSection {
     section === "devices" ||
     section === "support" ||
     section === "settings" ||
+    section === "payment-history" ||
     section === "notifications" ||
     section === "security" ||
     section === "status" ||
@@ -90,6 +92,7 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
   if (routePath === "/admin" || routePath.startsWith("/admin/")) return "admin";
   if (routePath === "/support" || routePath.startsWith("/support/")) return "support";
   if (routePath === "/settings/notifications") return "notifications";
+  if (routePath === "/settings/payments") return "payment-history";
   if (routePath === "/settings/security") return "security";
   const section = routePath.startsWith("/") ? routePath.slice(1) : routePath;
   return normalizeSection(section);
@@ -241,7 +244,8 @@ export function syncSectionPath(
   }
   if (normalized === "extensions") {
     const current = stripRoutePrefix(window.location.pathname, routePrefix);
-    if (/^\/extensions\/[a-z][a-z0-9-]+\/[a-z][a-z0-9-]+$/.test(current)) targetPath = current;
+    if (/^\/extensions\/[a-z][a-z0-9_-]{0,63}\/[a-z][a-z0-9-]{1,63}$/.test(current))
+      targetPath = current;
   }
   targetPath = withRoutePrefix(targetPath, routePrefix);
   if (window.location.pathname === targetPath) return;

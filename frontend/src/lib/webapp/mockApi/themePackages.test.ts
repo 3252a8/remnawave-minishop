@@ -64,6 +64,31 @@ describe("documentation theme ZIP import", () => {
     ])
       expect(() => readDemoZip(archive(style))).toThrow();
   });
+  it("parses comments as XML and rejects malformed or encoded active SVG content", () => {
+    const archive = (svg: string) =>
+      zipSync({
+        "one/theme.json": strToU8('{"key":"one"}'),
+        "one/icons/mark.svg": strToU8(svg),
+      });
+    const safe = '<svg><!-- <script>inert example</script> --><path fill="red"/></svg>';
+    expect(readDemoZip(archive(safe))[0].files["icons/mark.svg"]).toEqual(strToU8(safe));
+    for (const svg of [
+      "<svg><!-- <!-- nested --> --><path/></svg>",
+      "<svg><path></svg>",
+      '<svg><path fill="red" fill="blue"/></svg>',
+      '<svg><use href="&#106;avascript:alert(1)"/></svg>',
+      '<svg><path fill="u&#114;l(https://evil.example/a)"/></svg>',
+      '<svg><path fill="u\\72l(https://evil.example/a)"/></svg>',
+      '<svg><path fill="u/**/rl(https://evil.example/a)"/></svg>',
+      '<svg><path style="fill:u&#114;l(https://evil.example/a)"/></svg>',
+      '<svg xmlns="http://www.w3.org/1999/xhtml"><path/></svg>',
+      '<svg xmlns:x="http://www.w3.org/2000/svg"><x:path/></svg>',
+    ])
+      expect(() => readDemoZip(archive(svg))).toThrow();
+    expect(
+      readDemoZip(archive('<svg><defs><path id="mark"/></defs><use href="#mark"/></svg>'))
+    ).toHaveLength(1);
+  });
   it("rejects broken archives and duplicate case-insensitive paths", () => {
     expect(() => readDemoZip(strToU8("not a zip"))).toThrow();
     expect(() =>

@@ -400,6 +400,50 @@ class PanelApiSquadMutationMixin:
             await asyncio.sleep(0.05)
         return {"byUuid": by_uuid, "byName": by_name}
 
+    async def get_node_summary(self, node_uuid: str) -> dict[str, str | None] | None:
+        """Resolve one known node from the directory without exposing its addresses."""
+        wanted = str(node_uuid or "").strip().lower()
+        if not wanted:
+            return None
+        for start in range(0, 6400, 100):
+            data = await self._request(
+                "GET",
+                "/nodes",
+                operation=PanelApiOperation.NODES_LIST,
+                params={"size": 100, "start": start},
+                log_full_response=False,
+            )
+            if not data or data.get("error"):
+                return None
+            response = data.get("response")
+            rows = (
+                response
+                if isinstance(response, list)
+                else (
+                    response.get("nodes", response.get("items", []))
+                    if isinstance(response, dict)
+                    else []
+                )
+            )
+            if not isinstance(rows, list):
+                return None
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                identity = row.get("uuid", row.get("nodeUuid", row.get("node_uuid")))
+                if isinstance(identity, str) and identity.strip().lower() == wanted:
+                    return {
+                        "uuid": identity,
+                        "name": row.get("name") if isinstance(row.get("name"), str) else None,
+                        "countryCode": row.get("countryCode")
+                        if isinstance(row.get("countryCode"), str)
+                        else None,
+                    }
+            if len(rows) < 100:
+                return None
+            await asyncio.sleep(0.05)
+        return None
+
     async def get_nodes_statistics(self) -> dict[str, Any] | None:
         """Get nodes statistics"""
         response_data = await self._request(

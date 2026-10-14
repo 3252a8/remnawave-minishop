@@ -457,6 +457,7 @@ async def create_base_payment_record(
     partner_balance_amount_minor: int | None = None,
     partner_balance_currency_scale: int | None = None,
     funding_source: str = "external",
+    balance_auto_renew: bool = False,
     duration_days: int | None = None,
     subscription_terms_snapshot: str | None = None,
     tariff_change_quote_snapshot: str | None = None,
@@ -482,6 +483,7 @@ async def create_base_payment_record(
             "period_semantics": "fixed_days" if duration_days is not None else None,
             "provider": provider,
             "funding_source": funding_source,
+            "balance_auto_renew": balance_auto_renew,
             "sale_mode": sale_mode,
             "tariff_key": tariff_key,
             "purchased_gb": purchased_gb,
@@ -590,6 +592,7 @@ async def create_webapp_payment_record(
     status: str,
     provider: str,
     funding_source: str = "external",
+    balance_auto_renew: bool = False,
 ) -> Payment:
     amounts = payment_record_amounts(
         months=ctx.months,
@@ -645,6 +648,7 @@ async def create_webapp_payment_record(
         partner_balance_amount_minor=ctx.partner_balance_amount_minor,
         partner_balance_currency_scale=ctx.partner_balance_currency_scale,
         funding_source=funding_source,
+        balance_auto_renew=balance_auto_renew,
         tariff_change_quote_snapshot=ctx.tariff_change_quote_snapshot,
         entitlement_context_snapshot=ctx.entitlement_context_snapshot,
         checkout_bundle_snapshot=ctx.checkout_bundle_snapshot,

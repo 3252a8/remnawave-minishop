@@ -10,6 +10,9 @@
     class?: string;
     rowHeight?: number;
     preserveRowHeightOnMobile?: boolean;
+    appearance?: "admin" | "webapp";
+    layout?: "auto" | "fixed";
+    minWidth?: string;
   };
 
   let {
@@ -20,6 +23,9 @@
     class: className = "",
     rowHeight = 48,
     preserveRowHeightOnMobile = false,
+    appearance = "admin",
+    layout = "auto",
+    minWidth = "760px",
   }: Props = $props();
 
   const tableClass = $derived(
@@ -37,10 +43,17 @@
   }
 </script>
 
-<AdminTable skeleton class={tableClass} style={`--admin-table-skeleton-row-height:${rowHeight}px`}>
+<AdminTable
+  skeleton
+  {appearance}
+  {layout}
+  {minWidth}
+  class={tableClass}
+  style={`--admin-table-skeleton-row-height:${rowHeight}px`}
+>
   <thead>
     <tr>
-      {#each headers as header}
+      {#each headers as header, index (index)}
         <th class:admin-cell-actions={actionColumn && header === headers[headers.length - 1]}
           >{header}</th
         >

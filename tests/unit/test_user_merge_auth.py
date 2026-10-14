@@ -91,11 +91,6 @@ async def _merge(
         ),
         patch.object(
             user_merge_dal,
-            "_accounts_share_promo_activation",
-            AsyncMock(return_value=False),
-        ),
-        patch.object(
-            user_merge_dal,
             "_get_active_subscription_for_user",
             AsyncMock(return_value=None),
         ),
@@ -104,7 +99,7 @@ async def _merge(
             "_get_latest_subscription_for_user",
             AsyncMock(return_value=None),
         ),
-        patch.object(user_merge_dal.events, "emit_model", AsyncMock()),
+        patch.object(user_merge_dal, "defer_event_until_commit", Mock()),
     ):
         merged = await user_merge_dal.merge_users(
             session,
@@ -237,11 +232,6 @@ async def _merge_reports_the_conflicting_external_provider(provider: str) -> Non
             "_lock_users_for_merge",
             AsyncMock(return_value=(source, target)),
         ),
-        patch.object(
-            user_merge_dal,
-            "_accounts_share_promo_activation",
-            AsyncMock(return_value=False),
-        ),
         pytest.raises(user_merge_dal.UserMergeConflictError) as raised,
     ):
         await user_merge_dal.merge_users(
@@ -305,11 +295,6 @@ async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None
         ),
         patch.object(
             user_merge_dal,
-            "_accounts_share_promo_activation",
-            AsyncMock(return_value=False),
-        ),
-        patch.object(
-            user_merge_dal,
             "_get_active_subscription_for_user",
             AsyncMock(side_effect=[source_sub, target_sub]),
         ),
@@ -324,7 +309,7 @@ async def _merge_cancels_source_recurrence_and_keeps_target_recurrence() -> None
                 )
             ),
         ),
-        patch.object(user_merge_dal.events, "emit_model", AsyncMock()),
+        patch.object(user_merge_dal, "defer_event_until_commit", Mock()),
     ):
         merged = await user_merge_dal.merge_users(
             session,
@@ -361,11 +346,6 @@ async def _merge_stops_when_secondary_recurrence_cannot_be_cancelled() -> None:
             user_merge_dal,
             "_lock_users_for_merge",
             AsyncMock(return_value=(source, target)),
-        ),
-        patch.object(
-            user_merge_dal,
-            "_accounts_share_promo_activation",
-            AsyncMock(return_value=False),
         ),
         patch.object(
             user_merge_dal,

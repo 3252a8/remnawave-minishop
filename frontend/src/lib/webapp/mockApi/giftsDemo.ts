@@ -3,6 +3,7 @@ import type { GiftView } from "../gifts.svelte.js";
 import type { DemoRecord } from "./dataset";
 import { DEV_MOCK } from "../previewMock.js";
 import { jsonBody } from "../demoMockRuntime.js";
+import { PAYMENT_PROVIDER_DEMO_METHODS } from "../previewMock/paymentProviders";
 
 const gift = (id: number, status = "ready"): GiftView => ({
   gift_id: id,
@@ -53,7 +54,12 @@ function adminGiftRows(): AdminGift[] {
     amount: index === 2 ? 0 : 1090 + index * 10,
     total_amount: index === 2 ? 0 : 1490 + index * 10,
     currency: "RUB",
-    provider: index === 2 ? "admin_gift" : "yookassa",
+    provider:
+      index === 2
+        ? "admin_gift"
+        : DEV_MOCK.data.payment_provider_demo
+          ? PAYMENT_PROVIDER_DEMO_METHODS[index % PAYMENT_PROVIDER_DEMO_METHODS.length].id
+          : "yookassa",
     payment_status: "succeeded",
     user_balance_amount: index === 2 ? 0 : 250,
     partner_balance_amount: index === 2 ? 0 : 150,

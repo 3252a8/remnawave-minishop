@@ -2,6 +2,7 @@ import SETTINGS_MANIFEST_SECTIONS from "../settingsManifest.generated.json";
 import { DEV_MOCK } from "../previewMock.js";
 import { DATASET, type CloneFn, type DemoRecord, type DemoSettingsField } from "./dataset";
 import { demoSettingsChanges, storeDemoSettingsChanges } from "./state";
+import { currentDemoBalance } from "./balance";
 
 type ManifestSection = DemoRecord & { fields?: (DemoRecord & { key: string })[] };
 
@@ -20,6 +21,8 @@ function demoSettingsValuesByKey(): Map<string, DemoSettingsField> {
 
 function demoRuntimeSettingValue(key: string): unknown {
   const values: DemoRecord = {
+    USER_BALANCE_ENABLED: Boolean(DEV_MOCK.data.settings.user_balance_enabled),
+    USER_BALANCE_RECURRING_ENABLED: Boolean(currentDemoBalance().recurring_enabled),
     GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,
     WEBAPP_ADMIN_THEME_EFFECTS_ENABLED: DEV_MOCK.config.adminThemeEffectsEnabled ?? false,
@@ -39,10 +42,12 @@ function demoRuntimeSettingValue(key: string): unknown {
       DEV_MOCK.config.referralWelcomeBonusDays ?? DEV_MOCK.data.referral?.welcome_bonus_days ?? 3,
     REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED:
       DEV_MOCK.config.referralWelcomeWithoutTelegramEnabled ?? true,
+    REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL: false,
     REFERRAL_ONE_BONUS_PER_REFEREE:
       DEV_MOCK.config.referralOneBonusPerReferee ??
       DEV_MOCK.data.referral?.one_bonus_per_referee ??
       false,
+    REFERRAL_GIFT_ACTIVATION_ENABLED: true,
     REFERRAL_WEBAPP_LINK_ENABLED: DEV_MOCK.config.referralWebappLinkEnabled ?? true,
     REFERRAL_TELEGRAM_LINK_ENABLED: DEV_MOCK.config.referralTelegramLinkEnabled ?? true,
     PARTNER_PROGRAM_ENABLED:
@@ -100,6 +105,17 @@ export function demoSettingsSections(clone: CloneFn): ManifestSection[] {
 }
 
 function applyDemoSettingToMock(key: string, value: unknown): void {
+  if (key === "USER_BALANCE_ENABLED") {
+    DEV_MOCK.data.settings.user_balance_enabled = Boolean(value);
+    DEV_MOCK.data.balance.enabled = Boolean(value);
+    currentDemoBalance().enabled = Boolean(value);
+    const userSource = currentDemoBalance().sources.find((source) => source.id === "user");
+    if (userSource) userSource.recurring_available = Boolean(value);
+  }
+  if (key === "USER_BALANCE_RECURRING_ENABLED") {
+    DEV_MOCK.data.balance.recurring_enabled = Boolean(value);
+    currentDemoBalance().recurring_enabled = Boolean(value);
+  }
   if (key === "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED") {
     DEV_MOCK.config.adminThemeEffectsEnabled = Boolean(value);
   }

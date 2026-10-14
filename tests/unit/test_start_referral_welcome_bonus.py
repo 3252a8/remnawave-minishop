@@ -21,6 +21,7 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             "DISABLE_WELCOME_MESSAGE": False,
             "REGISTRATION_INVITE_ONLY_ENABLED": False,
             "LEGACY_REFS": True,
+            "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL": False,
             "compatibility_settings": SimpleNamespace(remnashop_referral_code_compat_enabled=False),
             "referral_settings": ReferralSettings(
                 bonus_days_inviter_1_month=7,
@@ -316,3 +317,96 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
             reason="referral_welcome_bonus",
             tariff_key="starter",
         )
+
+    async def test_start_referral_welcome_bonus_waits_for_the_trial_when_added_to_it(self):
+        end_date = datetime(2026, 1, 9, tzinfo=UTC)
+        settings = self._settings(
+            REFERRAL_WELCOME_BONUS_DAYS=3,
+            REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL=True,
+            TRIAL_ENABLED=True,
+            TRIAL_DURATION_DAYS=7,
+            TRIAL_PAYMENT_ENABLED=False,
+            referral_settings=ReferralSettings(
+                bonus_days_inviter_1_month=7,
+                bonus_days_inviter_3_months=7,
+                bonus_days_inviter_6_months=7,
+                bonus_days_inviter_12_months=7,
+                bonus_days_referee_1_month=3,
+                bonus_days_referee_3_months=3,
+                bonus_days_referee_6_months=3,
+                bonus_days_referee_12_months=3,
+                one_bonus_per_referee=False,
+                welcome_bonus_days=3,
+                welcome_bonus_without_telegram_enabled=True,
+                legacy_refs_enabled=True,
+            ),
+            tariffs_config=SimpleNamespace(
+                default_tariff="standard",
+                referral_welcome_bonus_tariff="starter",
+            ),
+        )
+        i18n = SimpleNamespace(gettext=lambda lang, key, **kw: key)
+        subscription_service = SimpleNamespace(
+            extend_active_subscription_days=AsyncMock(return_value=end_date)
+        )
+        session = AsyncMock()
+        message = self._message()
+        state = SimpleNamespace(clear=AsyncMock())
+        ref_match = Mock()
+        ref_match.group.return_value = "ABC123"
+        created_user = SimpleNamespace(
+            user_id=42,
+            referred_by_id=7,
+            referral_welcome_bonus_claimed_at=None,
+        )
+        referrer = SimpleNamespace(user_id=7)
+
+        with (
+            patch(
+                "bot.services.registration_invite_gate.user_dal.get_user_by_referral_code",
+                AsyncMock(return_value=referrer),
+            ),
+            patch(
+                "bot.handlers.user.start.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.handlers.user.start.user_dal.get_user_by_id",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.handlers.user.start.user_dal.create_user",
+                AsyncMock(return_value=(created_user, True)),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.ensure_required_channel_subscription",
+                AsyncMock(return_value=True),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.user_dal.lock_user_by_id",
+                AsyncMock(return_value=created_user),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.subscription_dal.has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.send_main_menu",
+                AsyncMock(),
+            ),
+        ):
+            await start_command_handler(
+                message=message,
+                state=state,
+                settings=settings,
+                i18n_data={"current_language": "en", "i18n_instance": i18n},
+                subscription_service=subscription_service,
+                referral_service=AsyncMock(),
+                session=session,
+                ref_match=ref_match,
+            )
+
+        subscription_service.extend_active_subscription_days.assert_not_awaited()
+        self.assertIsNone(created_user.referral_welcome_bonus_claimed_at)
+        sent = [call.args[0] for call in message.answer.await_args_list if call.args]
+        self.assertIn("referral_welcome_bonus_added_to_trial", sent)

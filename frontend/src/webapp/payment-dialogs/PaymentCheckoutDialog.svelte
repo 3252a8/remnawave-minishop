@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { billingErrorMessage } from "$lib/webapp/billingActions.js";
+  import { balanceRecurringEligible } from "$lib/webapp/balanceUiPolicy.js";
   import CheckoutHeader from "./CheckoutHeader.svelte";
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
   import { ArrowLeft, ArrowRight } from "$components/ui/icons.js";
@@ -40,7 +42,6 @@
     planDisplayTitle as planDisplayTitleFn,
     planSubtitle as planSubtitleFn,
     planUnitHint as planUnitHintFn,
-    tariffLimitLabel as tariffLimitLabelFn,
     priceLabel as priceLabelFn,
     firstAvailableMethod,
     isTrialPaymentPlan,
@@ -54,7 +55,6 @@
     CheckoutAddonKind,
     CheckoutAddonSelection,
     PlanView,
-    TariffView,
   } from "$lib/webapp/types.js";
   let {
     api,
@@ -109,13 +109,13 @@
   }: PaymentCheckoutDialogProps = $props();
 
   const methodUsesStars = () =>
-    String(selectedMethod || "")
+    String(calculationMethod || "")
       .toLowerCase()
       .includes("stars");
   function providerManagesPrice() {
-    return methodManagesPrice(methods, selectedPlan, selectedMethod);
+    return methodManagesPrice(methods, selectedPlan, calculationMethod);
   }
-  function tributeShopSubscriptionSelected(methodId = selectedMethod) {
+  function tributeShopSubscriptionSelected(methodId = calculationMethod) {
     return (
       String(methodId || "").toLowerCase() === "tribute" &&
       !providerManagesPrice() &&
@@ -132,7 +132,9 @@
   }
   let checkoutDeviceCount = $state(0);
   let balanceSource = $state<"user" | "partner" | null>(null);
+  const calculationMethod = $derived(balanceSource && !gift ? "balance" : selectedMethod);
   let partnerBalanceDiscount = $state(0);
+  let balanceAutoRenew = $state(true);
   let checkoutRegularLimitGb = $state<number | null>(null);
   let checkoutPremiumLimitGb = $state<number | null>(null);
   let checkoutPlanIdentity = $state("");
@@ -211,6 +213,7 @@
   }
 
   function checkoutAddonsUnavailableForMethod(plan: PlanView | null): boolean {
+    if (balanceFullyCovers) return false;
     const method = String(selectedMethod || "").toLowerCase();
     return Boolean(
       method &&
@@ -267,8 +270,17 @@
     return {
       balanceSource,
       balanceOnly: balanceFullyCovers,
+      balanceAutoRenew:
+        balanceAutoRenew &&
+        balanceFullyCovers &&
+        balanceRecurringEligible(selectedPlan, gift) &&
+        Boolean(balancePreload.response?.recurring_enabled) &&
+        Boolean(
+          balancePreload.response?.sources.find((source) => source.id === balanceSource)
+            ?.recurring_available
+        ),
       checkoutAddons: checkoutAddonSelection,
-      ...wataCheckout.wataSubscriptionContacts(selectedMethod, payerEmail, payerPhone),
+      ...wataCheckout.wataSubscriptionContacts(effectivePaymentMethod, payerEmail, payerPhone),
     };
   }
 
@@ -309,8 +321,19 @@
   }
 
   function applyPromoWithCheckoutAddons(): unknown {
-    return applyCheckoutPromo({ checkoutAddons: checkoutAddonSelection });
+    return applyCheckoutPromo({
+      checkoutAddons: checkoutAddonSelection,
+      paymentMethod: calculationMethod,
+    });
   }
+
+  $effect(() => {
+    if (gift) return;
+    const paymentMethod = calculationMethod;
+    untrack(() => {
+      void applyCheckoutPromo({ paymentMethod, updateContextOnly: true });
+    });
+  });
   function hwidRenewalFor(plan: PlanView | null) {
     return plan?.hwid_renewal?.available ? plan.hwid_renewal : null;
   }
@@ -349,7 +372,7 @@
     return planWithSelectedHwidRenewal(planWithSelectedCheckoutAddons(plan));
   }
   function paymentPriceLabel(plan: PlanView | null) {
-    return priceLabelFn(planWithCheckoutSelection(plan), selectedMethod);
+    return priceLabelFn(planWithCheckoutSelection(plan), calculationMethod);
   }
   function checkoutPaymentPriceLabel(plan: PlanView | null) {
     if (providerManagesPrice()) return t("wa_price_managed_by_provider");
@@ -391,8 +414,8 @@
     const promoPlans = checkoutPromoPlanParts(plan);
     if (!promoPlans) return null;
     return {
-      base: priceLabelFn(promoPlans.base, selectedMethod),
-      discounted: priceLabelFn(promoPlans.discounted, selectedMethod),
+      base: priceLabelFn(promoPlans.base, calculationMethod),
+      discounted: priceLabelFn(promoPlans.discounted, calculationMethod),
     };
   }
   const selectedPlanForPayment = $derived(planWithCheckoutSelection(selectedPlan));
@@ -402,15 +425,26 @@
       ? discountedCheckoutPlan(selectedPlanForPayment)
       : selectedPlanForPayment
   );
+  const balanceFullyCovers = $derived(
+    !gift &&
+      Boolean(balanceSource) &&
+      partnerBalanceDiscount > 0 &&
+      partnerBalanceDiscount >= checkoutAmount(selectedPlan)
+  );
+  const effectivePaymentMethod = $derived(balanceFullyCovers ? "balance" : selectedMethod);
   const availablePaymentMethods = $derived(
-    methodsForPlan(methods, paymentMethodAvailabilityPlan, balanceSource)
+    methodsForPlan(
+      methods,
+      paymentMethodAvailabilityPlan,
+      balanceFullyCovers ? null : balanceSource
+    )
   );
   const promoPaymentMethods = $derived(
     checkoutPromoPaymentMethods(availablePaymentMethods, paymentMethodAvailabilityPlan)
   );
   const promoMethodAvailable = $derived(Boolean(firstAvailableMethod(promoPaymentMethods)));
   const paymentMethods = $derived(
-    checkoutPromoInput.trim() || checkoutPromoAppliedCode
+    !balanceFullyCovers && (checkoutPromoInput.trim() || checkoutPromoAppliedCode)
       ? checkoutPromoSelectionMethods(
           availablePaymentMethods,
           paymentMethodAvailabilityPlan,
@@ -418,12 +452,6 @@
           checkoutPromoAppliedCode
         )
       : availablePaymentMethods
-  );
-  const balanceFullyCovers = $derived(
-    !gift &&
-      Boolean(balanceSource) &&
-      partnerBalanceDiscount > 0 &&
-      partnerBalanceDiscount >= checkoutAmount(selectedPlan)
   );
   const paymentMethodSelected = $derived(
     balanceFullyCovers || methodSelectable(paymentMethods, selectedMethod)
@@ -497,7 +525,7 @@
       device_count: selectedPlan.device_count,
       tariff_key: selectedPlan.tariff_key,
       sale_mode: selectedPlan.sale_mode,
-      method: balanceSource && !gift ? "balance" : selectedMethod,
+      method: calculationMethod,
       renew_hwid_devices:
         renewHwidDevices &&
         Boolean(selectedPlan?.hwid_renewal?.available) &&
@@ -554,7 +582,7 @@
         stars_price: renewal.stars_price,
         currency: renewal.currency || plan?.currency,
       },
-      selectedMethod
+      calculationMethod
     );
   }
   function showHwidRenewalBlock() {
@@ -601,7 +629,7 @@
     return planSubtitleFn(plan, { t, termUnitLabel });
   }
   function planUnitHint(plan: PlanView | null) {
-    return planUnitHintFn(plan, { trafficMode, selectedMethod, t });
+    return planUnitHintFn(plan, { trafficMode, selectedMethod: calculationMethod, t });
   }
   function checkoutUnitPricePlan(plan: PlanView | null): PlanView | null {
     if (!planUnitHint(plan)) return null;
@@ -644,9 +672,6 @@
           })
         : "",
     };
-  }
-  function tariffLimitLabel(tariff: TariffView) {
-    return tariffLimitLabelFn(tariff, { t });
   }
   function checkoutPromoBlock() {
     return (
@@ -763,7 +788,7 @@
         selectedTariff?.title || selectedPlan.tariff_name || selectedPlan.title || ""
       )}
       tariffDescription={String(selectedTariff?.description || selectedPlan.description || "")}
-      method={selectedMethod}
+      method={calculationMethod}
       currency={String(selectedPlan.currency || "RUB")}
       disabled={checkoutAddonsUnavailableForMethod(selectedPlan)}
       animateValues={checkoutAddonValueAnimationEnabled}
@@ -785,12 +810,15 @@
     partnerMinimum={selectedMethodMinimum()}
     prefetchedBalance={balancePreload.response}
     balancePreloadComplete={balancePreload.complete}
+    balanceRecurringEligible={balanceRecurringEligible(selectedPlan, gift)}
+    bind:balanceAutoRenew
     bind:balanceSource
     bind:partnerBalanceDiscount
     hasMethods={Boolean(paymentMethods.length)}
     {balanceFullyCovers}
     {paymentMethods}
-    selectedMethod={balanceFullyCovers ? "balance" : selectedMethod}
+    {selectedMethod}
+    effectiveMethod={effectivePaymentMethod}
     bind:payerEmail
     bind:payerPhone
     {paymentMethodsDisplayMode}
@@ -809,8 +837,7 @@
       payBusy ||
       checkoutQuoteBusy ||
       Boolean(checkoutQuoteError) ||
-      (!balanceFullyCovers &&
-        !wataCheckout.wataSubscriptionContactsValid(selectedMethod, payerEmail, payerPhone)) ||
+      !wataCheckout.wataSubscriptionContactsValid(effectivePaymentMethod, payerEmail, payerPhone) ||
       (!balanceFullyCovers &&
         checkoutAddonsSelected() &&
         checkoutAddonsUnavailableForMethod(selectedPlan))}
@@ -819,7 +846,7 @@
     promoPrice={checkoutPromoPlanParts(selectedPlan)}
     {selectedPlan}
     quotedPlan={selectedQuotedPlanForPayment}
-    providerManagesPrice={providerManagesPrice()}
+    providerManagesPrice={methodManagesPrice(methods, selectedPlan, effectivePaymentMethod)}
     fallbackPrice={selectedPlan ? checkoutPaymentPriceLabel(selectedPlan) : ""}
     animated={checkoutAddonValueAnimationEnabled}
     priceUpdateIntervalMs={checkoutSliderInteracting ? 420 : 0}
@@ -851,7 +878,7 @@
       : ""}
     bind:renewHwidDevices
     animated={checkoutAddonValueAnimationEnabled}
-    method={selectedMethod}
+    method={calculationMethod}
     updateIntervalMs={checkoutSliderInteracting ? 420 : 0}
     onSelect={(plan) => (selectedPlan = plan)}
     {t}
@@ -879,7 +906,10 @@
         <CheckoutTariffPicker
           tariffs={tariffCatalog}
           {selectedTariffKey}
-          metaLabel={tariffLimitLabel}
+          metaLabel={(tariff) =>
+            tariff.billing_model === "traffic"
+              ? t("wa_tariff_model_traffic")
+              : t("wa_tariff_model_period")}
           {selectTariff}
           {t}
         />

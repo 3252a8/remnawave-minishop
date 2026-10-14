@@ -6,8 +6,11 @@
    * apps cannot read light-on-dark codes, and the person scanning may use any
    * of them.
    */
-  import QRCode from "qrcode";
+  import QrCodeTile from "./QrCodeTile.svelte";
   import Dialog from "$components/ui/dialog.svelte";
+  import QrImageActions from "./QrImageActions.svelte";
+  import type { Translate } from "$lib/webapp/types.js";
+  import { tick } from "svelte";
 
   type Props = {
     open?: boolean;
@@ -19,6 +22,7 @@
     alt: string;
     closeLabel: string;
     onclose?: () => void;
+    t: Translate;
   };
 
   let {
@@ -30,46 +34,25 @@
     alt,
     closeLabel,
     onclose = () => {},
+    t,
   }: Props = $props();
-
-  const QR_OPTIONS = {
-    errorCorrectionLevel: "M",
-    margin: 2,
-    width: 640,
-    color: { dark: "#000000", light: "#ffffff" },
-  } as const;
-
-  let qrDataUrl = $state("");
-
   $effect(() => {
-    const value = open ? link.trim() : "";
-    qrDataUrl = "";
-    if (!value) return;
-    let current = true;
-    QRCode.toDataURL(value, QR_OPTIONS)
-      .then((url: string) => {
-        if (current) qrDataUrl = url;
-      })
-      .catch(() => {
-        if (current) qrDataUrl = "";
-      });
+    if (!open) return;
+    const trigger = document.activeElement;
     return () => {
-      current = false;
+      void tick().then(() => {
+        if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus();
+      });
     };
   });
 </script>
 
-<Dialog {open} {title} {description} {closeLabel} {onclose} class="link-qr-dialog">
+<Dialog {open} {title} {description} {closeLabel} {onclose} class="link-qr-dialog" portal>
   <div class="link-qr">
-    <div class="link-qr-tile">
-      {#if qrDataUrl}
-        <img src={qrDataUrl} {alt} />
-      {:else}
-        <span class="link-qr-placeholder" aria-hidden="true"></span>
-      {/if}
-    </div>
+    <QrCodeTile value={open ? link : ""} {alt} />
     {#if caption}<strong class="link-qr-caption">{caption}</strong>{/if}
     <p class="link-qr-value">{link}</p>
+    <QrImageActions value={open ? link : ""} {t} />
   </div>
 </Dialog>
 
@@ -79,29 +62,6 @@
     justify-items: center;
     gap: 10px;
     min-width: 0;
-  }
-  .link-qr-tile {
-    display: grid;
-    place-items: center;
-    width: min(100%, 280px);
-    aspect-ratio: 1;
-    padding: 12px;
-    border-radius: var(--radius-card);
-    background: #ffffff;
-  }
-  .link-qr-tile img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    image-rendering: pixelated;
-  }
-  .link-qr-placeholder {
-    display: block;
-    width: 100%;
-    height: 100%;
-    border-radius: var(--radius-inner);
-    background: color-mix(in srgb, #000000 6%, #ffffff);
   }
   .link-qr-caption {
     color: var(--text);

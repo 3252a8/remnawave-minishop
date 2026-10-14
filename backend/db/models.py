@@ -13,12 +13,13 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    and_,
     text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from db import subscription_notification_models
+from db import provider_mandate_models, subscription_notification_models
 from db.base import Base
 from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
@@ -367,6 +368,7 @@ class Payment(Base):
     # Persistent attribution for merchant-initiated recurring charges. These
     # fields stay nullable for historic and ordinary one-off payments.
     is_auto_renew = Column(Boolean, nullable=False, default=False, index=True)
+    balance_auto_renew = Column(Boolean, nullable=False, default=False, server_default="false")
     renewal_subscription_id = Column(Integer, nullable=True, index=True)
     renewal_cycle_end = Column(DateTime(timezone=True), nullable=True)
     auto_renew_cycle_id = Column(
@@ -929,6 +931,10 @@ class PromoCodeActivation(Base):
     granted_regular_traffic_gb = Column(Numeric(12, 3), nullable=True)
     granted_premium_traffic_gb = Column(Numeric(12, 3), nullable=True)
     is_manual_override = Column(Boolean, nullable=False, default=False)
+    # A historical standard redemption retained beside another account's
+    # standard redemption at merge. This is provenance, not a new grant or a
+    # manual override. The deleted account ID deliberately has no foreign key.
+    merged_from_user_id = Column(BigInteger, nullable=True)
 
     promo_code = relationship("PromoCode", back_populates="activations")
     user = relationship("User", back_populates="promo_code_activations")
@@ -940,8 +946,8 @@ class PromoCodeActivation(Base):
             "promo_code_id",
             "user_id",
             unique=True,
-            postgresql_where=is_manual_override.is_(False),
-            sqlite_where=is_manual_override.is_(False),
+            postgresql_where=and_(is_manual_override.is_(False), merged_from_user_id.is_(None)),
+            sqlite_where=and_(is_manual_override.is_(False), merged_from_user_id.is_(None)),
         ),
     )
 
@@ -976,6 +982,7 @@ AccountAlias = auth_models.AccountAlias
 UserEmailAddress = auth_models.UserEmailAddress
 UserPasskeyCredential = auth_models.UserPasskeyCredential
 WebAuthnChallenge = auth_models.WebAuthnChallenge
+QrLoginRequest = auth_models.QrLoginRequest
 AdminBroadcast = broadcast_models.AdminBroadcast
 AdminBroadcastDelivery = broadcast_models.AdminBroadcastDelivery
 MessageImage = message_image_models.MessageImage
@@ -987,3 +994,4 @@ SubscriptionLifecycleNotification = (
 )
 UserBalanceLedgerEntry = balance_models.UserBalanceLedgerEntry
 WataSubscription = wata_models.WataSubscription
+ProviderMandate = provider_mandate_models.ProviderMandate

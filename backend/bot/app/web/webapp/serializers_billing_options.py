@@ -20,6 +20,7 @@ from .common import (
     _format_number_for_payload,
     _format_traffic_title,
 )
+from .serializers_tariff_limits import serialize_tariff_limits
 
 
 def _attach_payment_methods_to_plans(
@@ -308,6 +309,12 @@ def _serialize_tariff_change_target(
         "description": tariff.description(lang),
         "billing_model": tariff.billing_model,
         "monthly_gb": tariff.monthly_gb,
+        **serialize_tariff_limits(settings, tariff, lang),
+        "traffic_packages": [
+            package.gb for package in tariff.traffic_packages.for_currency(default_currency)
+        ]
+        if tariff.billing_model == "traffic" and tariff.traffic_packages
+        else [],
         "options": options,
         "actions": actions,
     }

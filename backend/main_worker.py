@@ -61,7 +61,10 @@ from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
 from bot.services.referral_accrual_worker import ReferralAccrualWorker
 from bot.services.rollypay_reconciliation_worker import RollyPayReconciliationWorker
-from bot.services.settings_override_service import refresh_overrides_from_db
+from bot.services.settings_override_service import (
+    outbound_runtime_setting_keys,
+    refresh_overrides_from_db,
+)
 from bot.services.subscription_notification_worker import SubscriptionNotificationWorker
 from bot.services.tariff_worker import TariffTrafficWorker
 from bot.services.torrent_blocker_webhook import TORRENT_BLOCKER_EVENT
@@ -518,8 +521,16 @@ async def _gift_activation_task(ctx: PluginContext) -> None:
     )
 
 
+async def _outbound_settings_refresh_task(ctx: PluginContext) -> None:
+    keys = outbound_runtime_setting_keys()
+    while True:
+        await refresh_overrides_from_db(ctx.settings, ctx.require_session_factory(), keys=keys)
+        await asyncio.sleep(5)
+
+
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
+        WorkerTaskSpec(name="OutboundSettingsRefresh", factory=_outbound_settings_refresh_task),
         WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
         WorkerTaskSpec(name="ReferralAccrualWorker", factory=_referral_accrual_task),
         WorkerTaskSpec(

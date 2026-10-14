@@ -52,7 +52,10 @@ ADMIN_CARD_TARGETS = frozenset(
     )
 )
 _ADMIN_SECTION_TARGET = re.compile(r"admin\.[a-z][a-z0-9-]{1,63}\.content\Z")
-PROTECTED_TARGETS = frozenset({"admin.plugins.content", "user.security.content"})
+ADMIN_SUPPORT_TICKET_TARGET = "admin.support.ticket.content"
+PROTECTED_TARGETS = frozenset(
+    {"admin.plugins.content", "user.security.content", ADMIN_SUPPORT_TICKET_TARGET}
+)
 
 
 def validate_placement(view: dict[str, Any], *, user: bool) -> None:
@@ -60,7 +63,9 @@ def validate_placement(view: dict[str, Any], *, user: bool) -> None:
     if not isinstance(target, str) or (
         target not in USER_TARGETS
         if user
-        else target not in ADMIN_CARD_TARGETS and not _ADMIN_SECTION_TARGET.fullmatch(target)
+        else target not in ADMIN_CARD_TARGETS
+        and target != ADMIN_SUPPORT_TICKET_TARGET
+        and not _ADMIN_SECTION_TARGET.fullmatch(target)
     ):
         raise ValueError("invalid_ui_slot_target")
     placement = view.get("placement", "after")

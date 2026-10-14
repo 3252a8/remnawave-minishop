@@ -19,6 +19,7 @@ describe("Mini App start routes", () => {
     ["Support", "/support"],
     ["devices", "/devices"],
     ["notifications", "/settings/notifications"],
+    ["payment-history", "/settings/payments"],
     ["home", "/home"],
   ])("maps %s to %s", (startParam, expected) => {
     expect(miniAppPathFromStartParam(startParam)).toBe(expected);
@@ -41,4 +42,11 @@ describe("Mini App start routes", () => {
       "/admin/support/42"
     );
   });
+
+  it.each(["tgWebAppStartParam", "startapp", "start_param"])(
+    "opens payment history from %s",
+    (key) => {
+      expect(miniAppPathFromSearch(`?${key}=payment-history`)).toBe("/settings/payments");
+    }
+  );
 });

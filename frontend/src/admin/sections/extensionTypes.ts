@@ -11,6 +11,27 @@ interface FeatureBoundDescriptor {
   visibleWhenLocked?: boolean;
 }
 
+/** Neutral message buttons accepted by the selected support ticket's composer. */
+export interface AdminSupportReplyButton {
+  kind: "url" | "promo_bot" | "promo_webapp" | "webapp_section";
+  label: string;
+  labels?: Record<string, string>;
+  url: string;
+  promo_code: string;
+  section: string;
+  icon_custom_emoji_id?: string | null;
+  icon_emoji?: string;
+}
+
+export interface AdminSupportTicketContext {
+  ticketId: number;
+  revision: number;
+  replyButtonsSupported: true;
+  /** Returns false without changing the composer when the context or buttons are invalid. */
+  insertReplyDraft: (text: string, buttons?: readonly AdminSupportReplyButton[]) => boolean;
+  refreshTicket: () => Promise<void>;
+}
+
 export interface AdminSectionGroupDescriptor {
   id: string;
   order: number;

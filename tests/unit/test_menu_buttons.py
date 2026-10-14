@@ -59,6 +59,12 @@ def test_notification_settings_is_a_supported_webapp_target() -> None:
     assert parse_menu_buttons(payload)[1].target == "notifications"
 
 
+def test_payment_history_is_a_supported_webapp_target() -> None:
+    payload = _payload()
+    payload[1]["target"] = "/payment-history/"
+    assert parse_menu_buttons(payload)[1].target == "payment-history"
+
+
 def test_information_page_button_keeps_an_arbitrary_safe_internal_path() -> None:
     payload = _payload()
     payload[1].update({"kind": "page", "target": "/company/about"})

@@ -163,6 +163,9 @@ class BuildServicesWiringTests(unittest.TestCase):
             services = core_services.as_dict()
 
         expected_keys = {
+            "anore_service",
+            "cryptomus_service",
+            "cispay_service",
             "panel_service",
             "subscription_service",
             "referral_service",

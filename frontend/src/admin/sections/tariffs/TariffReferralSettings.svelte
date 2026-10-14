@@ -17,6 +17,7 @@
     referralLinkResetViolatesRequirement as resolveReferralLinkResetViolatesRequirement,
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
+  import { settingsFieldAnchorKey } from "$lib/admin/settingsSections";
   import type { SettingField } from "$lib/admin/stores/settingsStore";
   import type { Tariff } from "$lib/admin/stores/tariffsStore";
 
@@ -24,11 +25,14 @@
 
   let {
     at,
+    highlightedSettingKey = "",
     settingsDirty = {},
     settingsFieldMap = new Map<string, SettingField>(),
     standalone = false,
   }: {
     at: TranslateFn;
+    /** Setting chosen in the settings search, outlined like generic rows. */
+    highlightedSettingKey?: string;
     settingsDirty?: SettingsDirtyState;
     settingsFieldMap?: Map<string, SettingField>;
     /** Drop the disclosure chrome when the host screen already provides one. */
@@ -70,6 +74,34 @@
   const referralEnabled = $derived(
     boolValue("REFERRAL_PROGRAM_ENABLED", settingsDirty, settingsFieldMap)
   );
+  const referralRules = $derived([
+    {
+      key: "REFERRAL_ONE_BONUS_PER_REFEREE",
+      label: at(
+        "tariffs_referral_one_bonus_per_referee",
+        {},
+        "Bonuses only for the first purchase or gift activation"
+      ),
+      description: at(
+        "tariffs_referral_one_bonus_per_referee_hint",
+        {},
+        "The first qualifying event is a successful personal purchase or gift activation when gift counting is enabled. When this rule is enabled, later purchases and activations by the same invited user do not grant referral bonuses to either side."
+      ),
+    },
+    {
+      key: "REFERRAL_GIFT_ACTIVATION_ENABLED",
+      label: at(
+        "tariffs_referral_gift_activation_enabled",
+        {},
+        "Count gift activation in the referral program"
+      ),
+      description: at(
+        "tariffs_referral_gift_activation_enabled_hint",
+        {},
+        "Grant bonuses after successful recipient activation using their existing referral invitation. The gift link does not change the inviter. Enabled by default; past activations are not recalculated. The one-bonus rule is shared with personal purchases. Partner-client payment bonuses are excluded."
+      ),
+    },
+  ]);
 
   function tariffLabel(tariff: Tariff | undefined): string {
     return tariff?.names?.ru || tariff?.names?.en || tariff?.key || "—";
@@ -135,6 +167,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_PROGRAM_ENABLED", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_PROGRAM_ENABLED"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_PROGRAM_ENABLED")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -212,6 +247,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_WEBAPP_LINK_ENABLED"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_WEBAPP_LINK_ENABLED")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -269,6 +307,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_TELEGRAM_LINK_ENABLED", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_TELEGRAM_LINK_ENABLED"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_TELEGRAM_LINK_ENABLED")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -362,6 +403,9 @@
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_WELCOME_BONUS_DAYS", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "REFERRAL_WELCOME_BONUS_DAYS"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_WELCOME_BONUS_DAYS")}
+            tabindex="-1"
           >
             <div class="admin-setting-meta">
               <strong>
@@ -388,6 +432,70 @@
                   size="sm"
                   variant="ghost"
                   onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_DAYS")}
+                >
+                  <X size={12} />
+                  {at("reset", {}, "Reset")}
+                </AdminButton>
+              {/if}
+            </div>
+          </div>
+
+          <div
+            class="admin-setting admin-trial-setting-row"
+            class:is-dirty={isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey ===
+              "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL"}
+            data-settings-anchor={settingsFieldAnchorKey("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")}
+            tabindex="-1"
+          >
+            <div class="admin-setting-meta">
+              <strong>
+                {at(
+                  "settings_field_referral_welcome_bonus_adds_to_trial_label",
+                  {},
+                  "Add welcome days to trial"
+                )}
+                {#if isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+                  <AdminBadge variant="warning"
+                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                  >
+                {/if}
+              </strong>
+              <code>REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL</code>
+              <small>
+                {at(
+                  "settings_field_referral_welcome_bonus_adds_to_trial_description",
+                  {},
+                  "When enabled and a free trial is available, welcome days are added to the trial instead of granting a separate subscription at sign-up."
+                )}
+              </small>
+            </div>
+            <div class="admin-setting-control">
+              <div class="admin-setting-switch">
+                <Switch.Root
+                  aria-label={at(
+                    "settings_field_referral_welcome_bonus_adds_to_trial_label",
+                    {},
+                    "Add welcome days to trial"
+                  )}
+                  checked={boolValue("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")}
+                  onCheckedChange={(checked) =>
+                    setSetting("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", checked)}
+                  class="admin-switch-root"
+                >
+                  <Switch.Thumb class="admin-switch-thumb" />
+                </Switch.Root>
+                <span>
+                  {boolValue("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")
+                    ? at("enabled", {}, "Enabled")
+                    : at("disabled", {}, "Disabled")}
+                </span>
+              </div>
+              {#if isSettingDirty("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL", settingsDirty)}
+                <AdminButton
+                  size="sm"
+                  variant="ghost"
+                  onclick={() => resetSetting("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL")}
                 >
                   <X size={12} />
                   {at("reset", {}, "Reset")}
@@ -439,12 +547,12 @@
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
-            <strong>{at("tariffs_referral_group_rules", {}, "Payment bonus rules")}</strong>
+            <strong>{at("tariffs_referral_group_rules", {}, "Referral bonus rules")}</strong>
             <small>
               {at(
                 "tariffs_referral_group_rules_hint",
                 {},
-                "Control whether payment bonuses are limited to the invited user's first successful payment."
+                "Limit referral bonuses and choose whether gift activations count."
               )}
             </small>
           </div>
@@ -459,69 +567,51 @@
           {/if}
         </header>
         <div class="admin-settings-field-group-body">
-          <div
-            class="admin-setting admin-trial-setting-row"
-            class:is-dirty={isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
-          >
-            <div class="admin-setting-meta">
-              <strong>
-                {at(
-                  "tariffs_referral_one_bonus_per_referee",
-                  {},
-                  "Payment bonuses only on first invited-user payment"
-                )}
-                {#if isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
-                  <AdminBadge variant="warning"
-                    >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
-                  >
-                {/if}
-              </strong>
-              <code>REFERRAL_ONE_BONUS_PER_REFEREE</code>
-              <small>
-                {at(
-                  "tariffs_referral_one_bonus_per_referee_hint",
-                  {},
-                  "When enabled, later purchases by the same invited user do not grant referral bonuses to either side. The first successful payment still grants bonuses."
-                )}
-              </small>
-            </div>
-            <div class="admin-setting-control">
-              <div class="admin-setting-switch">
-                <Switch.Root
-                  aria-label={at(
-                    "tariffs_referral_one_bonus_per_referee",
-                    {},
-                    "Payment bonuses only on first invited-user payment"
-                  )}
-                  checked={boolValue(
-                    "REFERRAL_ONE_BONUS_PER_REFEREE",
-                    settingsDirty,
-                    settingsFieldMap
-                  )}
-                  onCheckedChange={(checked) =>
-                    setSetting("REFERRAL_ONE_BONUS_PER_REFEREE", checked)}
-                  class="admin-switch-root"
-                >
-                  <Switch.Thumb class="admin-switch-thumb" />
-                </Switch.Root>
-                <span
-                  >{boolValue("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty, settingsFieldMap)
-                    ? at("enabled", {}, "Enabled")
-                    : at("disabled", {}, "Disabled")}</span
-                >
+          {#each referralRules as rule (rule.key)}
+            <div
+              class="admin-setting admin-trial-setting-row"
+              class:is-dirty={isSettingDirty(rule.key, settingsDirty)}
+              class:is-search-highlighted={highlightedSettingKey === rule.key}
+              data-settings-anchor={settingsFieldAnchorKey(rule.key)}
+              tabindex="-1"
+            >
+              <div class="admin-setting-meta">
+                <strong>
+                  {rule.label}
+                  {#if isSettingDirty(rule.key, settingsDirty)}
+                    <AdminBadge variant="warning"
+                      >{at("settings_badge_dirty", {}, "Changed")}</AdminBadge
+                    >
+                  {/if}
+                </strong>
+                <code>{rule.key}</code>
+                <small>{rule.description}</small>
               </div>
-              {#if isSettingDirty("REFERRAL_ONE_BONUS_PER_REFEREE", settingsDirty)}
-                <AdminButton
-                  size="sm"
-                  variant="ghost"
-                  onclick={() => resetSetting("REFERRAL_ONE_BONUS_PER_REFEREE")}
-                >
-                  <X size={12} />
-                  {at("reset", {}, "Reset")}
-                </AdminButton>
-              {/if}
+              <div class="admin-setting-control">
+                <div class="admin-setting-switch">
+                  <Switch.Root
+                    aria-label={rule.label}
+                    checked={boolValue(rule.key, settingsDirty, settingsFieldMap)}
+                    onCheckedChange={(checked) => setSetting(rule.key, checked)}
+                    class="admin-switch-root"
+                  >
+                    <Switch.Thumb class="admin-switch-thumb" />
+                  </Switch.Root>
+                  <span
+                    >{boolValue(rule.key, settingsDirty, settingsFieldMap)
+                      ? at("enabled", {}, "Enabled")
+                      : at("disabled", {}, "Disabled")}</span
+                  >
+                </div>
+                {#if isSettingDirty(rule.key, settingsDirty)}
+                  <AdminButton size="sm" variant="ghost" onclick={() => resetSetting(rule.key)}>
+                    <X size={12} />
+                    {at("reset", {}, "Reset")}
+                  </AdminButton>
+                {/if}
+              </div>
             </div>
-          </div>
+          {/each}
         </div>
       </section>
     </div>

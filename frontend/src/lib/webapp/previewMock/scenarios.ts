@@ -2,9 +2,11 @@ import { DEMO_DATASET } from "../demoDataset.js";
 import { withDemoAvatar } from "../demoAvatars.js";
 import { readStoredDemoLanguage } from "../demoMockRuntime.js";
 import { currentDemoBalance } from "../mockApi/balance.js";
-import { DEV_MOCK, previewPeriodPlan } from "./devMock";
+import { checkoutAddons, DEV_MOCK, previewPeriodPlan } from "./devMock";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
+import { applyPaymentProvidersDemo } from "./paymentProviders";
+import { applyTariffLimitsDemo } from "./tariffLimits.js";
 
 // The generated dataset is treated as a loose record: scenario code probes
 // optional fields that older snapshots may not carry.
@@ -39,7 +41,8 @@ function setUserBalanceScenario(enabled: boolean): void {
     (item) =>
       typeof item === "object" && item !== null && (item as Record<string, unknown>).id === "user"
   ) as Record<string, unknown> | undefined;
-  if (userSource) Object.assign(userSource, { amount_minor: amountMinor, amount });
+  if (userSource)
+    Object.assign(userSource, { amount_minor: amountMinor, amount, recurring_available: enabled });
 }
 
 function applyPaymentPurchasesScenario(): void {
@@ -141,6 +144,8 @@ export function applyDemoDataset(): void {
     },
   });
   setUserBalanceScenario(false);
+  DEV_MOCK.data.balance.recurring_enabled = false;
+  currentDemoBalance().recurring_enabled = false;
 }
 
 function applyDemoTariffScenario(subscriptionPatch: Record<string, unknown> = {}): void {
@@ -249,6 +254,21 @@ export function applyPreviewMock(kind: unknown): void {
     .trim()
     .toLowerCase();
 
+  if (mode === "tariff-limits" || mode === "tariff-limits-purchase") {
+    applyTariffLimitsDemo();
+    if (mode === "tariff-limits-purchase") {
+      DEV_MOCK.data.subscription.active = false;
+      DEV_MOCK.data.subscription.status = "INACTIVE";
+    }
+    return;
+  }
+
+  if (mode === "payment-providers") {
+    applyPreviewMock("checkout-addons");
+    applyPaymentProvidersDemo();
+    return;
+  }
+
   if (mode === "future-providers") {
     applyPreviewMock("auth");
     return;
@@ -300,6 +320,67 @@ export function applyPreviewMock(kind: unknown): void {
   if (mode === "user-balance" || mode === "user_balance" || mode === "balance") {
     DEV_MOCK.data.settings.user_balance_enabled = true;
     setUserBalanceScenario(true);
+    return;
+  }
+
+  if (
+    mode === "balance-recurring" ||
+    mode === "balance-recurring-partial" ||
+    mode === "balance-recurring-methods" ||
+    mode === "balance-recurring-methods-partial"
+  ) {
+    applyPreviewMock(
+      mode.endsWith("-partial") ? "checkout-balance-partial" : "checkout-balance-full"
+    );
+    const snapshot = currentDemoBalance();
+    snapshot.recurring_enabled = true;
+    DEV_MOCK.data.balance.recurring_enabled = true;
+    DEV_MOCK.data.plans = DEV_MOCK.data.plans.map((plan) => ({
+      ...plan,
+      checkout_addons: checkoutAddons(Number(plan.months || 1)),
+    }));
+    if (mode.startsWith("balance-recurring-methods")) {
+      DEV_MOCK.data.payment_methods.push(
+        { id: "stars", name: "Telegram Stars", icon: "Star", balance_supported: false },
+        { id: "wata_subscription", name: "WATA", icon: "CreditCard", balance_supported: true },
+        { id: "oxapay", name: "OxaPay", icon: "Bitcoin", balance_supported: true }
+      );
+      DEV_MOCK.data.subscription.active = true;
+      DEV_MOCK.data.subscription.extra_hwid_devices = 1;
+      DEV_MOCK.data.plans = DEV_MOCK.data.plans.map((plan) => {
+        const addons = checkoutAddons(Number(plan.months || 1));
+        addons.devices.options.at(-1)!.stars_price = 0;
+        addons.traffic.options.at(-1)!.stars_price = 0;
+        return {
+          ...plan,
+          checkout_addons: addons,
+          checkout_addons_unavailable_payment_method_ids: ["tribute", "wata_subscription"],
+          available_payment_method_ids: [
+            "tribute",
+            "stars",
+            "wata_subscription",
+            "oxapay",
+            "platega_sbp",
+          ],
+          externally_managed_price_method_ids: ["oxapay"],
+          hwid_renewal: {
+            available: true,
+            device_count: 1,
+            price: 40 * Number(plan.months || 1),
+            stars_price: 0,
+            currency: "RUB",
+          },
+        };
+      });
+    }
+    if (mode === "balance-recurring-partial") {
+      snapshot.sources.forEach((source) => {
+        source.amount_minor = 10_000;
+        source.amount = "100.00";
+      });
+      snapshot.amount_minor = 10_000;
+      snapshot.amount = "100.00";
+    }
     return;
   }
 
@@ -501,6 +582,7 @@ export function applyPreviewMock(kind: unknown): void {
       sources: ["user", "partner"].map((id) => ({
         id,
         available: true,
+        recurring_available: true,
         amount_minor: full ? 1_000_000 : 10_000,
       })),
     };

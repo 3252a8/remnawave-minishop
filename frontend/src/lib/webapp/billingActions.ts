@@ -67,10 +67,17 @@ export function billingErrorMessage(
 export type PartnerBalancePaymentOptions = {
   balanceOnly?: boolean;
   balanceSource?: "user" | "partner" | null;
+  balanceAutoRenew?: boolean;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
   payerEmail?: string;
   payerPhone?: string;
+};
+
+export type CheckoutPromoOptions = {
+  checkoutAddons?: CheckoutAddonSelection;
+  paymentMethod?: string;
+  updateContextOnly?: boolean;
 };
 
 export type BillingActions = {
@@ -101,6 +108,7 @@ export type BillingActions = {
       renewHwidDevices?: boolean;
       promoCode?: string | null;
       balanceSource?: "user" | "partner" | null;
+      balanceAutoRenew?: boolean;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
       payerEmail?: string;
@@ -220,6 +228,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       renewHwidDevices?: boolean;
       promoCode?: string | null;
       balanceSource?: "user" | "partner" | null;
+      balanceAutoRenew?: boolean;
       usePartnerBalance?: boolean;
       checkoutAddons?: CheckoutAddonSelection;
       payerEmail?: string;
@@ -234,6 +243,7 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
       device_count: plan.device_count,
       renew_hwid_devices: Boolean(options.renewHwidDevices) && !hasDeviceCheckoutAddon,
       balance_source: options.balanceSource || (options.usePartnerBalance ? "partner" : null),
+      balance_auto_renew: Boolean(options.balanceAutoRenew),
       use_partner_balance: Boolean(options.usePartnerBalance),
       method,
     };

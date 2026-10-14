@@ -31,6 +31,7 @@ export function activeTabForWebappSection(
 ) {
   if (section === "admin") return "settings";
   if (section === "notifications") return "settings";
+  if (section === "payment-history") return "settings";
   if (section === "security") return "settings";
   if (section === "partner" && partnerSettingsVisible) return "settings";
   if (section === "install" || section === "trial") return "home";

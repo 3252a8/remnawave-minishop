@@ -33,6 +33,7 @@
           isFeatureBoundDescriptorVisible(slot, features) &&
           (slot.placement !== "replace" ||
             (target !== "admin.plugins.content" &&
+              target !== "admin.support.ticket.content" &&
               target !== "admin.users.detail.actions" &&
               (!requiredFeatureForDescriptor(slot) ||
                 features.has(requiredFeatureForDescriptor(slot)))))

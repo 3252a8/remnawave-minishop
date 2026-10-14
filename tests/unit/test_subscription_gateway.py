@@ -244,6 +244,8 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
                         "x-ver-os": "11",
                         "x-device-model": "Desktop",
                         "x-remnawave-real-ip": "198.51.100.99",
+                        "X-Forwarded-For": "198.51.100.99",
+                        "x-forwarded-proto": "http",
                         "X-Policy": "present",
                         "Authorization": "Bearer secret",
                     },
@@ -256,10 +258,76 @@ class SubscriptionGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen["x-hwid"], "device-123456")
         self.assertEqual(seen["X-Policy"], "present")
         self.assertEqual(seen["x-remnawave-real-ip"], "192.0.2.2")
+        self.assertEqual(seen["X-Forwarded-For"], "192.0.2.2")
+        self.assertEqual(seen["X-Forwarded-Proto"], "https")
         self.assertEqual(seen["x-device-os"], "Windows")
         self.assertEqual(seen["x-ver-os"], "11")
         self.assertEqual(seen["x-device-model"], "Desktop")
         self.assertNotIn("Authorization", seen)
+
+    async def test_internal_panel_proxy_guard_allows_profiles_and_keeps_rejections(self) -> None:
+        for client_ip in ("192.0.2.2", "2001:db8::2"):
+            with self.subTest(client_ip=client_ip):
+                seen: list[str] = []
+
+                async def subscription(
+                    request: web.Request,
+                    expected_ip: str = client_ip,
+                    requests_seen: list[str] = seen,
+                ) -> web.Response:
+                    if (
+                        request.headers.get("X-Forwarded-Proto") != "https"
+                        or request.headers.get("X-Forwarded-For") != expected_ip
+                    ):
+                        assert request.transport is not None
+                        request.transport.close()
+                        return web.Response()
+                    requests_seen.append(request.match_info["short_uuid"])
+                    self.assertEqual(request.headers["x-hwid"], "device-123456")
+                    self.assertEqual(request.headers["x-remnawave-real-ip"], expected_ip)
+                    self.assertNotIn("Authorization", request.headers)
+                    status = {"active-id": 200, "missing-id": 404, "limited-id": 403}[
+                        request.match_info["short_uuid"]
+                    ]
+                    return web.Response(
+                        status=status,
+                        body=b"\x00\xff\nraw" if status == 200 else b"unavailable",
+                        headers={"x-hwid-limit": "2"},
+                    )
+
+                panel_app = web.Application()
+                panel_app.router.add_get("/api/sub/{short_uuid}", subscription)
+                async with TestServer(panel_app) as server:
+                    source = RemnawaveSubscriptionSource(
+                        settings_stub(PANEL_API_URL=str(server.make_url("/api")))
+                    )
+                    for short_uuid, status in (
+                        ("active-id", 200),
+                        ("active-id", 200),
+                        ("missing-id", 404),
+                        ("limited-id", 403),
+                    ):
+                        result = await source.fetch(
+                            SimpleNamespace(panel_short_uuid=short_uuid),
+                            DeliveryRequest(
+                                None,
+                                {
+                                    "User-Agent": "Happ/1.0",
+                                    "X-Hwid": "device-123456",
+                                    "X-Forwarded-For": "198.51.100.99",
+                                    "X-Forwarded-Proto": "http",
+                                    "x-remnawave-real-ip": "198.51.100.99",
+                                    "Authorization": "Bearer client-secret",
+                                },
+                                client_ip,
+                            ),
+                        )
+                        self.assertEqual(result.status, status)
+                        self.assertEqual(
+                            result.body, b"\x00\xff\nraw" if status == 200 else b"unavailable"
+                        )
+                        self.assertEqual(result.headers["x-hwid-limit"], "2")
+                self.assertEqual(seen, ["active-id", "active-id", "missing-id", "limited-id"])
 
     async def test_large_client_settings_survive_the_public_gateway(self) -> None:
         client_settings = "a" * (48 * 1024)

@@ -576,6 +576,7 @@ async def _resolve_base_payment_quote(
             payment_payload=payment_payload,
             method=method,
             pricing_context=checkout_pricing_context,
+            tariff_access_code=request_tariff_access_code(request),
         )
     except CheckoutBundleError as exc:
         return None, _json_error(400, exc.code, exc.message)

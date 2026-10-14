@@ -10,23 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-
-def traffic_gb_split(payment: Any) -> tuple[float | None, float | None]:
-    if payment.purchased_gb is None:
-        return None, None
-    try:
-        gb = float(payment.purchased_gb)
-    except (TypeError, ValueError):
-        return None, None
-    sale_mode = (payment.sale_mode or "").strip()
-    if not sale_mode:
-        return None, None
-    base = sale_mode.split("@", 1)[0].split("|", 1)[0].lower()
-    if base == "premium_topup":
-        return None, gb
-    if base in {"traffic", "traffic_package", "topup"}:
-        return gb, None
-    return None, None
+from bot.app.web.payment_purchases import traffic_gb_split as traffic_gb_split
 
 
 def display_label(

@@ -6,6 +6,7 @@ type BalanceSnapshot = DemoRecord & {
   currency: string;
   currency_scale: number;
   enabled: boolean;
+  recurring_enabled: boolean;
   history: DemoRecord[];
   sources: DemoRecord[];
   topup_min_amount: number;
@@ -22,6 +23,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
   return {
     ok: true,
     enabled,
+    recurring_enabled: false,
     currency: "RUB",
     currency_scale: 2,
     amount_minor: amountMinor,
@@ -33,6 +35,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       {
         id: "user",
         available: true,
+        recurring_available: enabled,
         adjustable: true,
         currency: "RUB",
         amount_minor: amountMinor,
@@ -41,6 +44,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
       {
         id: "partner",
         available: true,
+        recurring_available: true,
         adjustable: true,
         convertible: true,
         status: "active",
@@ -146,6 +150,22 @@ export function currentDemoBalance(): BalanceSnapshot {
   const userId = 100_200_300;
   if (!seededBalances.has(userId)) seededBalances.set(userId, createSnapshot(userId, true, false));
   return seededBalances.get(userId)!;
+}
+
+export function spendDemoBalance(sourceId: "user" | "partner", amount: number): boolean {
+  const snapshot = currentDemoBalance();
+  const target = source(snapshot, sourceId);
+  const amountMinor = Math.round(amount * 10 ** snapshot.currency_scale);
+  if (!target.available || amountMinor <= 0 || Number(target.amount_minor || 0) < amountMinor) {
+    return false;
+  }
+  target.amount_minor = Number(target.amount_minor || 0) - amountMinor;
+  target.amount = (Number(target.amount_minor) / 10 ** snapshot.currency_scale).toFixed(
+    snapshot.currency_scale
+  );
+  syncMain(snapshot);
+  addHistory(snapshot, -amountMinor, "checkout_spend", "Demo subscription payment", sourceId);
+  return true;
 }
 
 export function adminDemoBalance(userId: number): BalanceSnapshot {

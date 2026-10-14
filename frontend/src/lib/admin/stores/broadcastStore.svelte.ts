@@ -804,6 +804,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
                 name: String(item.name || ""),
                 cost: String(item.cost || "db"),
                 description: String(item.description || ""),
+                ...(item.owner ? { owner: item.owner } : {}),
               }))
             : [];
           const allowedTags = Array.isArray(payload.allowed_tags)

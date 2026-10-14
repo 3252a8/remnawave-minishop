@@ -100,6 +100,11 @@ def get_main_menu_inline_keyboard(
             default_language=settings.DEFAULT_LANGUAGE,
         )
         if button.kind in {"webapp", "page"}:
+            if button.target.startswith("/extensions/"):
+                from bot.plugins.message_catalog import active_message_page
+
+                if not active_message_page(button.target):
+                    continue
             target_url = subscription_mini_app_path_url(settings, button.target)
             if target_url:
                 builder.row(
@@ -156,6 +161,15 @@ def get_bot_interface_inline_keyboard(
     promo_button = menu_button(
         "promo", text=_(key="menu_apply_promo_button"), callback_data="main_action:bot_apply_promo"
     )
+    payment_history_url = subscription_mini_app_path_url(settings, "payment-history")
+    if payment_history_url:
+        builder.row(
+            menu_button(
+                "payment_history",
+                text=_(key="menu_payment_history_button"),
+                web_app=WebAppInfo(url=payment_history_url),
+            )
+        )
     if referral_program_enabled:
         builder.row(
             menu_button(

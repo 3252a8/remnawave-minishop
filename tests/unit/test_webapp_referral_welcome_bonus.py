@@ -341,3 +341,45 @@ class WebAppReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         has_history.assert_awaited_once_with(session, 42)
         subscription_service.extend_active_subscription_days.assert_not_awaited()
+
+    async def test_welcome_bonus_waits_for_the_trial_when_added_to_it(self):
+        settings = settings_stub(
+            REFERRAL_WELCOME_BONUS_DAYS=3,
+            REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL=True,
+            REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED=True,
+            DISPOSABLE_EMAIL_DOMAINS="",
+            tariffs_config=SimpleNamespace(default_tariff="standard"),
+        )
+        user = SimpleNamespace(
+            user_id=42,
+            referred_by_id=7,
+            telegram_id=123456,
+            email="person@example.com",
+            referral_welcome_bonus_claimed_at=None,
+        )
+        session = SimpleNamespace()
+        subscription_service = SimpleNamespace(extend_active_subscription_days=AsyncMock())
+        request = SimpleNamespace(
+            app={"settings": settings, "subscription_service": subscription_service}
+        )
+
+        with (
+            patch(
+                "bot.app.web.webapp.auth_referral.user_dal.lock_user_by_id",
+                AsyncMock(return_value=user),
+            ),
+            patch(
+                "bot.app.web.webapp.auth_referral.subscription_dal.has_any_subscription_for_user",
+                AsyncMock(return_value=False),
+            ),
+        ):
+            result = await auth_module._apply_referral_welcome_bonus_if_needed(
+                request,
+                session,
+                user,
+                "ABC123",
+            )
+
+        self.assertIsNone(result)
+        self.assertIsNone(user.referral_welcome_bonus_claimed_at)
+        subscription_service.extend_active_subscription_days.assert_not_awaited()

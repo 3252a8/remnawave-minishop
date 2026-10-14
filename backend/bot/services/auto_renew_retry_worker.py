@@ -11,6 +11,10 @@ from sqlalchemy.orm import sessionmaker
 from bot.infra.auto_renew import auto_renew_user_lock_name
 from bot.infra.redis import redis_lock
 from bot.payment_providers.shared import RecurringChargeContext, RecurringRequestSnapshot
+from bot.payment_providers.shared.recurring import (
+    BALANCE_RECURRING_PROVIDERS,
+    get_recurring_payment_method,
+)
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from db.dal import auto_renew_dal, subscription_dal, user_billing_dal
@@ -145,11 +149,18 @@ class AutoRenewRetryWorker:
                 await auto_renew_dal.stop_cycle(session, cycle_id, stop_reason)
                 await session.commit()
                 return
-            payment_method = await user_billing_dal.get_user_default_payment_method(
-                session,
-                int(cycle.user_id),
-                provider=str(cycle.provider),
-            )
+            if str(cycle.provider) in BALANCE_RECURRING_PROVIDERS:
+                payment_method = await get_recurring_payment_method(
+                    session,
+                    int(cycle.user_id),
+                    provider=str(cycle.provider),
+                )
+            else:
+                payment_method = await user_billing_dal.get_user_default_payment_method(
+                    session,
+                    int(cycle.user_id),
+                    provider=str(cycle.provider),
+                )
             if (
                 payment_method is None
                 or str(payment_method.provider_payment_method_id)

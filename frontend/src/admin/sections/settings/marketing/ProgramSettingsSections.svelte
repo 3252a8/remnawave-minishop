@@ -8,14 +8,18 @@
 
   let {
     at,
+    highlightedSettingKey = "",
     settingsOpenSections,
     toggleSettingsSection,
     onNavigateSection = () => {},
+    onOpenSettingsPath = () => {},
   }: {
     at: TranslateFn;
+    highlightedSettingKey?: string;
     settingsOpenSections: string[];
     toggleSettingsSection: (sectionId: string) => void;
     onNavigateSection?: (section: string) => void;
+    onOpenSettingsPath?: (path: string[]) => void;
   } = $props();
 
   const referralOpen = $derived(settingsOpenSections.includes("referral"));
@@ -34,7 +38,7 @@
   {#if referralOpen}
     <div id="admin-settings-section-referral" class="admin-accordion-content" data-state="open">
       <div class="admin-settings-fields program-settings-editor">
-        <ReferralProgramSettings {at} />
+        <ReferralProgramSettings {at} {highlightedSettingKey} />
       </div>
     </div>
   {/if}
@@ -52,7 +56,7 @@
   {#if partnerOpen}
     <div id="admin-settings-section-partner" class="admin-accordion-content" data-state="open">
       <div class="admin-settings-fields program-settings-editor">
-        <PartnerProgramSettings {at} {onNavigateSection} />
+        <PartnerProgramSettings {at} {onNavigateSection} {onOpenSettingsPath} />
       </div>
     </div>
   {/if}

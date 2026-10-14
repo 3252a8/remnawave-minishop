@@ -208,6 +208,7 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
             session,
             int(payment.promo_code_id),
             int(payment.user_id),
+            payment_id=int(payment.payment_id),
         )
         promo_conflict = bool(
             activation is not None

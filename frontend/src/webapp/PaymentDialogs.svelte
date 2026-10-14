@@ -4,6 +4,7 @@
   import PaymentCheckoutDialog from "./payment-dialogs/PaymentCheckoutDialog.svelte";
   import SetPasswordDialog from "./payment-dialogs/SetPasswordDialog.svelte";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
+  import type { CheckoutPromoOptions } from "$lib/webapp/billingActions.js";
   import type {
     CheckoutAddonSelection,
     DeviceView,
@@ -26,13 +27,14 @@
   };
   type CheckoutPaymentOptions = {
     balanceSource?: "user" | "partner" | null;
+    balanceAutoRenew?: boolean;
     usePartnerBalance?: boolean;
     checkoutAddons?: CheckoutAddonSelection;
     payerEmail?: string;
     payerPhone?: string;
   };
   type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
-  type CheckoutPromoAction = (options?: Pick<CheckoutPaymentOptions, "checkoutAddons">) => unknown;
+  type CheckoutPromoAction = (options?: CheckoutPromoOptions) => unknown;
 
   let {
     api,

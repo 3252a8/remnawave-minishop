@@ -587,6 +587,7 @@
                     >
                       <span class="rt-menu-token">{`{${item.name}}`}</span>
                       <span class="rt-menu-item-desc">{item.description || item.name}</span>
+                      {#if item.owner}<span class="rt-menu-cost">{item.owner}</span>{/if}
                       {#if item.cost === "panel"}
                         <span class="rt-menu-cost">{labels.shortcodePanelBadge}</span>
                       {/if}

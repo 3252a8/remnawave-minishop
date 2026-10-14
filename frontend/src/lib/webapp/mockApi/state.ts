@@ -12,6 +12,9 @@ export type DemoSettingsChange = { value?: unknown; deleted: boolean };
 
 const DEMO_SETTINGS_STORAGE_KEY = "minishop-demo-settings-changes";
 const DEMO_PERSISTED_SETTING_KEYS = new Set([
+  "USER_BALANCE_ENABLED",
+  "USER_BALANCE_RECURRING_ENABLED",
+  "PAYMENT_METHODS_DISPLAY_MODE",
   "WEBAPP_TITLE",
   "WEBAPP_USER_THEME_MODE_ENABLED",
   "WEBAPP_ADMIN_THEME_EFFECTS_ENABLED",

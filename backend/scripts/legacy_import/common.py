@@ -41,6 +41,7 @@ SUPPORTED_REMNASHOP_PROVIDER_TYPES = {
     "TELEGRAM_STARS",
     "YOOKASSA",
     "HELEKET",
+    "CRYPTOMUS",
     "PAYKILLA",
     "CRYPTOPAY",
     "FREEKASSA",
@@ -49,7 +50,6 @@ SUPPORTED_REMNASHOP_PROVIDER_TYPES = {
 }
 UNSUPPORTED_REMNASHOP_PROVIDER_TYPES = {
     "YOOMONEY",
-    "CRYPTOMUS",
     "MULENPAY",
     "PAYMASTER",
     "ROBOKASSA",
@@ -60,6 +60,7 @@ PAYMENT_WEBHOOK_PATHS = {
     "wata": "/webhook/wata",
     "cryptopay": "/webhook/cryptopay",
     "heleket": "/webhook/heleket",
+    "cryptomus": "/webhook/cryptomus",
     "paykilla": "/webhook/paykilla",
     "freekassa": "/webhook/freekassa",
     "platega": "/webhook/platega",

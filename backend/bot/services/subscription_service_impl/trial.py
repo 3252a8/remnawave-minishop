@@ -5,7 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra import events
-from bot.infra.event_payloads import TrialActivatedPayload
+from bot.infra.event_payloads import ReferralBonusGrantedPayload, TrialActivatedPayload
 from db.dal import subscription_dal, user_dal
 
 from ._typing import SubscriptionServiceMixinContract
@@ -49,8 +49,14 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 "message_key": "trial_already_had_subscription_or_trial",
             }
 
+        from bot.services.referral_welcome_trial import referral_welcome_trial_bonus_days
+
+        welcome_bonus_days = await referral_welcome_trial_bonus_days(
+            session, self.settings, db_user
+        )
+        trial_days = self.settings.TRIAL_DURATION_DAYS + welcome_bonus_days
         start_date = datetime.now(UTC)
-        end_date = start_date + timedelta(days=self.settings.TRIAL_DURATION_DAYS)
+        end_date = start_date + timedelta(days=trial_days)
         previous_panel_user_uuid = db_user.panel_user_uuid
         trial_squads = self._trial_all_panel_squad_uuids()
         panel_link = await self._get_or_create_panel_user_link(
@@ -58,7 +64,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             user_id,
             db_user,
             create_options=PanelUserCreateOptions(
-                default_expire_days=self.settings.TRIAL_DURATION_DAYS,
+                default_expire_days=trial_days,
                 default_traffic_limit_bytes=self.settings.trial_traffic_limit_bytes,
                 default_traffic_limit_strategy=self.settings.TRIAL_TRAFFIC_STRATEGY,
                 hwid_device_limit=self.settings.TRIAL_HWID_DEVICE_LIMIT,
@@ -207,6 +213,9 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             confirmed_panel_user,
         )
 
+        if welcome_bonus_days:
+            db_user.referral_welcome_bonus_claimed_at = start_date
+
         from db.dal.ad_dal import mark_trial_activated
 
         await mark_trial_activated(session, user_id)
@@ -218,9 +227,22 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
                 TrialActivatedPayload(
                     user_id=user_id,
                     end_date=end_date,
-                    days=self.settings.TRIAL_DURATION_DAYS,
+                    days=trial_days,
                     traffic_gb=self.settings.TRIAL_TRAFFIC_LIMIT_GB,
                 )
+            )
+
+        if emit_event and welcome_bonus_days:
+            await events.emit_model(
+                ReferralBonusGrantedPayload(
+                    referee_user_id=user_id,
+                    referee_bonus_days=welcome_bonus_days,
+                    referee_new_end_date=end_date,
+                    inviter_bonus_applied=False,
+                    payment_db_id=None,
+                    reason="welcome",
+                ),
+                exclude_unset=True,
             )
 
         final_subscription_url = updated_panel_user.get("subscriptionUrl")
@@ -230,7 +252,7 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             "eligible": True,
             "activated": True,
             "end_date": end_date,
-            "days": self.settings.TRIAL_DURATION_DAYS,
+            "days": trial_days,
             "traffic_gb": self.settings.TRIAL_TRAFFIC_LIMIT_GB,
             "panel_user_uuid": panel_user_uuid,
             "panel_short_uuid": final_panel_short_uuid,

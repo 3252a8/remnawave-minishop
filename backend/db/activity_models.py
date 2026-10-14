@@ -59,6 +59,8 @@ class SupportTicket(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     closed_at = Column(DateTime(timezone=True), nullable=True)
     closed_by_admin_id = Column(BigInteger, nullable=True)
+    revision = Column(BigInteger, nullable=False, default=1, server_default="1")
+    change_cursor = Column(BigInteger, nullable=False, default=0, server_default="0", index=True)
 
     user = relationship("User")
     messages = relationship(
@@ -102,9 +104,29 @@ class SupportTicketMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     read_by_user_at = Column(DateTime(timezone=True), nullable=True)
     read_by_admin_at = Column(DateTime(timezone=True), nullable=True)
+    connector_source = Column(String(64), nullable=True)
+    author_label = Column(String(160), nullable=True)
+    idempotency_key = Column(String(160), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "ticket_id",
+            "connector_source",
+            "idempotency_key",
+            name="uq_support_connector_reply",
+        ),
+    )
 
     ticket = relationship("SupportTicket", back_populates="messages")
     author_user = relationship("User")
+
+
+class SupportChangeClock(Base):
+    """One transactional counter; its row lock orders committed support changes."""
+
+    __tablename__ = "support_change_clock"
+    id = Column(Integer, primary_key=True, autoincrement=False)
+    cursor = Column(BigInteger, nullable=False, default=0, server_default="0")
 
 
 class PanelSyncStatus(Base):

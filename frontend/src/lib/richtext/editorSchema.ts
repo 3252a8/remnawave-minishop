@@ -193,7 +193,12 @@ export function composerExtensions(
 }
 
 /** One shortcode the composer can insert, as advertised by the backend. */
-export type MessageShortcodeInfo = { name: string; cost: string; description: string };
+export type MessageShortcodeInfo = {
+  name: string;
+  cost: string;
+  description: string;
+  owner?: string | null;
+};
 
 export type ToolbarMark = "bold" | "italic" | "underline" | "strike" | "code";
 

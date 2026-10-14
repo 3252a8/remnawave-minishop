@@ -106,6 +106,7 @@ export type AppFactoriesDeps = {
   isDocsDemo: boolean;
   loadData: LoadData;
   loadTelegramSdk: LoadTelegramSdk;
+  prepareTelegramMiniApp: () => void;
   manualLogoutFlagKey: string;
   normalizeLangCode: (language: string) => string;
   openExternalLink: (url: string) => void;
@@ -173,6 +174,7 @@ export function createAppFactories({
   isDocsDemo,
   loadData,
   loadTelegramSdk,
+  prepareTelegramMiniApp,
   manualLogoutFlagKey,
   normalizeLangCode,
   openExternalLink,
@@ -480,9 +482,9 @@ export function createAppFactories({
     isDemoAuthMock: () => Boolean(MOCK) && demoAuth.isDemoAuthMock(),
     prepareDemoAuthState: () => demoAuth.prepareAuthState(),
     mock: MOCK,
-    hasTelegramLaunchParams: () =>
-      Boolean(CFG.authProviders?.includes("telegram")) && hasTelegramLaunchParams(),
+    hasTelegramLaunchParams,
     loadTelegramSdk,
+    prepareTelegramMiniApp,
     loadData,
     showLogin,
     clearToken,

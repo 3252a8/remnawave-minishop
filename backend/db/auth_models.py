@@ -1,4 +1,4 @@
-"""External login and WebAuthn persistence models."""
+"""External login, WebAuthn and QR sign-in persistence models."""
 
 from sqlalchemy import (
     BigInteger,
@@ -150,3 +150,29 @@ class WebAuthnChallenge(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
     consumed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class QrLoginRequest(Base):
+    """A browser waiting to be signed in from a device that already holds a session.
+
+    The QR code shown by the browser carries a one-time code stored here only as a
+    digest. A signed-in session claims the code, then confirms it by typing the
+    two-digit number the waiting browser displays; the browser that started the
+    request is the only one that can collect the resulting session.
+    """
+
+    __tablename__ = "qr_login_requests"
+
+    request_id = Column(String(32), primary_key=True)
+    code_hash = Column(String(64), nullable=False, unique=True)
+    status = Column(String(16), nullable=False, default="pending")
+    match_number = Column(Integer, nullable=False)
+    number_attempts = Column(Integer, nullable=False, default=0)
+    user_id = Column(BigInteger, ForeignKey("users.user_id"), nullable=True, index=True)
+    requester_ip = Column(String(64), nullable=True)
+    requester_user_agent = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)

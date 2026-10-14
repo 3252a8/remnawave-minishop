@@ -21,12 +21,14 @@ OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://gitlab.com/3252a8/remnawave-minish
 dockerhub_owner="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
 context_name="minishop-context-$CI_JOB_ID"
 builder_name="minishop-$CI_JOB_ID"
+trivy_cache_volume="minishop-trivy-cache-$CI_JOB_ID"
 metadata_dir="${CI_PROJECT_DIR:-$PWD}/.publish-metadata-$CI_JOB_ID"
 export TRIVY_USERNAME="$DOCKERHUB_USERNAME"
 export TRIVY_PASSWORD="$DOCKERHUB_TOKEN"
 
 cleanup() {
   docker buildx rm "$builder_name" >/dev/null 2>&1 || true
+  docker volume rm "$trivy_cache_volume" >/dev/null 2>&1 || true
   unset DOCKER_CONTEXT
   docker context rm --force "$context_name" >/dev/null 2>&1 || true
 }
@@ -205,6 +207,7 @@ docker buildx create \
   "$context_name" \
   >/dev/null
 docker buildx inspect --bootstrap
+docker volume create --label "minishop.ci.job=$CI_JOB_ID" "$trivy_cache_volume" >/dev/null
 
 for target in $TARGETS; do
   image="docker.io/$dockerhub_owner/$IMAGE_PREFIX-$target"
@@ -277,7 +280,10 @@ for target in $TARGETS; do
   docker run --rm \
     -e TRIVY_USERNAME \
     -e TRIVY_PASSWORD \
+    --mount "type=volume,source=$trivy_cache_volume,target=/trivy-cache" \
     "$TRIVY_IMAGE" image \
+    --cache-dir /trivy-cache \
+    --timeout "${TRIVY_TIMEOUT:-30m}" \
     --platform linux/amd64 \
     --scanners vuln \
     --severity CRITICAL,HIGH \

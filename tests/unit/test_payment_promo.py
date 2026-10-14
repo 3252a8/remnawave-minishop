@@ -11,6 +11,37 @@ from bot.services.promo_effects import PromoEffects
 
 
 class PaymentPromoTests(IsolatedAsyncioTestCase):
+    async def test_merged_payment_replay_uses_its_own_activation_without_consuming_again(self):
+        session = AsyncMock()
+        promo = SimpleNamespace(promo_code_id=5, current_activations=2, max_activations=2)
+        with (
+            patch(
+                "bot.services.payment_promo.promo_code_dal.get_promo_code_by_id",
+                AsyncMock(return_value=promo),
+            ),
+            patch(
+                "bot.services.payment_promo.promo_code_dal.get_user_activation_for_promo",
+                AsyncMock(return_value=SimpleNamespace(payment_id=77, merged_from_user_id=-7)),
+            ) as find_activation,
+            patch(
+                "bot.services.payment_promo.promo_code_dal.consume_promo_activation",
+                AsyncMock(),
+            ) as consume_activation,
+        ):
+            consumed = await consume_payment_promo(
+                session=session,
+                user_id=42,
+                promo_model=promo,
+                effects=PromoEffects(discount_percent=25, applies_to="subscription"),
+                payment_id=77,
+                sale_mode_base="subscription",
+                months=1,
+                traffic_gb=None,
+            )
+        self.assertTrue(consumed)
+        find_activation.assert_awaited_once_with(session, 5, 42, payment_id=77)
+        consume_activation.assert_not_awaited()
+
     async def test_load_payment_promo_effects_rejects_missing_attached_code(self):
         payment = SimpleNamespace(promo_code_id=5)
 

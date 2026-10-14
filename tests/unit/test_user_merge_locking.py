@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from sqlalchemy.dialects import postgresql
 
@@ -18,31 +18,7 @@ class _ListResult:
         return self.values
 
 
-class _ScalarResult:
-    def __init__(self, value):
-        self.value = value
-
-    def scalar_one_or_none(self):
-        return self.value
-
-
 class UserMergeLockingTests(IsolatedAsyncioTestCase):
-    async def test_duplicate_promo_check_compares_both_accounts(self):
-        session = SimpleNamespace(execute=AsyncMock(return_value=_ScalarResult(99)))
-
-        shared = await user_merge_dal._accounts_share_promo_activation(session, 7, 42)
-
-        self.assertTrue(shared)
-        stmt = session.execute.await_args.args[0]
-        sql = str(
-            stmt.compile(
-                dialect=postgresql.dialect(),
-                compile_kwargs={"literal_binds": True},
-            )
-        ).upper()
-        self.assertIn("PROMO_CODE_ACTIVATIONS.USER_ID = 7", sql)
-        self.assertIn("PROMO_CODE_ACTIVATIONS.USER_ID = 42", sql)
-
     async def test_lock_users_for_merge_uses_stable_row_locks(self):
         source = SimpleNamespace(user_id=7)
         target = SimpleNamespace(user_id=42)
@@ -83,13 +59,13 @@ class UserMergeLockingTests(IsolatedAsyncioTestCase):
                     ),
                     patch.object(
                         user_merge_dal,
-                        "_accounts_share_promo_activation",
+                        "merge_promo_activation_history",
                         AsyncMock(),
                     ) as promo_check,
                     patch.object(
-                        user_merge_dal.events,
-                        "emit_model",
-                        AsyncMock(),
+                        user_merge_dal,
+                        "defer_event_until_commit",
+                        Mock(),
                     ) as emit_model,
                     self.assertRaises(user_merge_dal.UserMergeConflictError) as raised,
                 ):
@@ -105,4 +81,4 @@ class UserMergeLockingTests(IsolatedAsyncioTestCase):
                 session.execute.assert_not_awaited()
                 session.delete.assert_not_awaited()
                 session.flush.assert_not_awaited()
-                emit_model.assert_not_awaited()
+                emit_model.assert_not_called()

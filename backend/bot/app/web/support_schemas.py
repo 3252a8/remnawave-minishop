@@ -52,6 +52,8 @@ class SupportTicketOut(HttpResponseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     closed_at: datetime | None = None
+    revision: int = 1
+    change_cursor: int = 0
 
     @classmethod
     def from_orm_ticket(cls, ticket: Any) -> SupportTicketOut:
@@ -72,6 +74,8 @@ class SupportTicketOut(HttpResponseModel):
             created_at=ticket.created_at,
             updated_at=ticket.updated_at,
             closed_at=ticket.closed_at,
+            revision=int(ticket.__dict__.get("revision") or 1),
+            change_cursor=int(ticket.__dict__.get("change_cursor") or 0),
         )
 
 
@@ -133,6 +137,8 @@ class SupportMessageOut(HttpResponseModel):
     created_at: datetime | None = None
     read_by_user_at: datetime | None = None
     read_by_admin_at: datetime | None = None
+    connector_source: str | None = None
+    author_label: str | None = None
 
     @classmethod
     def from_orm_message(cls, message: Any) -> SupportMessageOut:
@@ -154,6 +160,8 @@ class SupportMessageOut(HttpResponseModel):
             created_at=message.created_at,
             read_by_user_at=message.read_by_user_at,
             read_by_admin_at=message.read_by_admin_at,
+            connector_source=message.__dict__.get("connector_source"),
+            author_label=message.__dict__.get("author_label"),
         )
 
 
@@ -168,7 +176,7 @@ class AdminSupportMessageOut(SupportMessageOut):
         author_name: str | None = None,
     ) -> AdminSupportMessageOut:
         payload = SupportMessageOut.from_orm_message(message).model_dump()
-        payload["author_name"] = author_name
+        payload["author_name"] = message.__dict__.get("author_label") or author_name
         return cls.model_validate(payload)
 
 

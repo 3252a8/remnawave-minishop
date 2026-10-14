@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "fingerprint": "f507663c085bc66681abb5724f79aa7410429a02a7a32de6d3f77d48fff74702",
+  "platform": "linux/amd64",
+  "image": "docker.io/3252a8/remnawave-minishop-test-runtime@sha256:f1be9fb3af246a4d13807dcd0340d315f7c3226cb555f01fbb54084195ef9c7a",
+  "tag": "docker.io/3252a8/remnawave-minishop-test-runtime:amd64-f507663c085bc66681abb5724f79aa74-285f87f2978b732b3e562a1c9d698897de4f4753ebd9d10053e089f1a4323db1",
+  "built_at": "2026-10-06T17:20:16.159Z"
+}

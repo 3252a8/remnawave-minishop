@@ -78,7 +78,7 @@
   );
   const route = $derived(
     stripRoutePrefix(pathname, routePrefix).match(
-      /^\/extensions\/([a-z][a-z0-9-]+)\/([a-z][a-z0-9-]+)$/
+      /^\/extensions\/([a-z][a-z0-9_-]{0,63})\/([a-z][a-z0-9-]{1,63})$/
     )
   );
   const selected = $derived(

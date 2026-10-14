@@ -55,6 +55,7 @@ describe("createTelegramViewportBridge", () => {
     bridge.setTelegram(second.telegram);
     expect(first.telegram.offEvent).toHaveBeenCalledWith("fullscreenChanged", expect.any(Function));
     expect(root.attributes.has("data-telegram-fullscreen")).toBe(false);
+    expect(first.handlers.size).toBe(0);
 
     bridge.destroy();
     expect(second.telegram.offEvent).toHaveBeenCalledWith(
@@ -62,6 +63,33 @@ describe("createTelegramViewportBridge", () => {
       expect.any(Function)
     );
     expect(root.attributes.has("data-telegram-fullscreen")).toBe(false);
+    expect(second.handlers.size).toBe(0);
+  });
+
+  it("keeps one listener per event across repeated SDK refreshes", () => {
+    const { telegram } = makeTelegram(true);
+    const bridge = createTelegramViewportBridge({ root: makeRoot() });
+    bridge.setTelegram(telegram);
+    bridge.setTelegram(telegram);
+    bridge.setTelegram(telegram);
+    expect(telegram.onEvent).toHaveBeenCalledTimes(3);
+    bridge.destroy();
+    expect(telegram.offEvent).toHaveBeenCalledTimes(3);
+  });
+
+  it("resynchronizes fullscreen on activation and clears failed requests", () => {
+    const root = makeRoot();
+    const { handlers, telegram } = makeTelegram(false);
+    const bridge = createTelegramViewportBridge({ root });
+    bridge.setTelegram(telegram);
+    root.setAttribute("data-telegram-fullscreen-requested", "true");
+    handlers.get("fullscreenFailed")?.();
+    expect(root.attributes.has("data-telegram-fullscreen-requested")).toBe(false);
+    telegram.isFullscreen = true;
+    handlers.get("activated")?.();
+    expect(root.attributes.get("data-telegram-fullscreen")).toBe("true");
+    bridge.setTelegram(null);
+    expect(root.attributes.size).toBe(0);
   });
 
   it("clears a pending fullscreen fallback after Telegram reports a rejected request", () => {

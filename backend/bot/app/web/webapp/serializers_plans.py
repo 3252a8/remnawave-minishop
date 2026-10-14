@@ -2,18 +2,17 @@
 
 from typing import Any
 
-from bot.utils.locale_defaults import tariff_premium_title
 from config.settings import Settings
 from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
 from config.tariff_checkout import serialize_checkout_addons
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
-from config.traffic_strategy import normalize_traffic_limit_strategy
 
 from .common import _format_days_title, _format_number_for_payload, _format_traffic_title
 from .serializers_billing_options import (
     _attach_payment_methods_to_plans,
     _serialize_hwid_device_packages,
 )
+from .serializers_tariff_limits import serialize_tariff_limits
 
 
 def _serialize_plans(
@@ -37,28 +36,8 @@ def _serialize_plans(
             assigned_tariff_key,
             tariff_access_code,
         ):
-            effective_hwid_device_limit = (
-                tariff.hwid_device_limit
-                if tariff.hwid_device_limit is not None
-                else settings.USER_HWID_DEVICE_LIMIT
-            )
-            traffic_limit_strategy = (
-                normalize_traffic_limit_strategy(
-                    tariff.traffic_limit_strategy or settings.USER_TRAFFIC_STRATEGY,
-                    default="MONTH",
-                )
-                if tariff.billing_model == "period"
-                else "NO_RESET"
-            )
-            premium_traffic_limit_strategy = (
-                normalize_traffic_limit_strategy(
-                    tariff.premium_traffic_limit_strategy,
-                    default=traffic_limit_strategy,
-                )
-                if tariff.premium_traffic_limit_strategy is not None
-                else traffic_limit_strategy
-            )
             common = {
+                **serialize_tariff_limits(settings, tariff, lang),
                 "tariff_key": tariff.key,
                 "is_default_tariff": tariff.key == tariffs_config.default_tariff,
                 "tariff_name": tariff.name(lang),
@@ -66,14 +45,6 @@ def _serialize_plans(
                 "description": tariff.description(lang),
                 "squad_uuids": tariff.squad_uuids,
                 "currency": default_currency_code,
-                "hwid_device_limit": tariff.hwid_device_limit,
-                "effective_hwid_device_limit": effective_hwid_device_limit,
-                "premium_enabled": bool(tariff.premium_squad_uuids),
-                "premium_title": tariff_premium_title(tariff, lang),
-                "premium_monthly_gb": tariff.premium_monthly_gb,
-                "premium_unlimited": bool(tariff.premium_unlimited),
-                "traffic_limit_strategy": traffic_limit_strategy,
-                "premium_traffic_limit_strategy": premium_traffic_limit_strategy,
                 "hwid_device_packages": _serialize_hwid_device_packages(
                     settings,
                     tariff,

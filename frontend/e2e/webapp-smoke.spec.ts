@@ -2465,7 +2465,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     ".admin-panel-version-trigger"
   );
   await expect(panelVersionTrigger).toBeVisible();
-  await expect(panelVersionTrigger).toContainText("v3.4.4");
+  await expect(panelVersionTrigger).toContainText("v3.4.5");
   await panelVersionTrigger.click();
   const panelVersionPopover = page.locator(".admin-panel-version-popover");
   await expect(panelVersionPopover).toBeVisible();

@@ -1,18 +1,18 @@
 # mypy: disable-error-code="assignment,arg-type,operator"
 
-"""Account merge and deletion, re-exported by ``user_dal`` for compatibility."""
+"""Account merge, re-exported by ``user_dal`` for compatibility."""
 
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import String, and_, case, cast, delete, or_, update
+from sqlalchemy import delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from bot.infra import events
 from bot.infra.event_payloads import AccountMergedPayload
+from db.transaction_events import defer_event_until_commit
 
 from ..models import (
     AccountAlias,
@@ -20,26 +20,16 @@ from ..models import (
     AccountRoleEvent,
     AdAttribution,
     EmailVerificationCode,
-    FlexibleTrafficLimit,
-    HwidDevicePurchase,
     LegacyImportMapping,
-    LegacyReferralCode,
     MessageLog,
-    Payment,
-    PromoCodeActivation,
+    QrLoginRequest,
     Subscription,
-    SubscriptionNotification,
     SupportTicket,
     SupportTicketMessage,
-    TariffChange,
-    TrafficTopup,
-    TrafficWarning,
     User,
-    UserBilling,
     UserEmailAddress,
     UserExternalIdentity,
     UserPasskeyCredential,
-    UserPaymentMethod,
     UserTelegramAvatar,
     WebAuthnChallenge,
 )
@@ -61,6 +51,7 @@ from .user_merge_entitlements import (
     transfer_entitlement_ownership,
 )
 from .user_merge_invites import preserve_native_invitation, reassign_invitation_relations
+from .user_merge_promos import merge_promo_activation_history
 from .user_reads_dal import get_user_by_id
 
 logger = logging.getLogger(__name__)
@@ -158,26 +149,6 @@ async def _lock_users_for_merge(
     return users_by_id.get(int(source_user_id)), users_by_id.get(int(target_user_id))
 
 
-async def _accounts_share_promo_activation(
-    session: AsyncSession,
-    source_user_id: int,
-    target_user_id: int,
-) -> bool:
-    target_promo_ids = select(PromoCodeActivation.promo_code_id).where(
-        PromoCodeActivation.user_id == target_user_id
-    )
-    stmt = (
-        select(PromoCodeActivation.activation_id)
-        .where(
-            PromoCodeActivation.user_id == source_user_id,
-            PromoCodeActivation.promo_code_id.in_(target_promo_ids),
-        )
-        .limit(1)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none() is not None
-
-
 async def merge_users(
     session: AsyncSession,
     *,
@@ -240,12 +211,6 @@ async def merge_users(
             "Both accounts already have different Telegram IDs.",
             message_key="account_merge_telegram_conflict",
             code="account_merge_telegram_conflict",
-        )
-    if await _accounts_share_promo_activation(session, source_user_id, target_user_id):
-        raise UserMergeConflictError(
-            "Both accounts already redeemed the same one-time code.",
-            message_key="account_merge_duplicate_promo_conflict",
-            code="account_merge_duplicate_promo_conflict",
         )
     source_provider_rows = (
         (
@@ -619,6 +584,7 @@ async def merge_users(
     from .extension_accounts_dal import merge as merge_extension_accounts
 
     await merge_extension_accounts(session, source_user_id, target_user_id)
+    await merge_promo_activation_history(session, source, target)
     await reassign_invitation_relations(session, source_user_id, target_user_id)
     await session.execute(
         update(LegacyImportMapping)
@@ -766,6 +732,7 @@ async def merge_users(
     await session.execute(
         delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == source_user_id)
     )
+    await session.execute(delete(QrLoginRequest).where(QrLoginRequest.user_id == source_user_id))
 
     from .gift_dal import merge_owner
 
@@ -792,7 +759,8 @@ async def merge_users(
         target_user_id,
         reason,
     )
-    await events.emit_model(
+    defer_event_until_commit(
+        session,
         AccountMergedPayload(
             source_user_id=int(source_user_id),
             target_user_id=int(target_user_id),
@@ -808,193 +776,6 @@ async def merge_users(
             first_name=target.first_name,
             language=target.language_code,
             final_end_date=getattr(target_anchor_sub or source_active_sub, "end_date", None),
-        )
+        ),
     )
     return target
-
-
-async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool:
-    """Completely remove a user and all dependent records from the database.
-
-    This helper ensures we do not leave dangling foreign keys or orphaned data.
-    """
-    user = await get_user_by_id(session, user_id)
-    if not user:
-        return False
-
-    # Ensure referral pointers do not block deletion
-    await session.execute(
-        update(User).where(User.referred_by_id == user_id).values(referred_by_id=None)
-    )
-    await session.execute(delete(UserEmailAddress).where(UserEmailAddress.user_id == user_id))
-    await session.execute(
-        delete(UserExternalIdentity).where(UserExternalIdentity.user_id == user_id)
-    )
-    await session.execute(
-        delete(UserPasskeyCredential).where(UserPasskeyCredential.user_id == user_id)
-    )
-    await session.execute(delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == user_id))
-
-    # Financial partner history is intentionally retained, but the deleted
-    # account must no longer be identifiable or able to receive attribution.
-    now = datetime.now(UTC)
-    profile_ids = (
-        (
-            await session.execute(
-                select(PartnerProfile.partner_id).where(PartnerProfile.user_id == user_id)
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for partner_id in profile_ids:
-        await session.execute(
-            update(PartnerProfile)
-            .where(PartnerProfile.partner_id == partner_id)
-            .values(
-                user_id=None,
-                status="closed",
-                display_label_snapshot=f"Deleted partner {int(partner_id)}",
-                welcome_message=None,
-                pause_reason=None,
-                closed_at=now,
-                updated_at=now,
-            )
-        )
-    await session.execute(
-        update(PartnerClient)
-        .where(PartnerClient.client_user_id == user_id)
-        .values(client_user_id=None, public_label_snapshot="Deleted client")
-    )
-    await session.execute(
-        update(PartnerApplication)
-        .where(PartnerApplication.user_id == user_id)
-        .values(
-            user_id=None,
-            display_label_snapshot="Deleted account",
-            message="",
-            decision_message=None,
-            status=case(
-                (PartnerApplication.status == "pending", "canceled"),
-                else_=PartnerApplication.status,
-            ),
-            decided_at=case(
-                (PartnerApplication.status == "pending", now),
-                else_=PartnerApplication.decided_at,
-            ),
-        )
-    )
-
-    subscription_ids = select(Subscription.subscription_id).where(Subscription.user_id == user_id)
-    payment_ids = select(Payment.payment_id).where(Payment.user_id == user_id)
-    support_ticket_ids = select(SupportTicket.ticket_id).where(SupportTicket.user_id == user_id)
-
-    # Clean up dependent tables that do not cascade automatically.
-    await session.execute(
-        delete(TrafficTopup).where(
-            or_(
-                TrafficTopup.subscription_id.in_(subscription_ids),
-                TrafficTopup.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(FlexibleTrafficLimit).where(
-            or_(
-                FlexibleTrafficLimit.subscription_id.in_(subscription_ids),
-                FlexibleTrafficLimit.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(HwidDevicePurchase).where(
-            or_(
-                HwidDevicePurchase.subscription_id.in_(subscription_ids),
-                HwidDevicePurchase.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(TariffChange).where(
-            or_(
-                TariffChange.subscription_id.in_(subscription_ids),
-                TariffChange.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(
-        delete(TrafficWarning).where(TrafficWarning.subscription_id.in_(subscription_ids))
-    )
-    await session.execute(
-        delete(SubscriptionNotification).where(
-            SubscriptionNotification.subscription_id.in_(subscription_ids)
-        )
-    )
-    await session.execute(
-        delete(SupportTicketMessage).where(SupportTicketMessage.ticket_id.in_(support_ticket_ids))
-    )
-    await session.execute(
-        update(SupportTicketMessage)
-        .where(SupportTicketMessage.author_user_id == user_id)
-        .values(author_user_id=None)
-    )
-    await session.execute(delete(SupportTicket).where(SupportTicket.user_id == user_id))
-    await session.execute(
-        delete(EmailVerificationCode).where(EmailVerificationCode.target_user_id == user_id)
-    )
-    # Null user references to retain the audit trail after account deletion.
-    await session.execute(
-        update(MessageLog).where(MessageLog.user_id == user_id).values(user_id=None)
-    )
-    await session.execute(
-        update(MessageLog).where(MessageLog.target_user_id == user_id).values(target_user_id=None)
-    )
-    from bot.services.advertising.accounts import delete_account_evidence
-
-    await delete_account_evidence(session, user_id)
-    await session.execute(
-        delete(PromoCodeActivation).where(
-            or_(
-                PromoCodeActivation.user_id == user_id,
-                PromoCodeActivation.payment_id.in_(payment_ids),
-            )
-        )
-    )
-    await session.execute(delete(UserPaymentMethod).where(UserPaymentMethod.user_id == user_id))
-    await session.execute(delete(UserBilling).where(UserBilling.user_id == user_id))
-    await session.execute(delete(AdAttribution).where(AdAttribution.user_id == user_id))
-    await session.execute(delete(UserTelegramAvatar).where(UserTelegramAvatar.user_id == user_id))
-    await session.execute(delete(LegacyReferralCode).where(LegacyReferralCode.user_id == user_id))
-    await session.execute(
-        delete(LegacyImportMapping).where(
-            or_(
-                and_(
-                    LegacyImportMapping.target_table == "users",
-                    LegacyImportMapping.target_id == str(user_id),
-                ),
-                and_(
-                    LegacyImportMapping.target_table == "subscriptions",
-                    LegacyImportMapping.target_id.in_(
-                        select(cast(Subscription.subscription_id, String)).where(
-                            Subscription.user_id == user_id
-                        )
-                    ),
-                ),
-                and_(
-                    LegacyImportMapping.target_table == "payments",
-                    LegacyImportMapping.target_id.in_(
-                        select(cast(Payment.payment_id, String)).where(Payment.user_id == user_id)
-                    ),
-                ),
-            )
-        )
-    )
-    from .extension_accounts_dal import delete_for_user as delete_extension_account
-
-    await delete_extension_account(session, user_id)
-    await session.execute(delete(Payment).where(Payment.user_id == user_id))
-    await session.execute(delete(Subscription).where(Subscription.user_id == user_id))
-
-    await session.delete(user)
-    await session.flush()
-    return True

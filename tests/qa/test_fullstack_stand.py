@@ -25,11 +25,11 @@ asyncpg = pytest.importorskip(
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FRONTEND_URL = os.getenv("QA_FRONTEND_URL", "http://127.0.0.1:8082").rstrip("/")
+FRONTEND_URL = os.getenv("QA_FRONTEND_URL", "http://127.0.0.1:18082").rstrip("/")
 API_BASE_URL = os.getenv("QA_API_BASE_URL", FRONTEND_URL).rstrip("/")
 WEBHOOK_BASE_URL = os.getenv(
     "QA_WEBHOOK_BASE_URL",
-    os.getenv("QA_BASE_URL", "http://127.0.0.1:8080"),
+    os.getenv("QA_BASE_URL", "http://127.0.0.1:18080"),
 ).rstrip("/")
 REMNAWAVE_HEALTH_URL = os.getenv(
     "QA_REMNAWAVE_HEALTH_URL",

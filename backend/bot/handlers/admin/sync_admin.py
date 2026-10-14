@@ -43,12 +43,14 @@ from .sync_admin_common import (
     _sync_lock,
     router,
 )
-from .sync_admin_identity import (
+from .sync_admin_duplicates import (
     _absorb_duplicate_panel_identity,
+    _panel_identity_payload_with_expiry,
+)
+from .sync_admin_identity import (
     _bind_panel_email_to_user,
     _extract_lifetime_used_traffic_bytes,
     _merge_local_duplicate_panel_user_if_needed,
-    _panel_identity_payload_with_expiry,
     _prefetch_sync_indexes,
 )
 from .sync_admin_runner import _perform_sync_impl, perform_sync

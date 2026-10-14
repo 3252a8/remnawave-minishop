@@ -300,6 +300,7 @@
     isDocsDemo,
     loadData,
     loadTelegramSdk,
+    prepareTelegramMiniApp: telegramRuntime.prepareMiniApp,
     manualLogoutFlagKey: MANUAL_LOGOUT_FLAG_KEY,
     normalizeLangCode,
     openExternalLink,

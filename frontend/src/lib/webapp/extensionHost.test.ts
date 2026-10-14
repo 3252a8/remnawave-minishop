@@ -6,6 +6,11 @@ import { sectionFromPath, syncSectionPath } from "./routes";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("customer extension host", () => {
+  it("accepts registry owner underscores while keeping signed page IDs restricted", () => {
+    expect(extensionPath("a__plugin", "services")).toBe("/extensions/a__plugin/services");
+    expect(() => extensionPath("sample", "bad_page")).toThrow();
+    expect(extensionRequestPath("a_plugin", "/items")).toBe("/api/plugins/a_plugin/items");
+  });
   it("keeps direct page links and route prefixes", () => {
     const path = extensionPath("sample", "devices", "/prefix");
     expect(path).toBe("/prefix/extensions/sample/devices");

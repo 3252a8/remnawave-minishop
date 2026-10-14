@@ -506,7 +506,12 @@ class CollectAlertsTests(unittest.IsolatedAsyncioTestCase):
         app = {"settings": settings, "bot": None, "panel_service": None}
         health._network_cache.clear()
 
-        with patch.object(health, "panel_alerts", AsyncMock(return_value=[])) as panel_mock:
+        with (
+            patch.object(health, "panel_alerts", AsyncMock(return_value=[])) as panel_mock,
+            patch.object(health, "telegram_alerts", AsyncMock(return_value=[])),
+            patch.object(health, "premium_enforcement_alerts", AsyncMock(return_value=[])),
+            patch.object(health, "panel_limit_drift_alerts", AsyncMock(return_value=[])),
+        ):
             await health.network_alerts(app, settings)
             await health.network_alerts(app, settings)
             self.assertEqual(panel_mock.await_count, 1)

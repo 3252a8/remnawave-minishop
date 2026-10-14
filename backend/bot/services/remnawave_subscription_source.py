@@ -154,6 +154,8 @@ class RemnawaveSubscriptionSource:
                 "Accept": "*/*",
                 "Accept-Encoding": "identity",
                 "x-remnawave-real-ip": request.client_ip,
+                "X-Forwarded-For": request.client_ip,
+                "X-Forwarded-Proto": "https",
             }
         )
         api_cookie = str(self.settings.panel_settings.api_cookie or "").strip()

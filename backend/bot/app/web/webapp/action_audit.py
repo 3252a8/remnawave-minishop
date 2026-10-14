@@ -23,6 +23,8 @@ _AUDITED_MUTATIONS = {
     "/api/account/password/confirm": "account_password_change",
     "/api/account/passkeys/register": "account_passkey_register",
     "/api/account/passkeys/delete": "account_passkey_delete",
+    "/api/account/qr-login/approve": "account_qr_login_approve",
+    "/api/account/qr-login/deny": "account_qr_login_deny",
     "/api/account/identities/unlink": "account_identity_unlink",
     "/api/account/telegram/link": "account_telegram_link",
     "/api/account/telegram/merge/request": "account_telegram_merge_request",

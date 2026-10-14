@@ -378,6 +378,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/qr-login/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Qr Login Approve */
+    post: operations["post_account_qr_login_approve_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/qr-login/claim": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Qr Login Claim */
+    post: operations["post_account_qr_login_claim_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/qr-login/deny": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Account Qr Login Deny */
+    post: operations["post_account_qr_login_deny_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/telegram/link": {
     parameters: {
       query?: never;
@@ -1312,6 +1363,23 @@ export interface paths {
     };
     /** Admin Message Image */
     get: operations["get_admin_message_image_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/message/targets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Message Targets */
+    get: operations["get_admin_message_targets_route"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2886,6 +2954,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/merge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Merge */
+    post: operations["post_admin_user_merge_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/merge-context": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Merge Context */
+    get: operations["get_admin_user_merge_context_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/message": {
     parameters: {
       query?: never;
@@ -3339,6 +3441,57 @@ export interface paths {
     put?: never;
     /** Passkey Auth Verify */
     post: operations["post_passkey_auth_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/qr/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qr Login Cancel */
+    post: operations["post_qr_login_cancel_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/qr/poll": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qr Login Poll */
+    post: operations["post_qr_login_poll_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/auth/qr/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Qr Login Start */
+    post: operations["post_qr_login_start_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -3954,6 +4107,23 @@ export interface paths {
     put?: never;
     /** Create Payment */
     post: operations["post_create_payment_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/payments/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Payment History */
+    get: operations["get_payment_history_route"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -5783,6 +5953,11 @@ export interface components {
       description: string;
       /** Name */
       name: string;
+      /**
+       * Owner
+       * @default null
+       */
+      owner: string | null;
     };
     /** AdminBroadcastShortcodesOut */
     AdminBroadcastShortcodesOut: {
@@ -6136,6 +6311,47 @@ export interface components {
       admin_ids: number[];
       /** User Id */
       user_id: number;
+    };
+    /** AdminMergeEligibilityOut */
+    AdminMergeEligibilityOut: {
+      /** Allowed */
+      allowed: boolean;
+      /**
+       * Reason
+       * @default null
+       */
+      reason: string | null;
+    };
+    /** AdminMergeIdentityOut */
+    AdminMergeIdentityOut: {
+      /**
+       * Display Name
+       * @default null
+       */
+      display_name: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /** Email Verified */
+      email_verified: boolean;
+      /** Provider */
+      provider: string;
+    };
+    /** AdminMessageTargetOut */
+    AdminMessageTargetOut: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Owner */
+      owner: string;
+    };
+    /** AdminMessageTargetsOut */
+    AdminMessageTargetsOut: {
+      /** Sections */
+      sections?: components["schemas"]["AdminMessageTargetOut"][];
     };
     /** AdminPanelCompatibilityOut */
     AdminPanelCompatibilityOut: {
@@ -7077,6 +7293,11 @@ export interface components {
     /** AdminSupportMessageOut */
     AdminSupportMessageOut: {
       /**
+       * Author Label
+       * @default null
+       */
+      author_label: string | null;
+      /**
        * Author Name
        * @default null
        */
@@ -7097,6 +7318,11 @@ export interface components {
       body_format: string;
       /** Buttons */
       buttons?: components["schemas"]["SupportMessageButtonOut"][];
+      /**
+       * Connector Source
+       * @default null
+       */
+      connector_source: string | null;
       /**
        * Created At
        * @default null
@@ -7153,6 +7379,11 @@ export interface components {
       /** Category */
       category: string;
       /**
+       * Change Cursor
+       * @default 0
+       */
+      change_cursor: number;
+      /**
        * Closed At
        * @default null
        */
@@ -7174,6 +7405,11 @@ export interface components {
       last_message_role: string | null;
       /** Priority */
       priority: string;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
       /** Status */
       status: string;
       /** Subject */
@@ -7783,6 +8019,44 @@ export interface components {
        * @default null
        */
       max_devices: number | null;
+    };
+    /** AdminUserMergeBody */
+    AdminUserMergeBody: {
+      /** Confirmation User Id */
+      confirmation_user_id: number;
+      /** Source User Id */
+      source_user_id: number;
+    };
+    /** AdminUserMergeContextOut */
+    AdminUserMergeContextOut: {
+      /** Auth Identities */
+      auth_identities: components["schemas"]["AdminMergeIdentityOut"][];
+      merge_eligibility: components["schemas"]["AdminMergeEligibilityOut"];
+      /** Passkey Count */
+      passkey_count: number;
+      /** Password Available */
+      password_available: boolean;
+      /** User Id */
+      user_id: number;
+      /** Verified Emails */
+      verified_emails: string[];
+    };
+    /** AdminUserMergeOut */
+    AdminUserMergeOut: {
+      /**
+       * Final End Date
+       * @default null
+       */
+      final_end_date: string | null;
+      /**
+       * Panel Reconciliation Pending
+       * @default false
+       */
+      panel_reconciliation_pending: boolean;
+      /** Source User Id */
+      source_user_id: number;
+      /** User Id */
+      user_id: number;
     };
     /** AdminUserMessageBody */
     AdminUserMessageBody: {
@@ -9769,6 +10043,108 @@ export interface components {
        */
       yookassa_payment_id: string | null;
     };
+    /** PaymentHistoryItemOut */
+    PaymentHistoryItemOut: {
+      /** Amount */
+      amount: number;
+      /**
+       * Checkout Discount Amount
+       * @default null
+       */
+      checkout_discount_amount: number | null;
+      /**
+       * Checkout Url
+       * @description Active checkout link, only for a payment awaiting payment.
+       * @default null
+       */
+      checkout_url: string | null;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * Description
+       * @default null
+       */
+      description: string | null;
+      /**
+       * Funding Source
+       * @default external
+       */
+      funding_source: string;
+      /**
+       * History State
+       * @enum {string}
+       */
+      history_state:
+        | "awaiting_payment"
+        | "processing"
+        | "crediting"
+        | "review"
+        | "completed"
+        | "refunded"
+        | "failed";
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Period Semantics
+       * @default null
+       */
+      period_semantics: string | null;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
+      /**
+       * Purchased Gb
+       * @default null
+       */
+      purchased_gb: number | null;
+      /**
+       * Purchased Hwid Devices
+       * @default null
+       */
+      purchased_hwid_devices: number | null;
+      /** Purchases */
+      purchases?: components["schemas"]["PaymentPurchaseOut"][];
+      /**
+       * Sale Mode
+       * @default null
+       */
+      sale_mode: string | null;
+      /**
+       * Status
+       * @default null
+       */
+      status: string | null;
+      /**
+       * Subscription Duration Days
+       * @default null
+       */
+      subscription_duration_days: number | null;
+      /**
+       * Subscription Duration Months
+       * @default null
+       */
+      subscription_duration_months: number | null;
+      /**
+       * Traffic Premium Gb
+       * @default null
+       */
+      traffic_premium_gb: number | null;
+      /**
+       * Traffic Regular Gb
+       * @default null
+       */
+      traffic_regular_gb: number | null;
+    };
     /** PaymentOut */
     PaymentOut: {
       /** Amount */
@@ -10766,6 +11142,11 @@ export interface components {
     };
     /** SupportMessageOut */
     SupportMessageOut: {
+      /**
+       * Author Label
+       * @default null
+       */
+      author_label: string | null;
       /** Author Role */
       author_role: string;
       /**
@@ -10782,6 +11163,11 @@ export interface components {
       body_format: string;
       /** Buttons */
       buttons?: components["schemas"]["SupportMessageButtonOut"][];
+      /**
+       * Connector Source
+       * @default null
+       */
+      connector_source: string | null;
       /**
        * Created At
        * @default null
@@ -10819,6 +11205,11 @@ export interface components {
       /** Category */
       category: string;
       /**
+       * Change Cursor
+       * @default 0
+       */
+      change_cursor: number;
+      /**
        * Closed At
        * @default null
        */
@@ -10840,6 +11231,11 @@ export interface components {
       last_message_role: string | null;
       /** Priority */
       priority: string;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
       /** Status */
       status: string;
       /** Subject */
@@ -11931,6 +12327,11 @@ export interface components {
     /** WebAppPaymentCreatePayload */
     WebAppPaymentCreatePayload: {
       /**
+       * Balance Auto Renew
+       * @default false
+       */
+      balance_auto_renew: boolean;
+      /**
        * Balance Source
        * @default null
        */
@@ -12044,6 +12445,11 @@ export interface components {
     /** WebAppPromoQuotePayload */
     WebAppPromoQuotePayload: {
       /**
+       * Balance Auto Renew
+       * @default false
+       */
+      balance_auto_renew: boolean;
+      /**
        * Balance Source
        * @default null
        */
@@ -12133,6 +12539,23 @@ export interface components {
        */
       use_partner_balance: boolean;
     };
+    /** WebAppQrLoginApprovePayload */
+    WebAppQrLoginApprovePayload: {
+      /** Number */
+      number: number;
+      /** Request Id */
+      request_id: string;
+    };
+    /** WebAppQrLoginClaimPayload */
+    WebAppQrLoginClaimPayload: {
+      /** Code */
+      code: string;
+    };
+    /** WebAppQrLoginRequestPayload */
+    WebAppQrLoginRequestPayload: {
+      /** Request Id */
+      request_id: string;
+    };
     /** WebAppSetPasswordPayload */
     WebAppSetPasswordPayload: {
       /** Code */
@@ -12144,6 +12567,11 @@ export interface components {
     };
     /** WebAppSubscriptionQuotePayload */
     WebAppSubscriptionQuotePayload: {
+      /**
+       * Balance Auto Renew
+       * @default false
+       */
+      balance_auto_renew: boolean;
       /**
        * Balance Source
        * @default null
@@ -13164,6 +13592,94 @@ export interface operations {
             /** @constant */
             ok: true;
             retry_after?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_account_qr_login_approve_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginApprovePayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            attempts_left?: number;
+            /** @constant */
+            ok: true;
+            status?: string;
+          };
+        };
+      };
+    };
+  };
+  post_account_qr_login_claim_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginClaimPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            browser: string;
+            expires_in: number;
+            ip: string;
+            /** @constant */
+            ok: true;
+            os: string;
+            request_id: string;
+          };
+        };
+      };
+    };
+  };
+  post_account_qr_login_deny_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -14911,6 +15427,29 @@ export interface operations {
         };
         content: {
           "image/webp": string;
+        };
+      };
+    };
+  };
+  get_admin_message_targets_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminMessageTargetsOut"];
         };
       };
     };
@@ -17735,6 +18274,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -17743,6 +18283,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -17874,6 +18415,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -17882,6 +18424,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -17936,6 +18479,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -17944,6 +18488,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -18043,6 +18588,60 @@ export interface operations {
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"];
           };
+        };
+      };
+    };
+  };
+  post_admin_user_merge_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserMergeBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserMergeOut"];
+        };
+      };
+    };
+  };
+  get_admin_user_merge_context_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserMergeContextOut"];
         };
       };
     };
@@ -18864,6 +19463,94 @@ export interface operations {
       };
     };
   };
+  post_qr_login_cancel_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_qr_login_poll_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WebAppQrLoginRequestPayload"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            csrf_token?: string;
+            expires_in?: number;
+            match_number?: number;
+            /** @constant */
+            ok: true;
+            status: string;
+            telegram_id?: number | null;
+            token?: string;
+            user_id?: number | null;
+          };
+        };
+      };
+    };
+  };
+  post_qr_login_start_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            expires_in: number;
+            /** @constant */
+            ok: true;
+            poll_interval: number;
+            qr_url: string;
+            request_id: string;
+          };
+        };
+      };
+    };
+  };
   get_session_route: {
     parameters: {
       query?: never;
@@ -19015,6 +19702,7 @@ export interface operations {
             }[];
             /** @constant */
             ok: true;
+            recurring_enabled?: boolean;
             sources: {
               adjustable?: boolean;
               amount?: string;
@@ -19023,6 +19711,7 @@ export interface operations {
               convertible?: boolean;
               currency?: string;
               id?: string;
+              recurring_available?: boolean;
               status?: string | null;
             }[];
             topup_max_amount: number;
@@ -19771,6 +20460,7 @@ export interface operations {
               }[];
               /** @constant */
               ok: true;
+              recurring_enabled?: boolean;
               sources: {
                 adjustable?: boolean;
                 amount?: string;
@@ -19779,6 +20469,7 @@ export interface operations {
                 convertible?: boolean;
                 currency?: string;
                 id?: string;
+                recurring_available?: boolean;
                 status?: string | null;
               }[];
               topup_max_amount: number;
@@ -19947,6 +20638,7 @@ export interface operations {
               notification_preferences_enabled?: boolean;
               partner_program_enabled?: boolean;
               payment_methods_display_mode?: string;
+              public_url?: string;
               recommended_auth_providers?: string[];
               referral_program_enabled?: boolean;
               server_status_url?: string | null;
@@ -20507,6 +21199,33 @@ export interface operations {
             payment_id?: number;
             payment_url?: string | null;
             status?: string;
+          };
+        };
+      };
+    };
+  };
+  get_payment_history_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["PaymentHistoryItemOut"][];
+            limit: number;
+            offset: number;
+            /** @constant */
+            ok: true;
+            total: number;
           };
         };
       };
@@ -21295,13 +22014,22 @@ export interface operations {
               }[];
               billing_model: string;
               description: string;
+              effective_hwid_device_limit?: number | null;
+              hwid_device_limit?: number | null;
               monthly_gb?: number | null;
               /** @description Raw switch calculation details from the subscription service. */
               options?: {
                 [key: string]: unknown;
               };
+              premium_enabled?: boolean;
+              premium_monthly_gb?: number | null;
+              premium_title?: string;
+              premium_traffic_limit_strategy?: string;
+              premium_unlimited?: boolean;
               tariff_key: string;
               title: string;
+              traffic_limit_strategy?: string;
+              traffic_packages?: number[];
             }[];
           };
         };

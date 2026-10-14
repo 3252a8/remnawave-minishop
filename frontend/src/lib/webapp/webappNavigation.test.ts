@@ -69,6 +69,13 @@ describe("createWebappNavigation", () => {
     expect(deps.syncSectionPath).toHaveBeenCalledWith("notifications");
   });
 
+  it("opens payment history as a child of Settings", () => {
+    const { deps, navigation, state } = makeNavigation();
+    navigation.goPaymentHistory();
+    expect(state).toEqual({ activeTab: "settings", screen: "payment-history" });
+    expect(deps.syncSectionPath).toHaveBeenCalledWith("payment-history");
+  });
+
   it("keeps Home active when status is opened from the Home card", () => {
     const { navigation, state } = makeNavigation();
 

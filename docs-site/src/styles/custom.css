@@ -218,8 +218,35 @@
   }
 
   .hero > .hero-html:has(.minishop-hero-screenshot) {
-    width: min(96vw, 72rem);
+    width: min(100%, 90rem);
     max-width: none;
+    min-width: 0;
+    margin-inline: auto;
+  }
+
+  .hero:has(.minishop-hero-screenshot) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero:has(.minishop-hero-screenshot) .stack {
+    align-items: center;
+    width: min(100%, 64rem);
+    min-width: 0;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .hero:has(.minishop-hero-screenshot) .copy {
+    align-items: center;
+  }
+
+  .hero:has(.minishop-hero-screenshot) .actions {
+    gap: 0.75rem;
+    justify-content: center;
+  }
+
+  .hero:has(.minishop-hero-screenshot) .actions a {
+    margin: 0;
   }
 
   .hero img {
@@ -255,30 +282,12 @@
 
   @media (min-width: 50rem) {
     .hero:has(.minishop-hero-screenshot) {
-      grid-template-columns: minmax(0, 1fr);
       gap: clamp(2rem, 4vw, 4rem);
       align-items: center;
     }
 
     .hero > .hero-html:has(.minishop-hero-screenshot) {
       order: 2;
-      width: min(100%, 90rem);
-      margin-inline: auto;
-    }
-
-    .hero:has(.minishop-hero-screenshot) .stack {
-      align-items: center;
-      max-width: 64rem;
-      margin-inline: auto;
-      text-align: center;
-    }
-
-    .hero:has(.minishop-hero-screenshot) .copy {
-      align-items: center;
-    }
-
-    .hero:has(.minishop-hero-screenshot) .actions {
-      justify-content: center;
     }
   }
 

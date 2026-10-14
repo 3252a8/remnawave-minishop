@@ -63,6 +63,9 @@ LINKFLOW_BESPOKE = {
 WEBHOOK_PROFILES = {
     "base-template": {"cryptopay", "qa", "tribute"},
     "service-route": {
+        "anore",
+        "cryptomus",
+        "cispay",
         "cloudpayments",
         "freekassa",
         "heleket",

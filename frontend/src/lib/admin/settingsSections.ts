@@ -1,4 +1,5 @@
 import type { SettingField, SettingsSection } from "./stores/settingsStore";
+import { paymentProviderDisplay } from "./paymentTable";
 
 export type SettingsPath = string[];
 export type AdminSettingField = SettingField &
@@ -118,6 +119,22 @@ const WATA_WEBHOOK_KEYS = new Set([
   "WATA_CRYPTO_PUBLIC_KEY",
   "WATA_TRUSTED_IPS",
 ]);
+const HOSTED_PROVIDER_COMMON_KEYS = new Set([
+  "CRYPTOMUS_MERCHANT_ID",
+  "CRYPTOMUS_API_KEY",
+  "CRYPTOMUS_BASE_URL",
+  "CRYPTOMUS_RETURN_URL",
+  "CISPAY_SHOP_ID",
+  "CISPAY_API_KEY",
+  "CISPAY_BASE_URL",
+  "CISPAY_RETURN_URL",
+  "CISPAY_ALLOW_SANDBOX_PAYMENTS",
+]);
+const PAYMENT_SUBSECTION_ALIASES = new Map<string, [string, string]>([
+  ["cryptomus-recurring", ["cryptomus", "subscription"]],
+  ["cispay-card-recurring", ["cispay", "subscription-card"]],
+  ["cispay-sbp-recurring", ["cispay", "subscription-sbp"]],
+]);
 const SEMANTIC_FIELD_GROUP_ORDER: Record<string, number> = {
   platega_common: 1,
   platega_sbp: 2,
@@ -132,14 +149,26 @@ const SEMANTIC_FIELD_GROUP_ORDER: Record<string, number> = {
   wata_subscription: 3,
   wata_crypto: 4,
   wata_webhook: 5,
+  cryptomus_common: 1,
+  cryptomus_one_off: 2,
+  cryptomus_subscription: 3,
+  cispay_common: 1,
+  cispay_one_off: 2,
+  cispay_subscription_card: 3,
+  cispay_subscription_sbp: 4,
 };
 
 export function normalizeSettingsPath(path: unknown): SettingsPath {
   const parts = Array.isArray(path) ? path : String(path || "").split("/");
-  return parts
+  const normalized = parts
     .map((part) => String(part || "").trim())
     .filter(Boolean)
     .slice(0, 3);
+  if (settingsPathToken(normalized[0]) === "payments") {
+    const alias = PAYMENT_SUBSECTION_ALIASES.get(settingsPathToken(normalized[1]));
+    if (alias) return [normalized[0], ...alias];
+  }
+  return normalized;
 }
 
 export function settingsPathKey(path: unknown): string {
@@ -399,6 +428,15 @@ function providerLogoFallback(label: string): string {
 }
 
 export function groupProviderInfo(fields: AdminSettingField[]): GroupProviderInfo {
+  if (fields.some((field) => field.subsection === "balance")) {
+    return {
+      id: "user_balance",
+      label: "balance",
+      infoUrl: "",
+      logoUrl: "",
+      logoFallback: paymentProviderDisplay("partner_balance").fallbackEmoji,
+    };
+  }
   const field = (fields || []).find(
     (item) => item.provider_info_url || item.provider_logo_url || item.provider_label
   );
@@ -576,6 +614,47 @@ function wataSemanticGroup(field: AdminSettingField): Omit<SemanticFieldGroup, "
   );
 }
 
+function hostedProviderSemanticGroup(
+  field: AdminSettingField,
+  provider: "cryptomus" | "cispay"
+): Omit<SemanticFieldGroup, "fields"> {
+  const key = field.key;
+  const prefix = provider.toUpperCase();
+  if (provider === "cispay" && key.startsWith("CISPAY_SUBSCRIPTION_CARD_")) {
+    return fieldGroupMeta(
+      "cispay_subscription_card",
+      "settings_group_provider_card_recurring",
+      "Card recurring payments"
+    );
+  }
+  if (provider === "cispay" && key.startsWith("CISPAY_SUBSCRIPTION_SBP_")) {
+    return fieldGroupMeta(
+      "cispay_subscription_sbp",
+      "settings_group_provider_sbp_recurring",
+      "SBP recurring payments"
+    );
+  }
+  if (key.startsWith(`${prefix}_SUBSCRIPTION_`)) {
+    return fieldGroupMeta(
+      `${provider}_subscription`,
+      "settings_group_provider_recurring",
+      "Recurring payments"
+    );
+  }
+  if (HOSTED_PROVIDER_COMMON_KEYS.has(key)) {
+    return fieldGroupMeta(
+      `${provider}_common`,
+      "settings_group_provider_common",
+      "Common settings"
+    );
+  }
+  return fieldGroupMeta(
+    `${provider}_one_off`,
+    "settings_group_provider_one_off",
+    "One-off payments"
+  );
+}
+
 function semanticFieldGroup(
   section: AdminSettingsSection,
   group: SettingsSubsection,
@@ -586,6 +665,12 @@ function semanticFieldGroup(
   }
   if (section?.id === "payments" && group?.id === "Wata") {
     return wataSemanticGroup(field);
+  }
+  if (section?.id === "payments" && group?.id === "Cryptomus") {
+    return hostedProviderSemanticGroup(field, "cryptomus");
+  }
+  if (section?.id === "payments" && group?.id === "CisPay") {
+    return hostedProviderSemanticGroup(field, "cispay");
   }
   return null;
 }

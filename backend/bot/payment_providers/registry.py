@@ -5,7 +5,10 @@ from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
 from . import (
+    anore,
+    cispay,
     cloudpayments,
+    cryptomus,
     cryptopay,
     freekassa,
     heleket,
@@ -36,6 +39,12 @@ from .shared import ProviderManagedRecurringService, RecurringProviderService
 logger = logging.getLogger(__name__)
 
 PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
+    anore.SPEC,
+    cryptomus.SPEC,
+    cryptomus.SUBSCRIPTION_SPEC,
+    cispay.SPEC,
+    cispay.CARD_SUBSCRIPTION_SPEC,
+    cispay.SBP_SUBSCRIPTION_SPEC,
     freekassa.SPEC,
     platega.SBP_SPEC,
     platega.CARD_SPEC,
@@ -441,6 +450,10 @@ def managed_recurring_provider_services(
 
 
 def provider_supports_recurring(provider: str | None) -> bool:
+    from bot.payment_providers.shared.recurring import BALANCE_RECURRING_PROVIDERS
+
+    if str(provider or "").strip().lower() in BALANCE_RECURRING_PROVIDERS:
+        return True
     spec = get_provider_spec(provider or "")
     return bool(spec and spec.supports_recurring)
 
@@ -463,7 +476,14 @@ def provider_manages_recurring(provider: str | None) -> bool:
 
 
 def provider_label_map(settings: Any = None, language: str | None = None) -> dict[str, str]:
-    labels: dict[str, str] = {}
+    from bot.middlewares.i18n import get_i18n_instance
+
+    i18n = get_i18n_instance()
+    balance_language = language or (settings.DEFAULT_LANGUAGE if settings is not None else "en")
+    labels: dict[str, str] = {
+        "user_balance": i18n.gettext(balance_language, "wa_balance_source_user"),
+        "partner_balance": i18n.gettext(balance_language, "wa_balance_source_partner"),
+    }
     for spec in PAYMENT_PROVIDER_SPECS:
         presentation = resolve_provider_presentation(
             spec,
@@ -497,13 +517,15 @@ def pending_statuses() -> list[str]:
 
 def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, ProviderManifestField]]:
     """Yield (spec, manifest_field) for every fragment declared on a provider SPEC."""
+    emitted_keys: set[str] = set()
     for spec in PAYMENT_PROVIDER_SPECS:
-        emitted_keys: set[str] = set()
         for field in spec.manifest_fields:
             emitted_keys.add(field.key)
             yield spec, field
+        # A shared service may declare a method's admin-only field on its base SPEC.
         admin_only_field = provider_admin_only_manifest_field(spec)
         if admin_only_field is not None and admin_only_field.key not in emitted_keys:
+            emitted_keys.add(admin_only_field.key)
             yield spec, admin_only_field
 
 

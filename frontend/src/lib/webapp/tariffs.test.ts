@@ -16,6 +16,7 @@ import {
   planUnitHint,
   priceLabel,
   tariffLimitLabel,
+  tariffLimitFacts,
   TELEGRAM_STARS_MINI_APP_REQUIRED,
 } from "./tariffs.js";
 
@@ -67,7 +68,7 @@ describe("webapp tariff helpers", () => {
           traffic_gb: "10",
         },
       ])
-    ).toEqual([
+    ).toMatchObject([
       {
         key: "pro",
         title: "Pro",
@@ -84,7 +85,7 @@ describe("webapp tariff helpers", () => {
         description: "",
         billing_model: "traffic",
         is_default: false,
-        monthly_gb: 0,
+        monthly_gb: null,
         traffic_packages: [10],
         plans_count: 1,
       },
@@ -107,6 +108,53 @@ describe("webapp tariff helpers", () => {
         { tariff_key: "plus" }
       )
     ).toBe("plus");
+  });
+
+  it("preserves structured limits in the catalog without replacing unknown values or zero", () => {
+    const [catalog] = buildTariffCatalog([
+      {
+        tariff_key: "max",
+        monthly_gb: 0,
+        effective_hwid_device_limit: 0,
+        premium_enabled: true,
+        premium_unlimited: true,
+        premium_monthly_gb: null,
+        traffic_limit_strategy: "MONTH",
+      },
+      { tariff_key: "max", monthly_gb: 100, effective_hwid_device_limit: 5 },
+    ]);
+    expect(catalog.monthly_gb).toBe(0);
+    expect(catalog.effective_hwid_device_limit).toBe(0);
+    expect(tariffLimitFacts(catalog, { t }).every((fact) => fact.unlimited)).toBe(true);
+    const [unknown] = buildTariffCatalog([{ tariff_key: "unknown", premium_enabled: true }]);
+    expect(tariffLimitFacts(unknown, { t }).every((fact) => !fact.known && !fact.unavailable)).toBe(
+      true
+    );
+    expect(tariffLimitLabel(unknown, { t })).toContain("wa_checkout_tariff_not_specified");
+  });
+
+  it("distinguishes premium unavailability, unknown limits, and package ranges", () => {
+    expect(tariffLimitFacts({ premium_enabled: false }, { t })[2]).toMatchObject({
+      known: false,
+      unavailable: true,
+      unlimited: false,
+    });
+    expect(
+      checkoutTariffSummary({ premium_enabled: true, premium_monthly_gb: null }).premiumTraffic
+        .known
+    ).toBe(false);
+    expect(
+      checkoutTariffSummary({ monthly_gb: " ", effective_hwid_device_limit: -1 }).traffic.known
+    ).toBe(false);
+    expect(
+      checkoutTariffSummary({ monthly_gb: " ", effective_hwid_device_limit: -1 }).devices.known
+    ).toBe(false);
+    const facts = tariffLimitFacts(
+      { billing_model: "traffic", traffic_packages: [50, 10], traffic_limit_strategy: "NO_RESET" },
+      { t }
+    );
+    expect(facts[1]).toMatchObject({ known: true, unlimited: false, valueText: "10 GB – 50 GB" });
+    expect(facts[1].label).toContain("wa_checkout_tariff_traffic_with_period");
   });
 
   it("builds a checkout tariff summary with finite and unlimited limits", () => {

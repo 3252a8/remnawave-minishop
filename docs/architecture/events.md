@@ -425,7 +425,7 @@
 
 Модель данных события: `ReferralBonusGrantedPayload`
 
-Источники события: `backend/bot/app/web/webapp/auth.py`, `backend/bot/handlers/user/start.py`, `backend/bot/payment_providers/shared/success.py`, `backend/bot/payment_providers/yookassa.py`, `backend/bot/services/referral_accrual_worker.py`, `backend/bot/services/referral_service.py`
+Источники события: `backend/bot/app/web/webapp/auth.py`, `backend/bot/handlers/user/start.py`, `backend/bot/payment_providers/shared/success.py`, `backend/bot/payment_providers/yookassa.py`, `backend/bot/services/referral_accrual_worker.py`, `backend/bot/services/referral_service.py`, `backend/bot/services/subscription_service_impl/trial.py`
 
 Реакции Core: `CoreEventReactions.on_referral_bonus_granted`
 
@@ -445,7 +445,8 @@
 | `purchased_subscription_days` | `int | None` | `None` |
 | `tariff_key` | `str | None` | `None` |
 | `one_bonus_per_referee` | `bool | None` | `None` |
-| `reason` | `'payment' | 'welcome'` | обязательно |
+| `gift_id` | `int | None` | `None` |
+| `reason` | `'payment' | 'welcome' | 'gift_activation'` | обязательно |
 
 ## `subscription.auto_renew_failed`
 
@@ -535,6 +536,25 @@
 | `tariff_key` | `str | None` | `None` |
 | `end_date` | `datetime | None` | `None` |
 
+## `support.message_created`
+
+Модель данных события: `SupportMessageCreatedPayload`
+
+Источники события: `backend/bot/services/support_service.py`
+
+Реакции Core: нет
+
+| Поле | Тип | Значение по умолчанию |
+| --- | --- | --- |
+| `user_id` | `int` | обязательно |
+| `ticket_id` | `int` | обязательно |
+| `message_id` | `int` | обязательно |
+| `author_role` | `str` | обязательно |
+| `is_internal_note` | `bool` | обязательно |
+| `revision` | `int` | обязательно |
+| `change_cursor` | `int` | обязательно |
+| `source` | `str | None` | `None` |
+
 ## `support.ticket_created`
 
 Модель данных события: `SupportTicketCreatedPayload`
@@ -549,6 +569,23 @@
 | `ticket_id` | `int` | обязательно |
 | `category` | `str` | обязательно |
 | `priority` | `str` | обязательно |
+
+## `support.ticket_updated`
+
+Модель данных события: `SupportTicketUpdatedPayload`
+
+Источники события: `backend/bot/services/support_service.py`
+
+Реакции Core: нет
+
+| Поле | Тип | Значение по умолчанию |
+| --- | --- | --- |
+| `user_id` | `int` | обязательно |
+| `ticket_id` | `int` | обязательно |
+| `status` | `str` | обязательно |
+| `revision` | `int` | обязательно |
+| `change_cursor` | `int` | обязательно |
+| `assigned_admin_id` | `int | None` | `None` |
 
 ## `trial.activated`
 

@@ -125,6 +125,7 @@ class UserBalanceService:
                     )
         payload: dict[str, Any] = {
             "enabled": bool(config.enabled),
+            "recurring_enabled": bool(getattr(config, "recurring_enabled", False)),
             "currency": config.currency,
             "currency_scale": scale,
             "amount_minor": amount_minor,
@@ -136,6 +137,9 @@ class UserBalanceService:
                 {
                     "id": "user",
                     "available": bool(amount_minor > 0),
+                    "recurring_available": bool(
+                        config.enabled and getattr(config, "recurring_enabled", False)
+                    ),
                     "adjustable": True,
                     "amount_minor": amount_minor,
                     "amount": minor_to_decimal_string(amount_minor, scale=scale),
@@ -144,6 +148,11 @@ class UserBalanceService:
                 {
                     "id": "partner",
                     "available": partner_available,
+                    "recurring_available": bool(
+                        partner_convertible
+                        and self.settings.partner_settings.balance_payment_enabled
+                        and getattr(config, "recurring_enabled", False)
+                    ),
                     "adjustable": partner_adjustable,
                     "convertible": partner_convertible,
                     "status": partner_status,

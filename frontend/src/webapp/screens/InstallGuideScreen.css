@@ -397,6 +397,22 @@
   gap: 10px;
 }
 
+.install-subscription-body .qr-image-actions.is-icon-column {
+  justify-self: center;
+  grid-template-columns: 36px minmax(0, 204px) 36px;
+}
+
+.install-subscription-body .qr-image-actions.is-icon-column::before {
+  /* Balance the shared icon column so the QR itself stays centered. */
+  content: "";
+}
+
+.install-subscription-body .qr-image-preview .install-qr-wrap {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .install-qr-wrap {
   position: relative;
   display: grid;

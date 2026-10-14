@@ -16,6 +16,7 @@ Design rules:
   resolvers there while still subscribing to the plain event payload here.
 - Events may be emitted shortly before the surrounding transaction commits;
   treat a payload as a notification, not as a guarantee the row is visible.
+  ``account.merged`` is delivered after commit; rolled-back merges emit nothing.
 
 Event payload contracts live in :mod:`bot.infra.event_payloads`. Emit sites
 construct those models first and publish their ``to_payload()`` dicts here;
@@ -52,6 +53,8 @@ ACCOUNT_MERGED = "account.merged"
 PROMO_CODE_APPLIED = "promo_code.applied"
 REFERRAL_BONUS_GRANTED = "referral.bonus_granted"
 SUPPORT_TICKET_CREATED = "support.ticket_created"
+SUPPORT_MESSAGE_CREATED = "support.message_created"
+SUPPORT_TICKET_UPDATED = "support.ticket_updated"
 PANEL_WEBHOOK_RECEIVED = "panel.webhook_received"
 DEVICE_CONNECTED = "device.connected"
 DEVICE_LIMIT_REACHED = "device.limit_reached"

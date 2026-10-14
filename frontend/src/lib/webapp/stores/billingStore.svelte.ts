@@ -13,7 +13,11 @@ import {
   type BillingStore,
 } from "./billingStoreSupport";
 export type { BillingState, BillingStore } from "./billingStoreSupport";
-import type { BillingActions, PartnerBalancePaymentOptions } from "../billingActions";
+import type {
+  BillingActions,
+  CheckoutPromoOptions,
+  PartnerBalancePaymentOptions,
+} from "../billingActions";
 import { billingErrorMessage } from "../billingActions";
 import type { CheckoutAddonSelection } from "../tariffs";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
@@ -187,6 +191,7 @@ export function createBillingStore({
   let paymentPollToken = 0;
   let checkoutPromoRequestId = 0;
   let checkoutAddonsForQuote: CheckoutAddonSelection | undefined;
+  let checkoutQuoteMethod = $state<string | undefined>(undefined);
   let lastCheckoutQuoteKey = "";
   const successfulPaymentIds = new Set<string>();
 
@@ -215,12 +220,22 @@ export function createBillingStore({
     return code || null;
   }
 
-  function checkoutQuoteBody(options: Pick<PartnerBalancePaymentOptions, "checkoutAddons"> = {}) {
-    return checkoutPromoQuoteBody(state, billing, options.checkoutAddons || checkoutAddonsForQuote);
+  function checkoutQuoteState(): BillingState {
+    return state.paymentModalOpen && checkoutQuoteMethod
+      ? { ...state, selectedMethod: checkoutQuoteMethod }
+      : state;
+  }
+
+  function checkoutQuoteBody(options: CheckoutPromoOptions = {}) {
+    return checkoutPromoQuoteBody(
+      checkoutQuoteState(),
+      billing,
+      options.checkoutAddons || checkoutAddonsForQuote
+    );
   }
 
   function checkoutQuoteKey(): string {
-    return checkoutPromoQuoteKey(state, checkoutAddonsForQuote);
+    return checkoutPromoQuoteKey(checkoutQuoteState(), checkoutAddonsForQuote);
   }
 
   $effect(() => {
@@ -236,6 +251,7 @@ export function createBillingStore({
   });
 
   function ensureCheckoutPromoMethod(): void {
+    if (state.paymentModalOpen && checkoutQuoteMethod === "balance") return;
     if (!state.checkoutPromoInput.trim()) return;
     const plan = checkoutPromoPlan(state);
     if (!plan) return;
@@ -250,10 +266,12 @@ export function createBillingStore({
     if (firstMethod) state.selectedMethod = firstMethod;
   }
 
-  async function applyCheckoutPromo(
-    options: Pick<PartnerBalancePaymentOptions, "checkoutAddons"> = {}
-  ): Promise<void> {
+  async function applyCheckoutPromo(options: CheckoutPromoOptions = {}): Promise<void> {
+    if (options.paymentMethod !== undefined) {
+      checkoutQuoteMethod = options.paymentMethod === "balance" ? "balance" : undefined;
+    }
     if (options.checkoutAddons) checkoutAddonsForQuote = options.checkoutAddons;
+    if (options.updateContextOnly && !state.checkoutPromoAppliedCode) return;
     ensureCheckoutPromoMethod();
     const body = checkoutQuoteBody(options);
     if (!body) {
@@ -296,7 +314,7 @@ export function createBillingStore({
         checkoutPromoAppliedCode: appliedCode,
         checkoutPromoIsError: false,
         checkoutPromoStatus: formatPromoEffectSummary(payload, { t, termUnitLabel }),
-        checkoutPromoPriceText: checkoutPromoPriceText(payload, state.selectedMethod),
+        checkoutPromoPriceText: checkoutPromoPriceText(payload, stringField(body.method)),
         checkoutPromoEffectiveAmount: Math.max(0, Number(payload.effective_amount || 0)),
         checkoutPromoDiscountPercent: Math.max(0, Number(payload.discount_percent || 0)),
         checkoutPromoAppliesTo: stringField(payload.applies_to) || "all",
@@ -733,6 +751,7 @@ export function createBillingStore({
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),
           promoCode: checkoutPromoCode(),
           balanceSource: options.balanceSource,
+          balanceAutoRenew: options.balanceAutoRenew,
           usePartnerBalance: options.usePartnerBalance,
           checkoutAddons: options.checkoutAddons,
           payerEmail: options.payerEmail,

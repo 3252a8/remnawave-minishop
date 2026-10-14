@@ -262,6 +262,7 @@ BALANCE_SOURCE_SCHEMA: dict[str, Any] = {
     "properties": {
         "id": STRING_SCHEMA,
         "available": BOOLEAN_SCHEMA,
+        "recurring_available": BOOLEAN_SCHEMA,
         "adjustable": BOOLEAN_SCHEMA,
         "convertible": BOOLEAN_SCHEMA,
         "status": NULLABLE_STRING_SCHEMA,
@@ -288,6 +289,7 @@ BALANCE_ENTRY_SCHEMA: dict[str, Any] = {
 BALANCE_SCHEMA: dict[str, Any] = ok_envelope_with(
     {
         "enabled": BOOLEAN_SCHEMA,
+        "recurring_enabled": BOOLEAN_SCHEMA,
         "currency": STRING_SCHEMA,
         "currency_scale": INTEGER_SCHEMA,
         "amount_minor": INTEGER_SCHEMA,
@@ -473,6 +475,15 @@ TARIFF_CHANGE_TARGET_SCHEMA: dict[str, Any] = {
         "description": STRING_SCHEMA,
         "billing_model": STRING_SCHEMA,
         "monthly_gb": NULLABLE_NUMBER_SCHEMA,
+        "hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
+        "effective_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
+        "premium_enabled": BOOLEAN_SCHEMA,
+        "premium_monthly_gb": NULLABLE_NUMBER_SCHEMA,
+        "premium_title": STRING_SCHEMA,
+        "premium_unlimited": BOOLEAN_SCHEMA,
+        "traffic_limit_strategy": STRING_SCHEMA,
+        "premium_traffic_limit_strategy": STRING_SCHEMA,
+        "traffic_packages": {"type": "array", "items": NUMBER_SCHEMA},
         "options": TARIFF_SWITCH_OPTIONS_SCHEMA,
         "actions": {"type": "array", "items": TARIFF_CHANGE_ACTION_SCHEMA},
     },
@@ -758,6 +769,7 @@ WEBAPP_SETTINGS_SCHEMA: dict[str, Any] = {
         "email_address_change_enabled": BOOLEAN_SCHEMA,
         "auth_providers": STRING_ARRAY_SCHEMA,
         "recommended_auth_providers": STRING_ARRAY_SCHEMA,
+        "public_url": STRING_SCHEMA,
         "menu_buttons": {"type": "array", "items": MENU_BUTTON_SCHEMA},
     },
 }

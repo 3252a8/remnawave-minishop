@@ -8,7 +8,7 @@ import asyncio
 import hashlib
 import logging
 import time
-from typing import Any
+from typing import Any, cast
 
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
@@ -25,6 +25,24 @@ from bot.app.web.context import (
     get_or_create_subscription_guides_resolved_config_lock,
     get_session_factory,
     get_settings,
+)
+from bot.services.subscription_guides_resolution import (
+    _default_panel_subscription_page_config_uuid as _default_panel_subscription_page_config_uuid,
+)
+from bot.services.subscription_guides_resolution import (
+    _looks_like_panel_subscription_page_config as _looks_like_panel_subscription_page_config,
+)
+from bot.services.subscription_guides_resolution import (
+    _panel_external_squad_uuid_from_user as _panel_external_squad_uuid_from_user,
+)
+from bot.services.subscription_guides_resolution import (
+    _panel_subpage_config_uuid as _panel_subpage_config_uuid,
+)
+from bot.services.subscription_guides_resolution import (
+    _panel_subscription_page_config_items as _panel_subscription_page_config_items,
+)
+from bot.services.subscription_guides_resolution import (
+    resolve_panel_subscription_guides_config,
 )
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
@@ -269,31 +287,29 @@ async def _subscription_guides_status_from_panel_short_uuid(
             raise SubscriptionGuidesConfigError(
                 f"Panel subscription page config for subscription {short_uuid} is unavailable"
             )
-        config_uuid = _panel_subpage_config_uuid(detail)
-        if not config_uuid:
-            config_uuid = await _external_squad_subpage_config_uuid_for_panel_user(
-                panel_service,
-                panel_user_uuid,
+
+        async def owner_configuration() -> str:
+            return await _external_squad_subpage_config_uuid_for_panel_user(
+                panel_service, panel_user_uuid
             )
-        if config_uuid:
-            config = await _panel_subscription_page_config_by_uuid_cached(
-                app,
-                settings,
-                config_uuid,
-            )
-        else:
-            try:
-                config = validate_panel_subscription_guides_config(detail)
-            except SubscriptionGuidesConfigError:
-                panel_default = await _subscription_guides_status_from_panel_config(
-                    app,
-                    settings,
+
+        async def configuration_by_uuid(config_uuid: str) -> dict[str, Any]:
+            return await _panel_subscription_page_config_by_uuid_cached(app, settings, config_uuid)
+
+        async def default_configuration() -> dict[str, Any]:
+            status = await _subscription_guides_status_from_panel_config(app, settings)
+            if not status.get("enabled"):
+                raise SubscriptionGuidesConfigError(
+                    str(status.get("error") or "Panel default config is unavailable")
                 )
-                if not panel_default.get("enabled"):
-                    raise SubscriptionGuidesConfigError(
-                        str(panel_default.get("error") or "Panel default config is unavailable")
-                    ) from None
-                config = panel_default["config"]
+            return cast(dict[str, Any], status["config"])
+
+        config = await resolve_panel_subscription_guides_config(
+            detail,
+            owner_configuration=owner_configuration,
+            configuration_by_uuid=configuration_by_uuid,
+            default_configuration=default_configuration,
+        )
     except Exception as exc:
         logger.warning(
             "Failed to load resolved subscription guides config from Remnawave Panel: %s",
@@ -359,68 +375,6 @@ async def _load_panel_subscription_page_config_by_uuid(
     return validate_panel_subscription_guides_config(detail)
 
 
-def _panel_subpage_config_uuid(payload: Any) -> str:
-    if not isinstance(payload, dict):
-        return ""
-    for key in (
-        "subpageConfigUuid",
-        "subscriptionPageConfigUuid",
-        "subPageConfigUuid",
-        "subpage_config_uuid",
-    ):
-        value = str(payload.get(key) or "").strip()
-        if value:
-            return value
-    for key in (
-        "response",
-        "data",
-        "result",
-    ):
-        nested = _panel_subpage_config_uuid(payload.get(key))
-        if nested:
-            return nested
-    for key in (
-        "subscriptionPageConfig",
-        "subpageConfig",
-        "subPageConfig",
-    ):
-        nested_payload = payload.get(key)
-        nested = _panel_subpage_config_uuid(nested_payload)
-        if nested:
-            return nested
-        if isinstance(nested_payload, dict):
-            nested_uuid = str(nested_payload.get("uuid") or "").strip()
-            if nested_uuid:
-                return nested_uuid
-    nested_uuid = str(payload.get("uuid") or "").strip()
-    if nested_uuid and not _looks_like_panel_subscription_page_config(payload):
-        return nested_uuid
-    return ""
-
-
-async def _default_panel_subscription_page_config_uuid(panel_service: Any) -> str:
-    get_list = getattr(panel_service, "get_subscription_page_config_list", None)
-    if not callable(get_list):
-        return ""
-    payload = await get_list()
-    configs = _panel_subscription_page_config_items(payload)
-    if not configs:
-        return ""
-
-    candidates: list[dict[str, Any]] = configs
-    for item in candidates:
-        uuid = str(item.get("uuid") or "").strip()
-        if uuid == PANEL_DEFAULT_SUBPAGE_CONFIG_UUID:
-            return uuid
-
-    candidates.sort(key=lambda item: int(item.get("viewPosition") or 0))
-    for item in candidates:
-        uuid = str(item.get("uuid") or "").strip()
-        if uuid:
-            return uuid
-    return ""
-
-
 async def _warm_panel_subscription_page_configs(app: web.Application) -> None:
     settings: Settings = get_app_settings(app)
     if not _subscription_guides_should_try_resolved_panel_config(settings):
@@ -459,22 +413,6 @@ async def _warm_panel_subscription_page_configs(app: web.Application) -> None:
                     config_uuid,
                     result,
                 )
-
-
-def _panel_subscription_page_config_items(payload: Any) -> list[dict[str, Any]]:
-    if isinstance(payload, list):
-        return [item for item in payload if isinstance(item, dict)]
-    if not isinstance(payload, dict):
-        return []
-    for key in ("configs", "items", "subscriptionPageConfigs", "subpageConfigs"):
-        items = payload.get(key)
-        if isinstance(items, list):
-            return [item for item in items if isinstance(item, dict)]
-    for key in ("response", "data", "result"):
-        items = _panel_subscription_page_config_items(payload.get(key))
-        if items:
-            return items
-    return []
 
 
 async def _active_panel_subscription_context_for_user(
@@ -595,20 +533,6 @@ async def _external_squad_subpage_config_uuid_for_panel_user(
         )
         return ""
     return _panel_subpage_config_uuid(external_squad)
-
-
-def _panel_external_squad_uuid_from_user(panel_user: Any) -> str:
-    if not isinstance(panel_user, dict):
-        return ""
-    for key in ("externalSquadUuid", "external_squad_uuid", "externalSquadUUID"):
-        value = str(panel_user.get(key) or "").strip()
-        if value:
-            return value
-    return ""
-
-
-def _looks_like_panel_subscription_page_config(payload: dict[str, Any]) -> bool:
-    return "config" in payload or "viewPosition" in payload or "webpageAllowed" in payload
 
 
 def _subscription_guides_admin_json_override_enabled(settings: Settings) -> bool:

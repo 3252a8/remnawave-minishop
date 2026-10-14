@@ -53,6 +53,7 @@ from .information_pages import (
 from .logs import (
     admin_logs_route,
 )
+from .message_targets import admin_message_targets_route
 from .panel import (
     admin_panel_internal_squads_route,
 )
@@ -187,6 +188,8 @@ from .users import (
     admin_user_traffic_strategy_route,
     admin_users_list_route,
 )
+from .users_merge import admin_user_merge_route
+from .users_merge_context import admin_user_merge_context_route
 
 
 def setup_admin_routes(app: web.Application) -> None:
@@ -300,6 +303,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/ban", admin_user_ban_route)
+    router.add_post("/api/admin/users/{user_id:-?\\d+}/merge", admin_user_merge_route)
+    router.add_get(
+        "/api/admin/users/{user_id:-?\\d+}/merge-context", admin_user_merge_context_route
+    )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/balance-adjustment",
         admin_user_balance_adjustment_route,
@@ -399,6 +406,7 @@ def setup_admin_routes(app: web.Application) -> None:
 
     router.add_get("/api/admin/broadcast/audience-counts", admin_broadcast_audience_counts_route)
     router.add_get("/api/admin/broadcast/shortcodes", admin_broadcast_shortcodes_route)
+    router.add_get("/api/admin/message/targets", admin_message_targets_route)
     router.add_post("/api/admin/broadcast/preview", admin_broadcast_preview_route)
     router.add_post("/api/admin/broadcast", admin_broadcast_route)
     router.add_get("/api/admin/broadcasts", admin_broadcasts_list_route)

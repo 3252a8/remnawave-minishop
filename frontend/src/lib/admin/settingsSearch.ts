@@ -92,6 +92,39 @@ function settingsSearchScore(
   return score;
 }
 
+/**
+ * Search entries for settings a dedicated screen renders instead of the generic
+ * list, so each one is found by its own label or variable name and the result
+ * scrolls to its row.
+ */
+export function buildSectionFieldSearchEntries(
+  keys: readonly string[],
+  fieldsByKey: ReadonlyMap<string, AdminSettingField>,
+  target: { sectionId: string; pathLabel: string },
+  resolvers: Pick<SettingsSearchTextResolvers, "fieldLabelText" | "fieldDescriptionText">
+): SettingsSearchEntry[] {
+  return keys.flatMap((key) => {
+    const field = fieldsByKey.get(key);
+    if (!field) return [];
+    const label = resolvers.fieldLabelText(field);
+    const description = resolvers.fieldDescriptionText(field);
+    return [
+      {
+        key,
+        sectionId: target.sectionId,
+        subsectionId: null,
+        label,
+        description,
+        pathLabel: target.pathLabel,
+        anchorKey: settingsFieldAnchorKey(key),
+        searchText: normalizeSettingsSearchText(
+          [label, description, key, target.pathLabel].filter(Boolean).join(" ")
+        ),
+      },
+    ];
+  });
+}
+
 export function searchSettingsEntries(
   entries: SettingsSearchEntry[],
   query: string,

@@ -87,6 +87,7 @@ async def consume_payment_promo(
         session,
         promo_code_id,
         user_id,
+        payment_id=payment_id,
     )
     allow_existing_user = bool(getattr(payment, "promo_conflict_override", False))
     if existing is not None:

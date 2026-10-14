@@ -20,6 +20,16 @@ import {
 const roundtrip = (html: string): string => docToTelegramHtml(telegramHtmlToDoc(html));
 
 describe("docToTelegramHtml", () => {
+  it("roundtrips namespaced plugin shortcodes as chips without altering their namespace", () => {
+    const html = "Hello {sample-tools.plan_label} and {a__plugin.offer-name}";
+    expect(roundtrip(html)).toBe(html);
+    const doc = telegramHtmlToDoc(html);
+    expect(
+      doc.content[0].content
+        ?.filter((node) => node.type === "shortcode")
+        .map((node) => node.attrs?.name)
+    ).toEqual(["sample-tools.plan_label", "a__plugin.offer-name"]);
+  });
   it("serializes marks, shortcodes and newlines", () => {
     const doc: Doc = {
       type: "doc",

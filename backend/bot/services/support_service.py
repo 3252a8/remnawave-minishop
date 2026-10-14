@@ -12,11 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.infra import events
-from bot.infra.event_payloads import SupportTicketCreatedPayload
+from bot.infra.event_payloads import (
+    SupportMessageCreatedPayload,
+    SupportTicketCreatedPayload,
+    SupportTicketUpdatedPayload,
+)
 from bot.middlewares.i18n import JsonI18n
+from bot.services import support_connector_service
 from bot.services.email_auth_service import EmailAuthService
+from bot.services.message_composition import MessageButtonInput
 from bot.services.message_image_service import PreparedMessageImage, persist_message_image
 from bot.services.notification_service import NotificationService
+from bot.services.support_connector_contracts import SupportConnectorReply, SupportTicketContext
 from bot.services.support_message_body import (
     BODY_FORMAT_TEXT,
     normalize_body_format,
@@ -133,6 +140,59 @@ class TicketNotFound(LookupError):
 
 
 class SupportService:
+    async def get_ticket_context(
+        self, ticket_id: int, *, expected_user_id: int, after_message_id: int | None = None
+    ) -> SupportTicketContext:
+        return await support_connector_service.get_ticket_context(
+            self, ticket_id, expected_user_id=expected_user_id, after_message_id=after_message_id
+        )
+
+    def encode_reply_buttons(self, buttons: list[MessageButtonInput]) -> str | None:
+        return support_connector_service.encode_reply_buttons(self, buttons)
+
+    async def reply_from_connector(
+        self,
+        ticket_id: int,
+        body: str,
+        *,
+        expected_user_id: int,
+        expected_revision: int,
+        idempotency_key: str,
+        source: str,
+        author_label: str,
+        buttons: list[MessageButtonInput] | None = None,
+        expected_account_binding: str | None = None,
+        replay_only: bool = False,
+    ) -> SupportConnectorReply:
+        return await support_connector_service.reply_from_connector(
+            self,
+            ticket_id,
+            body,
+            expected_user_id=expected_user_id,
+            expected_revision=expected_revision,
+            idempotency_key=idempotency_key,
+            source=source,
+            author_label=author_label,
+            buttons=buttons,
+            expected_account_binding=expected_account_binding,
+            replay_only=replay_only,
+        )
+
+    @staticmethod
+    async def _emit_message_created(ticket: SupportTicket, message: SupportTicketMessage) -> None:
+        await events.emit_model(
+            SupportMessageCreatedPayload(
+                user_id=int(ticket.user_id),
+                ticket_id=int(ticket.ticket_id),
+                message_id=int(message.message_id),
+                author_role=str(message.author_role),
+                is_internal_note=bool(message.is_internal_note),
+                revision=int(ticket.revision),
+                change_cursor=int(ticket.change_cursor),
+                source=message.connector_source,
+            )
+        )
+
     def __init__(
         self,
         session_factory: sessionmaker,
@@ -262,6 +322,9 @@ class SupportService:
                 image_id=str(stored_image.image_id) if stored_image is not None else None,
             )
             snapshot = await self.build_user_snapshot(user, session=session)
+            _created_ticket, initial_messages = await support_dal.get_ticket(
+                session, int(ticket.ticket_id)
+            )
             await session.commit()
 
         await events.emit_model(
@@ -272,6 +335,9 @@ class SupportService:
                 priority=priority,
             )
         )
+
+        if initial_messages:
+            await self._emit_message_created(ticket, initial_messages[0])
 
         try:
             await self.notification_service.notify_new_support_ticket(
@@ -341,6 +407,7 @@ class SupportService:
             snapshot = await self.build_user_snapshot(user, session=session)
             await session.commit()
 
+        await self._emit_message_created(ticket, message)
         if notification_decision.send_telegram or notification_decision.send_email:
             self._schedule_notification(
                 self.notification_service.notify_support_user_reply(
@@ -409,6 +476,7 @@ class SupportService:
             await session.refresh(ticket)
             await session.commit()
 
+        await self._emit_message_created(ticket, message)
         if user and not is_internal_note:
             self._schedule_notification(
                 self.notification_service.notify_support_admin_reply(ticket, message, user),
@@ -475,7 +543,17 @@ class SupportService:
                 },
             )
             await session.commit()
-            return ticket
+        await events.emit_model(
+            SupportTicketUpdatedPayload(
+                user_id=int(ticket.user_id),
+                ticket_id=int(ticket.ticket_id),
+                status=str(ticket.status),
+                revision=int(ticket.revision),
+                change_cursor=int(ticket.change_cursor),
+                assigned_admin_id=ticket.assigned_admin_id,
+            )
+        )
+        return ticket
 
     async def mark_read_as_user(self, user_id: int, ticket_id: int) -> None:
         async with self.session_factory() as session:
@@ -536,6 +614,7 @@ class SupportService:
                 ),
                 "email_login": bool(user.email and user.email_verified_at),
                 "subscription_active": bool(sub),
+                "device_limit": getattr(sub, "hwid_device_limit", None) if sub else None,
                 "panel_status": getattr(sub, "status_from_panel", None) if sub else None,
                 "end_date": end_date.isoformat() if end_date else None,
                 "remaining": _format_support_remaining(seconds_left, lang, self.i18n),

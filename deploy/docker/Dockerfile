@@ -62,7 +62,7 @@ RUN set -eu; \
     printf '%s' "$provenance" > /build-provenance
 
 
-FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS python-base
+FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS python-dependencies
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -120,6 +120,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
     rm -rf /tmp/pip-vendor-fixes /tmp/refresh_pip_vendor.py
 
+FROM python-dependencies AS python-base
+
 COPY locales ./locales
 COPY data ./data
 COPY backend ./backend
@@ -134,7 +136,9 @@ COPY --from=version-builder /build-provenance /app/.build-provenance
 USER appuser
 
 
-FROM node:24-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS frontend-builder
+FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node-runtime
+
+FROM node-runtime AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -179,7 +183,9 @@ EXPOSE 8080 8081
 CMD ["python", "backend/plugin_launcher.py", "backend"]
 
 
-FROM python-base AS qa
+FROM docker:29.9.0-cli@sha256:1a4c7cb63513f349bdad01fcc6e0f3f2f67d37b9da86f14dc0d4a0942eecda00 AS docker-test-tools
+
+FROM python-dependencies AS qa-deps
 
 # The optional test image supplies POSIX shell tools on Windows hosts too.
 # It is never used as an application runtime image.
@@ -187,16 +193,23 @@ USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       bash \
-      docker-compose-v2 \
-      docker.io \
       git \
       openssl \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements-dev.txt /tmp/requirements-dev.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-dev.txt
-COPY --from=frontend-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=docker-test-tools /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker-test-tools /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
+COPY --from=node-runtime /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+LABEL minishop.test.runtime="core" minishop.local.keep="true"
 WORKDIR /workspace
+CMD ["python", "-m", "pytest"]
+
+FROM qa-deps AS qa
 COPY . /workspace
 CMD ["python", "-m", "pytest"]
 

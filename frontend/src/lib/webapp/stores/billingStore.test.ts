@@ -304,6 +304,81 @@ describe("billingStore", () => {
     }
   );
 
+  it.each(["stars", "tribute", "oxapay", "wata_subscription"])(
+    "funds a recurring subscription from balance after selecting %s",
+    async (selectedMethod) => {
+      const { store, billing, deps } = makeBillingStore();
+      store.update((state) => ({
+        ...state,
+        selectedMethod,
+        selectedPlan: {
+          id: "plan",
+          price: 290,
+          stars_price: 145,
+          currency: "RUB",
+          hwid_renewal: { available: true, price: 40, currency: "RUB" },
+        },
+        renewHwidDevices: true,
+      }));
+      await store.createPayment({
+        balanceSource: "user",
+        balanceOnly: true,
+        balanceAutoRenew: true,
+        checkoutAddons: { device_count: 0, regular_limit_gb: 300, premium_limit_gb: 50 },
+      });
+      expect(billing.planPaymentBody).toHaveBeenCalledWith(
+        expect.objectContaining({ currency: "RUB", stars_price: 145 }),
+        "balance",
+        expect.objectContaining({
+          balanceSource: "user",
+          balanceAutoRenew: true,
+          renewHwidDevices: true,
+          checkoutAddons: { device_count: 0, regular_limit_gb: 300, premium_limit_gb: 50 },
+        })
+      );
+      expect(store.selectedMethod).toBe(selectedMethod);
+      expect(deps.openExternalLink).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["stars", "tribute"])(
+    "quotes codes in monetary balance currency while preserving the %s picker value",
+    async (selectedMethod) => {
+      const { store, billing } = makeBillingStore({
+        getMethods: () => [{ id: selectedMethod }, { id: "card" }],
+        billing: {
+          quotePromo: vi.fn().mockResolvedValue({
+            ok: true,
+            valid: true,
+            code: "SAVE20",
+            effective_amount: 232,
+            currency: "RUB",
+            discount_percent: 20,
+          }),
+        },
+      });
+      store.update((state) => ({
+        ...state,
+        paymentModalOpen: true,
+        selectedMethod,
+        selectedPlan: { id: "plan", price: 290, stars_price: 145, currency: "RUB" },
+      }));
+      await store.applyCheckoutPromo({ paymentMethod: "balance", updateContextOnly: true });
+      expect(billing.quotePromo).not.toHaveBeenCalled();
+      store.setCheckoutPromoInput("SAVE20");
+      await store.applyCheckoutPromo();
+      expect(billing.quotePromo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ method: "balance", promo_code: "SAVE20" })
+      );
+      expect(store.checkoutPromoPriceText).toBe("232 ₽");
+      expect(store.selectedMethod).toBe(selectedMethod);
+      await store.applyCheckoutPromo({ paymentMethod: selectedMethod, updateContextOnly: true });
+      expect(billing.quotePromo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ method: selectedMethod, promo_code: "SAVE20" })
+      );
+    }
+  );
+
   it("opens payment modal on preferred default tariff checkout", () => {
     const { store, billing } = makeBillingStore();
 

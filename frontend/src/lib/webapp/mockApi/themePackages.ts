@@ -1,5 +1,6 @@
 /** The documentation demo keeps packages in memory and never downloads Git repositories. */
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
+import { DOMParser } from "@xmldom/xmldom";
 import svgPolicy from "../../../../../backend/config/defaults/svg_policy.json";
 import type { ThemeEntry } from "../../admin/appearanceOptions";
 import type { components } from "../../api/openapi.generated";
@@ -59,50 +60,67 @@ function assertSafeSvg(bytes: Uint8Array) {
   } catch {
     throw { error: "unsafe_svg", detail: "SVG must be valid UTF-8 XML" };
   }
-  if (
-    !/^\s*(?:<\?xml[^?]*\?>\s*)?<svg(?:\s|>)/i.test(svg) ||
-    /<!\s*(?:doctype|entity)\b|<\?(?!xml(?:\s|\?>))/i.test(svg) ||
-    /<\s*(?:script|foreignObject|iframe|object|embed|image|style|a)\b/i.test(svg) ||
-    /\son[a-z]+\s*=/i.test(svg) ||
-    /(?:javascript|vbscript|data)\s*:/i.test(svg) ||
-    /\b(?:href|xlink:href)\s*=\s*["'](?!\s*#)/i.test(svg) ||
-    /url\s*\(/i.test(svg.replace(/url\s*\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/gi, ""))
-  )
+  if (/<!\s*(?:doctype|entity)\b|<\?(?!xml(?:\s|\?>))/i.test(svg))
     throw { error: "unsafe_svg", detail: "SVG contains unsafe markup" };
+  const document = new DOMParser({
+    onError() {
+      throw { error: "unsafe_svg", detail: "SVG must be well-formed XML" };
+    },
+  }).parseFromString(svg, "image/svg+xml");
+  if (document.documentElement?.tagName !== "svg" || document.doctype)
+    throw { error: "unsafe_svg", detail: "SVG must have an SVG root" };
   const elements = new Set(svgPolicy.elements);
-  for (const match of svg.replace(/<!--[\s\S]*?-->/g, "").matchAll(/<\s*([A-Za-z][\w:.-]*)\b/g)) {
-    if (!elements.has(match[1]))
-      throw { error: "unsafe_svg", detail: "SVG contains an unsupported element" };
-  }
+  const attributes = new Set(svgPolicy.attributes);
   const properties = new Set(svgPolicy.presentationProperties);
-  for (const match of svg.matchAll(/\sstyle\s*=\s*(["'])(.*?)\1/gs)) {
-    const style = match[2]
-      .replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (_, hex: string, decimal: string) => {
-        const codePoint = Number.parseInt(hex || decimal, hex ? 16 : 10);
-        return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : "\ufffd";
-      })
-      .replace(
-        /&(quot|apos|amp|lt|gt);/g,
-        (_, entity: string) =>
-          (({ quot: '"', apos: "'", amp: "&", lt: "<", gt: ">" }) as Record<string, string>)[
-            entity
-          ] || ""
-      );
-    const withoutLocalUrls = style.replace(/url\s*\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/gi, "");
+  for (const element of Array.from(document.getElementsByTagName("*"))) {
     if (
-      /\\|\/\*|\*\/|expression\s*\(|-moz-binding|behavior\s*:/i.test(style) ||
-      /(?:javascript|vbscript|data):/i.test(style.replace(/\s+/g, "")) ||
-      /url\s*\(/i.test(withoutLocalUrls) ||
-      style.split(";").some((declaration) => {
-        if (!declaration.trim()) return false;
-        const separator = declaration.indexOf(":");
-        const property = declaration.slice(0, separator).trim().toLowerCase();
-        const value = declaration.slice(separator + 1).trim();
-        return separator < 0 || !properties.has(property) || !value || /[{}@<>]/.test(value);
-      })
+      !elements.has(element.tagName) ||
+      (element.namespaceURI && element.namespaceURI !== "http://www.w3.org/2000/svg")
     )
-      throw { error: "unsafe_svg", detail: "SVG contains unsafe inline CSS" };
+      throw { error: "unsafe_svg", detail: "SVG contains an unsupported element" };
+    for (const attribute of Array.from(element.attributes)) {
+      if (attribute.name === "xmlns" || attribute.name === "xmlns:xlink") {
+        const expected =
+          attribute.name === "xmlns"
+            ? "http://www.w3.org/2000/svg"
+            : "http://www.w3.org/1999/xlink";
+        if (attribute.value !== expected)
+          throw { error: "unsafe_svg", detail: "SVG contains an unsupported namespace" };
+        continue;
+      }
+      if (
+        attribute.name !== "style" &&
+        !attributes.has(attribute.name === "xlink:href" ? "href" : attribute.name)
+      )
+        throw { error: "unsafe_svg", detail: "SVG contains an unsupported attribute" };
+      const value = attribute.value;
+      if (
+        /(?:javascript|vbscript|data)\s*:/i.test(value) ||
+        (/^(?:href|xlink:href)$/.test(attribute.name) && !/^#[A-Za-z_][\w.:-]*$/.test(value)) ||
+        /url\s*\(/i.test(value.replace(/url\s*\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/gi, ""))
+      )
+        throw { error: "unsafe_svg", detail: "SVG contains unsafe markup" };
+      if (attribute.name === "style") assertSafeSvgStyle(value, properties);
+      else if (properties.has(attribute.name))
+        assertSafeSvgStyle(`${attribute.name}:${value}`, properties);
+    }
   }
+}
+function assertSafeSvgStyle(style: string, properties: Set<string>) {
+  const withoutLocalUrls = style.replace(/url\s*\(\s*(["']?)(#[A-Za-z_][\w.:-]*)\1\s*\)/gi, "");
+  if (
+    /\\|\/\*|\*\/|expression\s*\(|-moz-binding|behavior\s*:/i.test(style) ||
+    /(?:javascript|vbscript|data):/i.test(style.replace(/\s+/g, "")) ||
+    /url\s*\(/i.test(withoutLocalUrls) ||
+    style.split(";").some((declaration) => {
+      if (!declaration.trim()) return false;
+      const separator = declaration.indexOf(":");
+      const property = declaration.slice(0, separator).trim().toLowerCase();
+      const value = declaration.slice(separator + 1).trim();
+      return separator < 0 || !properties.has(property) || !value || /[{}@<>]/.test(value);
+    })
+  )
+    throw { error: "unsafe_svg", detail: "SVG contains unsafe inline CSS" };
 }
 export function readDemoZip(bytes: Uint8Array): DemoPackage[] {
   if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw { error: "archive_too_large" };

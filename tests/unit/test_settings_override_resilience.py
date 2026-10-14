@@ -25,6 +25,7 @@ from bot.app.web.admin_api_impl.panel_links import build_panel_user_admin_url
 from bot.app.web.webapp import external_oauth
 from bot.payment_providers import registry
 from bot.payment_providers.base import ProviderEnvConfig
+from bot.payment_providers.paykilla.config import PaykillaConfig
 from bot.payment_providers.tribute.config import TributeConfig
 from bot.services import settings_override_service as svc
 from bot.services.partner_program_service import PartnerProgramService
@@ -173,6 +174,92 @@ def test_update_overrides_reports_nothing_when_everything_applies(
 
     assert result["not_applied"] == []
     assert registry.get_provider_bundle("tribute_service").config.ENABLED is False
+
+
+def test_worker_refreshes_saved_outbound_settings_and_restores_deleted_overrides(
+    monkeypatch, _memory_overrides
+) -> None:
+    monkeypatch.setenv("SMTP_HOST", "env-mail.internal")
+    monkeypatch.setenv("SMTP_PORT", "2525")
+    monkeypatch.setenv("SMTP_FALLBACK_PORTS", "465")
+    registry.build_provider_configs(force=True)
+    bundle = registry.get_provider_bundle("paykilla_service")
+    assert bundle is not None and isinstance(bundle.config, PaykillaConfig)
+    config = bundle.config
+    initial_base_url = config.BASE_URL
+    initial_rate_url = config.EXCHANGE_RATE_URL
+    initial_private_urls = config._trusted_private_api_urls
+    settings = Settings(
+        _env_file=None,
+        BOT_TOKEN="token",
+        POSTGRES_USER="test",
+        POSTGRES_PASSWORD="test",
+        SMTP_HOST="old-mail.internal",
+    )
+    keys = {
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_FALLBACK_PORTS",
+        "PAYKILLA_BASE_URL",
+        "PAYKILLA_EXCHANGE_RATE_URL",
+    }
+    assert keys <= svc.outbound_runtime_setting_keys()
+    _memory_overrides.update(
+        SMTP_HOST="new-mail.internal",
+        SMTP_PORT=587,
+        SMTP_FALLBACK_PORTS="",
+        PAYKILLA_BASE_URL="http://payment.internal:8080",
+        PAYKILLA_EXCHANGE_RATE_URL="http://rates.internal:8000/{source}",
+    )
+    monkeypatch.setattr(
+        svc.app_settings_dal, "get_all_overrides", AsyncMock(return_value=_memory_overrides)
+    )
+    assert (
+        asyncio.run(svc.refresh_overrides_from_db(settings, lambda: _FakeSession(), keys=keys)) == 5
+    )
+    assert settings._trusted_smtp_endpoints == (("new-mail.internal", 587),)
+    assert config._trusted_private_api_urls == ("http://payment.internal:8080",)
+    assert config._trusted_exchange_rate_url == "http://rates.internal:8000/{source}"
+    _memory_overrides.clear()
+    assert (
+        asyncio.run(svc.refresh_overrides_from_db(settings, lambda: _FakeSession(), keys=keys)) == 0
+    )
+    assert settings._trusted_smtp_endpoints == (
+        ("env-mail.internal", 2525),
+        ("env-mail.internal", 465),
+    )
+    assert initial_base_url == config.BASE_URL
+    assert initial_rate_url == config.EXCHANGE_RATE_URL
+    assert config._trusted_private_api_urls == initial_private_urls
+
+
+def test_admin_reset_restores_the_original_private_api_approval(_memory_overrides) -> None:
+    registry.build_provider_configs(force=True)
+    bundle = registry.get_provider_bundle("paykilla_service")
+    assert bundle is not None and isinstance(bundle.config, PaykillaConfig)
+    config = bundle.config
+    initial_private_urls = config._trusted_private_api_urls
+    settings = Settings(
+        _env_file=None, BOT_TOKEN="token", POSTGRES_USER="test", POSTGRES_PASSWORD="test"
+    )
+    result = asyncio.run(
+        svc.update_overrides(
+            settings,
+            lambda: _FakeSession(),
+            updates={"PAYKILLA_BASE_URL": "http://payment.internal:8080"},
+            actor_id=1,
+        )
+    )
+    assert result["ok"] is True
+    assert config._trusted_private_api_urls == ("http://payment.internal:8080",)
+    result = asyncio.run(
+        svc.update_overrides(
+            settings, lambda: _FakeSession(), updates={}, deletes=["PAYKILLA_BASE_URL"]
+        )
+    )
+    assert result["ok"] is True
+    assert _memory_overrides == {}
+    assert config._trusted_private_api_urls == initial_private_urls
 
 
 @pytest.mark.parametrize(

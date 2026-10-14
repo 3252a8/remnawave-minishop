@@ -3,10 +3,12 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+from sqlalchemy import Select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.dml import Delete, Update
 
 from db.dal import subscription_dal, user_dal
+from db.models import PromoCodeActivation, User
 
 
 class FakeResult:
@@ -208,9 +210,10 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             flush=AsyncMock(),
         )
 
-        with patch("db.dal.user_merge_dal.get_user_by_id", AsyncMock(return_value=user)):
+        with patch("db.dal.user_delete_dal.get_user_by_id", AsyncMock(return_value=user)) as lookup:
             deleted = await user_dal.delete_user_and_relations(session, 42)
 
+        lookup.assert_awaited_once_with(session, 42)
         self.assertTrue(deleted)
 
         delete_tables = []
@@ -362,6 +365,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch("db.dal.user_merge_dal.defer_event_until_commit", Mock()),
             patch(
                 "db.dal.user_merge_dal._lock_users_for_merge",
                 AsyncMock(return_value=(source, target)),
@@ -477,6 +481,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
+            patch("db.dal.user_merge_dal.defer_event_until_commit", Mock()),
             patch(
                 "db.dal.user_merge_dal._lock_users_for_merge",
                 AsyncMock(return_value=(source, target)),
@@ -520,37 +525,59 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(f"SET USER_ID={target.user_id}", ticket_sql.replace(" = ", "="))
         self.assertIn(f"USER_ID = {source.user_id}", ticket_sql)
 
-    async def test_merge_users_rejects_duplicate_promo_redemptions(self):
-        source = SimpleNamespace(
-            user_id=1,
-            email="same@example.com",
-            telegram_id=None,
-        )
-        target = SimpleNamespace(
-            user_id=2,
-            email="same@example.com",
-            telegram_id=None,
+    async def test_merge_users_preserves_shared_promo_redemptions(self):
+        source = User(user_id=1, email="source@example.com", language_code="ru")
+        target = User(user_id=2, email="target@example.com", language_code="ru")
+
+        def execute(statement):
+            if isinstance(statement, Select) and any(
+                description.get("entity") is PromoCodeActivation
+                for description in statement.column_descriptions
+            ):
+                return FakeResult(99)
+            return FakeResult()
+
+        session = SimpleNamespace(
+            get=AsyncMock(return_value=None),
+            execute=AsyncMock(side_effect=execute),
+            scalar=AsyncMock(return_value=None),
+            add=Mock(),
+            delete=AsyncMock(),
+            flush=AsyncMock(),
+            refresh=AsyncMock(),
         )
 
         with (
+            patch("db.dal.user_merge_dal.defer_event_until_commit", Mock()),
             patch(
                 "db.dal.user_merge_dal._lock_users_for_merge",
                 AsyncMock(return_value=(source, target)),
             ),
-            patch(
-                "db.dal.user_merge_dal._accounts_share_promo_activation",
-                AsyncMock(return_value=True),
-            ),
-            self.assertRaisesRegex(
-                user_dal.UserMergeConflictError,
-                "same one-time code",
-            ),
+            patch("db.dal.user_merge_dal._get_active_subscription_for_user", return_value=None),
+            patch("db.dal.user_merge_dal._get_latest_subscription_for_user", return_value=None),
         ):
-            await user_dal.merge_users(
-                SimpleNamespace(execute=AsyncMock(return_value=FakeResult())),
+            merged = await user_dal.merge_users(
+                session,
                 source_user_id=source.user_id,
                 target_user_id=target.user_id,
             )
+
+        self.assertIs(merged, target)
+        session.delete.assert_awaited_once_with(source)
+        statements = [call.args[0] for call in session.execute.await_args_list]
+        self.assertEqual(
+            sum(
+                isinstance(statement, Update) and statement.table.name == "promo_code_activations"
+                for statement in statements
+            ),
+            2,
+        )
+        self.assertFalse(
+            any(
+                isinstance(statement, Delete) and statement.table.name == "promo_code_activations"
+                for statement in statements
+            )
+        )
 
     async def test_merge_users_moves_active_email_subscription_onto_expired_telegram_account(self):
         before = datetime.now(UTC)
@@ -632,6 +659,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
             return None
 
         with (
+            patch("db.dal.user_merge_dal.defer_event_until_commit", Mock()),
             patch(
                 "db.dal.user_merge_dal._lock_users_for_merge",
                 AsyncMock(return_value=(source, target)),

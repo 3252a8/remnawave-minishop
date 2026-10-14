@@ -29,6 +29,7 @@ from bot.infra.promo_policies import (
 from bot.services.device_topup_availability import resolve_device_topup_availability
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
+from bot.services.referral_welcome_trial import referral_welcome_trial_bonus_days
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
@@ -51,6 +52,7 @@ from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredent
 from .assets import (
     _get_cached_webapp_settings,
 )
+from .auth_common import _public_webapp_base_url
 from .billing_status import refresh_payment_status_for_request
 from .billing_tariff_access import request_tariff_access_code
 from .common import (
@@ -283,6 +285,11 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             else None
         )
         trial_available = bool(trial_base_available and not trial_oauth_required_reason)
+        trial_welcome_bonus_days = (
+            await referral_welcome_trial_bonus_days(session, settings, db_user)
+            if trial_base_available
+            else 0
+        )
         lang = _normalize_language(db_user.language_code or settings.DEFAULT_LANGUAGE)
         plans_payload = _serialize_plans(
             settings,
@@ -522,7 +529,8 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "trial_without_telegram_enabled": bool(settings.TRIAL_WITHOUT_OAUTH_ENABLED),
             "trial_requires_telegram": bool(trial_oauth_required_reason and not telegram_linked),
             "trial_block_reason": trial_oauth_required_reason,
-            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0),
+            "trial_duration_days": int(settings.TRIAL_DURATION_DAYS or 0)
+            + trial_welcome_bonus_days,
             "trial_traffic_limit_gb": float(settings.TRIAL_TRAFFIC_LIMIT_GB or 0),
             "trial_traffic_strategy": settings.TRIAL_TRAFFIC_STRATEGY,
             "subscription_purchase_description": subscription_purchase_description_text(
@@ -536,6 +544,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "email_address_change_enabled": bool(settings.EMAIL_ADDRESS_CHANGE_ENABLED),
             "auth_providers": settings.webapp_auth_providers,
             "recommended_auth_providers": settings.webapp_recommended_auth_providers,
+            # What to open on another device; people who arrive through the bot never
+            # see the address, because the Mini App hides it.
+            "public_url": _public_webapp_base_url(settings, request),
             "menu_buttons": public_menu_buttons(
                 settings.MENU_BUTTONS_JSON,
                 lang,
@@ -602,7 +613,10 @@ def _serialize_subscription(
         max_devices=active.get("max_devices"),
         subscription_is_trial=is_trial,
     )
-    can_topup_devices = device_topup_availability.allowed
+    from bot.services.balance_recurring import active_balance_recurrence
+
+    balance_recurrence = active_balance_recurrence(local_sub)
+    can_topup_devices = device_topup_availability.allowed and not balance_recurrence
     if settings.tariffs_config and active.get("tariff_key"):
         try:
             tariff = settings.tariffs_config.require_configured(str(active.get("tariff_key")))
@@ -624,6 +638,10 @@ def _serialize_subscription(
             premium_topup_always_available = False
 
     panel_short_uuid = str(active.get("panel_short_uuid") or "").strip()
+    if balance_recurrence:
+        can_topup_regular_traffic = False
+        can_topup_premium_traffic = False
+        can_topup_traffic = False
     share_token = str(
         install_share_token or getattr(local_sub, "install_share_token", "") or ""
     ).strip()

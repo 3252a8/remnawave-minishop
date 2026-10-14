@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { prefersReducedMotion } from "svelte/motion";
+  import { slide } from "svelte/transition";
   import Checkbox from "$components/ui/checkbox.svelte";
-  import { Check, WalletCards } from "$components/ui/icons.js";
-  import { Select } from "$components/ui/primitives.js";
+  import { Check, CircleQuestionMark, WalletCards } from "$components/ui/icons.js";
+  import { Popover, Select, Switch } from "$components/ui/primitives.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import type { ApiClient, BalanceResponse } from "$lib/webapp/publicApi.js";
   import type { Translate } from "$lib/webapp/types.js";
 
   type BalanceSource = "user" | "partner";
-  type SourceView = { id: BalanceSource; available: number };
+  type SourceView = { id: BalanceSource; available: number; recurringAvailable: boolean };
 
   let {
     api,
@@ -18,6 +20,8 @@
     minimumExternalAmount = 0,
     prefetchedBalance,
     balancePreloadComplete = false,
+    recurringEligible = false,
+    autoRenew = $bindable(true),
     source = $bindable<BalanceSource | null>(null),
     discount = $bindable(0),
     t = (key) => key,
@@ -30,6 +34,8 @@
     minimumExternalAmount?: number;
     prefetchedBalance?: BalanceResponse | null;
     balancePreloadComplete?: boolean;
+    recurringEligible?: boolean;
+    autoRenew?: boolean;
     source?: BalanceSource | null;
     discount?: number;
     t?: Translate;
@@ -38,6 +44,7 @@
   let loadedSources = $state<SourceView[]>([]);
   let loading = $state(false);
   let requestKey = $state("");
+  let loadedRecurringEnabled = $state(false);
 
   const normalizedCurrency = $derived(
     String(currency || "")
@@ -65,6 +72,14 @@
     return Math.min(available, Math.max(0, due - minimum));
   });
   const visible = $derived(open && eligible && Boolean(normalizedCurrency) && sources.length > 0);
+  const recurringEnabled = $derived(
+    prefetchedBalance !== undefined
+      ? Boolean(balancePreloadComplete && prefetchedBalance?.recurring_enabled)
+      : loadedRecurringEnabled
+  );
+  const fullyFunded = $derived(Boolean(source) && maximumDiscount > 0 && maximumDiscount >= amount);
+
+  const canRenew = $derived(fullyFunded && Boolean(selectedSource?.recurringAvailable));
 
   function normalizeSources(response: BalanceResponse): SourceView[] {
     if (!response.ok || String(response.currency || "").toUpperCase() !== normalizedCurrency) {
@@ -75,6 +90,7 @@
       .map((item) => ({
         id: item.id === "partner" ? "partner" : "user",
         available: Number(item.amount_minor || 0) / 10 ** Number(response.currency_scale || 0),
+        recurringAvailable: Boolean(item.recurring_available),
       }));
   }
 
@@ -84,8 +100,10 @@
       const response = (await api("/balance")) as BalanceResponse;
       if (requestKey !== key) return;
       loadedSources = normalizeSources(response);
+      loadedRecurringEnabled = Boolean(response.ok && response.recurring_enabled);
     } catch {
       if (requestKey === key) loadedSources = [];
+      if (requestKey === key) loadedRecurringEnabled = false;
     } finally {
       if (requestKey === key) loading = false;
     }
@@ -199,6 +217,50 @@
         </small>
       {/if}
     </div>
+    {#if source && recurringEligible && recurringEnabled}
+      <div
+        class="balance-recurring-row"
+        transition:slide={{ duration: prefersReducedMotion.current ? 0 : 220 }}
+      >
+        <div class="balance-recurring-copy">
+          <label for="balance-checkout-recurring">{t("wa_balance_recurring_label")}</label>
+          <Popover.Root>
+            <Popover.Trigger
+              class="balance-recurring-help"
+              aria-label={t("wa_balance_recurring_help_label")}
+            >
+              <CircleQuestionMark size={16} />
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                class="balance-recurring-popover"
+                side="top"
+                sideOffset={8}
+                collisionPadding={12}
+              >
+                <strong>{t("wa_balance_recurring_label")}</strong>
+                <p>{t("wa_balance_recurring_help")}</p>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+          {#if !selectedSource?.recurringAvailable}
+            <small>{t("wa_balance_recurring_source_unavailable")}</small>
+          {:else if !fullyFunded}
+            <small>{t("wa_balance_recurring_full_payment_required")}</small>
+          {/if}
+        </div>
+        <Switch.Root
+          id="balance-checkout-recurring"
+          class="balance-recurring-switch"
+          checked={canRenew && autoRenew}
+          disabled={!canRenew || loading}
+          aria-label={t("wa_balance_recurring_label")}
+          onCheckedChange={(checked) => (autoRenew = checked)}
+        >
+          <Switch.Thumb class="balance-recurring-thumb" />
+        </Switch.Root>
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -207,7 +269,7 @@
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr);
     align-items: center;
-    gap: 10px;
+    column-gap: 10px;
     padding: 12px;
     border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
     border-radius: var(--radius-control);
@@ -237,6 +299,98 @@
   }
   .balance-title-row {
     line-height: 1.25;
+  }
+  .balance-recurring-row {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    padding-top: 11px;
+    border-top: 1px solid var(--border);
+  }
+  .balance-recurring-copy {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .balance-recurring-copy small {
+    flex-basis: 100%;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+  }
+  :global(.balance-recurring-help) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: 0;
+    border-radius: var(--radius-inner);
+    color: var(--muted);
+    background: transparent;
+    cursor: pointer;
+  }
+  :global(.balance-recurring-help:hover) {
+    color: var(--accent);
+  }
+  :global(.balance-recurring-switch) {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 22px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--panel-2);
+    transition:
+      background-color 160ms,
+      border-color 160ms;
+    cursor: pointer;
+  }
+  :global(.balance-recurring-switch[data-state="checked"]) {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  :global(.balance-recurring-switch:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  :global(.balance-recurring-thumb) {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--text);
+    transform: translateX(0);
+    transition:
+      transform 160ms,
+      background-color 160ms;
+  }
+  :global(.balance-recurring-thumb[data-state="checked"]) {
+    background: var(--accent-contrast, var(--panel));
+    transform: translateX(16px);
+  }
+  :global(.balance-recurring-popover) {
+    z-index: 1200;
+    width: min(340px, calc(100vw - 24px));
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    color: var(--text);
+    background: var(--panel);
+    box-shadow: 0 16px 42px rgb(0 0 0 / 18%);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  :global(.balance-recurring-popover p) {
+    margin: 7px 0 0;
+    color: var(--muted);
   }
   :global(.balance-source-trigger) {
     appearance: none;
@@ -294,5 +448,11 @@
   }
   :global(.balance-source-select-item[data-selected] .balance-source-select-check) {
     opacity: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.balance-recurring-switch),
+    :global(.balance-recurring-thumb) {
+      transition: none;
+    }
   }
 </style>

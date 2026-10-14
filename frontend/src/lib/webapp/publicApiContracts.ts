@@ -106,6 +106,7 @@ export type DevicesResponse = GetResponse<"/api/devices">;
 export type DevicesDisconnectResponse = PostResponse<"/api/devices/disconnect">;
 export type DeviceTopupOptionsResponse = GetResponse<"/api/devices/topup-options">;
 export type PaymentCreateResponse = PostResponse<"/api/payments">;
+export type PaymentHistoryResponse = GetResponse<"/api/payments/history">;
 export type PaymentStatusResponse = GetResponse<"/api/payments/{payment_id}">;
 export type PaymentCancelResponse = PostResponse<"/api/payments/{payment_id}/cancel">;
 export type QaPaymentCompleteResponse = PostResponse<"/api/payments/{payment_id}/qa/complete">;

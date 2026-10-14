@@ -13,11 +13,13 @@
   let {
     methods = [],
     selectedMethod = "",
+    disabled = false,
     t = (key) => key,
     onSelect = () => {},
   }: {
     methods?: PaymentMethod[];
     selectedMethod?: string;
+    disabled?: boolean;
     t?: Translate;
     onSelect?: StringAction;
   } = $props();
@@ -63,11 +65,11 @@
   class:method-grid-many={methods.length > 2}
   class="method-grid"
 >
-  {#each methods as method}
+  {#each methods as method (methodId(method))}
     {@const Icon = methodIcon(method)}
     {@const id = methodId(method)}
     {@const disabledMessage = disabledTitle(method)}
-    {#if method.disabled && disabledMessage}
+    {#if !disabled && method.disabled && disabledMessage}
       <Tooltip.Root>
         <Tooltip.Trigger
           aria-disabled="true"
@@ -95,11 +97,11 @@
     {:else}
       <button
         class:active={selectedMethod === id}
-        class:disabled={method.disabled}
+        class:disabled={disabled || method.disabled}
         class="method-card"
-        disabled={method.disabled}
+        disabled={disabled || method.disabled}
         type="button"
-        onclick={() => !method.disabled && onSelect(id)}
+        onclick={() => !disabled && !method.disabled && onSelect(id)}
       >
         <span class="method-card-main">
           {#if Icon}

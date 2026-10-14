@@ -75,15 +75,17 @@ for (const width of [390, 1280]) {
         await expect(page.getByRole("option", { name: "Tribute", exact: true })).toHaveCount(0);
         await page.keyboard.press("Escape");
       } else {
-        await expect(picker).toHaveCount(0);
-        await expect(dialog).toContainText("Внешняя оплата не требуется");
+        await expect(picker).toBeVisible();
+        await expect(picker).toBeDisabled();
+        await expect(picker).toContainText("Tribute");
+        await expect(dialog).not.toContainText("Внешняя оплата не требуется");
       }
       await expect(dialog.locator(".payment-submit-button").last()).toBeEnabled();
       await dialog.locator(".balance-source-trigger").click();
       await page.getByRole("option", { name: /Партнёрский баланс/ }).click();
       await expect(dialog.locator(".balance-source-trigger")).toContainText("баланса партнёрки");
       if (funding === "partial") await expect(picker).toContainText("СБП");
-      else await expect(picker).toHaveCount(0);
+      else await expect(picker).toBeDisabled();
       await expect(dialog.locator(".payment-submit-button").last()).toBeEnabled();
       expect(errors).toEqual([]);
     });

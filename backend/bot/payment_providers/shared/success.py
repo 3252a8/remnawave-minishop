@@ -535,6 +535,21 @@ async def finalize_successful_payment(
             return None
 
     is_subscription = base == "subscription"
+    from bot.services.balance_recurring import (
+        BALANCE_RECURRING_ADDON_BASES,
+        balance_recurrence_blocks_purchase,
+    )
+
+    if base in BALANCE_RECURRING_ADDON_BASES:
+        if active_subscription is None:
+            active_subscription = (
+                await subscription_dal.get_active_subscription_by_user_id_for_update(
+                    req.session, req.user_id
+                )
+            )
+        if balance_recurrence_blocks_purchase(active_subscription, req.sale_mode):
+            await _mark_activation_failed(req, payment_id)
+            return None
     is_traffic = is_traffic_sale_base(base)
 
     activation_months = (

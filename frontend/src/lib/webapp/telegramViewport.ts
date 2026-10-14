@@ -1,9 +1,11 @@
+type TelegramViewportEvent = "fullscreenChanged" | "fullscreenFailed" | "activated";
+
 export type TelegramViewportWebApp = {
   exitFullscreen?: () => void;
   isFullscreen?: boolean;
   isVersionAtLeast?: (version: string) => boolean;
-  onEvent?: (eventType: "fullscreenChanged", eventHandler: () => void) => void;
-  offEvent?: (eventType: "fullscreenChanged", eventHandler: () => void) => void;
+  onEvent?: (eventType: TelegramViewportEvent, eventHandler: () => void) => void;
+  offEvent?: (eventType: TelegramViewportEvent, eventHandler: () => void) => void;
   platform?: string;
   requestFullscreen?: () => void;
 };
@@ -17,6 +19,11 @@ const FULLSCREEN_ATTRIBUTE = "data-telegram-fullscreen";
 const FULLSCREEN_REQUESTED_ATTRIBUTE = "data-telegram-fullscreen-requested";
 const MOBILE_FULLSCREEN_PLATFORMS = new Set(["android", "android_x", "ios"]);
 const DESKTOP_FULLSIZE_PLATFORMS = new Set(["macos", "tdesktop", "unigram", "weba", "webk"]);
+const VIEWPORT_EVENTS: TelegramViewportEvent[] = [
+  "fullscreenChanged",
+  "fullscreenFailed",
+  "activated",
+];
 
 export function applyPreferredTelegramViewportMode(
   telegram: TelegramViewportWebApp,
@@ -77,14 +84,14 @@ export function createTelegramViewportBridge({
       syncFullscreenState();
       return;
     }
-    telegram?.offEvent?.("fullscreenChanged", handleFullscreenChanged);
+    for (const event of VIEWPORT_EVENTS) telegram?.offEvent?.(event, handleFullscreenChanged);
     telegram = next;
-    telegram?.onEvent?.("fullscreenChanged", handleFullscreenChanged);
-    syncFullscreenState();
+    for (const event of VIEWPORT_EVENTS) telegram?.onEvent?.(event, handleFullscreenChanged);
+    syncFullscreenState({ clearRequested: !next });
   }
 
   function destroy() {
-    telegram?.offEvent?.("fullscreenChanged", handleFullscreenChanged);
+    for (const event of VIEWPORT_EVENTS) telegram?.offEvent?.(event, handleFullscreenChanged);
     telegram = null;
     root?.removeAttribute(FULLSCREEN_ATTRIBUTE);
     root?.removeAttribute(FULLSCREEN_REQUESTED_ATTRIBUTE);

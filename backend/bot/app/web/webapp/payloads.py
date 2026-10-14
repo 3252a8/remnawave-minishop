@@ -168,6 +168,7 @@ class WebAppPaymentCreatePayload(BaseModel):
     renew_hwid_devices: bool | None = None
     checkout_addons: WebAppCheckoutAddonsPayload | None = None
     balance_source: Literal["user", "partner"] | None = None
+    balance_auto_renew: bool = Field(default=False, strict=True)
     use_partner_balance: bool = False
     promo_code: ActivationCodeString | None = None
     description: LongTextString | None = None
@@ -290,3 +291,25 @@ class AdminTicketPatchPayload(BaseModel):
     priority: SupportPriority | None = None
     category: SupportCategory | None = None
     assigned_admin_id: int | None = None
+
+
+# ``secrets.token_urlsafe(16)``: the shape of QR sign-in codes and request ids.
+QrLoginTokenString = Annotated[
+    str, StringConstraints(min_length=22, max_length=22, pattern=r"^[A-Za-z0-9_-]{22}$")
+]
+
+
+class WebAppQrLoginRequestPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    request_id: QrLoginTokenString
+
+
+class WebAppQrLoginClaimPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    code: QrLoginTokenString
+
+
+class WebAppQrLoginApprovePayload(WebAppQrLoginRequestPayload):
+    number: int = Field(ge=0, le=99)

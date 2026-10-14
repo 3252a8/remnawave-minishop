@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +13,7 @@ from bot.services.user_notification_policy import (
 )
 from bot.services.user_notification_preferences import add_user_email_preferences_footer
 from config.tariffs_config import default_payment_currency_code_for_settings
-from db.dal import payment_dal, subscription_dal, user_dal
+from db.dal import payment_dal, subscription_dal, user_billing_dal, user_dal
 from db.models import User
 
 from ._typing import SubscriptionServiceMixinContract
@@ -22,6 +22,47 @@ logger = logging.getLogger(__name__)
 
 
 class PaymentContextMixin(SubscriptionServiceMixinContract):
+    async def _payment_auto_renew_enabled(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        provider: str | None,
+        payment: Any,
+    ) -> bool:
+        """Resolve the customer's consent after activating a subscription order."""
+        auto_renew_should_enable = False
+        try:
+            from bot.payment_providers import provider_supports_recurring
+            from bot.payment_providers.shared import service_supports_recurring
+
+            provider_key = str(provider or "").strip().lower()
+            from bot.payment_providers.shared.recurring import BALANCE_RECURRING_PROVIDERS
+
+            recurring_service_for = getattr(self, "recurring_service_for", None)
+            recurring_service = (
+                recurring_service_for(provider_key) if callable(recurring_service_for) else None
+            )
+            if provider_supports_recurring(provider_key) and service_supports_recurring(
+                recurring_service
+            ):
+                if provider_key in BALANCE_RECURRING_PROVIDERS:
+                    auto_renew_should_enable = bool(
+                        payment is not None
+                        and (
+                            getattr(payment, "balance_auto_renew", False)
+                            or getattr(payment, "is_auto_renew", False)
+                        )
+                    )
+                else:
+                    auto_renew_should_enable = await user_billing_dal.user_has_saved_payment_method(
+                        session, user_id, provider=provider_key
+                    )
+        except Exception:
+            logger.exception("Failed to evaluate auto-renew availability for user %s", user_id)
+
+        return auto_renew_should_enable
+
     # Human-readable provider names rendered in payment-success emails.
     # Keys are the lowercased value persisted in ``subscriptions.provider``
     # (see the call sites in lifecycle.py / traffic.py); missing keys produce

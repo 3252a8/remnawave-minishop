@@ -10,7 +10,10 @@ from db.dal.subscription_dal import normalize_install_share_token
 
 _MINI_APP_START_PARAM_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _TELEGRAM_BOT_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,32}$")
-_MINI_APP_SECTION_PATHS = {"notifications": "settings/notifications"}
+_MINI_APP_SECTION_PATHS = {
+    "notifications": "settings/notifications",
+    "payment-history": "settings/payments",
+}
 
 
 def append_query_params(base_url: str, params: dict[str, str]) -> str:

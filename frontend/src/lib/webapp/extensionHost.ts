@@ -9,14 +9,14 @@ export type UserNavigationItem = { id: string; path: string; label: string; icon
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 export function extensionPath(owner: string, view: string, prefix = ""): string {
-  if (!/^[a-z][a-z0-9-]{1,63}$/.test(owner) || !/^[a-z][a-z0-9-]{1,63}$/.test(view)) {
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(owner) || !/^[a-z][a-z0-9-]{1,63}$/.test(view)) {
     throw new Error("invalid_extension_route");
   }
   return withRoutePrefix(`/extensions/${owner}/${view}`, prefix);
 }
 
 export function extensionRequestPath(owner: string, path: string): string {
-  if (!/^[a-z][a-z0-9-]{1,63}$/.test(owner) || !path.startsWith("/")) {
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(owner) || !path.startsWith("/")) {
     throw new Error("invalid_extension_api_path");
   }
   const base = `/api/plugins/${owner}`;

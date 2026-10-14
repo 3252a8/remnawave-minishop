@@ -70,6 +70,7 @@ const registry = [
   ["bot_interface", "menu_bot_interface_button", "🤖", ["main"]],
   ["subscribe", "menu_subscribe_inline", "🚀", ["bot"]],
   ["my_subscription", "menu_my_subscription_inline", "🔐", ["bot"]],
+  ["payment_history", "menu_payment_history_button", "💳", ["bot"]],
   ["promo", "menu_apply_promo_button", "🎟", ["bot"]],
   ["referral", "menu_referral_inline", "🎁", ["bot"]],
   ["language", "menu_language_settings_inline", "🌐", ["bot"]],
@@ -143,7 +144,7 @@ function preview(
       ? custom.kind === "webapp" || custom.kind === "page"
         ? "webapp"
         : "url"
-      : button.id === "personal_account"
+      : ["personal_account", "payment_history"].includes(button.id)
         ? "webapp"
         : ["support", "server_status", "privacy", "user_agreement"].includes(button.id)
           ? "url"
@@ -158,7 +159,7 @@ function preview(
           allEmoji().find((item) => item.id === iconId)?.fallback || button.emoji_fallback,
         thumbnail_url: null,
         kind,
-        target: custom?.target || button.id,
+        target: custom?.target || (button.id === "payment_history" ? "payment-history" : button.id),
       },
     ];
   });

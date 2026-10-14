@@ -2259,8 +2259,8 @@ def test_shell_installer_bedolaga_cutover_with_real_docker(tmp_path: Path) -> No
     if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
         pytest.skip("Docker daemon is unavailable")
 
-    source_dir = tmp_path / "bedolaga-source"
-    target_dir = tmp_path / "minishop-target"
+    source_dir = tmp_path / f"bedolaga-source-{os.urandom(6).hex()}"
+    target_dir = tmp_path / f"minishop-target-{os.urandom(6).hex()}"
     source_dir.mkdir()
     target_dir.mkdir()
     (source_dir / ".env").write_text("BOT_TOKEN=local-only\n", encoding="utf-8")
@@ -2318,9 +2318,9 @@ bedolaga_autostart_preflight() {{ return 0; }}
 disable_bedolaga_systemd_autostart() {{ return 0; }}
 configure_egames_panel_webhook() {{ return 0; }}
 validate_stack() {{ return 0; }}
+verify_bedolaga_subscription_links() {{ return 0; }}
 start_stack() {{ (cd "$TARGET_DIR" && docker compose up -d); }}
 run_compose() {{ docker compose "$@"; }}
-
 perform_bedolaga_cutover || exit 20
 for container in $(cd {shlex.quote(source_dir.as_posix())} && docker compose ps -aq); do
     [ "$(docker inspect -f '{{{{.State.Running}}}}' "$container")" = false ] || exit 21

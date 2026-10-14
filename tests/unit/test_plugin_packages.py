@@ -167,12 +167,21 @@ def test_portable_source_package_accepts_newer_core_revision(
     assert candidate.manifest["core_revision"] == "a" * 40
     assert candidate.reason == "publisher_not_trusted"
 
+    upgraded = inspect_archive(
+        tmp_path,
+        _archive(
+            private,
+            core_compatibility={"mode": "capabilities", "requires": {"support_connector": 2}},
+        ),
+    )
+    assert upgraded.reason == "publisher_not_trusted"
+
     with pytest.raises(PluginPackageError, match="incompatible_core_capability"):
         inspect_archive(
             tmp_path,
             _archive(
                 private,
-                core_compatibility={"mode": "capabilities", "requires": {"support_connector": 2}},
+                core_compatibility={"mode": "capabilities", "requires": {"support_connector": 4}},
             ),
         )
     with pytest.raises(PluginPackageError, match="portable_backend_requires_python_source"):

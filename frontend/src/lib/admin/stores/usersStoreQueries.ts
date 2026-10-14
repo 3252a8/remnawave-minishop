@@ -218,6 +218,8 @@ export function createUsersStoreQueries({
     const normalizedUserId = Number(userId);
     if (Number.isFinite(normalizedUserId)) {
       invalidateAdminQuery(queryClient, userDetailQueryKey(normalizedUserId));
+    } else {
+      invalidateAdminQuery(queryClient, userDetailQueryKey(userId));
     }
     invalidateAdminQuery(queryClient, [
       USER_LOGS_QUERY_KEY[0],

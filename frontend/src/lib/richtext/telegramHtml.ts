@@ -32,7 +32,8 @@ export type BlockquoteNode = { type: "blockquote"; content: ParagraphNode[] };
 export type BlockNode = ParagraphNode | CodeBlockNode | BlockquoteNode;
 export type Doc = { type: "doc"; content: BlockNode[] };
 
-export const SHORTCODE_TOKEN_RE = /\{([a-z_][a-z0-9_]*)\}/g;
+export const SHORTCODE_TOKEN_RE =
+  /\{([a-z_][a-z0-9_]*|[a-z][a-z0-9_-]{0,63}\.[a-z][a-z0-9_-]{0,63})\}/g;
 
 // Marks are wrapped in this fixed order (first = innermost) so serialization is
 // deterministic and idempotent regardless of how the editor nested them.

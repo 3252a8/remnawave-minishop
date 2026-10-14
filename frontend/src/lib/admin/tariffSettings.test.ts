@@ -6,6 +6,8 @@ import {
   inputValueForKey,
   isLastEnabledReferralLink,
   REFERRAL_SETTING_KEYS,
+  REFERRAL_WELCOME_KEYS,
+  TRIAL_SETTING_KEYS,
   providerDisplayName,
   providerSettingsPath,
   referralLinkResetViolatesRequirement,
@@ -16,6 +18,7 @@ import {
 } from "./tariffSettings";
 import type { SettingField } from "./stores/settingsStore";
 import type { ProviderCurrencySupport } from "./stores/tariffsStore";
+import SETTINGS_MANIFEST_SECTIONS from "../webapp/settingsManifest.generated.json";
 
 const fields = new Map<string, SettingField>([
   ["ENABLED", { key: "ENABLED", label: "Enabled", value: "true" }],
@@ -26,6 +29,24 @@ const fields = new Map<string, SettingField>([
 describe("tariffSettings", () => {
   it("keeps the referral program switch first in the settings section", () => {
     expect(REFERRAL_SETTING_KEYS[0]).toBe("REFERRAL_PROGRAM_ENABLED");
+  });
+
+  it("gives every referral and trial setting from the manifest an admin control", () => {
+    // The pricing section is hidden from the generic settings list, so a field
+    // missing from these lists has no control anywhere in the admin panel.
+    const pricing = SETTINGS_MANIFEST_SECTIONS.find((section) => section.id === "pricing");
+    const keysIn = (subsection: string): string[] =>
+      (pricing?.fields || [])
+        .filter((field) => field.subsection === subsection)
+        .map((field) => field.key);
+
+    expect(keysIn("referral")).toContain("REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL");
+    expect(keysIn("referral").filter((key) => !REFERRAL_SETTING_KEYS.includes(key))).toEqual([]);
+    expect(keysIn("trial").filter((key) => !TRIAL_SETTING_KEYS.includes(key))).toEqual([]);
+    expect(REFERRAL_WELCOME_KEYS).toEqual([
+      "REFERRAL_WELCOME_BONUS_DAYS",
+      "REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL",
+    ]);
   });
 
   it("resolves values through dirty state before saved fields", () => {
