@@ -80,3 +80,39 @@ CI keeps all warnings, branch coverage, frontend assertions and the full panel
 version matrix. Playwright uses two shards with one worker each in CI and two
 workers locally; each full run starts a fresh demo server. Cache export failures
 may be tolerated; build or test failures must remain fatal.
+
+## Test execution costs
+
+Vitest uses at most four workers, capped by the available CPU parallelism. Its
+single Vite transform server can become the bottleneck with many workers. File
+isolation, mock resets and the Svelte runes compiler stay enabled. Compare the
+same suite with `npm --prefix frontend run test -- --maxWorkers=2` (or another
+explicit limit) before changing the default on a different machine. Keep cold
+module-cache timings separate from warm runs.
+
+Facade contracts scan the current backend once per test module and reuse small
+import indexes for independent assertions. Syntax trees are released per file;
+malformed Python fails the check rather than silently escaping it.
+Lifecycle notification DAL tests create only their four required tables, with a
+new SQLite engine/database for each case and foreign keys enabled. These focused
+tests do not replace migration, PostgreSQL, panel or upgrade coverage.
+
+Import-isolation tests deliberately start fresh Python processes: reusing the
+suite's interpreter would hide eager imports. Real Redis expiration tests retain
+their clock waits, and browser tests retain independent contexts and fresh demo
+builds. Do not trade these guarantees for a smaller duration number.
+
+Redis fixtures close clients and remove their own keys in `finally`, including
+after failed assertions. The ownership-loss case waits for real renewal to cancel
+the old owner (bounded by ten seconds); its replacement owner does not expire
+before the fencing assertion. Renewal beyond the original TTL is still tested
+with a real elapsed-time wait.
+
+The browser server supplies the complete, versioned install-guide configuration
+from `frontend/e2e/fixtures/install-guides.json` to its fresh demo build. It never
+downloads this external test input. See the fixture README for the upstream
+revision and refresh procedure. Ordinary documentation builds still fetch the
+upstream configuration, with three attempts and a 30-second deadline per attempt
+that also covers the response body. A missing/malformed explicit fixture or an
+exhausted download fails the build. `MINISHOP_DEMO_INSTALL_GUIDES_CONFIG` selects
+an explicit local JSON file for a controlled build; there is no silent fallback.
