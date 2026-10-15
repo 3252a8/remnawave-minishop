@@ -45,7 +45,10 @@ describe("browser test ports", () => {
 
   it.each(["0", "65536", "-1", "1.5", "NaN", "Infinity", "1e4", "0x4000", "abc", " "])(
     "rejects malformed or out-of-range PORT=%s",
-    (value) => expect(() => browserPort(value)).toThrow("PORT must be an integer")
+    (value) =>
+      expect(() => browserPort(value)).toThrow(
+        new Error("PORT must be an integer between 1 and 65535")
+      )
   );
 
   it.each(["22", "1719", "6000", "6566", "6665", "6666", "6667", "6668", "6669", "6697", "10080"])(
