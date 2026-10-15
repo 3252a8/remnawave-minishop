@@ -203,14 +203,18 @@ def _has_locale_key(messages: dict[str, str], key: str) -> bool:
     return resolve_locale_key(key) in messages
 
 
-def test_webapp_title_is_first_general_admin_setting():
+def test_maintenance_precedes_webapp_title_in_general_admin_settings():
     items = _manifest_items()
     manifest = {item["key"]: item for item in items}
     field = manifest["WEBAPP_TITLE"]
 
     assert field["section"] == "general"
     assert field["section_order"] == 1
-    assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
+    assert field["label"] == "Web App title"
+    assert [item["key"] for item in items if item["section"] == "general"][:2] == [
+        "MAINTENANCE_MODE_ENABLED",
+        "WEBAPP_TITLE",
+    ]
 
 
 def test_webapp_session_lifetime_is_editable_in_general_settings():

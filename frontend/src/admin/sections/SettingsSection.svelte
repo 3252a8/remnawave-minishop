@@ -2,6 +2,7 @@
   import { getSettingsStore, getTranslationsStore } from "$lib/admin/context";
   import * as UiIcons from "$components/ui/icons.js";
   import SettingsContent from "./settings/SettingsContent.svelte";
+  import SettingsMaintenanceStatus from "./settings/SettingsMaintenanceStatus.svelte";
   import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
   import { onDestroy, onMount, tick } from "svelte";
   import { prefersReducedMotion } from "svelte/motion";
@@ -827,6 +828,7 @@
   }
 </script>
 
+<SettingsMaintenanceStatus {at} sections={settingsSections} />
 <SettingsContent
   {at}
   {appRepositoryUrl}

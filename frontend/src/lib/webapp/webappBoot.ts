@@ -7,6 +7,7 @@ import {
   clearAuthQuery,
 } from "./authHelpers.js";
 import { TELEGRAM_SDK_BOOT_TIMEOUT_MS } from "./constants";
+import { isMaintenanceFailure } from "./maintenance";
 import {
   beginBootBudget,
   finishBootBudget,
@@ -119,6 +120,11 @@ export async function runWebappBoot(deps: WebappBootDeps): Promise<void> {
         aborted,
       ]);
     } catch (error) {
+      if (isMaintenanceFailure(error)) {
+        outcome = "maintenance";
+        deps.setMode("maintenance");
+        return;
+      }
       outcome = controller.signal.aborted ? "timeout_or_cancel" : "unavailable";
       retry =
         !controller.signal.aborted &&

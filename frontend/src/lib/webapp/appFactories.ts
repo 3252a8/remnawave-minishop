@@ -291,6 +291,9 @@ export function createAppFactories({
       clearToken();
       showLogin();
     },
+    onMaintenance: () => {
+      shellState.mode = "maintenance";
+    },
     mockApi:
       MOCK && getRuntimeMockApi()
         ? (path, options, context) => getRuntimeMockApi()?.(path, options, context) ?? null

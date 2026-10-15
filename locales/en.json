@@ -6194,5 +6194,12 @@
   "admin_settings_group_provider_one_off": "One-off payments",
   "admin_settings_group_provider_recurring": "Recurring payments",
   "admin_settings_group_provider_card_recurring": "Card recurring payments",
-  "admin_settings_group_provider_sbp_recurring": "SBP recurring payments"
+  "admin_settings_group_provider_sbp_recurring": "SBP recurring payments",
+  "maintenance_mode_message": "🛠 Maintenance mode is on. Please try again later.",
+  "admin_settings_field_maintenance_mode_enabled_label": "Maintenance mode",
+  "admin_settings_field_maintenance_mode_enabled_description": "Temporarily pauses the user application and bot commands. Administrators retain access; subscriptions and background processes continue to work.",
+  "admin_settings_maintenance_active": "Maintenance mode is on",
+  "wa_maintenance_title": "Under maintenance",
+  "wa_maintenance_description": "The app is temporarily paused for maintenance. Please try again later.",
+  "wa_maintenance_retry": "Try again"
 }

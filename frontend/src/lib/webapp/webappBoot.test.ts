@@ -51,6 +51,40 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
+  it("keeps sign-in available before there is an authenticated user", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      refreshSession: vi.fn(async () => ({ authenticated: false })),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.showLogin).toHaveBeenCalledOnce();
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(deps.setMode).not.toHaveBeenCalledWith("maintenance");
+  });
+
+  it("shows deliberate maintenance immediately without retrying or clearing the session", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      getToken: () => "saved-session",
+      loadData: vi.fn(async () => {
+        throw Object.assign(new Error("maintenance_mode"), {
+          status: 503,
+          payload: { ok: false, error: "maintenance_mode" },
+        });
+      }),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.setMode).toHaveBeenLastCalledWith("maintenance");
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.clearToken).not.toHaveBeenCalled();
+    expect(deps.showLogin).not.toHaveBeenCalled();
+    expect(deps.setAuthStatus).not.toHaveBeenCalled();
+  });
+
   it("loads Telegram before restoring a cookie session on a clean return URL", async () => {
     installBrowser();
     Object.assign(window, {

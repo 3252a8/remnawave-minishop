@@ -43,6 +43,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     title: str
+    maintenance_mode_enabled: bool = Field(default=False, alias="maintenanceModeEnabled")
     primary_color: str | None = Field(default=None, alias="primaryColor")
     user_theme_mode_enabled: bool = Field(alias="userThemeModeEnabled")
     admin_theme_effects_enabled: bool = Field(default=False, alias="adminThemeEffectsEnabled")

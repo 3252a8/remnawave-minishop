@@ -278,6 +278,7 @@ Trust-all вариант записывается как
 | Переменная | Назначение |
 | --- | --- |
 | `DEFAULT_LANGUAGE` | Язык по умолчанию: `ru` или `en`. |
+| `MAINTENANCE_MODE_ENABLED` | По умолчанию `False`. Ручной [режим обслуживания](../troubleshooting/maintenance.md#режим-обслуживания-пользователей) для Telegram-бота и Mini App; переключается в общих настройках админки без перезапуска. Администраторы сохраняют доступ. |
 | `DEFAULT_CURRENCY_SYMBOL` | Символ/код валюты в интерфейсе. |
 | `SUPPORT_LINK` | Внешняя HTTP(S)-ссылка поддержки; Telegram-формы `@username` и `t.me/username` автоматически приводятся к `https://t.me/username`. |
 | `SERVER_STATUS_URL` | Внешняя страница статуса для источника `url`. |

@@ -17,6 +17,7 @@ from bot.middlewares.ban_check_middleware import BanCheckMiddleware
 from bot.middlewares.channel_subscription import ChannelSubscriptionMiddleware
 from bot.middlewares.db_session import DBSessionMiddleware
 from bot.middlewares.i18n import I18nMiddleware, JsonI18n
+from bot.middlewares.maintenance import MaintenanceMiddleware
 from bot.middlewares.profile_sync import ProfileSyncMiddleware
 from bot.middlewares.registration_invite import RegistrationInviteMiddleware
 from bot.middlewares.telegram_menu_settings import TelegramMenuSettingsMiddleware
@@ -50,6 +51,9 @@ def build_dispatcher(
 
     dp.update.outer_middleware(UpdateAntiFloodMiddleware(settings=settings))
     dp.update.outer_middleware(TelegramMenuSettingsMiddleware(settings, async_session_factory))
+    dp.update.outer_middleware(
+        MaintenanceMiddleware(settings, async_session_factory, i18n_instance)
+    )
     dp.update.outer_middleware(DBSessionMiddleware(async_session_factory))
     dp.update.outer_middleware(I18nMiddleware(i18n=i18n_instance, settings=settings))
     dp.update.outer_middleware(

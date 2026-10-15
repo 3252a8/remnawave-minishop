@@ -43,6 +43,7 @@ from .assets import (
     _webapp_edge_token_middleware,
 )
 from .guides import warm_subscription_guides_config
+from .maintenance import maintenance_middleware
 from .resource_middleware import api_resource_middleware, checkout_resource_middleware
 from .routes import (
     setup_subscription_webapp_routes,
@@ -69,6 +70,7 @@ def create_subscription_webapp_application(
             api_resource_middleware,
             checkout_resource_middleware,
             admin_auth_middleware,
+            maintenance_middleware,
             advertising_identity_middleware,
             webapp_action_audit_middleware,
         ],

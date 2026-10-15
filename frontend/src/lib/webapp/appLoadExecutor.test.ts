@@ -119,6 +119,55 @@ function createDeps(overrides: TestOverrides = {}) {
 }
 
 describe("createAppLoadExecutor", () => {
+  it("does not replace maintenance with an earlier successful profile response", async () => {
+    let resolvePayload!: (payload: ReturnType<typeof createPayload>) => void;
+    const pendingPayload = new Promise<ReturnType<typeof createPayload>>((resolve) => {
+      resolvePayload = resolve;
+    });
+    const { deps, executor } = createDeps({
+      deps: { dataClientLoadData: vi.fn(() => pendingPayload) },
+    });
+
+    const loading = executor.loadData();
+    shellState.mode = "maintenance";
+    resolvePayload(createPayload());
+
+    await expect(loading).rejects.toMatchObject({ message: "maintenance_mode", status: 503 });
+    expect(shellState.mode).toBe("maintenance");
+    expect(shellState.data).toBeNull();
+    expect(deps.syncLoadedRoute).not.toHaveBeenCalled();
+    expect(deps.applyPostLoadBillingDeeplinks).not.toHaveBeenCalled();
+  });
+
+  it("preserves maintenance entered while the profile language was loading", async () => {
+    let finishLanguage!: () => void;
+    let languageStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      languageStarted = resolve;
+    });
+    const language = new Promise<void>((resolve) => {
+      finishLanguage = resolve;
+    });
+    const { executor } = createDeps({
+      deps: {
+        dataClientLoadData: vi.fn(async () => createPayload({ user: { language_code: "en" } })),
+        ensureWebappLanguage: vi.fn(() => {
+          languageStarted();
+          return language;
+        }),
+      },
+    });
+
+    const loading = executor.loadData();
+    await started;
+    shellState.mode = "maintenance";
+    finishLanguage();
+
+    await expect(loading).rejects.toMatchObject({ message: "maintenance_mode", status: 503 });
+    expect(shellState.mode).toBe("maintenance");
+    expect(shellState.data).toBeNull();
+  });
+
   it("loads app data and applies route, billing, support, and section effects", async () => {
     const payload = createPayload();
     const { billingState, deps, executor } = createDeps({

@@ -6194,5 +6194,12 @@
   "admin_settings_group_provider_one_off": "Разовые платежи",
   "admin_settings_group_provider_recurring": "Автоплатежи",
   "admin_settings_group_provider_card_recurring": "Автоплатежи картой",
-  "admin_settings_group_provider_sbp_recurring": "Автоплатежи через СБП"
+  "admin_settings_group_provider_sbp_recurring": "Автоплатежи через СБП",
+  "maintenance_mode_message": "🛠 Сейчас включён режим обслуживания. Пожалуйста, попробуйте позже.",
+  "admin_settings_field_maintenance_mode_enabled_label": "Режим обслуживания",
+  "admin_settings_field_maintenance_mode_enabled_description": "Временно закрывает пользовательское приложение и команды бота. Администраторы сохраняют доступ; подписки и фоновые процессы продолжают работать.",
+  "admin_settings_maintenance_active": "Режим обслуживания включён",
+  "wa_maintenance_title": "Технические работы",
+  "wa_maintenance_description": "Мы временно приостановили работу приложения. Пожалуйста, попробуйте зайти позже.",
+  "wa_maintenance_retry": "Проверить снова"
 }

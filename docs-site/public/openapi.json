@@ -18358,6 +18358,11 @@
             "title": "Logourl",
             "type": "string"
           },
+          "maintenanceModeEnabled": {
+            "default": false,
+            "title": "Maintenancemodeenabled",
+            "type": "boolean"
+          },
           "notificationPreferencesEnabled": {
             "title": "Notificationpreferencesenabled",
             "type": "boolean"

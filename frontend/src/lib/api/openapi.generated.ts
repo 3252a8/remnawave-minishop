@@ -12792,6 +12792,11 @@ export interface components {
       languages: components["schemas"]["WebappBootstrapLanguageOut"][];
       /** Logourl */
       logoUrl: string;
+      /**
+       * Maintenancemodeenabled
+       * @default false
+       */
+      maintenanceModeEnabled: boolean;
       /** Notificationpreferencesenabled */
       notificationPreferencesEnabled: boolean;
       /**

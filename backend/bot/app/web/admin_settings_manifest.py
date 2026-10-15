@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from bot.app.web.admin_settings_maintenance_manifest_fields import MAINTENANCE_SETTINGS_FIELDS
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
 from config.menu_buttons import normalize_menu_buttons_json
 from config.server_status import KumaStatusPageUrlError, parse_kuma_status_page_url
@@ -41,7 +42,7 @@ def aggregated_manifest() -> list[SettingField]:
     """SETTINGS_MANIFEST + per-provider fragments declared in provider SPECs."""
     from bot.payment_providers import iter_provider_manifest_fields  # local to avoid cycle
 
-    fields: list[SettingField] = list(SETTINGS_MANIFEST)
+    fields: list[SettingField] = [*MAINTENANCE_SETTINGS_FIELDS, *SETTINGS_MANIFEST]
     for spec, manifest_field in iter_provider_manifest_fields():
         fields.append(_provider_field_to_setting_field(spec, manifest_field))
     return fields

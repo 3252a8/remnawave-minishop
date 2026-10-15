@@ -1,4 +1,4 @@
-"""Refresh shared menu settings in the worker before handling a Telegram update."""
+"""Refresh shared bot controls in the worker before handling a Telegram update."""
 
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ class TelegramMenuSettingsMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         await refresh_overrides_from_db(
-            self.settings, self.session_factory, keys=TELEGRAM_MENU_SETTING_KEYS
+            self.settings,
+            self.session_factory,
+            keys={*TELEGRAM_MENU_SETTING_KEYS, "MAINTENANCE_MODE_ENABLED"},
         )
         return await handler(event, data)

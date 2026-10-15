@@ -8,6 +8,7 @@ import type { ApplyPostLoadBillingDeeplinksInput } from "./billingDeeplinkEffect
 import type { LoadSectionDataInput } from "./sectionDataLoader.js";
 import { createLoadPerfProbe } from "./loadPerfProbe.js";
 import { shellState } from "./shellState.svelte";
+import { maintenanceFailure } from "./maintenance";
 import type { PlanView, SubscriptionView, WebappData, WebappRecord } from "./types";
 
 export type AppLoadDataOptions = {
@@ -76,6 +77,12 @@ function defaultPaymentMethodId(payload: WebappRecord): string {
   return String(firstMethod.id || "");
 }
 
+function assertMaintenanceInactive(): void {
+  if (shellState.mode === "maintenance") {
+    throw maintenanceFailure();
+  }
+}
+
 export function createAppLoadExecutor({
   adminRuntime,
   applyPostLoadBillingDeeplinks,
@@ -101,6 +108,7 @@ export function createAppLoadExecutor({
   syncLoadedRoute,
 }: AppLoadExecutorDeps) {
   async function loadData(options: AppLoadDataOptions = {}): Promise<WebappData> {
+    assertMaintenanceInactive();
     const currentQuery = currentSearchParams();
     const initialRoute = resolveInitialLoadRoute({
       activeTab: shellState.activeTab,
@@ -124,6 +132,7 @@ export function createAppLoadExecutor({
         ? adminRuntime.preloadAdminBundle().catch(() => false)
         : null;
     const payload = await dataClientLoadData({ fresh: options.fresh === true });
+    assertMaintenanceInactive();
     perfProbe.mark("data");
     if (!payload.ok) throw new Error(String(payload.error || "load_failed"));
     const userLanguage = String(recordField(payload.user).language_code || "");
@@ -135,6 +144,7 @@ export function createAppLoadExecutor({
       }
       rememberLanguage(userLanguage);
     }
+    assertMaintenanceInactive();
     shellState.data = payload;
     if (!getModalState().paymentModalOpen) {
       resetBillingSelection(defaultPaymentMethodId(payload));
@@ -173,11 +183,13 @@ export function createAppLoadExecutor({
           adminRuntime.ensureI18nScope("admin"),
           adminRuntime.ensureAdminBundle(),
         ]);
+        assertMaintenanceInactive();
         shellState.activeTab = "settings";
         shellState.adminActiveSection = initialAdminSection || "stats";
         shellState.mode = "app";
         shellState.screen = "admin";
       } catch (_error) {
+        assertMaintenanceInactive();
         void _error;
         section = "settings";
         shellState.activeTab = "settings";
@@ -218,12 +230,22 @@ export function createAppLoadExecutor({
       payload,
       section,
     });
+    assertMaintenanceInactive();
     perfProbe.mark("section");
 
     const modalState = getModalState();
-    if (modalState.topupModalOpen) await loadTopupOptions(modalState.topupKind);
-    if (modalState.deviceTopupModalOpen) await loadDeviceTopupOptions();
-    if (modalState.changeModalOpen) await loadTariffChangeOptions();
+    if (modalState.topupModalOpen) {
+      await loadTopupOptions(modalState.topupKind);
+      assertMaintenanceInactive();
+    }
+    if (modalState.deviceTopupModalOpen) {
+      await loadDeviceTopupOptions();
+      assertMaintenanceInactive();
+    }
+    if (modalState.changeModalOpen) {
+      await loadTariffChangeOptions();
+      assertMaintenanceInactive();
+    }
 
     applyPostLoadBillingDeeplinks({
       defaultMethod: defaultPaymentMethodId(payload),
