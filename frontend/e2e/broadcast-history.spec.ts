@@ -1,5 +1,64 @@
 import { expect, test, type Locator } from "@playwright/test";
 
+for (const width of [1440, 768, 390]) {
+  test(`hidden tariff audience is selectable at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(() => {
+      type Api = (path: string, options?: RequestInit) => Promise<Record<string, unknown>>;
+      type Bundle = { mount: (target: HTMLElement, props: { api: Api }) => unknown };
+      let bundle: Bundle | undefined;
+      Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+        configurable: true,
+        get: () => bundle,
+        set(value: Bundle) {
+          const mount = value.mount;
+          value.mount = (target, props) => {
+            const api: Api = async (path, options) => {
+              const response = await props.api(path, options);
+              if (path !== "/admin/broadcast/audience-counts") return response;
+              return {
+                ...response,
+                counts: { ...(response.counts as Record<string, number>), "tariff:hidden": 7 },
+                audiences: [
+                  {
+                    target: "tariff:hidden",
+                    label_key: "broadcast_target_tariff_hidden",
+                    fallback_label: "Archived plan",
+                    order: 701,
+                    available: true,
+                    group_label_key: "broadcast_audience_group_tariffs",
+                    group_fallback_label: "Specific tariff",
+                    icon: "tag",
+                  },
+                ],
+              };
+            };
+            return mount(target, { ...props, api });
+          };
+          bundle = value;
+        },
+      });
+    });
+    await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
+    const audience = page.locator(".broadcast-audience-control .admin-select-trigger");
+    await expect(audience).not.toContainText("...");
+    await audience.click();
+    await expect(page.getByText("Конкретный тариф", { exact: true })).toBeVisible();
+    const hiddenPlan = page.getByRole("option", { name: "Archived plan (7)" });
+    await expect(hiddenPlan).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath(`hidden-tariff-${width}.png`),
+      animations: "disabled",
+    });
+    await hiddenPlan.click();
+    await expect(audience).toContainText("Archived plan (7)");
+    await expect(page).toHaveURL(/target=tariff%3Ahidden/);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+    ).toBeLessThanOrEqual(1);
+  });
+}
+
 async function expectContainedBy(element: Locator, container: Locator): Promise<void> {
   const [elementBox, containerBox] = await Promise.all([
     element.boundingBox(),

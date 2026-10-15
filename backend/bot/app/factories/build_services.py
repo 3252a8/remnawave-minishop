@@ -132,15 +132,15 @@ def build_core_services(
 
 
 def _broadcast_tariff_audiences(settings: Settings) -> list[tuple[str, str]]:
-    """Offer every enabled tariff as its own broadcast audience.
+    """Offer every configured tariff as its own broadcast audience.
 
     Reads the configured catalog rather than the database, so a tariff shows up
-    as a target the moment it is offered, even before anyone buys it. A broken
-    or absent catalog simply means no tariff audiences.
+    as a target even when hidden from the storefront or before anyone buys it.
+    A broken or absent catalog simply means no tariff audiences.
     """
 
     try:
-        tariffs = settings.tariffs_config.enabled_tariffs
+        tariffs = settings.tariffs_config.tariffs
     except Exception:
         logger.debug("Broadcast tariff audiences are unavailable", exc_info=True)
         return []
