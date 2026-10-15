@@ -616,7 +616,7 @@ export function createAuthStore({
     const s = state;
     if (s.authBusy) return;
     const externalOauthPending = s.externalOauthPending;
-    const code = s.emailCode.replace(/\\D/g, "").slice(0, 6);
+    const code = s.emailCode.replace(/\D/g, "").slice(0, 6);
     if (code.length !== 6) {
       setAuthStatus(t("wa_auth_enter_code_6digits"), true);
       return;

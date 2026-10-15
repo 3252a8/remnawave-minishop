@@ -1,4 +1,8 @@
-import { emailError, buildTelegramOAuthStartUrl } from "../authHelpers.js";
+import {
+  accountMergeErrorMessage,
+  emailError,
+  buildTelegramOAuthStartUrl,
+} from "../authHelpers.js";
 import type { LoadDataOptions } from "../dataClient";
 import type { ApiClient, PostPayload } from "../publicApi";
 import {
@@ -197,6 +201,14 @@ export function createAccountStore({
 
   function setLinkEmailStatus(message: string, isError = false) {
     updateState((s) => ({ ...s, linkEmailStatus: message, linkEmailIsError: isError }));
+  }
+
+  function accountLinkError(error: unknown, fallback: string): string {
+    const errorCode = stringField(asRecord(error).error);
+    if (errorCode === "provider_conflict" || errorCode.startsWith("account_merge_")) {
+      return accountMergeErrorMessage(errorCode, t);
+    }
+    return emailError(error, fallback, t);
   }
 
   function clearCooldownTimer() {
@@ -450,7 +462,7 @@ export function createAccountStore({
       setLinkEmailStatus("");
       startCooldownTimer(60);
     } catch (error: unknown) {
-      setLinkEmailStatus(emailError(error, t("wa_auth_send_code_failed"), t), true);
+      setLinkEmailStatus(accountLinkError(error, t("wa_auth_send_code_failed")), true);
     } finally {
       updateState((s) => ({ ...s, linkEmailBusy: false }));
     }
@@ -459,7 +471,7 @@ export function createAccountStore({
   async function verifyLinkEmailCode() {
     const s = state;
     const code = String(s.linkEmailCode || "")
-      .replace(/\\D/g, "")
+      .replace(/\D/g, "")
       .slice(0, 6);
     if (!s.linkEmailPending) {
       setLinkEmailStatus(t("wa_auth_send_code_failed"), true);
@@ -490,7 +502,7 @@ export function createAccountStore({
         closeLinkEmailDialog();
         openTelegramMergeDialog();
       } else {
-        setLinkEmailStatus(emailError(error, t("wa_auth_invalid_code"), t), true);
+        setLinkEmailStatus(accountLinkError(error, t("wa_auth_invalid_code")), true);
       }
     } finally {
       updateState((s) => ({ ...s, linkEmailBusy: false }));
@@ -594,7 +606,12 @@ export function createAccountStore({
       if (stringField(asRecord(error).error) === "account_merge_required") {
         openTelegramMergeDialog();
       } else {
-        showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+        showToast(
+          accountLinkError(
+            error,
+            stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed")
+          )
+        );
       }
     } finally {
       updateState((s) => ({ ...s, linkTelegramBusy: false }));
@@ -647,7 +664,12 @@ export function createAccountStore({
       if (stringField(asRecord(error).error) === "account_merge_required") {
         openTelegramMergeDialog();
       } else {
-        showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+        showToast(
+          accountLinkError(
+            error,
+            stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed")
+          )
+        );
       }
     } finally {
       updateState((s) => ({ ...s, linkTelegramBusy: false }));
@@ -691,7 +713,12 @@ export function createAccountStore({
         openTelegramMergeDialog();
       } else {
         clearTelegramLinkPendingAction();
-        showToast(stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed"));
+        showToast(
+          accountLinkError(
+            error,
+            stringField(asRecord(error).message) || t("wa_auth_telegram_not_confirmed")
+          )
+        );
       }
     } finally {
       updateState((s) => ({ ...s, linkTelegramBusy: false }));

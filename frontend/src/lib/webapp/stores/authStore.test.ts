@@ -167,4 +167,34 @@ describe("authStore", () => {
     await Promise.all([first, duplicate]);
     expect(publicApi).toHaveBeenCalledOnce();
   });
+
+  it.each([false, true])(
+    "normalizes pasted code separators before verifying external ownership (%s)",
+    async (externalOauthPending) => {
+      installBrowser();
+      const { store, deps } = makeAuthStore({
+        publicApi: vi.fn().mockResolvedValue({
+          ok: true,
+          token: "session-token",
+          csrf_token: "csrf-token",
+        }),
+      });
+      store.update((state) => ({
+        ...state,
+        externalOauthPending,
+        pendingEmail: "user@example.test",
+        emailCode: "12 34-56",
+      }));
+
+      await store.verifyEmailCode();
+
+      expect(deps.publicApi).toHaveBeenCalledWith(
+        externalOauthPending ? "/auth/external/verify" : "/auth/email/verify",
+        externalOauthPending ? { code: "123456" } : { email: "user@example.test", code: "123456" }
+      );
+      expect(deps.setToken).toHaveBeenCalledWith("session-token", "csrf-token");
+      expect(deps.loadData).toHaveBeenCalledOnce();
+      expect(store.authBusy).toBe(false);
+    }
+  );
 });
