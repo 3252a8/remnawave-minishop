@@ -5,6 +5,9 @@ import { jsonBody } from "../demoMockRuntime.js";
 import { filterDemoUsers } from "./users.js";
 import { adminDemoBalance } from "./balance.js";
 import type { components } from "../../api/openapi.generated.js";
+import { INSTALL_GUIDES_CONFIG } from "../previewMock/installGuidesConfig.js";
+import { installAppId } from "../installTargets.js";
+import { localizedInstallValue } from "../installGuideRuntime.js";
 
 let reviewSourceRemoved = false;
 let reviewSourceRestricted = false;
@@ -99,6 +102,11 @@ export function issueReviewDemoResponse(
   if (path === "/admin/message/targets") {
     return {
       ok: true,
+      install_platforms: Object.entries(INSTALL_GUIDES_CONFIG.platforms).map(([id, platform]) => ({
+        id,
+        label: localizedInstallValue(platform.displayName, language, id),
+        apps: platform.apps.map((app) => ({ id: installAppId(app), name: app.name })),
+      })),
       sections: issueReviewEnabled()
         ? [
             {

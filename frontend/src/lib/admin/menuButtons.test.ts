@@ -30,6 +30,17 @@ describe("menu button drafts", () => {
     expect(parseMenuButtonDrafts("{oops")).toEqual({ buttons: [], invalid: true });
   });
 
+  it("round-trips optional install destinations without requiring them on old drafts", () => {
+    const button = {
+      ...createMenuButtonDraft(["en"]),
+      kind: "webapp" as const,
+      target: "install",
+      platform: "ios",
+      app: "client-v2",
+    };
+    expect(parseMenuButtonDrafts(serializeMenuButtonDrafts([button])).buttons).toEqual([button]);
+  });
+
   it("defaults legacy buttons to both menus and preserves explicit visibility", () => {
     const parsed = parseMenuButtonDrafts(
       JSON.stringify([

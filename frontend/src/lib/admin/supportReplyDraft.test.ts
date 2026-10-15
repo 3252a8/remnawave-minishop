@@ -30,7 +30,14 @@ describe("support reply button insertion", () => {
   it("maps standard wire descriptors into independently editable composer buttons", () => {
     const input: AdminSupportReplyButton[] = [
       link,
-      { ...link, kind: "webapp_section", section: "install", url: "" },
+      {
+        ...link,
+        kind: "webapp_section",
+        section: "install",
+        platform: "ios",
+        app: "client-v2",
+        url: "",
+      },
       { ...link, kind: "promo_bot", promo_code: " CODE ", url: "" },
       { ...link, kind: "promo_webapp", promo_code: " CODE ", url: "" },
     ];
@@ -48,6 +55,7 @@ describe("support reply button insertion", () => {
       iconEmoji: "📖",
     });
     expect(result?.[2].promoCode).toBe("CODE");
+    expect(result?.[1]).toMatchObject({ platform: "ios", app: "client-v2" });
     expect(result?.[0].labels).not.toBe(link.labels);
     expect(new Set(result?.map((button) => button.id)).size).toBe(4);
   });

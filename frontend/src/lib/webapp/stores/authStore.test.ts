@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAuthStore } from "./authStore.js";
+import { rememberInstallAuthDestination } from "../installAuthDestination";
 type TestOverrides = Record<string, unknown>;
 
 function makeAuthStore(overrides: TestOverrides = {}) {
@@ -37,6 +38,43 @@ afterEach(() => {
 });
 
 describe("authStore", () => {
+  it.each(["password", "telegram"])(
+    "restores install selection before loading the account after %s sign-in",
+    async (method) => {
+      installBrowser();
+      const values = new Map<string, string>();
+      Object.assign(window, {
+        sessionStorage: {
+          getItem: (key: string) => values.get(key) || null,
+          setItem: (key: string, value: string) => values.set(key, value),
+          removeItem: (key: string) => values.delete(key),
+        },
+      });
+      Object.assign(window.location, {
+        pathname: "/install",
+        search: "?platform=ios&app=client-v2",
+      });
+      rememberInstallAuthDestination("login");
+      Object.assign(window.location, { pathname: "/login/password", search: "" });
+      const { store, deps } = makeAuthStore({
+        publicApi: vi.fn().mockResolvedValue({ ok: true, token: "token", csrf_token: "csrf" }),
+      });
+      if (method === "password") {
+        store.update((state) => ({
+          ...state,
+          email: "customer@example.test",
+          emailPassword: "password",
+        }));
+        await store.loginWithEmailPassword();
+      } else await store.finalizeTelegramAuth("telegram-init-data", "init_data");
+      const restore = vi.mocked(window.history.replaceState);
+      expect(restore).toHaveBeenCalledWith(null, "", "/install?platform=ios&app=client-v2");
+      expect(restore.mock.invocationCallOrder[0]).toBeLessThan(
+        deps.loadData.mock.invocationCallOrder[0]
+      );
+      expect(values.size).toBe(0);
+    }
+  );
   it("submits a pending gift as the Telegram registration invite", async () => {
     installBrowser();
     const token = "G".repeat(43);

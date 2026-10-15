@@ -119,6 +119,8 @@ class SupportMessageButtonOut(HttpResponseModel):
     section: str = ""
     icon_custom_emoji_id: str | None = None
     icon_emoji: str = ""
+    platform: str = Field(default_factory=str)
+    app: str = Field(default_factory=str)
 
 
 class SupportMessageOut(HttpResponseModel):

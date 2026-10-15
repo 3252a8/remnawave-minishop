@@ -55,7 +55,9 @@ describe("broadcastStore", () => {
       store.addButton();
       store.updateButton(1, {
         kind: "webapp_section",
-        section: "home",
+        section: "install",
+        platform: "ios",
+        app: "client-v2",
         label: "Account",
         iconCustomEmojiId: "5368324170671202286",
         iconEmoji: "👩🏽‍💻",
@@ -81,6 +83,8 @@ describe("broadcastStore", () => {
         }),
         expect.objectContaining({
           label: "Account",
+          platform: "ios",
+          app: "client-v2",
           icon_custom_emoji_id: "5368324170671202286",
           icon_emoji: "👩🏽‍💻",
         }),

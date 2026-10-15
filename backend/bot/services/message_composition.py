@@ -29,6 +29,7 @@ from bot.services.message_button_icons import (
     validate_button_icon,
 )
 from config.extension_targets import extension_start_parameter
+from config.install_targets import install_target_params
 from config.link_targets import normalize_button_link
 
 MESSAGE_CHANNELS = ("telegram", "email")
@@ -129,6 +130,8 @@ class MessageButtonInput:
     labels: Mapping[str, str] = field(default_factory=dict)
     icon_custom_emoji_id: str | None = None
     icon_emoji: str = ""
+    platform: str = ""
+    app: str = ""
 
 
 def message_button_label_key(kind: str, section: str = "") -> str:
@@ -226,6 +229,8 @@ class MessageButton:
     telegram_web_app_url: str | None = None
     icon_custom_emoji_id: str | None = None
     icon_emoji: str = ""
+    platform: str = ""
+    app: str = ""
 
 
 def normalize_message_channels(raw: list[str] | None) -> list[str]:
@@ -261,13 +266,28 @@ def mini_app_startapp_link(base_url: str | None, payload: str | None) -> str | N
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
-def mini_app_section_link(base_url: str | None, section: str | None) -> str | None:
+def mini_app_section_link(
+    base_url: str | None,
+    section: str | None,
+    *,
+    platform: str | None = None,
+    app: str | None = None,
+) -> str | None:
     """Mini App link that opens one of its screens through ``startapp``."""
 
     normalized = str(section or "").strip().lower()
     payload = extension_start_parameter(normalized)
     if normalized not in MINI_APP_SECTIONS and not (payload and active_message_page(normalized)):
         return None
+    target = install_target_params(platform, app) if normalized == "install" else {}
+    if target and str(base_url or "").strip():
+        parts = urlsplit(str(base_url).strip())
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        for key in ("startapp", "platform", "app"):
+            query.pop(key, None)
+        query.update(target)
+        path = f"{parts.path.rstrip('/')}/install"
+        return urlunsplit((parts.scheme, parts.netloc, path, urlencode(query), parts.fragment))
     return mini_app_startapp_link(base_url, payload or normalized)
 
 
@@ -399,7 +419,12 @@ def _resolve_section_button(
     # fallback whenever the configured Mini App URL is unusable as a web_app
     # target (plain http) or missing entirely.
     fallback = f"https://t.me/{username}?startapp={payload or section}" if username else ""
-    link = mini_app_section_link(mini_app_url, section)
+    target = (
+        install_target_params(getattr(button, "platform", ""), getattr(button, "app", ""))
+        if section == "install"
+        else {}
+    )
+    link = mini_app_section_link(mini_app_url, section, **target)
     if link and _is_https(link):
         return MessageButton(
             label=label,
@@ -407,11 +432,27 @@ def _resolve_section_button(
             kind=button.kind,
             section=section,
             telegram_web_app_url=link,
+            platform=target.get("platform", ""),
+            app=target.get("app", ""),
         )
     if fallback:
-        return MessageButton(label=label, url=fallback, kind=button.kind, section=section)
+        return MessageButton(
+            label=label,
+            url=fallback,
+            kind=button.kind,
+            section=section,
+            platform=target.get("platform", ""),
+            app=target.get("app", ""),
+        )
     if link:
-        return MessageButton(label=label, url=link, kind=button.kind, section=section)
+        return MessageButton(
+            label=label,
+            url=link,
+            kind=button.kind,
+            section=section,
+            platform=target.get("platform", ""),
+            app=target.get("app", ""),
+        )
     raise MessageValidationError("webapp_url_unavailable")
 
 

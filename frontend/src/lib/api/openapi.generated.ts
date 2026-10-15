@@ -5638,6 +5638,8 @@ export interface components {
      *       ``section`` (invite, support, devices, …).
      */
     AdminBroadcastButtonBody: {
+      /** App */
+      app?: string;
       /**
        * Icon Custom Emoji Id
        * @default null
@@ -5662,6 +5664,8 @@ export interface components {
       labels?: {
         [key: string]: string;
       };
+      /** Platform */
+      platform?: string;
       /**
        * Promo Code
        * @default
@@ -5680,6 +5684,8 @@ export interface components {
     };
     /** AdminBroadcastButtonOut */
     AdminBroadcastButtonOut: {
+      /** App */
+      app?: string;
       /**
        * Icon Custom Emoji Id
        * @default null
@@ -5701,6 +5707,8 @@ export interface components {
       labels?: {
         [key: string]: string;
       };
+      /** Platform */
+      platform?: string;
       /**
        * Promo Code
        * @default
@@ -6294,6 +6302,22 @@ export interface components {
        */
       previous_path: string | null;
     };
+    /** AdminInstallAppOut */
+    AdminInstallAppOut: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+    };
+    /** AdminInstallPlatformOut */
+    AdminInstallPlatformOut: {
+      /** Apps */
+      apps?: components["schemas"]["AdminInstallAppOut"][];
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+    };
     /** AdminLogsListOut */
     AdminLogsListOut: {
       /** Logs */
@@ -6350,6 +6374,8 @@ export interface components {
     };
     /** AdminMessageTargetsOut */
     AdminMessageTargetsOut: {
+      /** Install Platforms */
+      install_platforms?: components["schemas"]["AdminInstallPlatformOut"][];
       /** Sections */
       sections?: components["schemas"]["AdminMessageTargetOut"][];
     };
@@ -11113,6 +11139,8 @@ export interface components {
      * @description A button the admin attached, already resolved to the link it opens.
      */
     SupportMessageButtonOut: {
+      /** App */
+      app?: string;
       /**
        * Icon Custom Emoji Id
        * @default null
@@ -11127,6 +11155,8 @@ export interface components {
       kind: string;
       /** Label */
       label: string;
+      /** Platform */
+      platform?: string;
       /**
        * Promo Code
        * @default

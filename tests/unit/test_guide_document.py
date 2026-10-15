@@ -26,7 +26,9 @@ def test_remnawave_adapter_preserves_existing_instruction_content() -> None:
         for platform in document["platforms"]:
             content = copy.deepcopy(platform)
             platform_id = content.pop("id")
-            for app in content.get("apps", []):
+            for index, app in enumerate(content.get("apps", [])):
+                if "id" not in config["platforms"][platform_id]["apps"][index]:
+                    assert app.pop("id")
                 for block in app.get("blocks", []):
                     for button in block.get("buttons", []):
                         assert button["action"]["kind"] in {"copy", "open"}

@@ -35,6 +35,8 @@ export function supportReplyButtonsFromDescriptors(
       url: url || "",
       promoCode,
       section,
+      ...(typeof button.platform === "string" ? { platform: button.platform.trim() } : {}),
+      ...(typeof button.app === "string" ? { app: button.app.trim() } : {}),
       ...(button.labels ? { labels: { ...button.labels } } : {}),
       iconCustomEmojiId: button.icon_custom_emoji_id || null,
       iconEmoji: button.icon_emoji || "",

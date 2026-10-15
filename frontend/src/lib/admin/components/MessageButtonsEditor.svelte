@@ -1,6 +1,6 @@
 <script
   lang="ts"
-  generics="Row extends { id: number; kind: string; label: string; url: string; promoCode: string; section: string; labels?: Record<string, string>; iconCustomEmojiId?: string | null; iconEmoji?: string }"
+  generics="Row extends { id: number; kind: string; label: string; url: string; promoCode: string; section: string; platform?: string; app?: string; labels?: Record<string, string>; iconCustomEmojiId?: string | null; iconEmoji?: string }"
 >
   import { onMount, tick } from "svelte";
   import { AdminButton, AdminCombobox, AdminSelect } from "$components/patterns/admin/index.js";
@@ -8,6 +8,7 @@
   import { Plus, Sparkles, Trash2, X } from "$components/ui/icons.js";
   import { getAdminApi, getAdminApiBlob } from "$lib/admin/context";
   import { createMessageTargets } from "$lib/admin/messageTargets.svelte.js";
+  import InstallTargetFields from "./InstallTargetFields.svelte";
   import {
     CUSTOMER_WEBAPP_SECTIONS,
     withUnavailableTarget,
@@ -260,17 +261,27 @@
           onInputChange={(value) => onRequestPromoOptions?.(value)}
         />
       {:else if button.kind === "webapp_section"}
-        <AdminSelect
-          class="message-button-target"
-          controlSize="md"
-          value={button.section}
-          items={withUnavailableTarget(sectionOptions, button.section, (target) =>
-            at("message_target_unavailable", { target })
-          )}
-          placeholder={at("broadcast_button_section_select", {}, "Select a screen")}
-          ariaLabel={at("broadcast_button_section_select", {}, "Select a screen")}
-          onValueChange={(value) => onUpdate(index, { section: value } as Partial<Row>)}
-        />
+        <div class="message-button-target">
+          <AdminSelect
+            controlSize="md"
+            value={button.section}
+            items={withUnavailableTarget(sectionOptions, button.section, (target) =>
+              at("message_target_unavailable", { target })
+            )}
+            placeholder={at("broadcast_button_section_select", {}, "Select a screen")}
+            ariaLabel={at("broadcast_button_section_select", {}, "Select a screen")}
+            onValueChange={(value) => onUpdate(index, { section: value } as Partial<Row>)}
+          />
+          {#if button.section === "install"}
+            <InstallTargetFields
+              platform={button.platform}
+              app={button.app}
+              platforms={targets.installPlatforms}
+              {at}
+              onChange={(target) => onUpdate(index, target as Partial<Row>)}
+            />
+          {/if}
+        </div>
       {:else if button.kind === "url"}
         <Input
           class="input message-button-target"
@@ -359,6 +370,10 @@
   .admin-row-editor-static {
     font-size: 12px;
     align-self: center;
+  }
+  div.message-button-target {
+    display: grid;
+    gap: 8px;
   }
   @container (max-width: 640px) {
     .message-buttons-editor :global(.message-button-row) {

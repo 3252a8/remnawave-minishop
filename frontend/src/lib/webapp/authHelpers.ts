@@ -1,5 +1,6 @@
 import { GIFT_STORAGE_KEY, rememberReferral, readReferral } from "./session.js";
 import { referralStartParam } from "./launchParams.js";
+import { rememberInstallAuthDestination } from "./installAuthDestination.js";
 
 type TelegramWebAppLike = {
   initDataUnsafe?: { start_param?: string | null } | null;
@@ -169,6 +170,7 @@ export function clearAuthQuery(): void {
 }
 
 export function buildTelegramOAuthStartUrl(purpose = "login", tg: unknown = null): string {
+  rememberInstallAuthDestination(purpose, true);
   const url = new URL("/auth/telegram/start", window.location.origin);
   url.searchParams.set("purpose", purpose);
   const referralParam = readRegistrationInviteParam(tg);
@@ -187,6 +189,7 @@ export function buildExternalOAuthStartUrl(
   referral = purpose === "login" ? readRegistrationInviteParam() : "",
   tariffAccessCode = ""
 ): string {
+  rememberInstallAuthDestination(purpose, true);
   const params = new URLSearchParams({ purpose, lang: language });
   if (purpose === "merge") params.set("return_to", "/settings/security");
   if (referral) params.set("ref", referral);

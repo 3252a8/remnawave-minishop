@@ -2150,6 +2150,10 @@
       "AdminBroadcastButtonBody": {
         "description": "One inline button attached to a broadcast.\n\n``kind`` selects how the button URL is produced:\n- ``url`` — explicit ``url`` field;\n- ``promo_bot`` — deep link into the bot applying ``promo_code``;\n- ``promo_webapp`` — link into the Mini App checkout with ``promo_code``;\n- ``webapp_section`` — link that opens the Mini App screen named by\n  ``section`` (invite, support, devices, …).",
         "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
           "icon_custom_emoji_id": {
             "anyOf": [
               {
@@ -2184,6 +2188,10 @@
             "title": "Labels",
             "type": "object"
           },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
           "promo_code": {
             "default": "",
             "title": "Promo Code",
@@ -2205,6 +2213,10 @@
       },
       "AdminBroadcastButtonOut": {
         "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
           "icon_custom_emoji_id": {
             "anyOf": [
               {
@@ -2237,6 +2249,10 @@
             },
             "title": "Labels",
             "type": "object"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
           },
           "promo_code": {
             "default": "",
@@ -3443,6 +3459,49 @@
         "title": "AdminInformationPageSaveBody",
         "type": "object"
       },
+      "AdminInstallAppOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AdminInstallAppOut",
+        "type": "object"
+      },
+      "AdminInstallPlatformOut": {
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/AdminInstallAppOut"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "AdminInstallPlatformOut",
+        "type": "object"
+      },
       "AdminLogsListOut": {
         "properties": {
           "logs": {
@@ -3587,6 +3646,13 @@
       },
       "AdminMessageTargetsOut": {
         "properties": {
+          "install_platforms": {
+            "items": {
+              "$ref": "#/components/schemas/AdminInstallPlatformOut"
+            },
+            "title": "Install Platforms",
+            "type": "array"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/AdminMessageTargetOut"
@@ -14669,6 +14735,10 @@
       "SupportMessageButtonOut": {
         "description": "A button the admin attached, already resolved to the link it opens.",
         "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
           "icon_custom_emoji_id": {
             "anyOf": [
               {
@@ -14692,6 +14762,10 @@
           },
           "label": {
             "title": "Label",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
             "type": "string"
           },
           "promo_code": {

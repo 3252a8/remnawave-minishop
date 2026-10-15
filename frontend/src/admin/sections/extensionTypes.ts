@@ -19,6 +19,8 @@ export interface AdminSupportReplyButton {
   url: string;
   promo_code: string;
   section: string;
+  platform?: string;
+  app?: string;
   icon_custom_emoji_id?: string | null;
   icon_emoji?: string;
 }

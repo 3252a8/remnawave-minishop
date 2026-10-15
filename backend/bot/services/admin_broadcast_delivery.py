@@ -158,6 +158,8 @@ class AdminBroadcastDeliveryService:
                 url=str(item.get("url") or ""),
                 promo_code=str(item.get("promo_code") or ""),
                 section=str(item.get("section") or ""),
+                platform=str(item.get("platform") or ""),
+                app=str(item.get("app") or ""),
                 labels={
                     str(key): str(value) for key, value in dict(item.get("labels") or {}).items()
                 },

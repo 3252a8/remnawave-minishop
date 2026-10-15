@@ -6201,5 +6201,9 @@
   "admin_settings_maintenance_active": "Режим обслуживания включён",
   "wa_maintenance_title": "Технические работы",
   "wa_maintenance_description": "Мы временно приостановили работу приложения. Пожалуйста, попробуйте зайти позже.",
-  "wa_maintenance_retry": "Проверить снова"
+  "wa_maintenance_retry": "Проверить снова",
+  "admin_install_target_platform": "ОС для инструкции (необязательно)",
+  "admin_install_target_app": "Приложение (необязательно)",
+  "admin_install_target_platform_auto": "Определить ОС автоматически",
+  "admin_install_target_app_auto": "Первое приложение для ОС"
 }

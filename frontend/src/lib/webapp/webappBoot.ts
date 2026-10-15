@@ -7,6 +7,7 @@ import {
   clearAuthQuery,
 } from "./authHelpers.js";
 import { TELEGRAM_SDK_BOOT_TIMEOUT_MS } from "./constants";
+import { restoreInstallAuthDestination } from "./installAuthDestination.js";
 import { isMaintenanceFailure } from "./maintenance";
 import {
   beginBootBudget,
@@ -178,6 +179,7 @@ async function runWebappBootSequence({
   setMode("loading");
   if (hasTelegramLaunchParams()) await loadTelegramSdk(TELEGRAM_SDK_BOOT_TIMEOUT_MS);
   prepareTelegramMiniApp();
+  restoreInstallAuthDestination();
 
   if (MOCK) {
     const mergePending =

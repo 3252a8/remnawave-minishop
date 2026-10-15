@@ -163,6 +163,7 @@ export type InstallGuideBlock = InstallGuideRecord & {
   title?: InstallLocalizedValue;
 };
 export type InstallGuideApp = InstallGuideRecord & {
+  id?: string;
   blocks?: InstallGuideBlock[];
   featured?: boolean;
   name?: string;

@@ -6201,5 +6201,9 @@
   "admin_settings_maintenance_active": "Maintenance mode is on",
   "wa_maintenance_title": "Under maintenance",
   "wa_maintenance_description": "The app is temporarily paused for maintenance. Please try again later.",
-  "wa_maintenance_retry": "Try again"
+  "wa_maintenance_retry": "Try again",
+  "admin_install_target_platform": "Instruction OS (optional)",
+  "admin_install_target_app": "Application (optional)",
+  "admin_install_target_platform_auto": "Detect OS automatically",
+  "admin_install_target_app_auto": "First application for OS"
 }

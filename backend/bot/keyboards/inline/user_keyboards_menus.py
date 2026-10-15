@@ -105,7 +105,9 @@ def get_main_menu_inline_keyboard(
 
                 if not active_message_page(button.target):
                     continue
-            target_url = subscription_mini_app_path_url(settings, button.target)
+            target_url = subscription_mini_app_path_url(
+                settings, button.target, platform=button.platform, app=button.app
+            )
             if target_url:
                 builder.row(
                     menu_button(

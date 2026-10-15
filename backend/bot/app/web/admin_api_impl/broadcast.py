@@ -545,6 +545,8 @@ def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
                 url=str(button.get("url") or ""),
                 promo_code=str(button.get("promo_code") or ""),
                 section=str(button.get("section") or ""),
+                platform=str(button.get("platform") or ""),
+                app=str(button.get("app") or ""),
                 labels={
                     str(key): str(value) for key, value in dict(button.get("labels") or {}).items()
                 },

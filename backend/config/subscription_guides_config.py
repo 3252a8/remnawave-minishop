@@ -489,12 +489,20 @@ def _validate_apps(
     if not isinstance(value, list) or not value:
         raise SubscriptionGuidesConfigError(f"{path} must be a non-empty array")
     apps: list[dict[str, Any]] = []
+    explicit_ids: set[str] = set()
     for index, raw_app in enumerate(value):
         app_path = f"{path}[{index}]"
         app = _require_object(raw_app, app_path)
         name = _require_text(app, "name", f"{app_path}.name")
         if len(name) < 2:
             raise SubscriptionGuidesConfigError(f"{app_path}.name must contain at least 2 chars")
+        explicit_id = str(app.get("id") or "").strip()
+        if explicit_id:
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", explicit_id):
+                raise SubscriptionGuidesConfigError(f"{app_path}.id is invalid")
+            if explicit_id in explicit_ids:
+                raise SubscriptionGuidesConfigError(f"{path} app ids must be unique")
+            explicit_ids.add(explicit_id)
         icon_key = _optional_svg_icon_key(
             app.get("svgIconKey"),
             svg_library,
@@ -502,6 +510,7 @@ def _validate_apps(
         )
         apps.append(
             {
+                **({"id": explicit_id} if explicit_id else {}),
                 "name": name,
                 "svgIconKey": icon_key,
                 "featured": bool(app.get("featured", False)),

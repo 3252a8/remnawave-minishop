@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
+from config.install_targets import install_target_params
 from config.settings import Settings
 from db.dal.subscription_dal import normalize_install_share_token
 
@@ -64,7 +65,13 @@ def subscription_mini_app_checkout_code_url(settings: Settings, code: str) -> st
     return append_query_params(base, {"startapp": f"promo_{normalized_code}"})
 
 
-def subscription_mini_app_path_url(settings: Settings, path: str) -> str | None:
+def subscription_mini_app_path_url(
+    settings: Settings,
+    path: str,
+    *,
+    platform: str | None = None,
+    app: str | None = None,
+) -> str | None:
     """Return a Mini App URL with ``path`` appended to the configured app base."""
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if not base:
@@ -73,7 +80,15 @@ def subscription_mini_app_path_url(settings: Settings, path: str) -> str | None:
     normalized_path = _MINI_APP_SECTION_PATHS.get(requested_path.lower(), requested_path)
     parts = urlsplit(base)
     joined_path = f"{parts.path.rstrip('/')}/{normalized_path}"
-    return urlunsplit((parts.scheme, parts.netloc, joined_path, parts.query, parts.fragment))
+    link = urlunsplit((parts.scheme, parts.netloc, joined_path, parts.query, parts.fragment))
+    target = install_target_params(platform, app) if requested_path == "install" else {}
+    if not target:
+        return link
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    for key in ("startapp", "platform", "app"):
+        query.pop(key, None)
+    query.update(target)
+    return urlunsplit((parts.scheme, parts.netloc, joined_path, urlencode(query), parts.fragment))
 
 
 def subscription_main_mini_app_deep_link(
@@ -108,9 +123,11 @@ def bot_start_deep_link(bot_username: str | None, start_param: str) -> str | Non
     return f"https://t.me/{username}?start={parameter}"
 
 
-def subscription_mini_app_install_url(settings: Settings) -> str | None:
+def subscription_mini_app_install_url(
+    settings: Settings, *, platform: str | None = None, app: str | None = None
+) -> str | None:
     """Return the personal embedded install guide URL."""
-    return subscription_mini_app_path_url(settings, "/install")
+    return subscription_mini_app_path_url(settings, "/install", platform=platform, app=app)
 
 
 def subscription_mini_app_trial_url(settings: Settings) -> str | None:
@@ -118,7 +135,13 @@ def subscription_mini_app_trial_url(settings: Settings) -> str | None:
     return subscription_mini_app_path_url(settings, "/trial")
 
 
-def subscription_public_install_url(settings: Settings, share_token: str) -> str | None:
+def subscription_public_install_url(
+    settings: Settings,
+    share_token: str,
+    *,
+    platform: str | None = None,
+    app: str | None = None,
+) -> str | None:
     """Return the public install guide URL for a normalized share token."""
     token = normalize_install_share_token(share_token)
     base = str(settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
@@ -129,4 +152,6 @@ def subscription_public_install_url(settings: Settings, share_token: str) -> str
         public_base = urlunsplit((parts.scheme, parts.netloc, "", "", ""))
     else:
         public_base = base.rstrip("/")
-    return f"{public_base.rstrip('/')}/s/{quote(token)}"
+    link = f"{public_base.rstrip('/')}/s/{quote(token)}"
+    target = install_target_params(platform, app)
+    return append_query_params(link, target) if target else link

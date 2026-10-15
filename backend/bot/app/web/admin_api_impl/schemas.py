@@ -405,6 +405,8 @@ class AdminBroadcastButtonBody(HttpBodyModel):
     labels: dict[str, str] = Field(default_factory=dict)
     icon_custom_emoji_id: str | None = None
     icon_emoji: str = ""
+    platform: str = Field(default_factory=str)
+    app: str = Field(default_factory=str)
 
     @model_validator(mode="after")
     def _validate_icon(self) -> AdminBroadcastButtonBody:
@@ -421,7 +423,7 @@ class AdminBroadcastButtonBody(HttpBodyModel):
     def _normalize_kind(cls, value: Any) -> str:
         return _strip_text(value).lower()
 
-    @field_validator("label", "url", "promo_code", mode="before")
+    @field_validator("label", "url", "promo_code", "platform", "app", mode="before")
     @classmethod
     def _normalize_button_text(cls, value: Any) -> str:
         return _strip_text(value)

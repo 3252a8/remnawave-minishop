@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAuthRuntime } from "./authRuntime.js";
 import { resetShellState, shellState } from "./shellState.svelte";
 type TestOverrides = { [key: string]: Record<string, unknown> | undefined };
+
+afterEach(() => vi.unstubAllGlobals());
 
 function makeRuntime(overrides: TestOverrides = {}) {
   resetShellState({ activeTab: "", mode: "", screen: "" });
@@ -93,5 +95,25 @@ describe("createAuthRuntime", () => {
     expect(escapeEvent.preventDefault).not.toHaveBeenCalled();
     expect(enterEvent.preventDefault).toHaveBeenCalledOnce();
     expect(authStore.requestEmailCode).toHaveBeenCalledOnce();
+  });
+
+  it("remembers an install destination before sign-in changes its route", () => {
+    const setItem = vi.fn();
+    vi.stubGlobal("window", {
+      location: { pathname: "/install", search: "?platform=ios&app=client-v2" },
+      sessionStorage: { setItem, removeItem: vi.fn() },
+    });
+    const { deps, runtime } = makeRuntime({
+      deps: { routePathnameFromLocation: () => "/install" },
+    });
+    runtime.showLogin();
+    expect(JSON.parse(setItem.mock.calls[0][1])).toMatchObject({
+      pathname: "/install",
+      platform: "ios",
+      app: "client-v2",
+    });
+    expect(setItem.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.syncPasswordLoginPath.mock.invocationCallOrder[0]
+    );
   });
 });

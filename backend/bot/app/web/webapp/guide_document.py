@@ -8,6 +8,8 @@ from typing import Any
 
 from aiohttp import web
 
+from config.install_targets import legacy_install_app_id
+
 from .guides_panel_config import _subscription_guides_status_for_request
 
 _PLATFORM_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}\Z")
@@ -40,6 +42,9 @@ def remnawave_v1_to_guide_document(
             raise ValueError("Invalid platform")
         platform = {"id": platform_id, **copy.deepcopy(raw_platform)}
         for app in platform.get("apps", []):
+            app["id"] = str(app.get("id") or "").strip() or legacy_install_app_id(
+                str(app.get("name") or "")
+            )
             for block in app.get("blocks", []):
                 for button in block.get("buttons", []):
                     link = str(button.get("link") or "")
