@@ -1148,6 +1148,42 @@ test("optional home widgets stay disabled by default and use dedicated presets",
   await expect(page.locator(".home-balance-card")).toHaveCount(0);
 });
 
+test("compact renewal keeps its state and balance top-up action through toggles", async ({
+  page,
+}) => {
+  const errors = trackErrors(page, () => "compact renewal");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      "minishop-demo-settings-changes",
+      JSON.stringify([
+        ["WEBAPP_COMPACT_HOME_ENABLED", { value: true, deleted: false }],
+        ["USER_BALANCE_ENABLED", { value: true, deleted: false }],
+      ])
+    );
+  });
+  for (const width of [320, 360, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`${APP_URL}?path=/home&mock=auto-renew`);
+    const card = page.locator(".home-compact-summary");
+    const renewal = card.getByRole("button", { name: "Автопродление включено", exact: true });
+    await expect(renewal).toHaveAttribute("aria-pressed", "true");
+    await renewal.click();
+    const disabledRenewal = card.getByRole("button", {
+      name: "Автопродление отключено",
+      exact: true,
+    });
+    await expect(disabledRenewal).toHaveAttribute("aria-pressed", "false");
+    await disabledRenewal.click();
+    await expect(renewal).toHaveAttribute("aria-pressed", "true");
+    await card.locator('[data-webapp-action="open-balance-topup"]').click();
+    await expect(page.locator(".balance-topup-dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".balance-topup-dialog")).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
 test("home actions stay at the viewport bottom when the logo changes size", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   for (const viewport of [

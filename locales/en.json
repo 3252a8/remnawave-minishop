@@ -6205,5 +6205,13 @@
   "admin_install_target_platform": "Instruction OS (optional)",
   "admin_install_target_app": "Application (optional)",
   "admin_install_target_platform_auto": "Detect OS automatically",
-  "admin_install_target_app_auto": "First application for OS"
+  "admin_install_target_app_auto": "First application for OS",
+  "wa_compact_auto_renew_title": "Auto-renewal",
+  "wa_compact_auto_renew_on": "On",
+  "wa_compact_auto_renew_off": "Off",
+  "wa_compact_auto_renew_updating": "Updating automatic renewal",
+  "wa_compact_auto_renew_updating_short": "Updating…",
+  "wa_compact_auto_renew_unavailable": "Automatic renewal is currently unavailable",
+  "wa_compact_auto_renew_unavailable_short": "Unavailable",
+  "wa_compact_balance_topup": "Top up balance: {amount}"
 }

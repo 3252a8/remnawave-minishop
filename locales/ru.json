@@ -6205,5 +6205,13 @@
   "admin_install_target_platform": "ОС для инструкции (необязательно)",
   "admin_install_target_app": "Приложение (необязательно)",
   "admin_install_target_platform_auto": "Определить ОС автоматически",
-  "admin_install_target_app_auto": "Первое приложение для ОС"
+  "admin_install_target_app_auto": "Первое приложение для ОС",
+  "wa_compact_auto_renew_title": "Автопродление",
+  "wa_compact_auto_renew_on": "Вкл.",
+  "wa_compact_auto_renew_off": "Выкл.",
+  "wa_compact_auto_renew_updating": "Обновляем автопродление",
+  "wa_compact_auto_renew_updating_short": "Обновление…",
+  "wa_compact_auto_renew_unavailable": "Автопродление пока недоступно",
+  "wa_compact_auto_renew_unavailable_short": "Недоступно",
+  "wa_compact_balance_topup": "Пополнить баланс: {amount}"
 }

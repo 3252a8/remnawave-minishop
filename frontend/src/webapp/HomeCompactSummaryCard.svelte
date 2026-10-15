@@ -11,6 +11,7 @@
   import { fade } from "svelte/transition";
 
   import { LinearProgress } from "$components/patterns/webapp/index.js";
+  import { Spinner } from "$components/ui/index.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { formatMoney } from "$lib/webapp/formatters.js";
@@ -138,6 +139,15 @@
   const tariffNameVisible = $derived(
     Boolean(showTariffName && hasActiveTariffSubscription && currentTariffName)
   );
+  const autoRenewActionVisible = $derived(showAutoRenew && autoRenewVisible);
+  const autoRenewUnavailable = $derived(!autoRenewEnabled && !subscription.auto_renew_can_enable);
+  const autoRenewStatus = $derived(
+    autoRenewBusy
+      ? t("wa_compact_auto_renew_updating")
+      : autoRenewUnavailable
+        ? t("wa_compact_auto_renew_unavailable")
+        : t(autoRenewEnabled ? "wa_auto_renew_enabled" : "wa_auto_renew_disabled")
+  );
   const summaryClass = $derived(
     [
       "home-compact-summary",
@@ -230,7 +240,7 @@
       {/if}
     </div>
 
-    {#if showChangeTariff || showHomeBalance}
+    {#if showChangeTariff || showHomeBalance || autoRenewActionVisible}
       <div class="compact-summary-head-actions">
         {#if showChangeTariff}
           <Button
@@ -244,27 +254,84 @@
             {t("wa_change_tariff")}
           </Button>
         {/if}
-        {#if showHomeBalance && balance.enabled}
-          <button
-            data-webapp-action="open-balance-topup"
-            type="button"
-            class="compact-balance"
-            onclick={openBalanceTopup}
-            aria-label={t("wa_balance_topup_short", {}, "Top up")}
-            title={t("wa_balance_topup_short", {}, "Top up")}
+        {#if showHomeBalance || autoRenewActionVisible}
+          <div
+            class="compact-finance-actions"
+            class:has-auto-renew={autoRenewActionVisible}
+            class:has-balance={showHomeBalance}
           >
-            <WalletCards size={16} />
-            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-            <Plus size={14} />
-          </button>
-        {:else if showHomeBalance}
-          <span
-            class="compact-balance compact-balance-readonly"
-            aria-label={t("wa_balance_title", {}, "Balance")}
-          >
-            <WalletCards size={16} />
-            <strong>{formatMoney(balance.amount, balance.currency)}</strong>
-          </span>
+            {#if autoRenewActionVisible}
+              <Button
+                data-webapp-action="toggle-auto-renew"
+                class="compact-auto-renew-action"
+                size="sm"
+                variant="secondary"
+                onclick={() => toggleAutoRenew(!autoRenewEnabled)}
+                disabled={autoRenewBusy || autoRenewUnavailable}
+                aria-pressed={autoRenewEnabled}
+                aria-busy={autoRenewBusy}
+                aria-label={autoRenewStatus}
+                title={autoRenewStatus}
+              >
+                {#if autoRenewBusy}<Spinner size="sm" />
+                {:else if autoRenewEnabled}<CheckCircle2 size={15} aria-hidden="true" />
+                {:else}<Repeat2 size={15} aria-hidden="true" />{/if}
+                <span class="compact-action-copy">
+                  <span>{t("wa_compact_auto_renew_title")}</span>
+                  <small>
+                    {autoRenewBusy
+                      ? t("wa_compact_auto_renew_updating_short")
+                      : autoRenewUnavailable
+                        ? t("wa_compact_auto_renew_unavailable_short")
+                        : t(
+                            autoRenewEnabled
+                              ? "wa_compact_auto_renew_on"
+                              : "wa_compact_auto_renew_off"
+                          )}
+                  </small>
+                </span>
+              </Button>
+            {/if}
+            {#if showHomeBalance && balance.enabled}
+              <Button
+                data-webapp-action="open-balance-topup"
+                type="button"
+                class="compact-balance"
+                size="sm"
+                variant="secondary"
+                onclick={openBalanceTopup}
+                aria-label={t("wa_compact_balance_topup", {
+                  amount: formatMoney(balance.amount, balance.currency),
+                })}
+                title={t("wa_balance_topup_short", {}, "Top up")}
+              >
+                <span class="compact-action-copy">
+                  <small class="compact-balance-label"
+                    ><WalletCards size={12} aria-hidden="true" />{t(
+                      "wa_balance_title",
+                      {},
+                      "Balance"
+                    )}</small
+                  >
+                  <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+                </span>
+                <Plus size={14} aria-hidden="true" />
+              </Button>
+            {:else if showHomeBalance}
+              <span class="compact-balance compact-balance-readonly">
+                <span class="compact-action-copy">
+                  <small class="compact-balance-label"
+                    ><WalletCards size={12} aria-hidden="true" />{t(
+                      "wa_balance_title",
+                      {},
+                      "Balance"
+                    )}</small
+                  >
+                  <strong>{formatMoney(balance.amount, balance.currency)}</strong>
+                </span>
+              </span>
+            {/if}
+          </div>
         {/if}
       </div>
     {/if}
@@ -406,25 +473,6 @@
       {/if}
     </div>
   {/if}
-
-  {#if showAutoRenew && autoRenewVisible}
-    <div class="compact-summary-actions">
-      <Button
-        size="sm"
-        variant="secondary"
-        onclick={() => toggleAutoRenew(!autoRenewEnabled)}
-        disabled={autoRenewBusy || (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
-      >
-        {#if autoRenewEnabled}
-          <CircleX size={15} />
-          {t("wa_auto_renew_disable")}
-        {:else}
-          <Repeat2 size={15} />
-          {t("wa_auto_renew_enable")}
-        {/if}
-      </Button>
-    </div>
-  {/if}
 </Card>
 
 <style>
@@ -463,16 +511,54 @@
   .compact-summary-head {
     min-width: 0;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 9px;
   }
   .compact-summary-head-actions {
+    grid-column: 1 / -1;
     min-width: 0;
     display: flex;
+    flex-wrap: wrap;
     align-items: stretch;
     justify-content: flex-end;
     gap: 7px;
+  }
+  .compact-finance-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    flex: 1 1 240px;
+    min-width: 0;
+    max-width: 360px;
+  }
+  .compact-finance-actions.has-auto-renew.has-balance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .compact-action-copy {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.2;
+  }
+  .compact-action-copy small {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 500;
+  }
+  :global(section.home-compact-summary .compact-auto-renew-action) {
+    min-width: 0;
+    min-height: 42px;
+    padding: 5px 8px;
+    font-size: 11px;
+    white-space: normal;
+    justify-content: center;
+  }
+  :global(section.home-compact-summary .compact-auto-renew-action[aria-pressed="true"]) {
+    border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
   }
   :global(section.home-compact-summary .compact-summary-head-actions .compact-tariff-action) {
     min-height: 32px;
@@ -519,12 +605,14 @@
     font-size: 11px;
     line-height: 1.25;
   }
-  .compact-balance {
+  :global(section.home-compact-summary .compact-balance) {
     position: relative;
     z-index: 1;
-    min-height: 32px;
+    min-width: 0;
+    min-height: 42px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
     padding: 5px 8px;
     border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--border));
@@ -532,14 +620,24 @@
     color: var(--text);
     background: color-mix(in srgb, var(--accent) 8%, transparent);
     cursor: pointer;
-    white-space: nowrap;
+    white-space: normal;
   }
-  .compact-balance > :global(svg) {
+  :global(section.home-compact-summary .compact-balance > svg) {
+    flex: 0 0 auto;
     color: var(--accent);
   }
-  .compact-balance strong {
-    white-space: nowrap;
+  .compact-action-copy strong {
+    overflow-wrap: normal;
     font-size: 13px;
+  }
+  .compact-balance-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .compact-balance-label > :global(svg) {
+    flex: 0 0 auto;
+    color: var(--accent);
   }
   .compact-balance-readonly {
     cursor: default;
@@ -691,42 +789,25 @@
     padding: 5px 8px;
     font-size: 10px;
   }
-  .compact-summary-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 7px;
-    padding-top: 9px;
-    border-top: 1px solid var(--border);
-  }
-  :global(section.home-compact-summary .compact-summary-actions .btn) {
-    min-height: 31px;
-    padding: 6px 9px;
-    font-size: 11px;
-  }
   @media (max-width: 520px) {
     :global(section.home-compact-summary) {
       gap: 9px;
       padding: 10px;
     }
-    .compact-balance {
-      min-height: 29px;
-      padding: 4px 7px;
+    .compact-action-copy strong {
+      font-size: 12px;
     }
     .compact-summary-head-actions {
       grid-column: 1 / -1;
       justify-content: stretch;
     }
-    .compact-summary-head-actions .compact-balance,
     :global(section.home-compact-summary .compact-summary-head-actions .compact-tariff-action) {
       flex: 1 1 0;
       justify-content: center;
     }
-    .compact-summary-actions {
-      justify-content: stretch;
-    }
-    :global(section.home-compact-summary .compact-summary-actions .btn) {
-      flex: 1 1 0;
+    .compact-finance-actions {
+      flex-basis: 100%;
+      max-width: none;
     }
   }
 </style>
