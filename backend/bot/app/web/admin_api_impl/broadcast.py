@@ -637,7 +637,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
 
     audience_service = _resolve_audience_service(request)
     try:
-        await audience_service.resolve_user_ids(target)
+        user_ids = await audience_service.resolve_user_ids(target)
     except AudienceNotFoundError:
         return _error(400, "invalid_audience", target)
     except AudienceUnavailableError:
@@ -680,6 +680,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             session,
             actor_id=actor_id,
             target=target,
+            user_ids=user_ids,
             channels=channels,
             exclude_blocked_telegram=exclude_blocked_telegram,
             texts=texts,

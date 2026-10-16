@@ -571,6 +571,7 @@ class AdminBroadcastRouteTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["queued"], 0)
         self.assertEqual(payload["email_queued"], 0)
         self.assertEqual(create.await_args.kwargs["texts"], {"ru": "Hello"})
+        self.assertEqual(create.await_args.kwargs["user_ids"], [-555])
         self.assertTrue(create.await_args.kwargs["exclude_blocked_telegram"])
         dispatch.assert_not_awaited()
 
