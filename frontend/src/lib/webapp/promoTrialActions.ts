@@ -1,6 +1,7 @@
 import type { AppSettings, PlanView } from "./types.js";
 
 type PromoTrialStore = {
+  trialCaptcha: { ensure: () => Promise<boolean> };
   activateTrial: () => unknown;
   applyPromo: () => unknown;
   clearPromoFieldError: () => void;
@@ -39,7 +40,9 @@ export function createPromoTrialActions({
     const settings = getAppSettings();
     const paymentPlan = settings?.trial_payment_plan as PlanView | null | undefined;
     if (settings?.trial_payment_enabled && paymentPlan) {
-      return openTrialPayment(paymentPlan);
+      return actionsStore.trialCaptcha.ensure().then((verified) => {
+        if (verified) return openTrialPayment(paymentPlan);
+      });
     }
     return actionsStore.activateTrial();
   }

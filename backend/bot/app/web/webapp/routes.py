@@ -421,6 +421,10 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_post("/api/promo/apply", apply_promo_route)
     app.router.add_post("/api/promo/status", promo_status_route)
     app.router.add_post("/api/plans/viewed", plans_viewed_route)
+    from .trial_captcha import trial_captcha_route, trial_captcha_verify_route
+
+    app.router.add_get("/api/trial/captcha", trial_captcha_route)
+    app.router.add_post("/api/trial/captcha/verify", trial_captcha_verify_route)
     app.router.add_post("/api/trial/activate", activate_trial_route)
     app.router.add_post("/api/subscription/auto-renew", subscription_auto_renew_route)
     app.router.add_post("/api/subscription/reissue", subscription_reissue_route)

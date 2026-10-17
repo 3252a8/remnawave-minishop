@@ -35,6 +35,7 @@ from .chain_0103_promo_activation_merge_history import CHAIN_0103_PROMO_ACTIVATI
 from .chain_0104_gift_referral_qualification import CHAIN_0104_GIFT_REFERRAL_QUALIFICATION
 from .chain_0105_provider_mandates import CHAIN_0105_PROVIDER_MANDATES
 from .chain_0106_support_connector import CHAIN_0106_SUPPORT_CONNECTOR
+from .chain_0107_cleaned_trial_history import CHAIN_0107_CLEANED_TRIAL_HISTORY
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -71,4 +72,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0104_GIFT_REFERRAL_QUALIFICATION,
     *CHAIN_0105_PROVIDER_MANDATES,
     *CHAIN_0106_SUPPORT_CONNECTOR,
+    *CHAIN_0107_CLEANED_TRIAL_HISTORY,
 ]

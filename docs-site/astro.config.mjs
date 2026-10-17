@@ -113,6 +113,7 @@ export default defineConfig({
                 { label: 'Тарифы и подписки', slug: 'features/subscriptions' },
                 { label: 'Публичный шлюз подписки', slug: 'architecture/subscription-gateway' },
                 { label: 'Настройка тарифов', slug: 'features/tariffs' },
+                { label: 'Защита триала и очистка', slug: 'features/trial-security' },
                 { label: 'Платежи', slug: 'features/payments' },
                 { label: 'Подарочные подписки', slug: 'features/gifts' },
                 { label: 'Баланс пользователя', slug: 'features/user-balance' },

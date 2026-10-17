@@ -18,7 +18,7 @@ import type {
   CheckoutPromoOptions,
   PartnerBalancePaymentOptions,
 } from "../billingActions";
-import { billingErrorMessage } from "../billingActions";
+import { billingErrorMessage, TrialCaptchaCancelled } from "../billingActions";
 import type { CheckoutAddonSelection } from "../tariffs";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
@@ -764,7 +764,7 @@ export function createBillingStore({
         updateState((s) => ({ ...s, paymentModalOpen: false }));
       });
     } catch (error: unknown) {
-      showToast(billingErrorMessage(error, t));
+      if (!(error instanceof TrialCaptchaCancelled)) showToast(billingErrorMessage(error, t));
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }

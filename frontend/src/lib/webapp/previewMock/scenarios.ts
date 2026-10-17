@@ -890,7 +890,20 @@ export function applyPreviewMock(kind: unknown): void {
         },
       ],
     };
-  } else if (mode === "trial") {
+  } else if (mode === "trial" || mode === "trial-captcha" || mode === "trial-captcha-paid") {
     applyInactiveSubscriptionScenario({ trialAvailable: true });
+    DEV_MOCK.data.settings.trial_captcha_enabled = mode !== "trial";
+    DEV_MOCK.data.settings.trial_payment_enabled = mode === "trial-captcha-paid";
+    if (mode === "trial-captcha-paid") {
+      DEV_MOCK.data.settings.trial_payment_plan = {
+        id: "trial:activation",
+        sale_mode: "trial",
+        duration_days: 5,
+        traffic_gb: 10,
+        price: 10,
+        stars_price: 5,
+        currency: "RUB",
+      };
+    }
   }
 }

@@ -580,6 +580,7 @@ async def finalize_successful_payment(
                 req.user_id,
                 commit=False,
                 emit_event=False,
+                captcha_verified_payment=True,
             )
         else:
             activation = await req.subscription_service.activate_subscription(

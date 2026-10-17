@@ -67,6 +67,7 @@ function createDeps(overrides: Partial<AppActionRuntimeDeps> = {}) {
       openSetPasswordDialog: vi.fn(),
     },
     actionsStore: {
+      trialCaptcha: { ensure: vi.fn(async () => true) },
       activateTrial: vi.fn(),
       applyPromo: vi.fn(),
       clearPromoFieldError: vi.fn(),

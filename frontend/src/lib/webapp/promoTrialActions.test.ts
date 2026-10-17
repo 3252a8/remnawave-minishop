@@ -4,6 +4,7 @@ import { createPromoTrialActions } from "./promoTrialActions.js";
 
 function makeActions() {
   const store = {
+    trialCaptcha: { ensure: vi.fn(async () => true) },
     activateTrial: vi.fn(() => "activated"),
     applyPromo: vi.fn(() => "applied"),
     clearPromoFieldError: vi.fn(),
@@ -43,12 +44,12 @@ describe("createPromoTrialActions", () => {
     expect(store.activateTrial).toHaveBeenCalledOnce();
   });
 
-  it("opens the dedicated checkout when paid trial activation is enabled", () => {
+  it("opens the dedicated checkout when paid trial activation is enabled", async () => {
     const { getAppSettings, openTrialPayment, actions, store } = makeActions();
     const plan = { id: "trial:activation", sale_mode: "trial", price: 100 };
     getAppSettings.mockReturnValue({ trial_payment_enabled: true, trial_payment_plan: plan });
 
-    expect(actions.activateTrial()).toBe("checkout");
+    expect(await actions.activateTrial()).toBe("checkout");
 
     expect(openTrialPayment).toHaveBeenCalledWith(plan);
     expect(store.activateTrial).not.toHaveBeenCalled();

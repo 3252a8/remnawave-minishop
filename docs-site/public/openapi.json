@@ -16784,6 +16784,77 @@
         "title": "TrafficPackage",
         "type": "object"
       },
+      "TrialCaptchaBody": {
+        "properties": {
+          "answer": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Answer",
+            "type": "string"
+          },
+          "challenge_id": {
+            "maxLength": 32,
+            "minLength": 32,
+            "pattern": "^[a-f0-9]+$",
+            "title": "Challenge Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "answer"
+        ],
+        "title": "TrialCaptchaBody",
+        "type": "object"
+      },
+      "TrialCaptchaResponse": {
+        "properties": {
+          "challenge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge Id"
+          },
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "ok": {
+            "const": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "required",
+          "challenge_id",
+          "image",
+          "expires_in_seconds"
+        ],
+        "title": "TrialCaptchaResponse",
+        "type": "object"
+      },
       "TributeProductConfig": {
         "properties": {
           "link": {
@@ -40024,6 +40095,129 @@
           }
         ],
         "summary": "Activate Trial",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/api/trial/captcha": {
+      "get": {
+        "operationId": "get_trial_captcha_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "challenge_id": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "title": "Challenge Id"
+                    },
+                    "expires_in_seconds": {
+                      "title": "Expires In Seconds",
+                      "type": "integer"
+                    },
+                    "image": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "title": "Image"
+                    },
+                    "ok": {
+                      "const": true,
+                      "title": "Ok",
+                      "type": "boolean"
+                    },
+                    "required": {
+                      "title": "Required",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "required",
+                    "challenge_id",
+                    "image",
+                    "expires_in_seconds"
+                  ],
+                  "title": "TrialCaptchaResponse",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Trial Captcha",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/api/trial/captcha/verify": {
+      "post": {
+        "operationId": "post_trial_captcha_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialCaptchaBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Trial Captcha Verify",
         "tags": [
           "trial"
         ]

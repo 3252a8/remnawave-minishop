@@ -294,6 +294,60 @@
                     {/if}
                   </div>
                 </div>
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("TRIAL_CAPTCHA_ENABLED", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("settings_trial_captcha_label", {}, "CAPTCHA before trial")}
+                      {#if isSettingDirty("TRIAL_CAPTCHA_ENABLED", settingsDirty)}
+                        <AdminBadge variant="warning">
+                          {at("settings_badge_dirty", {}, "Changed")}
+                        </AdminBadge>
+                      {/if}
+                    </strong>
+                    <code>TRIAL_CAPTCHA_ENABLED</code>
+                    <small>
+                      {at(
+                        "settings_trial_captcha_description",
+                        {},
+                        "Require an image challenge before activating a trial or creating its invoice."
+                      )}
+                    </small>
+                  </div>
+                  <div class="admin-setting-control">
+                    <div class="admin-setting-switch">
+                      <Switch.Root
+                        aria-label={at("settings_trial_captcha_label", {}, "CAPTCHA before trial")}
+                        checked={boolValue(
+                          "TRIAL_CAPTCHA_ENABLED",
+                          settingsDirty,
+                          settingsFieldMap
+                        )}
+                        onCheckedChange={(checked) => setSetting("TRIAL_CAPTCHA_ENABLED", checked)}
+                        class="admin-switch-root"
+                      >
+                        <Switch.Thumb class="admin-switch-thumb" />
+                      </Switch.Root>
+                      <span>
+                        {boolValue("TRIAL_CAPTCHA_ENABLED", settingsDirty, settingsFieldMap)
+                          ? at("enabled", {}, "Enabled")
+                          : at("disabled", {}, "Disabled")}
+                      </span>
+                    </div>
+                    {#if isSettingDirty("TRIAL_CAPTCHA_ENABLED", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => resetSetting("TRIAL_CAPTCHA_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
               </div>
             </section>
 

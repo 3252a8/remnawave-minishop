@@ -337,7 +337,7 @@ async def main_action_callback_handler(
         )
     elif action == "request_trial":
         await user_trial_handlers.request_trial_confirmation_handler(
-            callback, settings, i18n_data, subscription_service, session
+            callback, settings, i18n_data, subscription_service, session, state
         )
     elif action == "language":
         await language_command_handler(callback, i18n_data, settings)

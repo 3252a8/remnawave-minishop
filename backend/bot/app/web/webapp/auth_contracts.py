@@ -31,8 +31,17 @@ from .payloads import (
     WebAppQrLoginRequestPayload,
     WebAppTelegramAuthPayload,
 )
+from .trial_captcha import TrialCaptchaBody, TrialCaptchaResponse
 
 AUTH_ROUTE_CONTRACTS: dict[str, RouteContract] = {
+    "trial_captcha_route": user_contract(
+        response_schema=TrialCaptchaResponse.model_json_schema(),
+        models=(TrialCaptchaResponse,),
+    ),
+    "trial_captcha_verify_route": user_contract(
+        request_model=TrialCaptchaBody,
+        response_schema=ok_envelope_with({}),
+    ),
     "passkey_auth_options_route": public_contract(
         response_schema=ok_envelope_with(
             {"options": {"type": "object", "additionalProperties": True}}

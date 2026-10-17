@@ -4624,6 +4624,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/trial/captcha": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Trial Captcha */
+    get: operations["get_trial_captcha_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/trial/captcha/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Trial Captcha Verify */
+    post: operations["post_trial_captcha_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12046,6 +12080,29 @@ export interface components {
       gb: number;
       /** Price */
       price: number;
+    };
+    /** TrialCaptchaBody */
+    TrialCaptchaBody: {
+      /** Answer */
+      answer: string;
+      /** Challenge Id */
+      challenge_id: string;
+    };
+    /** TrialCaptchaResponse */
+    TrialCaptchaResponse: {
+      /** Challenge Id */
+      challenge_id: string | null;
+      /** Expires In Seconds */
+      expires_in_seconds: number;
+      /** Image */
+      image: string | null;
+      /**
+       * Ok
+       * @constant
+       */
+      ok: true;
+      /** Required */
+      required: boolean;
     };
     /** TributeProductConfig */
     TributeProductConfig: {
@@ -22299,6 +22356,67 @@ export interface operations {
             /** @constant */
             ok: true;
             traffic_gb: number | null;
+          };
+        };
+      };
+    };
+  };
+  get_trial_captcha_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Challenge Id */
+            challenge_id: string | null;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
+            /** Image */
+            image: string | null;
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Required */
+            required: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_trial_captcha_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TrialCaptchaBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

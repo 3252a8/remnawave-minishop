@@ -14,6 +14,7 @@
   import type { WebappDataClient } from "../lib/webapp/dataClient.js";
   import AppLaunchScreen from "./screens/AppLaunchScreen.svelte";
   import AuthenticatedDialogs from "./AuthenticatedDialogs.svelte";
+  import TrialCaptchaDialog from "./security/TrialCaptchaDialog.svelte";
   import { lazyScreen } from "$lib/webapp/lazyScreen.svelte.js";
   import {
     activeThemeOption,
@@ -720,6 +721,7 @@
       {userLanguage}
     />
 
+    <TrialCaptchaDialog store={actionsStore.trialCaptcha} {t} />
     <AuthenticatedDialogs
       api={stores.api}
       loadData={() => stores.dataClient.loadData({ fresh: true })}

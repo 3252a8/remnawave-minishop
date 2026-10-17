@@ -1178,6 +1178,8 @@ test("compact renewal keeps its state and balance top-up action through toggles"
     await expect(renewal).toHaveAttribute("aria-pressed", "true");
     await card.locator('[data-webapp-action="open-balance-topup"]').click();
     await expect(page.locator(".balance-topup-dialog")).toBeVisible();
+    // Focus moves into the dialog on the next animation frame after it becomes visible.
+    await expect(page.locator(".balance-topup-dialog .dialog-close-button")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.locator(".balance-topup-dialog")).toHaveCount(0);
   }

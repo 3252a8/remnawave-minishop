@@ -46,6 +46,12 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     if not user:
         return False
 
+    from .account_cleanup_dal import delete_cleanup_intent
+
+    account_id = user.__dict__.get("account_id")
+    if account_id is not None:
+        await delete_cleanup_intent(session, str(account_id))
+
     # Ensure referral pointers do not block deletion
     await session.execute(
         update(User).where(User.referred_by_id == user_id).values(referred_by_id=None)

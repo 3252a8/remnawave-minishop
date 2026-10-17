@@ -310,6 +310,7 @@ export function createAppFactories({
   const serverStatusStore = createServerStatusStore(api);
   const billing = createBillingActions({
     api,
+    ensureTrialCaptcha: () => actionsStore.trialCaptcha.ensure(),
   });
   const emailAvatarSync = createEmailAvatarSync();
   const activation = createWebappActivationContext({
