@@ -449,3 +449,29 @@ UI-примитив. Например, для провайдера нужен `P
 - Compatibility facades (`admin_api`, `subscription_webapp`, `subscription_service`) are compatibility-only layers.
   Implementation code must import concrete `*_impl`/domain modules first; avoid adding new first-party dependencies on facade modules
   unless a public compatibility contract requires it.
+
+## 9. Статус публикации документации
+
+Cloudflare Pages публикует документацию из обоих зеркал. Если GitLab callback
+завис в `running`, workflow **Docs deployment status** для `dev` и `main` проверяет
+фактическую публикацию. Сборка записывает `/_build.json` только после успешной
+материализации всех страниц. Проверка требует совпадения репозитория, ветки и SHA
+в обеих неизменяемых публикациях, успешного check от приложения Cloudflare для
+того же commit и одинаковых SHA-256 главной страницы и changelog. После этого
+обновляется только соответствующий внешний статус в указанном GitLab pipeline.
+Ошибочные и отменённые результаты не заменяются; несовпадение публикаций блокирует
+восстановление. Ожидание ограничено 20 минутами с интервалом 30 секунд.
+
+В GitHub Actions нужен secret `GITLAB_DOCS_STATUS_TOKEN`: fine-grained токен
+аккаунта `3252a8`, ограниченный проектом `3252a8/remnawave-minishop` и правами
+**Commit → Read** (`read_commit`) и **Commit Status → Create** (`create_commit_status`).
+Чтение статусов коммита требует авторизации даже у публичного проекта. Для GitHub
+используется штатный token с `checks: read`. Доступ к другим
+проектам и персональный API token с широкими правами этому workflow не нужны.
+Храните токен только в Actions secrets и заменяйте его до истечения срока.
+
+После временного сбоя повторите неудавшийся запуск **Docs deployment status**.
+Когда workflow присутствует в default branch, доступен также **Run workflow**
+для нужной ветки. Если Cloudflare вообще не зарегистрировал внешний статус, спустя
+три минуты workflow завершится без изменения GitLab. Если публикация не
+подтверждена, workflow завершится с ошибкой и не выставит успешный статус.
