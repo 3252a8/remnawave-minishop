@@ -7,6 +7,7 @@ import {
   clearAuthQuery,
 } from "./authHelpers.js";
 import { TELEGRAM_SDK_BOOT_TIMEOUT_MS } from "./constants";
+import type { LoadDataOptions } from "./dataClient";
 import { restoreInstallAuthDestination } from "./installAuthDestination.js";
 import { isMaintenanceFailure } from "./maintenance";
 import {
@@ -48,7 +49,7 @@ export type WebappBootDeps = {
   hasTelegramLaunchParams: () => boolean;
   loadTelegramSdk: (timeoutMs?: number) => Promise<unknown> | unknown;
   prepareTelegramMiniApp: () => void;
-  loadData: () => Promise<unknown>;
+  loadData: (options?: LoadDataOptions) => Promise<unknown>;
   showLogin: () => void;
   clearToken: () => void;
   refreshSession?: (() => Promise<SessionRefreshResult | null | undefined>) | null;
@@ -110,7 +111,7 @@ export async function runWebappBoot(deps: WebappBootDeps): Promise<void> {
           setAuthStatus: (message, error) => {
             if (!controller.signal.aborted) deps.setAuthStatus(message, error);
           },
-          loadData: () => step(deps.loadData),
+          loadData: (options) => step(() => deps.loadData(options)),
           loadTelegramSdk: (timeout) => step(() => deps.loadTelegramSdk(timeout)),
           refreshSession: deps.refreshSession ? () => step(() => deps.refreshSession?.()) : null,
           finalizeMagicLogin: (token) => step(() => deps.finalizeMagicLogin(token)),
@@ -262,11 +263,15 @@ async function runWebappBootSequence({
   }
 
   const telegramAuthStatus = readTelegramAuthStatus();
+  const telegramLinkReturn = /^\/settings(?:\/security)?\/?$/.test(
+    new URL(window.location.href).pathname
+  );
   if (telegramAuthStatus === "success") {
     clearManualLogoutFlag();
     clearAuthQuery();
     try {
-      await loadData();
+      await loadData({ fresh: true });
+      if (telegramLinkReturn) showAccountLinkStatus?.(t("wa_settings_linked"));
       return;
     } catch (error) {
       if (!isInvalidSession(error)) throw error;
@@ -295,14 +300,25 @@ async function runWebappBootSequence({
     }
   } else if (telegramAuthStatus) {
     clearAuthQuery();
-    setAuthStatus(
+    const messageKey =
       telegramAuthStatus === "cancelled"
-        ? t("wa_auth_telegram_cancelled")
-        : telegramAuthStatus === "invite_required"
-          ? t("wa_auth_invite_required")
-          : t("wa_auth_telegram_not_confirmed"),
-      true
-    );
+        ? "wa_auth_telegram_cancelled"
+        : telegramAuthStatus === "not_configured"
+          ? "wa_auth_telegram_not_configured"
+          : telegramAuthStatus === "invite_required"
+            ? "wa_auth_invite_required"
+            : "wa_auth_telegram_not_confirmed";
+    if (telegramLinkReturn) {
+      try {
+        await loadData();
+        showAccountLinkStatus?.(t(messageKey));
+        return;
+      } catch (error) {
+        if (!isInvalidSession(error)) throw error;
+        clearToken();
+      }
+    }
+    setAuthStatus(t(messageKey), true);
   }
 
   const widgetAuthData = readTelegramLoginWidgetAuthData();

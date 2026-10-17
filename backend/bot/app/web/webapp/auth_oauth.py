@@ -171,17 +171,22 @@ async def telegram_oauth_nonce_route(request: web.Request) -> web.Response:
 async def telegram_oauth_start_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     tariff_access_code = normalize_tariff_access_code(request.query.get("tariff_access"))
-    redirect_path = f"/checkout/{tariff_access_code}" if tariff_access_code else "/"
+    purpose = str(request.query.get("purpose") or "login").strip().lower()
+    if purpose not in {"login", "link", "merge"}:
+        purpose = "login"
+    redirect_path = (
+        "/settings/security"
+        if purpose in {"link", "merge"}
+        else f"/checkout/{tariff_access_code}"
+        if tariff_access_code
+        else "/"
+    )
     if not settings.TELEGRAM_ENABLED or not settings.TELEGRAM_LOGIN_ENABLED:
         raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="disabled"))
     client_id = _resolve_telegram_oauth_client_id(settings)
     client_secret = str(settings.TELEGRAM_OAUTH_CLIENT_SECRET or "").strip()
     if not client_id or not client_secret:
         raise web.HTTPFound(_telegram_oauth_redirect_url(redirect_path, status="not_configured"))
-
-    purpose = str(request.query.get("purpose") or "login").strip().lower()
-    if purpose not in {"login", "link", "merge"}:
-        purpose = "login"
 
     current_user_id = _extract_authenticated_user_id(request)
     if purpose in {"link", "merge"} and not current_user_id:
@@ -238,10 +243,13 @@ async def telegram_oauth_start_route(request: web.Request) -> web.Response:
 async def telegram_oauth_callback_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     state = _read_telegram_oauth_state_payload(request, str(request.query.get("state") or ""))
-    purpose = str((state or {}).get("purpose") or "login")
+    purpose = str(
+        (state or {}).get("purpose")
+        or ("link" if _extract_authenticated_user_id(request) else "login")
+    )
     tariff_access_code = normalize_tariff_access_code((state or {}).get("tariff_access_code"))
     redirect_path = (
-        "/settings"
+        "/settings/security"
         if purpose in {"link", "merge"}
         else f"/checkout/{tariff_access_code}"
         if tariff_access_code
