@@ -1,9 +1,60 @@
+import json
 import unittest
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, patch
+
+from aiohttp import web
 
 import bot.app.web.subscription_webapp  # noqa: F401
 from bot.app.web.admin_api_impl import stats as stats_module
+from bot.app.web.admin_api_impl.schemas import AdminStatsOut
+
+
+class AdminStatsSerializationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_plan_groups_preserve_required_nulls_in_actual_route_response(self) -> None:
+        payload = {
+            "users": {"active_subscriptions": 3},
+            "financial": {},
+            "panel_sync": {"status": "never_run", "users_processed": 0, "subscriptions_synced": 0},
+            "recent_payments": [],
+            "active_tariff_counts": [
+                {"is_trial": True, "tariff_key": None, "active_users": 1},
+                {"is_trial": False, "tariff_key": None, "active_users": 1},
+                {"is_trial": False, "tariff_key": "removed", "active_users": 1},
+            ],
+        }
+        with (
+            patch.object(stats_module, "_require_admin_user_id", return_value=42),
+            patch.object(
+                stats_module, "get_settings", return_value=SimpleNamespace(tariffs_config=None)
+            ),
+            patch.object(stats_module, "get_session_factory", return_value=object()),
+            patch.object(stats_module, "_load_admin_db_stats", AsyncMock(return_value=payload)),
+            patch.object(stats_module, "get_panel_service", return_value=None),
+            patch.object(stats_module, "get_queue_manager", return_value=None),
+            patch.object(
+                stats_module, "default_payment_currency_code_for_settings", return_value="USD"
+            ),
+        ):
+            response = await stats_module.admin_stats_route(cast(web.Request, object()))
+        self.assertEqual(response.status, 200)
+        body = json.loads(response.text or "{}")
+        self.assertTrue(body["ok"])
+        self.assertNotIn("panel", body)
+        self.assertNotIn("queue", body)
+        self.assertNotIn("last_sync_time", body["panel_sync"])
+        groups = {row["kind"]: row for row in body["active_tariffs"]}
+        self.assertEqual(set(groups), {"tariff", "trial", "unassigned"})
+        for kind in ("trial", "unassigned"):
+            self.assertIn("tariff_key", groups[kind])
+            self.assertIsNone(groups[kind]["tariff_key"])
+        self.assertEqual(groups["tariff"]["tariff_key"], "removed")
+        for group in groups.values():
+            self.assertIn("is_enabled", group)
+            self.assertIsNone(group["is_enabled"])
+        validated = AdminStatsOut.model_validate(body)
+        self.assertEqual(sum(row.active_users for row in validated.active_tariffs), 3)
 
 
 class AdminPanelStatsCacheTests(unittest.IsolatedAsyncioTestCase):
@@ -149,6 +200,11 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
             patch("bot.infra.redis.cache_get_json", fake_get),
             patch("bot.infra.redis.cache_set_json", fake_set),
             patch.object(stats_module.user_dal, "get_enhanced_user_statistics", user_stats),
+            patch.object(
+                stats_module.user_subscription_plans,
+                "get_active_subscription_plan_counts",
+                AsyncMock(return_value=[]),
+            ),
             patch.object(stats_module.payment_dal, "get_financial_statistics", financial_stats),
             patch.object(stats_module.panel_sync_dal, "get_panel_sync_status", sync_status),
             patch.object(

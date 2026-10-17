@@ -1475,6 +1475,66 @@
         "title": "AdUnassignedOut",
         "type": "object"
       },
+      "AdminActiveTariffOut": {
+        "properties": {
+          "active_users": {
+            "title": "Active Users",
+            "type": "integer"
+          },
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "kind": {
+            "enum": [
+              "tariff",
+              "trial",
+              "unassigned"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tariff Key"
+          },
+          "tariff_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Tariff Names",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "tariff_key",
+          "tariff_names",
+          "is_configured",
+          "is_enabled",
+          "active_users"
+        ],
+        "title": "AdminActiveTariffOut",
+        "type": "object"
+      },
       "AdminAdsListOut": {
         "properties": {
           "campaigns": {
@@ -5541,6 +5601,13 @@
       },
       "AdminStatsOut": {
         "properties": {
+          "active_tariffs": {
+            "items": {
+              "$ref": "#/components/schemas/AdminActiveTariffOut"
+            },
+            "title": "Active Tariffs",
+            "type": "array"
+          },
           "currency_symbol": {
             "title": "Currency Symbol",
             "type": "string"
@@ -5597,7 +5664,8 @@
           "financial",
           "panel_sync",
           "recent_payments",
-          "currency_symbol"
+          "currency_symbol",
+          "active_tariffs"
         ],
         "title": "AdminStatsOut",
         "type": "object"
@@ -5985,6 +6053,66 @@
           "is_throttled"
         ],
         "title": "AdminSubscriptionOut",
+        "type": "object"
+      },
+      "AdminSubscriptionPlanOut": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "kind": {
+            "enum": [
+              "tariff",
+              "trial",
+              "unassigned"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tariff Key"
+          },
+          "tariff_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Tariff Names",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "tariff_key",
+          "tariff_names",
+          "is_configured",
+          "is_enabled",
+          "is_active"
+        ],
+        "title": "AdminSubscriptionPlanOut",
         "type": "object"
       },
       "AdminSupportMessageOut": {
@@ -6691,6 +6819,44 @@
           "status"
         ],
         "title": "AdminSyncResultOut",
+        "type": "object"
+      },
+      "AdminTariffOptionOut": {
+        "properties": {
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "tariff_key": {
+            "title": "Tariff Key",
+            "type": "string"
+          },
+          "tariff_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Tariff Names",
+            "type": "object"
+          }
+        },
+        "required": [
+          "tariff_key",
+          "tariff_names",
+          "is_configured",
+          "is_enabled"
+        ],
+        "title": "AdminTariffOptionOut",
         "type": "object"
       },
       "AdminTariffReconciliationApplyBody": {
@@ -29863,6 +30029,18 @@
     "/api/admin/users": {
       "get": {
         "operationId": "get_admin_users_list_route",
+        "parameters": [
+          {
+            "description": "Filter the displayed subscription plan: all, trial, no_subscription, no_tariff, or tariff:<exact key>. Live subscriptions take precedence; otherwise the latest historical subscription is used. Combine with filter=active_subscription to match dashboard active tariff counts.",
+            "in": "query",
+            "name": "tariff_filter",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -29888,6 +30066,12 @@
                     },
                     "partner_balance_enabled": {
                       "type": "boolean"
+                    },
+                    "tariff_options": {
+                      "items": {
+                        "$ref": "#/components/schemas/AdminTariffOptionOut"
+                      },
+                      "type": "array"
                     },
                     "total": {
                       "type": "integer"
@@ -29943,6 +30127,16 @@
                                   "null"
                                 ]
                               },
+                              "subscription_plan": {
+                                "anyOf": [
+                                  {
+                                    "$ref": "#/components/schemas/AdminSubscriptionPlanOut"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "user_balance_amount_minor": {
                                 "type": "integer"
                               }
@@ -29951,6 +30145,7 @@
                               "panel_status",
                               "subscription_expires_at",
                               "premium_traffic",
+                              "subscription_plan",
                               "payments_total_amount",
                               "payments_count",
                               "payments_currency",
@@ -29971,6 +30166,7 @@
                     "page",
                     "page_size",
                     "total",
+                    "tariff_options",
                     "user_balance_enabled",
                     "partner_balance_enabled",
                     "balance_currency",

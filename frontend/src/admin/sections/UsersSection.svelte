@@ -11,6 +11,7 @@
     type UsersRouteFilters,
   } from "../../lib/admin/usersRouteFilters";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import { tariffFilterOptions } from "$lib/admin/subscriptionPlans";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -25,11 +26,12 @@
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = "usersFilter" | "usersPanelStatus" | "usersPremiumTraffic";
+  type FilterKey = keyof UsersRouteFilters;
   type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
   type FilterChip = { key: FilterKey; label: string; value: string };
   type UsersSectionProps = {
     at?: TranslateFn;
+    currentLang?: string;
     fmtDateShort?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
     panelStatusBadge?: (user: AdminUser) => { label?: string; variant?: AdminBadgeVariant };
@@ -51,6 +53,7 @@
 
   let {
     at = (key) => key,
+    currentLang = "en",
     fmtDateShort = (value) => String(value || ""),
     fmtMoney = (value) => String(value),
     panelStatusBadge = () => ({}),
@@ -74,6 +77,10 @@
   const usersFilter = $derived(usersState.usersFilter);
   const usersPanelStatus = $derived(usersState.usersPanelStatus);
   const usersPremiumTraffic = $derived(usersState.usersPremiumTraffic);
+  const usersTariffFilter = $derived(usersState.usersTariffFilter);
+  const USERS_TARIFF_OPTIONS = $derived(
+    tariffFilterOptions(usersState.usersTariffOptions, usersTariffFilter, currentLang, at)
+  );
   const usersSort = $derived(usersState.usersSort);
   const usersLoading = $derived(usersState.usersLoading);
   const userBalanceEnabled = $derived(usersState.userBalanceEnabled);
@@ -177,6 +184,7 @@
       usersFilter: patch.usersFilter ?? usersFilter,
       usersPanelStatus: patch.usersPanelStatus ?? usersPanelStatus,
       usersPremiumTraffic: patch.usersPremiumTraffic ?? usersPremiumTraffic,
+      usersTariffFilter: patch.usersTariffFilter ?? usersTariffFilter,
     });
     usersStore.updateState({ ...patch, usersPage: 0 });
     onUsersFiltersChange(filters);
@@ -189,6 +197,8 @@
     updateUsersFilterState({ usersPanelStatus: value })) as ComponentCallback;
   const updateUsersPremiumTraffic = ((value: string) =>
     updateUsersFilterState({ usersPremiumTraffic: value })) as ComponentCallback;
+  const updateUsersTariffFilter = (value: string) =>
+    updateUsersFilterState({ usersTariffFilter: value });
   const updateToolbarUsersFilter = ((value: string) => {
     updateUsersFilterState({ usersFilter: value });
   }) as ComponentCallback;
@@ -204,6 +214,7 @@
       usersFilter: "all",
       usersPanelStatus: "all",
       usersPremiumTraffic: "all",
+      usersTariffFilter: "all",
     });
   }
 
@@ -211,6 +222,7 @@
     if (key === "usersFilter") updateUsersFilterState({ usersFilter: "all" });
     if (key === "usersPanelStatus") updateUsersFilterState({ usersPanelStatus: "all" });
     if (key === "usersPremiumTraffic") updateUsersFilterState({ usersPremiumTraffic: "all" });
+    if (key === "usersTariffFilter") updateUsersFilterState({ usersTariffFilter: "all" });
   }
 
   function isFilterChip(value: FilterChip | false): value is FilterChip {
@@ -233,6 +245,7 @@
   function userTableColumns(): UserTableColumn[] {
     return [
       { key: "user", label: at("user", {}, "User"), sort: SORT_COLUMNS.user },
+      { key: "tariff", label: at("users_col_tariff", {}, "Tariff / trial") },
       ...(userBalanceEnabled
         ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance") }]
         : []),
@@ -352,6 +365,11 @@
           label: at("premium_traffic_filter_label", {}, "Premium traffic"),
           value: optionLabel(USERS_PREMIUM_TRAFFIC_OPTIONS, usersPremiumTraffic),
         },
+        usersTariffFilter !== "all" && {
+          key: "usersTariffFilter",
+          label: at("users_col_tariff", {}, "Tariff / trial"),
+          value: optionLabel(USERS_TARIFF_OPTIONS, usersTariffFilter),
+        },
       ] satisfies (FilterChip | false)[]
     ).filter(isFilterChip)
   );
@@ -359,6 +377,7 @@
   const userTableHeaders = $derived(userTableColumns().map((column) => column.label));
   const userTableWidths = $derived([
     "220px",
+    "170px",
     ...(userBalanceEnabled ? ["118px"] : []),
     ...(partnerBalanceEnabled ? ["136px"] : []),
     "128px",
@@ -378,6 +397,7 @@
 
 <UsersView
   {at}
+  {currentLang}
   {usersStore}
   {onOpenUserCard}
   {usersTable}
@@ -385,6 +405,7 @@
   {usersFilter}
   {usersPanelStatus}
   {usersPremiumTraffic}
+  {usersTariffFilter}
   {usersQuery}
   {usersTotal}
   {usersPage}
@@ -394,6 +415,7 @@
   {USERS_FILTER_OPTIONS}
   {USERS_PANEL_STATUS_OPTIONS}
   {USERS_PREMIUM_TRAFFIC_OPTIONS}
+  {USERS_TARIFF_OPTIONS}
   {activeUsersFilterCount}
   {activeUserFilterChips}
   {userTableHeaders}
@@ -404,6 +426,7 @@
   {updateUsersFilter}
   {updateUsersPanelStatus}
   {updateUsersPremiumTraffic}
+  {updateUsersTariffFilter}
   {updateToolbarUsersFilter}
   {updateToolbarPanelStatus}
   {updateToolbarPremiumTraffic}

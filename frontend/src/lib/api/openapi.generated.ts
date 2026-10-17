@@ -5353,6 +5353,26 @@ export interface components {
       /** Touches */
       touches: components["schemas"]["AdTouchOut"][];
     };
+    /** AdminActiveTariffOut */
+    AdminActiveTariffOut: {
+      /** Active Users */
+      active_users: number;
+      /** Is Configured */
+      is_configured: boolean;
+      /** Is Enabled */
+      is_enabled: boolean | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "tariff" | "trial" | "unassigned";
+      /** Tariff Key */
+      tariff_key: string | null;
+      /** Tariff Names */
+      tariff_names: {
+        [key: string]: string;
+      };
+    };
     /** AdminAdsListOut */
     AdminAdsListOut: {
       /** Campaigns */
@@ -7165,6 +7185,8 @@ export interface components {
     };
     /** AdminStatsOut */
     AdminStatsOut: {
+      /** Active Tariffs */
+      active_tariffs: components["schemas"]["AdminActiveTariffOut"][];
       /** Currency Symbol */
       currency_symbol: string;
       /** Financial */
@@ -7354,6 +7376,26 @@ export interface components {
        * @default null
        */
       traffic_used_bytes: number | null;
+    };
+    /** AdminSubscriptionPlanOut */
+    AdminSubscriptionPlanOut: {
+      /** Is Active */
+      is_active: boolean;
+      /** Is Configured */
+      is_configured: boolean;
+      /** Is Enabled */
+      is_enabled: boolean | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "tariff" | "trial" | "unassigned";
+      /** Tariff Key */
+      tariff_key: string | null;
+      /** Tariff Names */
+      tariff_names: {
+        [key: string]: string;
+      };
     };
     /** AdminSupportMessageOut */
     AdminSupportMessageOut: {
@@ -7643,6 +7685,19 @@ export interface components {
     AdminSyncResultOut: {
       /** Status */
       status: string;
+    };
+    /** AdminTariffOptionOut */
+    AdminTariffOptionOut: {
+      /** Is Configured */
+      is_configured: boolean;
+      /** Is Enabled */
+      is_enabled: boolean | null;
+      /** Tariff Key */
+      tariff_key: string;
+      /** Tariff Names */
+      tariff_names: {
+        [key: string]: string;
+      };
     };
     /** AdminTariffReconciliationApplyBody */
     AdminTariffReconciliationApplyBody: {
@@ -18296,7 +18351,10 @@ export interface operations {
   };
   get_admin_users_list_route: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Filter the displayed subscription plan: all, trial, no_subscription, no_tariff, or tariff:<exact key>. Live subscriptions take precedence; otherwise the latest historical subscription is used. Combine with filter=active_subscription to match dashboard active tariff counts. */
+        tariff_filter?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -18317,6 +18375,7 @@ export interface operations {
             page: number;
             page_size: number;
             partner_balance_enabled: boolean;
+            tariff_options: components["schemas"]["AdminTariffOptionOut"][];
             total: number;
             user_balance_enabled: boolean;
             users: (components["schemas"]["AdminUserWithAvatarOut"] & {
@@ -18331,6 +18390,7 @@ export interface operations {
                 [key: string]: unknown;
               };
               subscription_expires_at: string | null;
+              subscription_plan: components["schemas"]["AdminSubscriptionPlanOut"] | null;
               user_balance_amount_minor: number;
             })[];
           };

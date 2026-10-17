@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from bot.app.web.admin_api_impl import users_merge
 from bot.app.web.admin_api_impl import users_merge_context as merge_context
-from bot.app.web.admin_api_impl.users_detail import _user_search_condition
+from bot.app.web.admin_api_impl.users_queries import _user_search_condition
 from db.dal.user_merge_dal import UserMergeConflictError
 
 

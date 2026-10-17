@@ -140,12 +140,14 @@ async def get_all_users_with_panel_uuid(session: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
-async def get_enhanced_user_statistics(session: AsyncSession) -> dict[str, Any]:
+async def get_enhanced_user_statistics(
+    session: AsyncSession, *, now: datetime | None = None
+) -> dict[str, Any]:
     """Get comprehensive user statistics including active users, trial users, etc."""
     from datetime import datetime
 
     # Use timezone-aware UTC to avoid naive/aware comparison issues in SQL queries
-    now = datetime.now(UTC)
+    now = now or datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     user_counts_stmt = select(

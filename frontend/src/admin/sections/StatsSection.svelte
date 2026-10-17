@@ -16,6 +16,7 @@
   } from "$components/patterns/admin/index.js";
   import PaymentTable from "./PaymentTable.svelte";
   import StatsPanelDashboard from "./stats/StatsPanelDashboard.svelte";
+  import StatsTariffDistribution from "./stats/StatsTariffDistribution.svelte";
   import StatsSkeleton from "./stats/StatsSkeleton.svelte";
   import StatsSyncStrip from "./stats/StatsSyncStrip.svelte";
   import {
@@ -48,7 +49,7 @@
   import { paymentDescriptionDisplay } from "$lib/admin/paymentTable.js";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { StatsState } from "$lib/admin/stores/statsStore";
-  import type { UsersFilter } from "$lib/admin/usersRouteFilters";
+  import type { UsersFilter, UsersTariffFilter } from "$lib/admin/usersRouteFilters";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -76,7 +77,7 @@
     fmtMoney?: FormatterFn;
     paymentStatusVariant?: (status: unknown) => AdminBadgeVariant;
     onOpenUserCard?: (userId: unknown) => void;
-    onOpenUsersFilter?: (filter: UsersFilter) => void;
+    onOpenUsersFilter?: (filter: UsersFilter, tariffFilter?: UsersTariffFilter) => void;
   } = $props();
 
   const statsStore = getStatsStore();
@@ -417,6 +418,15 @@
         </Card.Footer>
       </Card.Root>
     </AdminDashboardGrid>
+
+    {#if stats.active_tariffs}
+      <StatsTariffDistribution
+        {at}
+        {currentLang}
+        rows={stats.active_tariffs}
+        onOpenTariff={(filter) => onOpenUsersFilter("active_subscription", filter)}
+      />
+    {/if}
 
     <Card.Root>
       <Card.Header>

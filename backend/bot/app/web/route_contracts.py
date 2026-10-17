@@ -42,6 +42,7 @@ class RouteContract:
     response_content_type: str = "application/json"
     models: tuple[type[BaseModel], ...] = field(default_factory=tuple)
     security: list[dict[str, list[Any]]] | None = None
+    query_parameters: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
 
 _CONTRACTS: dict[str, RouteContract] = {}

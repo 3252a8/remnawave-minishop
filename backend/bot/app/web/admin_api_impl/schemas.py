@@ -91,6 +91,7 @@ from .schema_helpers import (
 from .schema_helpers import (
     float_or_none as _float_or_none,
 )
+from .subscription_plan_schemas import AdminActiveTariffOut
 from .user_schemas import (
     AdminSubscriptionOut as AdminSubscriptionOut,
 )
@@ -845,6 +846,7 @@ class AdminStatsOut(HttpResponseModel):
     panel_sync: AdminPanelSyncOut
     recent_payments: list[PaymentOut]
     currency_symbol: str
+    active_tariffs: list[AdminActiveTariffOut]
     panel: dict[str, Any] | None = None
     queue: dict[str, Any] | None = None
 

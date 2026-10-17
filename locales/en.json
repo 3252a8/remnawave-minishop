@@ -6250,5 +6250,21 @@
   "trial_captcha_bot_prompt": "Send the five digits from the image in one message. The image is valid for 3 minutes.",
   "trial_captcha_bot_cancel": "Cancel",
   "trial_captcha_bot_success": "Challenge passed. You can now start your trial.",
-  "trial_captcha_bot_continue": "Continue"
+  "trial_captcha_bot_continue": "Continue",
+  "admin_users_col_tariff": "Tariff / trial",
+  "admin_users_tariff_all": "All tariffs",
+  "admin_users_tariff_trial": "Trial",
+  "admin_users_tariff_no_subscription": "No subscription",
+  "admin_users_tariff_unassigned": "No tariff",
+  "admin_users_tariff_deleted": "Removed",
+  "admin_users_tariff_disabled": "Disabled",
+  "admin_users_tariff_inactive": "Inactive",
+  "admin_users_tariff_history_hint": "For users without an active subscription, the latest subscription is shown. Other filters apply in addition.",
+  "admin_stats_tariffs_title": "Active subscriptions by tariff",
+  "admin_stats_tariffs_hint": "Each user is counted once. Select a tariff to open its active users.",
+  "admin_stats_tariffs_open": "Show active users: {label}, {count}",
+  "admin_stats_tariffs_empty": "No active subscriptions",
+  "admin_stats_tariffs_collapse": "Show fewer",
+  "admin_stats_tariffs_show_all": "Show all (+{count})",
+  "admin_user_message_delivery": "Delivery channels"
 }

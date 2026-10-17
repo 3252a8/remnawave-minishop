@@ -85,7 +85,7 @@
   line-height: 1.15;
 }
 
-.admin-cn-card-title--section {
+.admin-cn-card-title.admin-cn-card-title--section {
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0;

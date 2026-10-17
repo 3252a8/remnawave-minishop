@@ -79,6 +79,22 @@ def test_openapi_marks_user_session_security():
     )
 
 
+def test_openapi_includes_subscription_plan_contracts_and_filter():
+    document = json.loads(DEFAULT_OUTPUT_PATH.read_text(encoding="utf-8"))
+    operation = document["paths"]["/api/admin/users"]["get"]
+    parameter = next(item for item in operation["parameters"] if item["name"] == "tariff_filter")
+    assert parameter["in"] == "query"
+    assert parameter["schema"]["default"] == "all"
+    properties = operation["responses"]["200"]["content"]["application/json"]["schema"][
+        "properties"
+    ]
+    assert properties["tariff_options"]["items"]["$ref"].endswith("/AdminTariffOptionOut")
+    plan = properties["users"]["items"]["allOf"][1]["properties"]["subscription_plan"]
+    assert plan["anyOf"][0]["$ref"].endswith("/AdminSubscriptionPlanOut")
+    stats = document["components"]["schemas"]["AdminStatsOut"]
+    assert stats["properties"]["active_tariffs"]["items"]["$ref"].endswith("/AdminActiveTariffOut")
+
+
 def test_openapi_lists_every_live_api_route():
     document = json.loads(DEFAULT_OUTPUT_PATH.read_text(encoding="utf-8"))
     generated = generate_openapi()

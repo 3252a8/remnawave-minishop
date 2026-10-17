@@ -43,6 +43,7 @@ from .squad_override_schemas import (
     AdminPanelSquadOverridesOut,
     AdminUserSquadOverridesPatchBody,
 )
+from .subscription_plan_schemas import AdminSubscriptionPlanOut, AdminTariffOptionOut
 from .users_actions import (
     admin_user_ban_route,
     admin_user_delete_route,
@@ -73,7 +74,6 @@ from .users_detail import (
     _bulk_active_subscriptions_for_users,
     _bulk_user_payment_summaries,
     _bulk_user_referral_counts,
-    _filter_and_sort_users,
     _serialize_trial_summary,
     admin_user_avatar_route,
     admin_user_detail_route,
@@ -87,6 +87,7 @@ from .users_listing import (
     admin_users_list_route,
 )
 from .users_notification_preferences import admin_user_notification_preferences_route
+from .users_queries import _filter_and_sort_users
 from .users_squad_overrides import (
     admin_user_squad_overrides_refresh_route,
     admin_user_squad_overrides_route,
@@ -95,7 +96,21 @@ from .users_squad_overrides import (
 register_contract(
     "admin_users_list_route",
     RouteContract(
-        models=(AdminUserWithAvatarOut,),
+        models=(AdminUserWithAvatarOut, AdminSubscriptionPlanOut, AdminTariffOptionOut),
+        query_parameters=(
+            {
+                "name": "tariff_filter",
+                "in": "query",
+                "required": False,
+                "description": (
+                    "Filter the displayed subscription plan: all, trial, no_subscription, "
+                    "no_tariff, or tariff:<exact key>. Live subscriptions take precedence; "
+                    "otherwise the latest historical subscription is used. Combine with "
+                    "filter=active_subscription to match dashboard active tariff counts."
+                ),
+                "schema": {"type": "string", "default": "all"},
+            },
+        ),
         response_schema=ok_envelope_with(
             {
                 "users": {
@@ -113,6 +128,12 @@ register_contract(
                                     "subscription_expires_at": NULLABLE_STRING_SCHEMA,
                                     "panel_status_expired_at": NULLABLE_STRING_SCHEMA,
                                     "premium_traffic": JSON_OBJECT_SCHEMA,
+                                    "subscription_plan": {
+                                        "anyOf": [
+                                            schema_ref(AdminSubscriptionPlanOut),
+                                            {"type": "null"},
+                                        ]
+                                    },
                                     "payments_total_amount": NUMBER_SCHEMA,
                                     "payments_count": INTEGER_SCHEMA,
                                     "payments_currency": NULLABLE_STRING_SCHEMA,
@@ -124,6 +145,7 @@ register_contract(
                                     "panel_status",
                                     "subscription_expires_at",
                                     "premium_traffic",
+                                    "subscription_plan",
                                     "payments_total_amount",
                                     "payments_count",
                                     "payments_currency",
@@ -138,6 +160,7 @@ register_contract(
                 "page": INTEGER_SCHEMA,
                 "page_size": INTEGER_SCHEMA,
                 "total": INTEGER_SCHEMA,
+                "tariff_options": {"type": "array", "items": schema_ref(AdminTariffOptionOut)},
                 "user_balance_enabled": BOOLEAN_SCHEMA,
                 "partner_balance_enabled": BOOLEAN_SCHEMA,
                 "balance_currency": STRING_SCHEMA,

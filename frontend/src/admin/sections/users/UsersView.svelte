@@ -14,10 +14,12 @@
     AdminTable,
     AdminTableSkeleton,
     AdminUserCell,
+    AdminSubscriptionPlan,
     VirtualTableRows,
   } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import type { UsersRouteFilters } from "$lib/admin/usersRouteFilters";
   import UserMobileCard from "./UserMobileCard.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -33,7 +35,7 @@
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = "usersFilter" | "usersPanelStatus" | "usersPremiumTraffic";
+  type FilterKey = keyof UsersRouteFilters;
   type FilterChip = { key: FilterKey; label: string; value: string };
   type TrafficBadge =
     | {
@@ -52,6 +54,7 @@
 
   let {
     at,
+    currentLang,
     usersStore,
     onOpenUserCard,
     usersTable,
@@ -59,6 +62,7 @@
     usersFilter,
     usersPanelStatus,
     usersPremiumTraffic,
+    usersTariffFilter,
     usersQuery,
     usersTotal,
     usersPage,
@@ -68,6 +72,7 @@
     USERS_FILTER_OPTIONS,
     USERS_PANEL_STATUS_OPTIONS,
     USERS_PREMIUM_TRAFFIC_OPTIONS,
+    USERS_TARIFF_OPTIONS,
     activeUsersFilterCount,
     activeUserFilterChips,
     userTableHeaders,
@@ -78,6 +83,7 @@
     updateUsersFilter,
     updateUsersPanelStatus,
     updateUsersPremiumTraffic,
+    updateUsersTariffFilter,
     updateToolbarUsersFilter,
     updateToolbarPanelStatus,
     updateToolbarPremiumTraffic,
@@ -101,6 +107,7 @@
     fmtDateShort,
   }: {
     at: TranslateFn;
+    currentLang: string;
     usersStore: UsersStoreBridge;
     onOpenUserCard: (userId: unknown) => void;
     usersTable: UsersTableBridge;
@@ -108,6 +115,7 @@
     usersFilter: string;
     usersPanelStatus: string;
     usersPremiumTraffic: string;
+    usersTariffFilter: string;
     usersQuery: string;
     usersTotal: number;
     usersPage: number;
@@ -117,6 +125,7 @@
     USERS_FILTER_OPTIONS: SelectOption[];
     USERS_PANEL_STATUS_OPTIONS: SelectOption[];
     USERS_PREMIUM_TRAFFIC_OPTIONS: SelectOption[];
+    USERS_TARIFF_OPTIONS: SelectOption[];
     activeUsersFilterCount: number;
     activeUserFilterChips: FilterChip[];
     userTableHeaders: string[];
@@ -127,6 +136,7 @@
     updateUsersFilter: ComponentCallback;
     updateUsersPanelStatus: ComponentCallback;
     updateUsersPremiumTraffic: ComponentCallback;
+    updateUsersTariffFilter: (value: string) => void;
     updateToolbarUsersFilter: ComponentCallback;
     updateToolbarPanelStatus: ComponentCallback;
     updateToolbarPremiumTraffic: ComponentCallback;
@@ -152,6 +162,7 @@
 </script>
 
 {#snippet renderUserFilterControls()}
+  {@render renderTariffFilter()}
   <Label.Root class="admin-toolbar-field admin-users-filter-field">
     <span class="admin-toolbar-field-label">{at("filter", {}, "Filter")}</span>
     <AdminSelect
@@ -188,6 +199,19 @@
   </Label.Root>
 {/snippet}
 
+{#snippet renderTariffFilter()}
+  <Label.Root class="admin-toolbar-field admin-users-filter-field">
+    <span class="admin-toolbar-field-label">{at("users_col_tariff", {}, "Tariff / trial")}</span>
+    <AdminSelect
+      value={usersTariffFilter}
+      items={USERS_TARIFF_OPTIONS}
+      class="admin-toolbar-select"
+      ariaLabel={at("users_col_tariff", {}, "Tariff / trial")}
+      onValueChange={updateUsersTariffFilter}
+    />
+  </Label.Root>
+{/snippet}
+
 {#snippet renderActiveUserFilterChips()}
   {#if activeUsersFilterCount}
     <div class="admin-users-filter-chips" aria-label={at("active_filters", {}, "Active filters")}>
@@ -214,6 +238,7 @@
   total={usersTotal}
   totalLabel={at("total", {}, "Total")}
   mobileFilterMode="dialog"
+  columns={4}
   class="admin-users-toolbar"
 >
   {#snippet search()}
@@ -255,6 +280,7 @@
     </AdminButton>
   {/snippet}
   {#snippet filters()}
+    {@render renderTariffFilter()}
     <Label.Root class="admin-toolbar-field">
       <span class="admin-toolbar-field-label">{at("filter", {}, "Filter")}</span>
       <AdminSelect
@@ -290,7 +316,16 @@
       />
     </Label.Root>
   {/snippet}
-  {#snippet footer()}{@render renderActiveUserFilterChips()}{/snippet}
+  {#snippet footer()}
+    {@render renderActiveUserFilterChips()}
+    <p class="admin-users-tariff-hint">
+      {at(
+        "users_tariff_history_hint",
+        {},
+        "For users without an active subscription, the latest subscription is shown."
+      )}
+    </p>
+  {/snippet}
 </AdminListToolbar>
 
 <Dialog
@@ -404,6 +439,12 @@
                 avatarUrl={avatar}
               />
             </td>
+            <td
+              class="admin-users-cell-tariff"
+              data-label={at("users_col_tariff", {}, "Tariff / trial")}
+            >
+              <AdminSubscriptionPlan plan={user.subscription_plan} {at} {currentLang} />
+            </td>
             {#if userBalanceEnabled}
               <td
                 class="admin-users-cell-money"
@@ -487,6 +528,7 @@
       {#each usersTable.rows as user (user.user_id)}
         <UserMobileCard
           {at}
+          {currentLang}
           {user}
           onopen={() => onOpenUserCard(user)}
           {resolvedAvatarUrl}
@@ -526,6 +568,16 @@
 />
 
 <style>
+  .admin-users-tariff-hint {
+    margin: 0;
+    color: var(--admin-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .admin-users-cell-tariff {
+    min-width: 150px;
+    max-width: 220px;
+  }
   :global(.admin-users-search-button) {
     min-width: 82px;
   }
@@ -639,19 +691,19 @@
 
   @media (min-width: 721px) {
     .admin-users-table-wrap :global(.admin-users-table) {
-      min-width: 1080px;
+      min-width: 1250px;
     }
 
     .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
-      min-width: 1200px;
+      min-width: 1370px;
     }
 
     .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
-      min-width: 1220px;
+      min-width: 1390px;
     }
 
     .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
-      min-width: 1340px;
+      min-width: 1510px;
     }
   }
 

@@ -25,6 +25,7 @@ import {
   setDemoTariffs,
 } from "./state";
 import { demoTranslationsPayload } from "./translations";
+import { demoTariffOptions, demoActiveTariffs } from "./subscriptionPlans";
 import { sortAdminRows, type AdminSortColumn, type AdminSortValue } from "$lib/admin/tableSort.js";
 import {
   demoInviteesForUser,
@@ -63,7 +64,26 @@ export function demoApiResponse(
 
   if (cleanPath === "/admin/stats") {
     const stats = clone(DATASET.stats) as DemoRecord;
-    return { ...stats, financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() } };
+    const users = Object.fromEntries(
+      Object.entries({
+        total_users: "all",
+        active_today: "active_today",
+        banned_users: "banned",
+        referral_users: "referred",
+        active_subscriptions: "active_subscription",
+        paid_subscriptions: "paid",
+        trial_users: "trial",
+        free_subscription_users: "free",
+        inactive_users: "inactive_subscription",
+        expired_subscription_users: "expired_subscription",
+      }).map(([key, filter]) => [key, filterDemoUsers(new URLSearchParams({ filter })).length])
+    );
+    return {
+      ...stats,
+      users,
+      active_tariffs: demoActiveTariffs(),
+      financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() },
+    };
   }
   const broadcastResponse = adminBroadcastDemoResponse({
     cleanPath,
@@ -226,6 +246,7 @@ export function demoApiResponse(
     return {
       ok: true,
       users: clone(withDemoAvatars(page.items)),
+      tariff_options: demoTariffOptions(),
       total: page.total,
       page: page.page,
       page_size: page.pageSize,

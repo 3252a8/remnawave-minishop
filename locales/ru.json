@@ -6250,5 +6250,21 @@
   "trial_captcha_bot_prompt": "Введите пять цифр с картинки одним сообщением. Картинка действует 3 минуты.",
   "trial_captcha_bot_cancel": "Отмена",
   "trial_captcha_bot_success": "Проверка пройдена. Теперь можно запустить триал.",
-  "trial_captcha_bot_continue": "Продолжить"
+  "trial_captcha_bot_continue": "Продолжить",
+  "admin_users_col_tariff": "Тариф / триал",
+  "admin_users_tariff_all": "Все тарифы",
+  "admin_users_tariff_trial": "Триал",
+  "admin_users_tariff_no_subscription": "Нет подписки",
+  "admin_users_tariff_unassigned": "Без тарифа",
+  "admin_users_tariff_deleted": "Удалён",
+  "admin_users_tariff_disabled": "Отключён",
+  "admin_users_tariff_inactive": "Неактивна",
+  "admin_users_tariff_history_hint": "Если действующей подписки нет, показан тариф последней подписки. Остальные фильтры применяются дополнительно.",
+  "admin_stats_tariffs_title": "Активные подписки по тарифам",
+  "admin_stats_tariffs_hint": "Каждый пользователь учтён один раз. Нажмите на тариф, чтобы открыть список его активных пользователей.",
+  "admin_stats_tariffs_open": "Показать активных пользователей: {label}, {count}",
+  "admin_stats_tariffs_empty": "Нет активных подписок",
+  "admin_stats_tariffs_collapse": "Свернуть",
+  "admin_stats_tariffs_show_all": "Показать все (+{count})",
+  "admin_user_message_delivery": "Каналы доставки"
 }

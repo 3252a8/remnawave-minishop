@@ -2655,7 +2655,11 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const mobileUserCard = usersShell.locator(".admin-user-mobile-card").first();
   await expect(mobileUserCard).toBeVisible();
   await expect(usersShell.locator(".admin-table-wrap")).toBeHidden();
-  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(4);
+  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(5);
+  const mobileTariff = mobileUserCard.locator(".admin-user-mobile-plan");
+  await expect(mobileTariff.locator("dt")).toHaveText("Тариф / триал");
+  await expect(page.locator(".admin-users-filter-chips")).toContainText("Платные пользователи");
+  await expect(mobileTariff.locator(".admin-subscription-plan-name")).toHaveText("Стандарт");
   await expect(mobileUserCard.locator(".admin-user-mobile-dates > div")).toHaveCount(2);
   const mobileUsersGeometry = await usersShell.evaluate((element) => ({
     clientWidth: element.clientWidth,
@@ -2664,7 +2668,15 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   expect(mobileUsersGeometry.scrollWidth).toBeLessThanOrEqual(mobileUsersGeometry.clientWidth);
   const mobileUserCardBox = await mobileUserCard.boundingBox();
   expect(mobileUserCardBox).not.toBeNull();
-  expect(mobileUserCardBox!.height).toBeLessThan(320);
+  const mobileTariffRowHeight = await mobileTariff.evaluate((row) => {
+    const metrics = row.parentElement!;
+    return row.getBoundingClientRect().height + Number.parseFloat(getComputedStyle(metrics).rowGap);
+  });
+  // The tariff occupies one additional full-width row; the original metrics
+  // retain their compact-card budget, and the new row has its own bound.
+  expect(mobileTariffRowHeight).toBeLessThanOrEqual(64);
+  expect(mobileUserCardBox!.height - mobileTariffRowHeight).toBeLessThan(320);
+  expect(mobileUserCardBox!.height).toBeLessThan(384);
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
 

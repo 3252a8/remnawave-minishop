@@ -17,15 +17,17 @@ from bot.infra.redis import cache_delete_pattern, redis_key
 from bot.services.partner_common import currency_scale
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
-from db.dal import partner_dal, user_balance_dal
+from db.dal import partner_dal, user_balance_dal, user_subscription_plans
 from db.models import Subscription
 
 from .auth import _require_admin_user_id
 from .common import (
+    _error,
     _ok,
     _premium_traffic_list_payload,
     _serialize_user,
 )
+from .subscription_plans import admin_subscription_plan, admin_tariff_options
 from .users_common import (
     _ADMIN_USERS_LIST_CACHES,
     _bulk_user_avatar_keys,
@@ -34,8 +36,8 @@ from .users_detail import (
     _bulk_active_subscriptions_for_users,
     _bulk_user_payment_summaries,
     _bulk_user_referral_counts,
-    _filter_and_sort_users,
 )
+from .users_queries import _filter_and_sort_users
 
 
 async def admin_users_list_route(request: web.Request) -> web.Response:
@@ -50,6 +52,11 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     panel_status = (request.query.get("panel_status") or "all").lower()
     premium_traffic = (request.query.get("premium_traffic") or "all").lower()
     sort_value = (request.query.get("sort") or "registered_desc").lower()
+    tariff_filter = request.query.get("tariff_filter") or "all"
+    if tariff_filter not in {"all", "trial", "no_subscription", "no_tariff"} and not (
+        tariff_filter.startswith("tariff:") and tariff_filter.removeprefix("tariff:")
+    ):
+        return _error(400, "invalid_tariff_filter")
 
     payload = await _load_admin_users_list_payload(
         settings,
@@ -61,6 +68,7 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
         panel_status=panel_status,
         premium_traffic=premium_traffic,
         sort_value=sort_value,
+        tariff_filter=tariff_filter,
     )
     return _ok(payload)
 
@@ -76,6 +84,7 @@ async def _load_admin_users_list_payload(
     panel_status: str,
     premium_traffic: str,
     sort_value: str,
+    tariff_filter: str = "all",
 ) -> dict[str, Any]:
     cache = _admin_users_list_cache(settings)
     valid_tariff_keys = _admin_tariff_keys(settings)
@@ -92,7 +101,9 @@ async def _load_admin_users_list_payload(
         panel_status=panel_status,
         premium_traffic=premium_traffic,
         sort_value=sort_value,
+        tariff_filter=tariff_filter,
         valid_tariff_keys=sorted(valid_tariff_keys),
+        tariff_options=admin_tariff_options(settings, []),
         balance_enabled=balance_enabled,
         partner_balance_enabled=partner_balance_enabled,
         balance_currency=balance_currency,
@@ -107,6 +118,8 @@ async def _load_admin_users_list_payload(
             panel_status=panel_status,
             premium_traffic=premium_traffic,
             sort_value=sort_value,
+            tariff_filter=tariff_filter,
+            settings=settings,
             valid_tariff_keys=valid_tariff_keys,
             balance_enabled=balance_enabled,
             partner_balance_enabled=partner_balance_enabled,
@@ -126,6 +139,8 @@ async def _load_admin_users_list_payload(
                 panel_status=panel_status,
                 premium_traffic=premium_traffic,
                 sort_value=sort_value,
+                tariff_filter=tariff_filter,
+                settings=settings,
                 valid_tariff_keys=valid_tariff_keys,
                 balance_enabled=balance_enabled,
                 partner_balance_enabled=partner_balance_enabled,
@@ -151,8 +166,11 @@ async def _load_admin_users_list_payload_uncached(
     partner_balance_enabled: bool,
     balance_currency: str,
     balance_currency_scale: int,
+    tariff_filter: str = "all",
+    settings: Settings,
 ) -> dict[str, Any]:
     async with async_session_factory() as session:
+        now = datetime.now(UTC)
         users, total = await _filter_and_sort_users(
             session,
             query=query,
@@ -163,9 +181,17 @@ async def _load_admin_users_list_payload_uncached(
             page=page,
             page_size=page_size,
             valid_tariff_keys=valid_tariff_keys,
+            tariff_filter=tariff_filter,
+            now=now,
         )
 
         user_ids = [int(user.user_id) for user in users]
+        subscription_plans = await user_subscription_plans.get_user_subscription_plans(
+            session, user_ids, now=now
+        )
+        observed_tariff_keys = await user_subscription_plans.get_subscription_plan_tariff_keys(
+            session, now=now
+        )
         statuses = await _bulk_user_statuses(session, user_ids)
         cached_avatar_ids = await _bulk_user_avatar_keys(session, user_ids)
         active_subs = await _bulk_active_subscriptions_for_users(session, user_ids)
@@ -193,6 +219,9 @@ async def _load_admin_users_list_payload_uncached(
     serialized = []
     for user in users:
         payload = _serialize_user(user)
+        payload["subscription_plan"] = admin_subscription_plan(
+            settings, subscription_plans.get(int(user.user_id))
+        )
         status_payload = statuses.get(user.user_id) or {"status": "bot_only", "end_date": None}
         payload["panel_status"] = status_payload.get("status")
         payload["subscription_expires_at"] = status_payload.get("end_date")
@@ -218,6 +247,7 @@ async def _load_admin_users_list_payload_uncached(
         "page": page,
         "page_size": page_size,
         "total": total,
+        "tariff_options": admin_tariff_options(settings, observed_tariff_keys),
         "user_balance_enabled": balance_enabled,
         "partner_balance_enabled": partner_balance_enabled,
         "balance_currency": balance_currency,

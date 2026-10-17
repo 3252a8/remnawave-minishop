@@ -24,7 +24,11 @@
   import type { SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
   import type { TranslationsSavedPayload } from "$lib/admin/stores/translationsStore";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
-  import type { UsersFilter, UsersRouteFilters } from "$lib/admin/usersRouteFilters";
+  import type {
+    UsersFilter,
+    UsersRouteFilters,
+    UsersTariffFilter,
+  } from "$lib/admin/usersRouteFilters";
   import type { AdminApi } from "./adminStores.js";
   import { lockPageScroll } from "$lib/webapp/scrollLock.js";
 
@@ -167,7 +171,7 @@
     onOpenPaymentCard: (paymentId: number) => void;
     onOpenSettingsPath: (path?: unknown) => void;
     onOpenUserCard: (userId: unknown) => void;
-    onOpenUsersFilter: (filter: UsersFilter) => void;
+    onOpenUsersFilter: (filter: UsersFilter, tariffFilter?: UsersTariffFilter) => void;
     onUsersFiltersChange: (filters: UsersRouteFilters) => void;
     onSaveSettings: (payload: SettingsSavedPayload) => void | Promise<void>;
     onSaveTranslations: (payload: TranslationsSavedPayload) => void | Promise<void>;
@@ -584,6 +588,7 @@
         {/if}
       {/if}
       <div
+        class="admin-section-content"
         hidden={Boolean(usersStore.openedUser)}
         style:display={usersStore.openedUser ? "none" : undefined}
       >

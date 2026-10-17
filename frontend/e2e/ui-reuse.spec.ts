@@ -528,7 +528,7 @@ for (const [device, viewport] of [
       await page.locator(".admin-users-filter-toggle").click();
       const dialog = page.locator(".admin-users-filter-dialog");
       await expect(dialog).toBeVisible();
-      await dialog.locator(".admin-select-trigger").first().click();
+      await dialog.locator('.admin-select-trigger[aria-label="Фильтр"]').click();
       const menu = page.locator(".admin-select-content[data-state='open']");
       const menuViewport = menu.locator(".admin-select-viewport");
       await expect(page.getByRole("option").first()).toBeVisible();

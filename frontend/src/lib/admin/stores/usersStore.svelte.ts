@@ -237,7 +237,8 @@ export function createUsersStore({
         applyState((st) => ({
           ...st,
           users: data.users || [],
-          usersTotal: data.total || (data.users || []).length,
+          usersTotal: data.total ?? (data.users || []).length,
+          usersTariffOptions: data.tariff_options || [],
           userBalanceEnabled: Boolean(data.user_balance_enabled),
           partnerBalanceEnabled: Boolean(data.partner_balance_enabled),
           balanceCurrency: String(data.balance_currency || "RUB"),
