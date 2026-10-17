@@ -614,7 +614,7 @@ for (const [device, viewport] of [
   test(`shared copy field, payment provider and manual controls render on ${device}`, async ({
     page,
     context,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     // Keep the actual UI; seed the operation and both confirmation variants.
@@ -650,6 +650,8 @@ for (const [device, viewport] of [
                       can_manual_finalize: true,
                       can_reverse: true,
                       manual_finalize_requires_promo_confirmation: true,
+                      manual_finalize_requires_context_confirmation: true,
+                      manual_finalize_warnings: ["active_subscription_end_changed"],
                       promo_code_id: 14,
                     },
                   };
@@ -704,7 +706,18 @@ for (const [device, viewport] of [
     await expect(confirm).toBeDisabled();
     await conflict.press("Space");
     await expect(conflict).toBeChecked();
+    await expect(confirm).toBeDisabled();
+    const contextConfirmation = paymentDialog.getByRole("checkbox", {
+      name: /История проверена: эта покупка ещё не начислена/,
+    });
+    await expect(contextConfirmation).toHaveClass(/ui-checkbox/);
+    await contextConfirmation.press("Space");
+    await expect(contextConfirmation).toBeChecked();
     await expect(confirm).toBeEnabled();
+    await noOverflow(paymentDialog);
+    await paymentDialog.screenshot({
+      path: testInfo.outputPath(`payment-confirmation-${device}.png`),
+    });
     await paymentDialog.getByRole("button", { name: "Отмена", exact: true }).click();
     await paymentDialog.getByRole("button", { name: "Отменить платёж", exact: true }).click();
     const restore = paymentDialog.getByRole("checkbox", {

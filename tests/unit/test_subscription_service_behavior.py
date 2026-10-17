@@ -1348,7 +1348,18 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                 language_code="en",
             )
             payment = SimpleNamespace(
-                checkout_bundle_snapshot=None,
+                sale_mode="subscription@standard",
+                tariff_key="standard",
+                checkout_bundle_snapshot=json.dumps(
+                    {
+                        "version": 2,
+                        "items": [],
+                        "active_context": {
+                            "subscription_id": 10,
+                            "end_at": (current_sub.end_date - timedelta(days=3)).isoformat(),
+                        },
+                    }
+                ),
                 purchased_hwid_devices=0,
                 hwid_full_price=0,
                 hwid_valid_from=None,
@@ -1390,7 +1401,7 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     AsyncMock(return_value=None),
                 ),
             ):
-                result = await service.activate_subscription(
+                rejected = await service.activate_subscription(
                     session=AsyncMock(),
                     user_id=42,
                     months=1,
@@ -1399,9 +1410,22 @@ class SubscriptionServiceActivationDispatchTests(unittest.IsolatedAsyncioTestCas
                     provider="qa",
                     sale_mode="subscription@standard",
                 )
+                self.assertIsNone(rejected)
+                upsert_subscription.assert_not_awaited()
+                result = await service.activate_subscription(
+                    session=AsyncMock(),
+                    user_id=42,
+                    months=1,
+                    payment_amount=150,
+                    payment_db_id=99,
+                    provider="qa",
+                    sale_mode="subscription@standard",
+                    allow_subscription_end_change=True,
+                )
 
             self.assertIsNotNone(result)
             sub_payload = upsert_subscription.await_args.args[1]
+            self.assertEqual(sub_payload["end_date"], add_months(current_sub.end_date, 1))
             self.assertEqual(sub_payload["tier_baseline_bytes"], 500 * GIB)
             self.assertEqual(sub_payload["traffic_limit_bytes"], 500 * GIB)
             panel_payload = service.panel_service.update_user_details_on_panel.await_args.args[1]

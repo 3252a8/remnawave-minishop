@@ -57,6 +57,7 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
         traffic_gb: float | None = None,
         tariff_key: str | None = None,
         authoritative_end_at: datetime | None = None,
+        allow_subscription_end_change: bool = False,
     ) -> dict[str, Any] | None:
         sale_mode_context = parse_sale_mode_context(sale_mode, tariff_key)
         sale_mode_base = sale_mode_context.base
@@ -290,15 +291,24 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             )
         current_active_is_trial = entitlement_helpers.subscription_is_trial(current_active_sub)
         if checkout_grants.active_context_present:
+            from bot.payment_providers.shared.entitlement_context import (
+                preflight_payment_entitlement,
+            )
+
             current_subscription_id = (
                 int(current_active_sub.subscription_id) if current_active_sub is not None else None
             )
             current_end_at = self._as_aware_utc(
                 getattr(current_active_sub, "end_date", None) if current_active_sub else None
             )
-            if (
-                current_subscription_id != checkout_grants.active_subscription_id
-                or current_end_at != checkout_grants.active_end_at
+            if current_subscription_id != checkout_grants.active_subscription_id or (
+                current_end_at != checkout_grants.active_end_at
+                and not (
+                    allow_subscription_end_change
+                    and preflight_payment_entitlement(
+                        payment, current_active_sub, allow_subscription_end_change=True
+                    ).allowed
+                )
             ):
                 logger.error(
                     "Checkout quote became stale for payment %s: subscription=%s/%s end=%s/%s",

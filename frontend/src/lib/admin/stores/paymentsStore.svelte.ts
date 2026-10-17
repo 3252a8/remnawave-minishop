@@ -80,7 +80,11 @@ export type PaymentsStore = PaymentsState & {
     opts?: PaymentOpenOptions
   ) => Promise<void>;
   closePayment: (opts?: PaymentOpenOptions) => void;
-  finalizePayment: (reason: string, confirmPromoConflict: boolean) => Promise<boolean>;
+  finalizePayment: (
+    reason: string,
+    confirmPromoConflict: boolean,
+    confirmSubscriptionEndChange?: boolean
+  ) => Promise<boolean>;
   reversePayment: (
     reason: string,
     restorePromoUsage: boolean,
@@ -321,7 +325,11 @@ export function createPaymentsStore({
     );
   }
 
-  async function finalizePayment(reason: string, confirmPromoConflict: boolean): Promise<boolean> {
+  async function finalizePayment(
+    reason: string,
+    confirmPromoConflict: boolean,
+    confirmSubscriptionEndChange = false
+  ): Promise<boolean> {
     const paymentId = state.openedPaymentId;
     if (!paymentId || state.paymentActionBusy) return false;
     state.paymentActionBusy = true;
@@ -331,6 +339,7 @@ export function createPaymentsStore({
         body: JSON.stringify({
           reason,
           confirm_promo_conflict: confirmPromoConflict,
+          confirm_subscription_end_change: confirmSubscriptionEndChange,
         } satisfies PostPayload<"/api/admin/payments/{payment_id}/finalize">),
       });
       if (!isOkResponse(response)) {

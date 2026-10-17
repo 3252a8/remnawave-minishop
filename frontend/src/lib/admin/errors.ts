@@ -161,6 +161,9 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   panel_user_missing: "error_panel_user_missing",
   payment_fulfillment_unavailable: "error_payment_fulfillment_unavailable",
   payment_manual_finalize_failed: "error_payment_manual_finalize_failed",
+  payment_subscription_end_confirmation_required:
+    "error_payment_subscription_end_confirmation_required",
+  payment_entitlement_context_changed: "error_payment_entitlement_context_changed",
   payment_manual_finalize_unavailable: "error_payment_manual_finalize_unavailable",
   payment_reverse_conflict: "error_payment_reverse_conflict",
   payment_reversal_panel_failed: "error_payment_reversal_panel_failed",

@@ -227,12 +227,19 @@ async def admin_payment_finalize_route(request: web.Request) -> web.Response:
 
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        payment = await payment_dal.get_payment_by_db_id(session, payment_id)
+        payment = await payment_dal.get_payment_by_db_id_for_update(session, payment_id)
         if payment is None:
             return _error(404, "not_found", "Payment not found")
         action_state = await payment_action_state(session, payment)
         if not action_state["can_manual_finalize"]:
+            if "entitlement_context_conflict" in action_state["manual_finalize_warnings"]:
+                return _error(409, "payment_entitlement_context_changed")
             return _error(409, "payment_manual_finalize_unavailable")
+        if (
+            action_state["manual_finalize_requires_context_confirmation"]
+            and not body.confirm_subscription_end_change
+        ):
+            return _error(409, "payment_subscription_end_confirmation_required")
         promo_conflict = bool(action_state["manual_finalize_requires_promo_confirmation"])
         if promo_conflict and not body.confirm_promo_conflict:
             return _error_payload(
@@ -246,6 +253,9 @@ async def admin_payment_finalize_route(request: web.Request) -> web.Response:
         payment.fulfilled_by_admin_id = actor_id
         payment.fulfillment_note = body.reason
         payment.promo_conflict_override = promo_conflict and body.confirm_promo_conflict
+        # The finalizer refreshes this locked row with populate_existing. Flush
+        # the operator audit first so that refresh cannot discard it.
+        await session.flush()
         outcome = await finalize_successful_payment(
             PaymentSuccessRequest(
                 bot=get_bot(request),
@@ -264,6 +274,7 @@ async def admin_payment_finalize_route(request: web.Request) -> web.Response:
                 provider_subscription=str(payment.provider or "admin"),
                 provider_notification="admin_manual",
                 log_prefix="admin_payment_finalize",
+                allow_subscription_end_change=body.confirm_subscription_end_change,
             )
         )
         if outcome is None:

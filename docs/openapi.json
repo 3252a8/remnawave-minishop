@@ -4767,6 +4767,11 @@
             "title": "Confirm Promo Conflict",
             "type": "boolean"
           },
+          "confirm_subscription_end_change": {
+            "default": false,
+            "title": "Confirm Subscription End Change",
+            "type": "boolean"
+          },
           "reason": {
             "maxLength": 500,
             "minLength": 3,
@@ -11917,6 +11922,11 @@
             ],
             "default": null,
             "title": "Idempotence Key"
+          },
+          "manual_finalize_requires_context_confirmation": {
+            "default": false,
+            "title": "Manual Finalize Requires Context Confirmation",
+            "type": "boolean"
           },
           "manual_finalize_requires_promo_confirmation": {
             "default": false,

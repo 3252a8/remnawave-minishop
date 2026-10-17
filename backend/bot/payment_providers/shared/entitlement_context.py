@@ -99,7 +99,7 @@ def _subscription_checkout_snapshot(payment: Any) -> dict[str, Any] | None:
 
 
 def _preflight_checkout_context(
-    payment: Any, active_subscription: Any | None
+    payment: Any, active_subscription: Any | None, *, allow_subscription_end_change: bool = False
 ) -> EntitlementPreflightResult | None:
     snapshot = _subscription_checkout_snapshot(payment)
     if snapshot is None:
@@ -138,7 +138,9 @@ def _preflight_checkout_context(
         return EntitlementPreflightResult(
             EntitlementPreflightStatus.DETERMINISTIC_STALE, "active_subscription_changed"
         )
-    if current_end != grants.active_end_at:
+    if current_end != grants.active_end_at and not (
+        allow_subscription_end_change and current_end is not None
+    ):
         return EntitlementPreflightResult(
             EntitlementPreflightStatus.DETERMINISTIC_STALE, "active_subscription_end_changed"
         )
@@ -292,6 +294,8 @@ def parse_entitlement_context_snapshot(value: Any) -> EntitlementContextSnapshot
 def preflight_payment_entitlement(
     payment: Any,
     active_subscription: Any | None,
+    *,
+    allow_subscription_end_change: bool = False,
 ) -> EntitlementPreflightResult:
     """Pure deterministic guard run before a one-time entitlement is mutated."""
 
@@ -300,12 +304,16 @@ def preflight_payment_entitlement(
     if not payment_uses_entitlement_context(payment):
         return EntitlementPreflightResult(EntitlementPreflightStatus.NOT_APPLICABLE)
 
-    checkout_preflight = _preflight_checkout_context(payment, active_subscription)
+    checkout_preflight = _preflight_checkout_context(
+        payment, active_subscription, allow_subscription_end_change=allow_subscription_end_change
+    )
     if checkout_preflight is not None:
         if not checkout_preflight.allowed:
             return checkout_preflight
-        if not _is_combined_hwid_renewal(sale_mode) and not getattr(
-            payment, "entitlement_context_snapshot", None
+        if (
+            not allow_subscription_end_change
+            and not _is_combined_hwid_renewal(sale_mode)
+            and not getattr(payment, "entitlement_context_snapshot", None)
         ):
             return checkout_preflight
 

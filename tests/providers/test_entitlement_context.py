@@ -97,6 +97,24 @@ def test_subscription_checkout_context_rejects_a_changed_end_date() -> None:
     assert result.status is EntitlementPreflightStatus.DETERMINISTIC_STALE
     assert result.reason == "active_subscription_end_changed"
 
+    assert preflight_payment_entitlement(
+        payment, subscription, allow_subscription_end_change=True
+    ).allowed
+    subscription.tariff_key = "other"
+    assert not preflight_payment_entitlement(
+        payment, subscription, allow_subscription_end_change=True
+    ).allowed
+    subscription.tariff_key = "pro"
+    subscription.subscription_id = 12
+    assert not preflight_payment_entitlement(
+        payment, subscription, allow_subscription_end_change=True
+    ).allowed
+    subscription.subscription_id = 11
+    subscription.end_date = None
+    assert not preflight_payment_entitlement(
+        payment, subscription, allow_subscription_end_change=True
+    ).allowed
+
 
 def test_subscription_checkout_without_an_active_context_keeps_legacy_behavior() -> None:
     payment = _payment(sale_mode="subscription@pro")

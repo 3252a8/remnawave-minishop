@@ -6854,6 +6854,11 @@ export interface components {
        * @default false
        */
       confirm_promo_conflict: boolean;
+      /**
+       * Confirm Subscription End Change
+       * @default false
+       */
+      confirm_subscription_end_change: boolean;
       /** Reason */
       reason: string;
     };
@@ -9957,6 +9962,11 @@ export interface components {
        * @default null
        */
       idempotence_key: string | null;
+      /**
+       * Manual Finalize Requires Context Confirmation
+       * @default false
+       */
+      manual_finalize_requires_context_confirmation: boolean;
       /**
        * Manual Finalize Requires Promo Confirmation
        * @default false
