@@ -39,9 +39,8 @@
         )
     )
   );
-  const visible = $derived(
-    expanded ? sorted : sorted.filter((row) => row.active_users > 0).slice(0, visibleLimit)
-  );
+  const collapsible = $derived(sorted.length > visibleLimit);
+  const visible = $derived(expanded ? sorted : sorted.slice(0, visibleLimit));
   const hiddenCount = $derived(sorted.length - visible.length);
 
   function percent(count: number): string {
@@ -67,7 +66,7 @@
     <Card.Action><AdminBadge>{total}</AdminBadge></Card.Action>
   </Card.Header>
   <Card.Content class="admin-tariff-distribution-content">
-    {#if total > 0 || expanded}
+    {#if total > 0}
       <div
         class="admin-tariff-distribution"
         aria-label={at("stats_tariffs_title", {}, "Active subscriptions by tariff")}
@@ -109,10 +108,10 @@
     {:else}
       <AdminChartEmptyState
         label={at("stats_tariffs_empty", {}, "No active subscriptions")}
-        plotHeight={60}
+        plotHeight={48}
       />
     {/if}
-    {#if hiddenCount > 0 || expanded}
+    {#if total > 0 && collapsible}
       <AdminButton
         variant="ghost"
         class="admin-tariff-distribution-toggle"
@@ -131,25 +130,28 @@
   :global(.admin-tariff-distribution-content) {
     display: grid;
     gap: 8px;
+    padding-block: 12px;
   }
   .admin-tariff-distribution {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px 20px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+    gap: 8px;
   }
   .admin-tariff-distribution-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px 12px;
+    gap: 6px 10px;
     min-width: 0;
-    padding: 10px;
+    min-height: 52px;
+    padding: 8px 10px;
     border: 1px solid var(--admin-border);
     border-radius: 10px;
     background: transparent;
     color: var(--admin-text);
     font: inherit;
     text-align: left;
+    overflow-wrap: anywhere;
     cursor: pointer;
   }
   .admin-tariff-distribution-row:hover {
@@ -165,6 +167,7 @@
     align-items: baseline;
     gap: 8px;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .admin-tariff-distribution-number strong {
     font-size: 15px;
@@ -178,7 +181,7 @@
   }
   .admin-tariff-distribution-track {
     grid-column: 1 / -1;
-    height: 4px;
+    height: 3px;
     overflow: hidden;
     border-radius: 999px;
     background: color-mix(in srgb, var(--admin-muted) 15%, transparent);
@@ -190,12 +193,6 @@
     background: var(--accent);
   }
   :global(.admin-tariff-distribution-toggle) {
-    justify-self: center;
-  }
-  @media (max-width: 720px) {
-    .admin-tariff-distribution {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 8px;
-    }
+    justify-self: start;
   }
 </style>
