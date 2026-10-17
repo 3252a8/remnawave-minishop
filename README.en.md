@@ -27,7 +27,7 @@ For users:
 
 For admins:
 
-- Web App admin area for `ADMIN_IDS`.
+- Web App admin area with account-owned `owner` and `admin` roles, including accounts without Telegram.
 - User, subscription, payment, sync, broadcast, promo, support, and action-log workflows.
 - Tariff catalog editor with time-based and traffic-based plans, flexible regular/premium traffic
   limits, Internal Squads, and HWID/device options.
@@ -54,13 +54,23 @@ docker compose up -d --build
 docker compose logs -f backend worker frontend
 ```
 
-Minimum `.env` values:
+Initial `.env` settings:
 
-- `BOT_TOKEN` and `ADMIN_IDS`.
+- `TELEGRAM_ENABLED` and `BOT_TOKEN`; the token is required only when Telegram is enabled.
+- Optional `BOOTSTRAP_OWNER_TELEGRAM_ID` and `BOOTSTRAP_OWNER_EMAIL`; both may be left empty.
+- Optional `ADMIN_IDS` only for importing existing administrators with a saved Telegram identity once.
 - `WEBHOOK_BASE_URL`, `WEBHOOK_SECRET_TOKEN`, and `SUBSCRIPTION_MINI_APP_URL`.
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`.
 - `WEBAPP_ENABLED=True` and a stable `WEBAPP_SESSION_SECRET`.
 - `PANEL_API_URL`, `PANEL_API_KEY`, and `PANEL_WEBHOOK_SECRET`.
+
+The installer asks for optional owner Telegram and email identities. The first authenticated
+account with a matching verified identity receives `owner` once. If both fields are skipped,
+register using an available login method, copy the Minishop ID from your profile, and run
+`docker compose exec backend python backend/scripts/bootstrap_owner.py --minishop-id ms_<id>`
+from the installation directory. The command does not require linked Telegram/email and refuses
+to replace an existing owner. SMTP setup can also be skipped; configure an available login
+method before registration. See the [first-owner guide](docs/features/telegram-optional.md#первый-владелец).
 
 After the first admin login, finish tariffs, payment providers, appearance, support, and
 installation-guide settings in the UI. See [docs/index.md](docs/index.md) for the full docs map.

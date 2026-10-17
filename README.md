@@ -28,7 +28,7 @@ Remnawave Minishop - Telegram-бот и Web App (Mini App) для продажи
 
 Для администраторов:
 
-- админ-панель для пользователей из `ADMIN_IDS` (только при входе через Telegram, не для аккаунтов только с email);
+- админ-панель с ролями аккаунтов `owner` и `admin`, в том числе для пользователей без Telegram;
 - статистика пользователей, подписок, платежей и синхронизации с Remnawave;
 - список пользователей с поиском, фильтрами и колонкой premium-трафика;
 - блокировка пользователей, поддержка через тикеты, рассылки, промокоды, логи действий и настройка разрешенных параметров приложения поверх `.env`;
@@ -96,10 +96,11 @@ docker compose up -d --build
 docker compose logs -f backend worker frontend
 ```
 
-Минимально заполните в `.env`:
+Параметры первого запуска в `.env`:
 
-- `BOT_TOKEN` - токен Telegram-бота;
-- `ADMIN_IDS` - Telegram ID администраторов через запятую;
+- `TELEGRAM_ENABLED` и `BOT_TOKEN` - токен нужен только при включённом Telegram;
+- `BOOTSTRAP_OWNER_TELEGRAM_ID` и `BOOTSTRAP_OWNER_EMAIL` - необязательные идентификаторы первого владельца; можно пропустить оба;
+- `ADMIN_IDS` - только необязательный разовый импорт старых администраторов по сохранённой Telegram-привязке;
 - `WEBHOOK_BASE_URL` - публичный URL вебхуков;
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` - доступы PostgreSQL;
 - `WEBAPP_ENABLED=True` - включает Web App и админку для первого входа;
@@ -108,6 +109,8 @@ docker compose logs -f backend worker frontend
 - `PANEL_API_URL`, `PANEL_API_KEY`, `PANEL_WEBHOOK_SECRET` - доступ к Remnawave;
 - `TRUSTED_PROXIES` - используйте дефолт готового Compose-профиля или задайте IP/CIDR либо `host:имя-сервиса` своего reverse proxy, чтобы IP allowlist платежных webhook видел реального провайдера;
 - остальные настройки удобнее задать в Web App админке.
+
+Мастер установки также предлагает необязательные Telegram ID и email владельца. Первый вход с совпавшей подтверждённой привязкой назначает `owner` один раз. Если оба поля пропущены, зарегистрируйте аккаунт доступным способом входа и выполните из каталога установки `docker compose exec backend python backend/scripts/bootstrap_owner.py --minishop-id ms_<id>`, подставив ID из профиля. Для команды привязанные Telegram/email не требуются; существующего владельца она не заменяет. Настройка SMTP тоже необязательна, но до регистрации нужен доступный способ входа. Подробности: [первый владелец](docs/features/telegram-optional.md#первый-владелец).
 
 В Remnawave Panel укажите `WEBHOOK_URL` как публичный адрес Minishop с путем `/webhook/panel`, например `https://app.example.com/webhook/panel`. Секрет вебхука задается в самой Remnawave Panel; это же значение вставьте в `PANEL_WEBHOOK_SECRET` в `.env` или в **Система -> Настройки -> Remnawave Panel** в админке.
 

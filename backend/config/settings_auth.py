@@ -2,13 +2,27 @@
 
 import secrets
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 from config.settings_defaults import DEFAULT_DISPOSABLE_EMAIL_DOMAINS
 
 
 class AuthenticationSettings(BaseSettings):
+    BOOTSTRAP_OWNER_TELEGRAM_ID: int | None = Field(default=None, gt=0, le=9223372036854775807)
+    BOOTSTRAP_OWNER_EMAIL: str | None = Field(
+        default=None,
+        max_length=254,
+        pattern=r"^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$",
+    )
+
+    @field_validator("BOOTSTRAP_OWNER_TELEGRAM_ID", "BOOTSTRAP_OWNER_EMAIL", mode="before")
+    @classmethod
+    def normalize_bootstrap_identity(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().lower() or None
+        return value
+
     WEBAPP_SESSION_SECRET: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     EMAIL_AUTH_SECRET: str | None = Field(default=None)
     WEBHOOK_SECRET_TOKEN: str = Field(default_factory=lambda: secrets.token_urlsafe(32))

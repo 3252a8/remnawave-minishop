@@ -31,6 +31,106 @@ def _run_installer_function(tmp_path: Path, shell_body: str) -> subprocess.Compl
     )
 
 
+@pytest.mark.parametrize(
+    "answers,existing,telegram_id,email",
+    [
+        ("\n\n", "", "", ""),
+        ("777\nOWNER@example.com\n", "", "777", "owner@example.com"),
+        (
+            "\n\n",
+            "BOOTSTRAP_OWNER_TELEGRAM_ID=777\nBOOTSTRAP_OWNER_EMAIL=owner@example.com\n",
+            "777",
+            "owner@example.com",
+        ),
+        (
+            "-\n-\n",
+            "BOOTSTRAP_OWNER_TELEGRAM_ID=777\nBOOTSTRAP_OWNER_EMAIL=owner@example.com\n",
+            "",
+            "",
+        ),
+        ("@owner\n0\n777\ninvalid\nOWNER@example.com\n", "", "777", "owner@example.com"),
+    ],
+)
+def test_owner_wizard_preserves_and_clears_optional_identities(
+    tmp_path: Path, answers: str, existing: str, telegram_id: str, email: str
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    env_path = tmp_path / "existing.env"
+    env_path.write_text(existing + "CUSTOM_SETTING=preserved\n", encoding="utf-8")
+    rendered = tmp_path / "rendered.env"
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+ENV_PATH={shlex.quote(env_path.as_posix())}
+RENDERED_ENV={shlex.quote(rendered.as_posix())}
+prompt_owner_bootstrap <<'EOF'
+{answers}EOF
+render_env_file "$RENDERED_ENV" || exit 20
+actual_telegram=$(env_file_get BOOTSTRAP_OWNER_TELEGRAM_ID "$RENDERED_ENV")
+[ "$actual_telegram" = {shlex.quote(telegram_id)} ] || exit 21
+[ "$(env_file_get BOOTSTRAP_OWNER_EMAIL "$RENDERED_ENV")" = {shlex.quote(email)} ] || exit 22
+[ "$(grep -c '^BOOTSTRAP_OWNER_EMAIL=' "$RENDERED_ENV")" = {int(bool(email))} ] || exit 23
+[ "$(env_file_get CUSTOM_SETTING "$RENDERED_ENV")" = preserved ] || exit 24
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    if not telegram_id and not email:
+        assert "bootstrap_owner.py --minishop-id ms_<id>" in result.stdout
+        assert "без привязанного Telegram и email" in result.stdout
+    else:
+        assert "разные аккаунты автоматически не объединяются" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "telegram_enabled,owner_email,answers,enabled,host",
+    [
+        ("True", "", "\n", "False", ""),
+        ("False", "", "n\n", "False", ""),
+        ("False", "owner@example.com", "n\n", "False", ""),
+        (
+            "True",
+            "owner@example.com",
+            "y\nsmtp.example.com\nsender@example.com\n\n\n\n",
+            "True",
+            "smtp.example.com",
+        ),
+        (
+            "False",
+            "",
+            "y\nsmtp.example.com\nsender@example.com\n\n\n\n",
+            "True",
+            "smtp.example.com",
+        ),
+    ],
+)
+def test_email_transport_setup_can_be_skipped_or_configured_with_or_without_telegram(
+    tmp_path: Path,
+    telegram_enabled: str,
+    owner_email: str,
+    answers: str,
+    enabled: str,
+    host: str,
+) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    result = _run_installer_function(
+        tmp_path,
+        f"""
+ENV_PATH={shlex.quote((tmp_path / "missing.env").as_posix())}
+TELEGRAM_ENABLED_VALUE={shlex.quote(telegram_enabled)}
+BOOTSTRAP_OWNER_EMAIL_VALUE={shlex.quote(owner_email)}
+prompt_email_transport <<'EOF'
+{answers}EOF
+[ "$EMAIL_LOGIN_ENABLED_VALUE" = {shlex.quote(enabled)} ] || exit 20
+[ "$SMTP_HOST_VALUE" = {shlex.quote(host)} ] || exit 21
+""",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    if telegram_enabled == "False" and not host:
+        assert "доступный способ входа" in result.stdout
+
+
 @pytest.mark.parametrize("host_network", [False, True])
 def test_existing_reverse_proxy_adds_exact_trust_without_replacing_operator_entries(
     tmp_path: Path, host_network: bool

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select, text
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
-from db.auth_models import AccountRole, AccountRoleEvent
+from db.auth_models import AccountRole, AccountRoleEvent, UserEmailAddress
 from db.models import User
 
 ROLE_OWNER = "owner"
@@ -72,8 +73,62 @@ async def can_ban_account(session: AsyncSession, actor_id: int, target_id: int) 
     return bool(accessible_owners)
 
 
+def _verified_email_matches(email: str) -> ColumnElement[bool]:
+    return or_(
+        and_(func.lower(User.email) == email, User.email_verified_at.is_not(None)),
+        select(UserEmailAddress.user_id)
+        .where(
+            UserEmailAddress.user_id == User.user_id,
+            func.lower(UserEmailAddress.email) == email,
+            UserEmailAddress.verified_at.is_not(None),
+        )
+        .exists(),
+    )
+
+
+async def bootstrap_configured_owner(
+    session: AsyncSession,
+    user_id: int,
+    *,
+    telegram_id: int | None = None,
+    email: str | None = None,
+) -> bool:
+    """Consume the optional first-owner configuration for an authenticated account.
+
+    Persisted, verified identities are authoritative, never request payloads or
+    numeric account keys. Retained owner assignments (including revoked ones)
+    prevent a stale environment from elevating another account later.
+    The caller commits the role and audit event in the same transaction.
+    """
+    if telegram_id is None and not email:
+        return False
+    owner_query = select(AccountRole.user_id).where(AccountRole.role == ROLE_OWNER).limit(1)
+    if await session.scalar(owner_query) is not None:
+        return False
+    identities: list[ColumnElement[bool]] = []
+    if telegram_id is not None:
+        identities.append(User.telegram_id == telegram_id)
+    if email:
+        identities.append(_verified_email_matches(email.strip().lower()))
+    candidate_query = select(User.user_id).where(
+        User.user_id == user_id, User.is_banned.is_(False), or_(*identities)
+    )
+    if await session.scalar(candidate_query) is None:
+        return False
+    await session.execute(text("SELECT pg_advisory_xact_lock(:lock)"), {"lock": _ROLE_LOCK_ID})
+    if await session.scalar(owner_query) is not None:
+        return False
+    if await session.scalar(candidate_query.with_for_update()) is None:
+        return False
+    await grant_role(session, user_id, ROLE_OWNER, source="configured_bootstrap")
+    return True
+
+
 async def bootstrap_owner(
-    session: AsyncSession, email: str | None = None, minishop_id: str | None = None
+    session: AsyncSession,
+    email: str | None = None,
+    minishop_id: str | None = None,
+    telegram_id: int | None = None,
 ) -> int:
     """Grant the first owner to an existing account from a trusted shell.
 
@@ -89,19 +144,21 @@ async def bootstrap_owner(
     )
     if owner_count:
         raise ValueError("Owner already exists")
-    if bool(email) == bool(minishop_id):
+    if sum((bool(email), bool(minishop_id), telegram_id is not None)) != 1:
         raise ValueError("Provide exactly one account identifier")
     if minishop_id:
         user = await session.scalar(
             select(User).where(User.minishop_id == minishop_id.strip().lower())
         )
+    elif telegram_id is not None:
+        user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
     else:
         normalized = (email or "").strip().lower()
-        user = await session.scalar(
-            select(User).where(User.email == normalized, User.email_verified_at.is_not(None))
-        )
+        user = await session.scalar(select(User).where(_verified_email_matches(normalized)))
     if user is None:
         raise ValueError("An existing account with the supplied identifier is required")
+    if user.is_banned:
+        raise ValueError("A banned account cannot become the owner")
     await grant_role(session, int(user.user_id), ROLE_OWNER, source="bootstrap")
     return int(user.user_id)
 
