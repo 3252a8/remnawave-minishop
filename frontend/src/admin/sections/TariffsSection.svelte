@@ -11,7 +11,11 @@
     TriangleAlert,
     X,
   } from "$components/ui/icons.js";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import {
+    focusSettingsSearchTarget,
+    settingsSearchTargetKey,
+  } from "$lib/admin/settingsSearchTarget";
   import { AdminBadge, AdminButton, AdminEmptyState } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import TariffTrialSettings from "./tariffs/TariffTrialSettings.svelte";
@@ -101,7 +105,17 @@
     }))
   );
 
-  let legacyTariffSettingsOpen = $state(false);
+  let legacyTariffSettingsOpen = $state(
+    LEGACY_TARIFF_SETTING_KEYS.includes(settingsSearchTargetKey())
+  );
+  let searchTargetFocused = false;
+  $effect(() => {
+    const key = settingsSearchTargetKey();
+    if (!key || searchTargetFocused || tariffsLoading || !settingsFieldMap.has(key)) return;
+    void tick().then(() => {
+      searchTargetFocused = focusSettingsSearchTarget(key);
+    });
+  });
   let defaultCurrencyDraft = $state("RUB");
 
   function handleTariffReorder(fromIndex: number, toIndex: number): void {

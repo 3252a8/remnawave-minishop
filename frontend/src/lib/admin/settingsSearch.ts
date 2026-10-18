@@ -5,6 +5,7 @@ import {
   type AdminSettingsSection,
   type SettingsSubsection,
 } from "./settingsSections";
+import { REFERRAL_SETTING_KEYS } from "./tariffSettings";
 
 export type SettingsSearchEntry = {
   key: string;
@@ -15,6 +16,7 @@ export type SettingsSearchEntry = {
   pathLabel: string;
   anchorKey: string;
   searchText: string;
+  navigationSection?: "tariffs" | "appearance";
 };
 
 type SettingsSearchTextResolvers = {
@@ -44,20 +46,34 @@ export function buildSettingsSearchEntries(
       const subsectionTitle = group.label ? resolvers.subsectionTitle(group) : "";
       const pathLabel = [sectionTitle, subsectionTitle].filter(Boolean).join(" / ");
       for (const field of group.fields) {
+        const programSection =
+          section.id === "pricing"
+            ? REFERRAL_SETTING_KEYS.includes(field.key)
+              ? "referral"
+              : field.key.startsWith("PARTNER_")
+                ? "partner"
+                : null
+            : null;
+        const fieldPathLabel = programSection ? resolvers.sectionTitle(programSection) : pathLabel;
         const label = resolvers.fieldLabelText(field);
         const description = resolvers.fieldDescriptionText(field);
         const searchText = normalizeSettingsSearchText(
-          [label, description, field.key, pathLabel].filter(Boolean).join(" ")
+          [label, description, field.key, fieldPathLabel].filter(Boolean).join(" ")
         );
         entries.push({
           key: field.key,
-          sectionId: section.id,
-          subsectionId,
+          sectionId: programSection || section.id,
+          subsectionId: programSection ? null : subsectionId,
           label,
           description,
-          pathLabel,
+          pathLabel: fieldPathLabel,
           anchorKey: settingsFieldAnchorKey(field.key),
           searchText,
+          ...(section.id === "pricing" && !programSection
+            ? { navigationSection: "tariffs" as const }
+            : section.id === "appearance"
+              ? { navigationSection: "appearance" as const }
+              : {}),
         });
       }
     }

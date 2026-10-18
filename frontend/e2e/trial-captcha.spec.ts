@@ -12,6 +12,52 @@ const locales: Record<"ru" | "en", Record<string, string>> = {
 };
 
 for (const width of [1440, 390]) {
+  for (const language of ["ru", "en"] as const) {
+    test(`settings search opens and saves trial CAPTCHA at ${width}px in ${language}`, async ({
+      page,
+    }, testInfo) => {
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      const copy = locales[language];
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript((lang) => {
+        localStorage.setItem("rw_minishop_demo_language", lang);
+      }, language);
+      await page.goto("/demo/runtime/admin/settings?theme_preview=dark");
+      const search = page.getByRole("searchbox", { name: copy.admin_settings_search_aria });
+      await search.fill(language === "ru" ? "капча" : "captcha");
+      const result = page.getByRole("option").filter({
+        has: page.getByText("TRIAL_CAPTCHA_ENABLED", { exact: true }),
+      });
+      await expect(result).toHaveCount(1);
+      await page.locator("#admin-settings-search-results").screenshot({
+        path: testInfo.outputPath(`captcha-search-${width}-${language}.png`),
+      });
+      await result.click();
+      await expect(page).toHaveURL(/\/admin\/tariffs.*#settings-field:TRIAL_CAPTCHA_ENABLED$/);
+      const content = page.locator("#admin-trial-settings-content");
+      const row = content.locator(".admin-setting").filter({
+        has: page.getByText("TRIAL_CAPTCHA_ENABLED", { exact: true }),
+      });
+      await expect(row).toBeInViewport();
+      await expect(row).toBeFocused();
+      await row.screenshot({
+        path: testInfo.outputPath(`captcha-target-${width}-${language}.png`),
+      });
+      const control = row.getByRole("switch", { name: copy.admin_settings_trial_captcha_label });
+      await expect(control).not.toBeChecked();
+      await control.click();
+      await content.getByRole("button", { name: copy.admin_save, exact: true }).click();
+      await expect(content.locator(".admin-tariff-settings-save-row")).toHaveCount(0);
+      await expect(control).toBeChecked();
+      await control.click();
+      await content.getByRole("button", { name: copy.admin_save, exact: true }).click();
+      await expect(content.locator(".admin-tariff-settings-save-row")).toHaveCount(0);
+      await expect(control).not.toBeChecked();
+      expect(errors).toEqual([]);
+    });
+  }
+
   test(`trial CAPTCHA defaults off and can be saved or reset at ${width}px`, async ({
     page,
   }, testInfo) => {

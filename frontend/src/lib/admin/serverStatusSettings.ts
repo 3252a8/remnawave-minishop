@@ -85,11 +85,14 @@ export function serverStatusFieldVisible(
 
 export function filterServerStatusSettings(
   sections: AdminSettingsSection[],
-  dirty: Record<string, SettingsDirtyEntry>
+  dirty: Record<string, SettingsDirtyEntry>,
+  revealedKey = ""
 ): AdminSettingsSection[] {
   const provider = effectiveServerStatusProvider(sections, dirty);
   return sections.map((section) => ({
     ...section,
-    fields: section.fields.filter((field) => serverStatusFieldVisible(field, provider)),
+    fields: section.fields.filter(
+      (field) => field.key === revealedKey || serverStatusFieldVisible(field, provider)
+    ),
   }));
 }

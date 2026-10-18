@@ -4,10 +4,18 @@ from unittest.mock import AsyncMock, patch
 
 from bot.services import trial_captcha
 from config.settings import Settings
+from config.settings_trial import TrialSettings
 from tests.support.settings_stub import settings_stub
 
 
 class TrialCaptchaTests(unittest.IsolatedAsyncioTestCase):
+    async def test_default_captcha_does_not_require_redis(self) -> None:
+        enabled = TrialSettings(_env_file=None).TRIAL_CAPTCHA_ENABLED
+        self.assertFalse(enabled)
+        with patch.object(trial_captcha, "get_redis", AsyncMock()) as get_redis:
+            await trial_captcha.require_trial_captcha(self.settings(enabled), 42)
+        get_redis.assert_not_awaited()
+
     def settings(self, enabled: bool = True) -> Settings:
         return settings_stub(TRIAL_CAPTCHA_ENABLED=enabled, REDIS_KEY_PREFIX="captcha-test")
 

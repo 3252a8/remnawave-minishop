@@ -17,6 +17,13 @@ const fields = [
 const sections = [{ id: "system", fields }] as AdminSettingsSection[];
 
 describe("filterServerStatusSettings", () => {
+  it("keeps a search result visible without switching the configured provider", () => {
+    const visible = filterServerStatusSettings(sections, {}, "SERVER_STATUS_KUMA_URL");
+    expect(visible[0].fields.map((field) => field.key)).toContain("SERVER_STATUS_KUMA_URL");
+    expect(visible[0].fields.map((field) => field.key)).not.toContain(
+      "SERVER_STATUS_XRAY_CHECKER_URL"
+    );
+  });
   it.each([
     [
       "url",

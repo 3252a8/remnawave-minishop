@@ -24,6 +24,7 @@
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
   import type { SettingField, SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
+  import { settingsSearchTargetKey } from "$lib/admin/settingsSearchTarget";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -48,7 +49,7 @@
   const settingsStore = getSettingsStore();
   const tariffsStore = getTariffsStore();
 
-  let trialSettingsOpen = $state(false);
+  let trialSettingsOpen = $state(TRIAL_SETTING_KEYS.includes(settingsSearchTargetKey()));
   let selectedTrialSquad = $state("");
   let selectedTrialPremiumSquad = $state("");
   let trialSquadSelectKey = $state(0);
@@ -224,7 +225,11 @@
               </AdminButton>
             </div>
           {/if}
-          <div class="admin-settings-field-groups admin-trial-settings-groups">
+          <fieldset
+            class="admin-settings-field-groups admin-trial-settings-groups"
+            disabled={settingsSaving}
+            style="border: 0; padding: 0; margin: 0; min-width: 0;"
+          >
             <section
               class="admin-settings-field-group"
               class:is-dirty={dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty)}
@@ -809,7 +814,7 @@
                 </div>
               </div>
             </section>
-          </div>
+          </fieldset>
         </div>
       </div>
     {/if}
