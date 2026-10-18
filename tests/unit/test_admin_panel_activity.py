@@ -248,6 +248,9 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(users_detail, "_require_admin_user_id", return_value=100),
+            patch.object(
+                users_detail, "has_user_relationships", AsyncMock(return_value=True)
+            ) as relationships,
             patch.object(users_module.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
             patch.object(
                 users_module.subscription_dal,
@@ -327,6 +330,8 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
 
         payload = json.loads(response.text)
         self.assertEqual(response.status, 200)
+        relationships.assert_awaited_once_with(session, 42)
+        self.assertTrue(payload["has_relationships"])
         self.assertEqual(payload["subscription_url"], "https://panel.example/sub/short")
         self.assertEqual(payload["panel_user_url"], expected_url)
         self.assertEqual(payload["install_share_url"], "https://app.example/s/share")

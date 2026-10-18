@@ -1,6 +1,7 @@
 <script lang="ts">
   import { AdminButton, AdminCopyableValue } from "$components/patterns/admin/index.js";
   import { ExternalLink, UsersRound } from "$components/ui/icons.js";
+  import { openUserRelationshipsGraph } from "$lib/admin/userRelationships";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
   import type {
@@ -21,6 +22,7 @@
     referralInviteesTotal,
     openRelatedUser,
     onOpenPartnerCard,
+    routePrefix,
   }: {
     at: TranslateFn;
     usersStore: UsersStoreBridge;
@@ -33,6 +35,7 @@
     referralInviteesTotal: number;
     openRelatedUser: RelatedUserOpener;
     onOpenPartnerCard: (partnerId: string) => void;
+    routePrefix: string;
   } = $props();
   const referralCode = $derived(
     openedUserDetail.referral?.code || openedUserDetail.user?.referral_code || ""
@@ -162,4 +165,20 @@
       {at("user_invitees_open", {}, "Show")}
     </AdminButton>
   </li>
+  {#if openedUserDetail.has_relationships}
+    <li class="admin-user-ref-row">
+      <span>{at("relationships_title", {}, "Referral and partner graph")}</span>
+      <strong>
+        <AdminButton
+          data-admin-action="show-in-relationships-graph"
+          size="sm"
+          variant="ghost"
+          style="max-width:100%;white-space:normal;height:auto;min-height:32px"
+          onclick={() => openUserRelationshipsGraph(openedUser.user_id, routePrefix)}
+        >
+          <UsersRound size={14} />{at("relationships_show_user", {}, "Show in graph")}
+        </AdminButton>
+      </strong>
+    </li>
+  {/if}
 </ul>

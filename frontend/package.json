@@ -32,7 +32,10 @@
     "fix": "npm run format && npm run lint:js:fix"
   },
   "overrides": {
-    "devalue": "5.9.4"
+    "devalue": "5.9.4",
+    "cytoscape-elk": {
+      "elkjs": "$elkjs"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -72,6 +75,9 @@
     "vitest": "^5.0.4"
   },
   "dependencies": {
+    "cytoscape": "3.34.4",
+    "cytoscape-elk": "2.3.0",
+    "elkjs": "0.12.0",
     "@incy/link-encoder": "1.3.0",
     "@kastov/cryptohapp": "1.1.2",
     "@number-flow/svelte": "0.4.2",

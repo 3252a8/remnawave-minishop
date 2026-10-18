@@ -12,6 +12,8 @@
   } from "../../lib/admin/usersRouteFilters";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import { tariffFilterOptions } from "$lib/admin/subscriptionPlans";
+  import { openUserRelationshipsGraph, userRelationshipsRoute } from "$lib/admin/userRelationships";
+  import UserRelationshipsGraph from "./users/UserRelationshipsGraph.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -30,6 +32,7 @@
   type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
   type FilterChip = { key: FilterKey; label: string; value: string };
   type UsersSectionProps = {
+    routePrefix?: string;
     at?: TranslateFn;
     currentLang?: string;
     fmtDateShort?: (value: string | null | undefined) => string;
@@ -52,6 +55,7 @@
     | undefined;
 
   let {
+    routePrefix = "",
     at = (key) => key,
     currentLang = "en",
     fmtDateShort = (value) => String(value || ""),
@@ -68,6 +72,15 @@
   }: UsersSectionProps = $props();
 
   const usersStore = getUsersStore();
+  let graphRoute = $state(userRelationshipsRoute());
+  function closeGraph(): void {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    url.searchParams.delete("focus");
+    url.searchParams.delete("graph_kind");
+    window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
   const usersTable = new TableHandler<AdminUser>();
   const usersState = $derived(usersStore);
   const users = $derived(usersState.users);
@@ -392,60 +405,79 @@
 
   onMount(() => {
     usersStore.loadUsers();
+    const syncGraphRoute = () => {
+      graphRoute = userRelationshipsRoute();
+    };
+    window.addEventListener("popstate", syncGraphRoute);
+    return () => window.removeEventListener("popstate", syncGraphRoute);
   });
 </script>
 
-<UsersView
-  {at}
-  {currentLang}
-  {usersStore}
-  {onOpenUserCard}
-  {usersTable}
-  bind:usersFilterSheetOpen
-  {usersFilter}
-  {usersPanelStatus}
-  {usersPremiumTraffic}
-  {usersTariffFilter}
-  {usersQuery}
-  {usersTotal}
-  {usersPage}
-  {usersPageCount}
-  {usersLoading}
-  {USERS_PAGE_SIZE}
-  {USERS_FILTER_OPTIONS}
-  {USERS_PANEL_STATUS_OPTIONS}
-  {USERS_PREMIUM_TRAFFIC_OPTIONS}
-  {USERS_TARIFF_OPTIONS}
-  {activeUsersFilterCount}
-  {activeUserFilterChips}
-  {userTableHeaders}
-  {userTableWidths}
-  {userTableColumnCount}
-  {userBalanceEnabled}
-  {partnerBalanceEnabled}
-  {updateUsersFilter}
-  {updateUsersPanelStatus}
-  {updateUsersPremiumTraffic}
-  {updateUsersTariffFilter}
-  {updateToolbarUsersFilter}
-  {updateToolbarPanelStatus}
-  {updateToolbarPremiumTraffic}
-  {resetUsersFilters}
-  {clearUsersFilter}
-  {handleUsersSearchInput}
-  {handleUsersSearchKeydown}
-  {userTableColumns}
-  {sortState}
-  {sortTitle}
-  {toggleUsersSortForColumn}
-  {resolvedAvatarUrl}
-  {panelStatusBadge}
-  {userInitials}
-  {userDisplayName}
-  {userSecondaryName}
-  {premiumTrafficBadgeVariant}
-  {premiumTrafficBadgeText}
-  {rowPaymentsTotal}
-  {rowBalance}
-  {fmtDateShort}
-/>
+{#if graphRoute.open}
+  <UserRelationshipsGraph
+    {at}
+    focus={graphRoute.focus}
+    filter={graphRoute.filter}
+    onBack={closeGraph}
+    {onOpenUserCard}
+    {resolvedAvatarUrl}
+    {userDisplayName}
+    {userInitials}
+  />
+{:else}
+  <UsersView
+    {at}
+    {currentLang}
+    {usersStore}
+    {onOpenUserCard}
+    onOpenGraph={() => openUserRelationshipsGraph(undefined, routePrefix)}
+    {usersTable}
+    bind:usersFilterSheetOpen
+    {usersFilter}
+    {usersPanelStatus}
+    {usersPremiumTraffic}
+    {usersTariffFilter}
+    {usersQuery}
+    {usersTotal}
+    {usersPage}
+    {usersPageCount}
+    {usersLoading}
+    {USERS_PAGE_SIZE}
+    {USERS_FILTER_OPTIONS}
+    {USERS_PANEL_STATUS_OPTIONS}
+    {USERS_PREMIUM_TRAFFIC_OPTIONS}
+    {USERS_TARIFF_OPTIONS}
+    {activeUsersFilterCount}
+    {activeUserFilterChips}
+    {userTableHeaders}
+    {userTableWidths}
+    {userTableColumnCount}
+    {userBalanceEnabled}
+    {partnerBalanceEnabled}
+    {updateUsersFilter}
+    {updateUsersPanelStatus}
+    {updateUsersPremiumTraffic}
+    {updateUsersTariffFilter}
+    {updateToolbarUsersFilter}
+    {updateToolbarPanelStatus}
+    {updateToolbarPremiumTraffic}
+    {resetUsersFilters}
+    {clearUsersFilter}
+    {handleUsersSearchInput}
+    {handleUsersSearchKeydown}
+    {userTableColumns}
+    {sortState}
+    {sortTitle}
+    {toggleUsersSortForColumn}
+    {resolvedAvatarUrl}
+    {panelStatusBadge}
+    {userInitials}
+    {userDisplayName}
+    {userSecondaryName}
+    {premiumTrafficBadgeVariant}
+    {premiumTrafficBadgeText}
+    {rowPaymentsTotal}
+    {rowBalance}
+    {fmtDateShort}
+  />
+{/if}

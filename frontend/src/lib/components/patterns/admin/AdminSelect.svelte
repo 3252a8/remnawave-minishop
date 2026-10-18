@@ -27,6 +27,7 @@
     collisionPadding?: number;
     onValueChange?: (value: string) => void;
     class?: string;
+    contentClass?: string;
     controlSize?: ControlSize;
   };
 
@@ -42,6 +43,7 @@
     collisionPadding = 12,
     onValueChange = () => {},
     class: className = "",
+    contentClass = "",
     controlSize,
   }: Props = $props();
 
@@ -110,7 +112,7 @@
   </Select.Trigger>
   <Select.Portal>
     <Select.Content
-      class="admin-select-content"
+      class={cn("admin-select-content", contentClass)}
       {side}
       {align}
       {sideOffset}

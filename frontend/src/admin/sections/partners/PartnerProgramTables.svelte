@@ -45,6 +45,7 @@
     view,
     money,
     onAddPartner,
+    onOpenGraph,
     onOpenPartner,
     onOpenApplication,
     onOpenWithdrawal,
@@ -60,6 +61,7 @@
     view: View;
     money: (value: number) => string;
     onAddPartner: () => void;
+    onOpenGraph: () => void;
     onOpenPartner: (partner: Partner) => void;
     onOpenApplication: (application: Application) => void;
     onOpenWithdrawal: (withdrawal: Withdrawal) => void;
@@ -267,6 +269,9 @@
         </AdminField>
       {/snippet}
       {#snippet actions()}
+        <AdminButton onclick={onOpenGraph}
+          ><UsersRound size={15} />{at("relationships_open", {}, "Referral graph")}</AdminButton
+        >
         <AdminButton variant="primary" onclick={onAddPartner}
           ><Plus size={15} />{at("partners_add", {}, "Add partner")}</AdminButton
         >

@@ -16,6 +16,7 @@ import {
   demoHasUnmappedActiveSubscription,
 } from "./subscriptionPlans";
 import { subscriptionPlanFilter } from "$lib/admin/subscriptionPlans";
+import { demoPartnerRelationships } from "./partnerProgram";
 
 export function userName(user: DemoRecord | null | undefined): string {
   const record = (user || {}) as DemoAdminUser;
@@ -91,6 +92,13 @@ export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail 
     : 0;
   return {
     ...decorated,
+    has_relationships: Boolean(
+      inviter ||
+      invitees.length ||
+      demoPartnerRelationships().some(
+        (edge) => edge.source === Number(user.user_id) || edge.target === Number(user.user_id)
+      )
+    ),
     user: withDemoAdminUserMetrics(user),
     hwid_devices: decorated.hwid_devices ?? {
       current_devices: currentDevices,

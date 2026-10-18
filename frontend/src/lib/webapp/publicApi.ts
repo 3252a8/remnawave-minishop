@@ -439,6 +439,10 @@ export function buildAdminPanelInternalSquadsPath(): AdminPanelInternalSquadsPat
 }
 
 export type AdminUsersPath = "/admin/users" | `/admin/users?${string}`;
+export function buildAdminUserRelationshipsPath(): BuiltApiPath<"/api/admin/users/relationships"> {
+  return builtApiPath<"/api/admin/users/relationships">("/admin/users/relationships");
+}
+
 export function buildAdminUsersPath(params?: URLSearchParams): AdminUsersPath {
   const query = params?.toString();
   return (query ? `/admin/users?${query}` : "/admin/users") as AdminUsersPath;

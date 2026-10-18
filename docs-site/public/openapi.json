@@ -8167,6 +8167,33 @@
         "title": "AdminUserRegularTrafficOverrideBody",
         "type": "object"
       },
+      "AdminUserRelationshipEdgeOut": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "referral",
+              "partner"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "kind"
+        ],
+        "title": "AdminUserRelationshipEdgeOut",
+        "type": "object"
+      },
       "AdminUserSquadOverridesPatchBody": {
         "properties": {
           "add_internal_squad_uuids": {
@@ -25445,13 +25472,17 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "has_relationships": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "has_relationships"
                   ],
                   "type": "object"
                 }
@@ -30193,6 +30224,59 @@
         ]
       }
     },
+    "/api/admin/users/relationships": {
+      "get": {
+        "operationId": "get_admin_user_relationships_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "edges": {
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUserRelationshipEdgeOut"
+                      },
+                      "type": "array"
+                    },
+                    "nodes": {
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "nodes",
+                    "edges"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Relationships",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users/{user_id}": {
       "delete": {
         "operationId": "delete_admin_user_delete_route",
@@ -30404,6 +30488,9 @@
                       ],
                       "type": "object"
                     },
+                    "has_relationships": {
+                      "type": "boolean"
+                    },
                     "hwid_devices": {
                       "$ref": "#/components/schemas/AdminUserHwidDevicesOut"
                     },
@@ -30568,6 +30655,7 @@
                   "required": [
                     "ok",
                     "user",
+                    "has_relationships",
                     "active_subscription",
                     "subscriptions",
                     "trial",

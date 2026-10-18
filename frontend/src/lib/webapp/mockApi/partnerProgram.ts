@@ -201,6 +201,14 @@ const clientFixtures: ClientFixture[] = clientCandidates.map((user, index) => {
 });
 
 const partnersById = new Map(partnerFixtures.map((partner) => [partner.partnerId, partner]));
+export function demoPartnerRelationships(): { source: number; target: number; kind: "partner" }[] {
+  return clientFixtures.flatMap((client) => {
+    const partner = partnersById.get(client.partnerId);
+    const source = idOf(partner?.user);
+    const target = idOf(client.user);
+    return source && source !== target ? [{ source, target, kind: "partner" as const }] : [];
+  });
+}
 const commissionFixtures: CommissionFixture[] = clientFixtures.flatMap((client) => {
   const partner = partnersById.get(client.partnerId);
   if (!partner) return [];
@@ -586,6 +594,12 @@ function partnerDetail(partner: PartnerFixture): DemoRecord {
   return {
     ok: true,
     partner: { ...adminProfilePayload(partner), links: linksFor(partner) },
+    has_relationships:
+      demoPartnerRelationships().some(
+        (edge) => edge.source === idOf(partner.user) || edge.target === idOf(partner.user)
+      ) ||
+      users.some((user) => Number(user.referred_by_id) === idOf(partner.user)) ||
+      users.some((user) => idOf(user) === Number(partner.user.referred_by_id)),
     clients: clients.map(clientPayload),
     clients_total: clients.length,
     commissions: commissions.map(commissionPayload),

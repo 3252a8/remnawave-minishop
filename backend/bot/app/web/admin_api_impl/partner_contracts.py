@@ -16,6 +16,7 @@ from bot.app.web.partner_schemas import (
     PartnerProfileOut,
 )
 from bot.app.web.route_contracts import (
+    BOOLEAN_SCHEMA,
     RouteContract,
     ok_envelope_for,
     ok_envelope_with,
@@ -25,7 +26,9 @@ PARTNER_ADMIN_ROUTE_CONTRACTS: dict[str, RouteContract] = {
     "admin_partner_attention_route": RouteContract(response_schema=ok_envelope_with()),
     "admin_partner_overview_route": RouteContract(response_schema=ok_envelope_with()),
     "admin_partners_list_route": RouteContract(response_schema=ok_envelope_with()),
-    "admin_partner_detail_route": RouteContract(response_schema=ok_envelope_with()),
+    "admin_partner_detail_route": RouteContract(
+        response_schema=ok_envelope_with({"has_relationships": BOOLEAN_SCHEMA})
+    ),
     "admin_partner_create_route": RouteContract(
         request_model=AdminPartnerCreateIn,
         response_schema=ok_envelope_for(PartnerProfileOut, key="partner"),

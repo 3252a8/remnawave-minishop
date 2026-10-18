@@ -2834,6 +2834,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/relationships": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Relationships */
+    get: operations["get_admin_user_relationships_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}": {
     parameters: {
       query?: never;
@@ -8303,6 +8320,18 @@ export interface components {
        * @default false
        */
       unlimited: unknown;
+    };
+    /** AdminUserRelationshipEdgeOut */
+    AdminUserRelationshipEdgeOut: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "referral" | "partner";
+      /** Source */
+      source: number;
+      /** Target */
+      target: number;
     };
     /** AdminUserSquadOverridesPatchBody */
     AdminUserSquadOverridesPatchBody: {
@@ -16131,6 +16160,7 @@ export interface operations {
         };
         content: {
           "application/json": {
+            has_relationships: boolean;
             /** @constant */
             ok: true;
           };
@@ -18398,6 +18428,31 @@ export interface operations {
       };
     };
   };
+  get_admin_user_relationships_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            edges: components["schemas"]["AdminUserRelationshipEdgeOut"][];
+            nodes: components["schemas"]["AdminUserWithAvatarOut"][];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_admin_user_detail_route: {
     parameters: {
       query?: never;
@@ -18452,6 +18507,7 @@ export interface operations {
               topup_min_amount: number;
               topup_presets: number[];
             };
+            has_relationships: boolean;
             hwid_devices: components["schemas"]["AdminUserHwidDevicesOut"];
             install_share_url: string | null;
             last_vpn_connected_at: string | null;

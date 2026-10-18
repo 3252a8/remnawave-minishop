@@ -36,6 +36,7 @@ from db.dal import (
     user_dal,
     user_reads_dal,
 )
+from db.dal.user_relationships_dal import has_user_relationships
 from db.models import Payment, Subscription, User, UserTelegramAvatar
 
 from .auth import _require_admin_user_id
@@ -241,6 +242,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         )
         inviter = await user_dal.get_referrer_for_user(session, user)
         invitees_total = await user_dal.count_users_referred_by(session, target_id)
+        has_relationships = await has_user_relationships(session, target_id)
         partner_client = await partner_dal.get_client_with_profile_for_user(session, target_id)
         partner_attribution: dict[str, Any] | None = None
         if partner_client is not None:
@@ -460,6 +462,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
             ),
             "panel_squad_overrides": panel_squad_overrides,
             "partner_attribution": partner_attribution,
+            "has_relationships": has_relationships,
             "referral": {
                 "code": referral_code,
                 "bot_link": referral_bot_link,

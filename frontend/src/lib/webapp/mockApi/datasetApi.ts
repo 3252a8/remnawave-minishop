@@ -1,4 +1,5 @@
 import { demoAdminUserById } from "./users.js";
+import { demoUserRelationships } from "./relationships";
 import { adminBroadcastDemoResponse } from "./adminBroadcasts";
 import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
@@ -240,6 +241,7 @@ export function demoApiResponse(
     return payment ? { ok: true, payment: clone(payment) } : { ok: false, error: "not_found" };
   }
 
+  if (cleanPath === "/admin/users/relationships") return demoUserRelationships();
   if (cleanPath === "/admin/users") {
     const filtered = filterDemoUsers(params);
     const page = paged(filtered, params, 25);

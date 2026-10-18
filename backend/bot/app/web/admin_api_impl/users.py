@@ -185,6 +185,7 @@ register_contract(
         response_schema=ok_envelope_with(
             {
                 "user": schema_ref(AdminUserWithAvatarOut),
+                "has_relationships": BOOLEAN_SCHEMA,
                 "active_subscription": {
                     "anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]
                 },

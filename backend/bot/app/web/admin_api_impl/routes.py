@@ -163,6 +163,7 @@ from .translations import (
     admin_translations_get_route,
     admin_translations_patch_route,
 )
+from .user_relationships import admin_user_relationships_route
 from .users import (
     admin_user_avatar_route,
     admin_user_balance_adjustment_route,
@@ -299,6 +300,7 @@ def setup_admin_routes(app: web.Application) -> None:
     )
 
     router.add_get("/api/admin/users", admin_users_list_route)
+    router.add_get("/api/admin/users/relationships", admin_user_relationships_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+|ms_[a-fA-F0-9]+}", admin_user_detail_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)

@@ -57,6 +57,7 @@
     currentLang,
     usersStore,
     onOpenUserCard,
+    onOpenGraph,
     usersTable,
     usersFilterSheetOpen = $bindable(false),
     usersFilter,
@@ -110,6 +111,7 @@
     currentLang: string;
     usersStore: UsersStoreBridge;
     onOpenUserCard: (userId: unknown) => void;
+    onOpenGraph: () => void;
     usersTable: UsersTableBridge;
     usersFilterSheetOpen: boolean;
     usersFilter: string;
@@ -277,6 +279,11 @@
       {#if activeUsersFilterCount}
         <span class="admin-users-filter-count">{activeUsersFilterCount}</span>
       {/if}
+    </AdminButton>
+  {/snippet}
+  {#snippet actions()}
+    <AdminButton data-admin-action="open-relationships-graph" onclick={onOpenGraph}>
+      <UsersRound size={15} />{at("relationships_open", {}, "Referral graph")}
     </AdminButton>
   {/snippet}
   {#snippet filters()}
