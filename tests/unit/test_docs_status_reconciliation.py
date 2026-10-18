@@ -93,6 +93,18 @@ def test_pending_callback_requires_matching_immutable_publication(monkeypatch, o
     assert api.writes[0]["target_url"] == GL_URL
 
 
+@pytest.mark.parametrize("github_success", [False, True])
+def test_native_gitlab_success_still_waits_for_github_publication(monkeypatch, github_success):
+    api = DeploymentApi()
+    api.statuses[0]["status"] = "success"
+    api.check["conclusion"] = "success" if github_success else None
+    monkeypatch.setattr(docs, "request_bytes", api.request)
+    assert docs.reconcile_once(SHA, "dev", "project-status-token", "github-checks-token") is (
+        github_success
+    )
+    assert not api.writes
+
+
 @pytest.mark.parametrize(
     "field,value",
     [("commit", "b" * 40), ("branch", "main"), ("repository", "another/repository"), ("schema", 2)],

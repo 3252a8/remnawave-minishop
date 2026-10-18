@@ -270,9 +270,7 @@ def reconcile_once(sha: str, branch: str, gitlab_token: str, github_token: str) 
     if not matching:
         return None
     status = max(matching, key=lambda item: int(item["id"]))
-    if status.get("status") == "success":
-        return True
-    if status.get("status") not in {"pending", "running"}:
+    if status.get("status") not in {"pending", "running", "success"}:
         raise RuntimeError("Cloudflare reported a terminal error; refusing to replace its result")
     if status.get("sha") != sha or status.get("ref") != branch:
         raise ValueError("Cloudflare status belongs to a different commit or branch")
@@ -281,6 +279,9 @@ def reconcile_once(sha: str, branch: str, gitlab_token: str, github_token: str) 
     if github_url is None:
         return False
     verify_publication(gitlab_url, github_url, sha, branch)
+    if status.get("status") == "success":
+        print(f"Verified both documentation mirrors for {sha}; native GitLab status is successful")
+        return True
     pipeline_id = int(status["pipeline_id"])
     if pipeline_id <= 0 or not gitlab_token:
         raise RuntimeError("A pipeline and a project-scoped commit-status token are required")
