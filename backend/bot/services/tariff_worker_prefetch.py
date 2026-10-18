@@ -42,12 +42,13 @@ async def prefetch_premium_periods(
         if not payload:
             continue
         try:
-            tariff = (
-                worker._trial_premium_tariff()
-                if not sub.tariff_key and worker._is_trial_subscription(sub)
-                else gift_tariff(sub)
-                or worker.settings.tariffs_config.require_configured(sub.tariff_key)
-            )
+            if not sub.tariff_key and worker._is_trial_subscription(sub):
+                tariff = worker._trial_premium_tariff()
+            else:
+                tariff = gift_tariff(sub)
+                config = worker.settings.tariffs_config
+                if tariff is None and config is not None:
+                    tariff = config.require_configured(sub.tariff_key)
         except (KeyError, ValueError):
             continue
         if tariff is None or not tariff.premium_squad_uuids or not tariff.has_premium_squad_limit():
