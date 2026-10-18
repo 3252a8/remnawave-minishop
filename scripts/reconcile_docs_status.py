@@ -9,8 +9,9 @@ import re
 import time
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
 from email.message import Message
-from typing import IO, Any
+from typing import IO, Any, Protocol
 from urllib.parse import urlsplit
 
 REPOSITORY = "3252a8/remnawave-minishop"
@@ -18,6 +19,145 @@ GITLAB_API = "https://gitlab.com/api/v4/projects/82551396"
 GITHUB_API = f"https://api.github.com/repos/{REPOSITORY}"
 STATUS_NAME = "Cloudflare Pages: minishop-docs"
 CLOUDFLARE_APP_ID = 85455
+PUBLICATION_TIMEOUT_SECONDS = 90 * 60
+CLOUDFLARE_API = "https://api.cloudflare.com/client/v4"
+QUEUE_GRACE_SECONDS = 10 * 60
+MAX_RETRIES = 2
+
+
+class Requester(Protocol):
+    def __call__(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        payload: dict[str, object] | None = None,
+    ) -> bytes: ...
+
+
+class RecoveryState:
+    def __init__(self, counts: dict[str, int] | None = None) -> None:
+        self.counts = counts or {}
+        self.attempted: set[str] = set()
+
+
+def _value(record: object, name: str) -> object:
+    return record.get(name) if isinstance(record, dict) else None
+
+
+def _result(raw: bytes) -> object:
+    response: object = json.loads(raw)
+    if _value(response, "success") is not True:
+        raise ValueError("Cloudflare Pages API did not confirm the request")
+    return _value(response, "result")
+
+
+def _created(record: object) -> datetime:
+    value = _value(record, "created_on")
+    if not isinstance(value, str):
+        raise ValueError("Cloudflare deployment omitted its creation time")
+    created = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if created.tzinfo is None:
+        raise ValueError("Cloudflare deployment creation time has no timezone")
+    return created
+
+
+def _matches(record: object, sha: str, branch: str) -> bool:
+    metadata = _value(_value(record, "deployment_trigger"), "metadata")
+    return _value(metadata, "commit_hash") == sha and _value(metadata, "branch") == branch
+
+
+def _retryable(record: object, base: str, headers: dict[str, str], request: Requester) -> bool:
+    stage = _value(record, "latest_stage")
+    stages = _value(record, "stages")
+    if not isinstance(stages, list):
+        return False
+    if _value(stage, "name") == "queued" and _value(stage, "status") in ("idle", "active"):
+        return not any(
+            _value(item, "name") != "queued"
+            and (_value(item, "status") not in (None, "idle") or _value(item, "started_on"))
+            for item in stages
+        )
+    if _value(stage, "name") != "initialize" or _value(stage, "status") != "failure":
+        return False
+    if any(
+        _value(item, "name") not in ("queued", "initialize")
+        and (_value(item, "status") not in (None, "idle") or _value(item, "started_on"))
+        for item in stages
+    ):
+        return False
+    # A provider scheduling failure is distinct from a repository/build failure.
+    logs = _result(request(f"{base}/{_value(record, 'id')}/history/logs", headers=headers))
+    data = _value(logs, "data")
+    return (
+        isinstance(data, list)
+        and len(data) == 1
+        and _value(data[0], "line") == ("Failed: unable to submit build job")
+    )
+
+
+def retry_stalled_deployments(
+    *,
+    account: str,
+    token: str,
+    sha: str,
+    branch: str,
+    request: Requester,
+    state: RecoveryState,
+    now: datetime | None = None,
+) -> bool:
+    if not re.fullmatch(r"[0-9a-f]{32}", account):
+        raise ValueError("Cloudflare Pages recovery requires a pinned account ID")
+    if not re.fullmatch(r"[0-9a-f]{40}", sha) or branch not in {"dev", "main"}:
+        raise ValueError("Only a pinned dev/main commit can be retried")
+    if not token:
+        raise ValueError("Cloudflare Pages recovery token is required")
+    clock = now or datetime.now(UTC)
+    projects = ["minishop-docs", "minishop-docs-github"]
+    if branch == "main":
+        projects.append("minishop-docs-main")
+    headers = {"Authorization": f"Bearer {token}"}
+    retried = False
+    for project in projects:
+        if state.counts.get(project, 0) >= MAX_RETRIES:
+            continue
+        base = f"{CLOUDFLARE_API}/accounts/{account}/pages/projects/{project}/deployments"
+        records = _result(request(f"{base}?per_page=20", headers=headers))
+        if not isinstance(records, list):
+            raise ValueError("Cloudflare Pages API omitted deployment records")
+        matching = [record for record in records if _matches(record, sha, branch)]
+        if not matching:
+            continue
+        latest = max(matching, key=_created)
+        identifier = _value(latest, "id")
+        if not isinstance(identifier, str) or not re.fullmatch(
+            r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", identifier
+        ):
+            raise ValueError("Cloudflare deployment has an invalid ID")
+        if (
+            identifier in state.attempted
+            or _value(latest, "skip_reason")
+            or (
+                _value(_value(latest, "latest_stage"), "name") == "queued"
+                and (clock - _created(latest)).total_seconds() < QUEUE_GRACE_SECONDS
+            )
+        ):
+            continue
+        if not _retryable(latest, base, headers, request):
+            continue
+        # Count uncertain responses too: a timed-out POST may already have created a build.
+        state.attempted.add(identifier)
+        state.counts[project] = state.counts.get(project, 0) + 1
+        replacement = _result(request(f"{base}/{identifier}/retry", headers=headers, payload={}))
+        if not _matches(replacement, sha, branch):
+            raise ValueError("Cloudflare retried a different commit or branch")
+        retried = True
+        print(
+            f"Retried stalled Pages queue: {project}, commit {sha}, "
+            f"attempt {state.counts[project]}/{MAX_RETRIES}",
+            flush=True,
+        )
+    return retried
 
 
 def request_bytes(
@@ -175,9 +315,29 @@ def main() -> None:
     token = os.environ.get("GITLAB_DOCS_STATUS_TOKEN", "")
     if not token:
         raise SystemExit("GITLAB_DOCS_STATUS_TOKEN is required")
+    cloudflare_token = os.environ.get("CLOUDFLARE_PAGES_TOKEN", "")
+    cloudflare_account = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+    recovery = RecoveryState()
     started = time.monotonic()
-    while time.monotonic() - started < 20 * 60:
+    while time.monotonic() - started < PUBLICATION_TIMEOUT_SECONDS:
         try:
+            if cloudflare_token:
+                try:
+                    if retry_stalled_deployments(
+                        account=cloudflare_account,
+                        token=cloudflare_token,
+                        sha=sha,
+                        branch=branch,
+                        request=request_bytes,
+                        state=recovery,
+                    ):
+                        time.sleep(30)
+                        continue
+                except (urllib.error.URLError, TimeoutError, ValueError) as error:
+                    if isinstance(error, urllib.error.HTTPError) and error.code in {401, 403}:
+                        raise
+                    # An unavailable recovery API must not prevent independent publication proof.
+                    print(f"Pages queue recovery is unavailable: {error}", flush=True)
             done = reconcile_once(
                 sha,
                 branch,
@@ -189,14 +349,23 @@ def main() -> None:
             if done is None and time.monotonic() - started >= 180:
                 print("Cloudflare registered no external status; no reconciliation is required")
                 return
+            elapsed = int(time.monotonic() - started) // 60
+            print(
+                "Waiting for immutable Cloudflare documentation builds "
+                f"({elapsed}/{PUBLICATION_TIMEOUT_SECONDS // 60} minutes, commit {sha})",
+                flush=True,
+            )
         except urllib.error.HTTPError as error:
             if error.code in {401, 403}:
                 raise SystemExit("Deployment API authorization failed") from None
-            print(f"Deployment is not ready: HTTP {error.code}")
+            print(f"Deployment is not ready: HTTP {error.code}", flush=True)
         except (urllib.error.URLError, TimeoutError, ValueError) as error:
-            print(f"Deployment is not ready: {error}")
+            print(f"Deployment is not ready: {error}", flush=True)
         time.sleep(30)
-    raise SystemExit("Documentation publication could not be verified within 20 minutes")
+    raise SystemExit(
+        "Documentation publication could not be verified within "
+        f"{PUBLICATION_TIMEOUT_SECONDS // 60} minutes"
+    )
 
 
 if __name__ == "__main__":

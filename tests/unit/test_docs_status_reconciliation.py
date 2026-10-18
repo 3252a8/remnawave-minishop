@@ -1,5 +1,7 @@
+import copy
 import importlib.util
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -153,3 +155,195 @@ def test_different_published_pages_never_update_status(monkeypatch):
 def test_deployment_urls_cannot_redirect_proof_or_credentials_elsewhere(url):
     with pytest.raises(ValueError, match="Unexpected"):
         docs.deployment_url(url)
+
+
+@pytest.mark.parametrize("queued_minutes", [21, 91])
+def test_publication_wait_includes_queue_time_and_remains_bounded(
+    monkeypatch, capsys, queued_minutes
+):
+    monkeypatch.setenv("GITHUB_REPOSITORY", docs.REPOSITORY)
+    monkeypatch.setenv("GITHUB_SHA", SHA)
+    monkeypatch.setenv("GITHUB_REF_NAME", "dev")
+    monkeypatch.setenv("GITLAB_DOCS_STATUS_TOKEN", "project-status-token")
+    monkeypatch.delenv("CLOUDFLARE_PAGES_TOKEN", raising=False)
+    now = [0.0]
+    calls = []
+
+    def reconcile(*args):
+        calls.append(args)
+        return len(calls) > 1
+
+    def sleep(seconds):
+        assert seconds == 30
+        now[0] += queued_minutes * 60
+
+    monkeypatch.setattr(docs, "reconcile_once", reconcile)
+    monkeypatch.setattr(docs.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(docs.time, "sleep", sleep)
+    if queued_minutes == 21:
+        docs.main()
+        assert len(calls) == 2
+    else:
+        with pytest.raises(SystemExit, match="could not be verified within 90 minutes"):
+            docs.main()
+        assert len(calls) == 1
+    assert "Waiting for immutable Cloudflare documentation builds" in capsys.readouterr().out
+
+
+def test_recovery_api_outage_does_not_block_independent_publication_proof(monkeypatch):
+    monkeypatch.setenv("GITHUB_REPOSITORY", docs.REPOSITORY)
+    monkeypatch.setenv("GITHUB_SHA", SHA)
+    monkeypatch.setenv("GITHUB_REF_NAME", "dev")
+    monkeypatch.setenv("GITLAB_DOCS_STATUS_TOKEN", "project-status-token")
+    monkeypatch.setenv("CLOUDFLARE_PAGES_TOKEN", "pages-token")
+    calls = []
+
+    def unavailable(**kwargs):
+        calls.append(kwargs["sha"])
+        raise TimeoutError("Pages API unavailable")
+
+    monkeypatch.setattr(docs, "retry_stalled_deployments", unavailable)
+    monkeypatch.setattr(docs, "reconcile_once", lambda *args: True)
+    docs.main()
+    assert calls == [SHA]
+
+
+ACCOUNT = "b" * 32
+NOW = datetime(2026, 10, 18, 20, 0, tzinfo=UTC)
+IDENTIFIER = "12345678-1234-1234-1234-123456789abc"
+
+
+class PagesApi:
+    def __init__(self):
+        self.record = {
+            "id": IDENTIFIER,
+            "created_on": (NOW - timedelta(minutes=11)).isoformat(),
+            "deployment_trigger": {"metadata": {"commit_hash": SHA, "branch": "dev"}},
+            "latest_stage": {"name": "queued", "status": "active"},
+            "stages": [
+                {"name": "queued", "status": "active"},
+                {"name": "initialize", "status": "idle"},
+            ],
+        }
+        self.records = [self.record]
+        self.writes = []
+        self.reads = []
+        self.timeout = False
+        self.log_lines = ["Failed: unable to submit build job"]
+
+    def request(self, url, *, headers=None, payload=None):
+        assert headers == {"Authorization": "Bearer pages-token"}
+        assert url.startswith(f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/pages/")
+        if payload is None:
+            self.reads.append(url)
+            result = (
+                {"data": [{"line": line} for line in self.log_lines]}
+                if url.endswith("/history/logs")
+                else self.records
+                if "/minishop-docs/" in url
+                else []
+            )
+        else:
+            assert payload == {}
+            assert url.endswith(f"/{IDENTIFIER}/retry")
+            self.writes.append(url)
+            if self.timeout:
+                raise TimeoutError("uncertain response")
+            result = self.record
+        return json.dumps({"success": True, "result": result}).encode()
+
+    def recover(self, state=None, branch="dev"):
+        return docs.retry_stalled_deployments(
+            account=ACCOUNT,
+            token="pages-token",
+            sha=SHA,
+            branch=branch,
+            request=self.request,
+            state=state or docs.RecoveryState(),
+            now=NOW,
+        )
+
+
+def test_only_stalled_queue_is_retried_once_per_deployment():
+    api = PagesApi()
+    state = docs.RecoveryState()
+    assert api.recover(state) is True
+    assert api.recover(state) is False
+    assert len(api.writes) == 1
+    assert state.counts == {"minishop-docs": 1}
+    assert not any("minishop-docs-main" in url for url in api.reads)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("created_on", (NOW - timedelta(minutes=9)).isoformat()),
+        ("skip_reason", "ignored_build_step"),
+        ("latest_stage", {"name": "build", "status": "active"}),
+        ("latest_stage", {"name": "queued", "status": "failure"}),
+        ("latest_stage", {"name": "queued", "status": "canceled"}),
+        ("latest_stage", {"name": "queued", "status": "success"}),
+        ("stages", [{"name": "initialize", "status": "active"}]),
+        ("stages", [{"name": "build", "status": "failure"}]),
+        ("stages", None),
+        ("deployment_trigger", {"metadata": {"commit_hash": "c" * 40, "branch": "dev"}}),
+        ("deployment_trigger", {"metadata": {"commit_hash": SHA, "branch": "main"}}),
+    ],
+)
+def test_started_terminal_skipped_young_and_other_commit_builds_are_preserved(field, value):
+    api = PagesApi()
+    api.record[field] = value
+    assert api.recover() is False
+    assert not api.writes
+
+
+def test_newest_deployment_supersedes_older_stalled_record():
+    api = PagesApi()
+    newer = copy.deepcopy(api.record)
+    newer["created_on"] = NOW.isoformat()
+    newer["latest_stage"] = {"name": "deploy", "status": "success"}
+    api.records.append(newer)
+    assert api.recover() is False
+    assert not api.writes
+
+
+def test_retry_budget_stops_new_queued_records_too():
+    api = PagesApi()
+    state = docs.RecoveryState(counts={"minishop-docs": 2})
+    assert api.recover(state) is False
+    assert not api.writes
+
+
+def test_uncertain_post_response_cannot_duplicate_retry():
+    api = PagesApi()
+    api.timeout = True
+    state = docs.RecoveryState()
+    with pytest.raises(TimeoutError):
+        api.recover(state)
+    assert api.recover(state) is False
+    assert len(api.writes) == 1
+    assert state.counts == {"minishop-docs": 1}
+
+
+def test_main_branch_also_checks_production_docs_project():
+    api = PagesApi()
+    assert api.recover(branch="main") is False
+    assert any("minishop-docs-main" in url for url in api.reads)
+
+
+@pytest.mark.parametrize(
+    "lines,expected",
+    [
+        (["Failed: unable to submit build job"], True),
+        (["Failed: build command exited with code 1"], False),
+        (["Cloning repository...", "Failed: unable to submit build job"], False),
+        ([], False),
+    ],
+)
+def test_only_proven_cloudflare_scheduler_failure_can_retry_initialization(lines, expected):
+    api = PagesApi()
+    api.record["latest_stage"] = {"name": "initialize", "status": "failure"}
+    api.record["created_on"] = NOW.isoformat()
+    api.log_lines = lines
+    assert api.recover() is expected
+    assert len(api.writes) == int(expected)

@@ -18,7 +18,7 @@ jobs:
     name: Verify published documentation
     if: github.repository == '3252a8/remnawave-minishop'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -28,4 +28,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITLAB_DOCS_STATUS_TOKEN: ${{ secrets.GITLAB_DOCS_STATUS_TOKEN }}
+          CLOUDFLARE_PAGES_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: python scripts/reconcile_docs_status.py
