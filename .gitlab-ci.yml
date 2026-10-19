@@ -17,10 +17,14 @@ variables:
 
 build-docs:
   stage: verify
-  image: node:24-bookworm-slim
+  image: node:24-trixie-slim
   variables:
     CF_PAGES_COMMIT_SHA: $CI_COMMIT_SHA
     CF_PAGES_BRANCH: $CI_COMMIT_BRANCH
+    PYTHON: python3
+  before_script:
+    - apt-get update && apt-get install --yes --no-install-recommends python3 python3-pil ca-certificates
+    - python3 -c "import sys; from PIL import Image; assert sys.version_info >= (3, 12)"
   script:
     - npm --prefix docs-site ci --no-audit --no-fund
     - npm run check:docs
@@ -34,7 +38,7 @@ build-docs:
 
 publish-docs:
   stage: publish
-  image: node:24-bookworm-slim
+  image: node:24-trixie-slim
   needs: [build-docs]
   resource_group: documentation-$CI_COMMIT_BRANCH
   interruptible: false
