@@ -449,3 +449,43 @@ UI-примитив. Например, для провайдера нужен `P
 - Compatibility facades (`admin_api`, `subscription_webapp`, `subscription_service`) are compatibility-only layers.
   Implementation code must import concrete `*_impl`/domain modules first; avoid adding new first-party dependencies on facade modules
   unless a public compatibility contract requires it.
+
+## 9. Публикация документации из GitLab
+
+Документацию собирает только GitLab CI. Для push/web pipeline веток `dev` и `main`
+job **build-docs** один раз устанавливает зависимости, проверяет документацию и
+создаёт production-сборку на Node.js 24. Готовый `docs-site/dist/` передаётся как
+artifact в **publish-docs** того же pipeline. Секрет Pages доступен только окружению
+публикации; job сборки его не получает. GitHub workflow документации удалён.
+
+Закреплённый Wrangler загружает готовые файлы напрямую в существующие проекты:
+`dev` → `minishop-docs`, `main` → `minishop-docs-main`. Автоматические production
+и preview-сборки Pages Git-интеграции отключены у этих проектов и у прежнего
+`minishop-docs-github`, поэтому очередь Pages Builds и её callback больше не
+управляют публикацией. Домены и production-ветки сохраняются. Этот режим
+[поддерживается Cloudflare](https://developers.cloudflare.com/pages/configuration/git-integration/#disable-automatic-deployments).
+
+`/_build.json` создаётся только после успешной материализации всех страниц и должен
+содержать ожидаемые репозиторий, ветку и SHA. Перед загрузкой проверяется текущий
+HEAD ветки GitLab. Для конкретного deployment ID из ответа Wrangler Pages API
+должен подтвердить успешную загрузку того же SHA/ветки. Затем HTTP-ответы
+`/_build.json`, главной страницы и changelog сверяются с artifact по SHA-256
+по неизменяемому адресу и текущему production-адресу проекта. На распространение
+файлов отведено пять минут; job публикации ограничен 15 минутами. Проверка HEAD
+повторяется после публикации. Ошибки сборки, загрузки и проверки завершают job
+с ошибкой; внешние статусы приложения Cloudflare не переписываются.
+`resource_group` исключает одновременные публикации одной ветки.
+
+В GitLab CI/CD Variables нужны `CLOUDFLARE_API_TOKEN` (masked и hidden) с правом
+**Account → Cloudflare Pages → Edit** и `CLOUDFLARE_ACCOUNT_ID`. Ограничьте обе
+переменные environment scope `documentation/*`: окружение job публикации имеет имя
+`documentation/dev` или `documentation/main`. Если `dev` не защищена, переменные
+не должны иметь флаг protected, иначе job не получит их. Не передавайте токен
+сборкам, artifact или журналам. GitHub secrets и variables для документации
+больше не используются. Файлы `.node-version` в корне и `docs-site/` также выбирают
+Node.js 24 для локальной разработки.
+
+После временного сбоя повторите неудавшийся GitLab job публикации. Он использует
+готовый artifact того же pipeline и проверяет SHA заново. Если artifact истёк,
+запустите новый pipeline актуальной ветки. Старый SHA не может перезаписать
+документацию новой ревизии.
