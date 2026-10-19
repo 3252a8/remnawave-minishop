@@ -34,7 +34,7 @@ def _json_dict(value: object) -> dict[str, Any] | None:
 
 
 def _json_dict_list(value: object) -> list[dict[str, Any]] | None:
-    if not isinstance(value, list):
+    if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         return None
     return [item for item in value if isinstance(item, dict)]
 
@@ -157,10 +157,14 @@ class PanelApiUsersMixin(PanelApiUserMutationMixin, PanelApiResponseMixin):
         return True
 
     async def get_all_panel_users(
-        self, page_size: int | None = None, log_responses: bool = False
+        self,
+        page_size: int | None = None,
+        log_responses: bool = False,
+        *,
+        use_cache: bool = True,
     ) -> list[dict[str, Any]] | None:
         resolved_page_size = self._resolve_all_users_page_size(page_size)
-        if log_responses or self._all_users_cache.ttl_seconds <= 0:
+        if not use_cache or log_responses or self._all_users_cache.ttl_seconds <= 0:
             users = await self._get_all_panel_users_uncached(
                 page_size=resolved_page_size, log_responses=log_responses
             )
@@ -289,6 +293,9 @@ class PanelApiUsersMixin(PanelApiUserMutationMixin, PanelApiResponseMixin):
                 self.remember_panel_capability(PanelApiCapability.USER_STREAM, False)
                 return None
             if not users_batch:
+                if _panel_users_next_cursor(response):
+                    logger.warning("Panel API users stream returned an empty nonterminal page.")
+                    return None
                 break
             all_users.extend(
                 user
@@ -299,8 +306,8 @@ class PanelApiUsersMixin(PanelApiUserMutationMixin, PanelApiResponseMixin):
             if not next_cursor:
                 break
             if next_cursor in seen_cursors:
-                logger.warning("Panel API users stream returned a repeated cursor; stopping.")
-                break
+                logger.warning("Panel API users stream returned a repeated cursor; discarding.")
+                return None
             seen_cursors.add(next_cursor)
             cursor = next_cursor
             if page_delay:
@@ -400,6 +407,7 @@ class PanelApiUsersMixin(PanelApiUserMutationMixin, PanelApiResponseMixin):
                 "ok": False,
                 "user": None,
                 "not_found": False,
+                "reference_incompatible": True,
                 "failure_reason": (
                     "classification=incompatible_user_reference "
                     f"generation={compatibility.generation.value} "

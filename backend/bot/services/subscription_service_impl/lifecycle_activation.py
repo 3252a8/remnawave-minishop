@@ -944,6 +944,11 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
                 updated_panel_user,
             )
 
+        if panel_user_created_now:
+            await entitlement_helpers.deactivate_replaced_panel_subscriptions(
+                session, user_id, previous_panel_user_uuid, panel_user_uuid
+            )
+
         await record_activation_topups(
             session,
             subscription_id=new_or_updated_sub.subscription_id,

@@ -471,7 +471,11 @@ async def upsert_subscription(session: AsyncSession, sub_payload: dict[str, Any]
 
 
 async def deactivate_other_active_subscriptions(
-    session: AsyncSession, panel_user_uuid: str, current_panel_subscription_uuid: str | None
+    session: AsyncSession,
+    panel_user_uuid: str,
+    current_panel_subscription_uuid: str | None,
+    *,
+    user_id: int | None = None,
 ) -> None:
     stmt = (
         update(Subscription)
@@ -483,6 +487,8 @@ async def deactivate_other_active_subscriptions(
     )
     if current_panel_subscription_uuid:
         stmt = stmt.where(Subscription.panel_subscription_uuid != current_panel_subscription_uuid)
+    if user_id is not None:
+        stmt = stmt.where(Subscription.user_id == user_id)
 
     result = await session.execute(stmt)
     affected = rowcount(result)

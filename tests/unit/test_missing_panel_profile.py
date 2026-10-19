@@ -1,12 +1,17 @@
+import time
 import unittest
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from bot.services.panel_api_compat import PanelApiCompatibility
+from bot.services.panel_api_service import PanelApiService
+from bot.services.panel_identity_match import panel_origin_fingerprint
 from bot.services.subscription_service_impl.panel_identity import (
     PanelIdentityMixin,
     PanelUserCreateOptions,
 )
+from tests.support.settings_stub import settings_stub
 
 
 class MissingPanelProfileTests(unittest.IsolatedAsyncioTestCase):
@@ -37,6 +42,7 @@ class MissingPanelProfileTests(unittest.IsolatedAsyncioTestCase):
             get_user_by_uuid_lookup=AsyncMock(return_value={"ok": False, "not_found": True}),
             get_users_by_filter=AsyncMock(return_value=[]),
             create_panel_user=AsyncMock(return_value={"response": self.panel_user}),
+            get_all_panel_users=AsyncMock(return_value=[]),
         )
         self.mixin.panel_service = self.panel
         self.mixin._notify_admin_panel_user_creation_failed = AsyncMock()
@@ -128,3 +134,112 @@ class MissingPanelProfileTests(unittest.IsolatedAsyncioTestCase):
         self.mixin._notify_admin_panel_user_creation_failed.assert_awaited_once_with(
             self.session, 42
         )
+
+    def incompatible_reference(self):
+        self.panel.get_user_by_uuid_lookup.return_value = {
+            "ok": False,
+            "not_found": False,
+            "reference_incompatible": True,
+        }
+
+    async def test_deleted_legacy_uuid_is_recreated_after_fresh_complete_snapshot(self):
+        self.incompatible_reference()
+        link = await self.link()
+        self.assertTrue(link.panel_user_created_now)
+        self.panel.get_all_panel_users.assert_awaited_once_with(use_cache=False)
+        self.panel.create_panel_user.assert_awaited_once()
+        self.assertEqual(self.user.panel_user_uuid, "new-panel-user")
+
+    async def test_failed_or_unidentifiable_snapshot_never_creates(self):
+        self.incompatible_reference()
+        for snapshot in (None, [{"username": "unknown"}], [{"uuid": ""}]):
+            with self.subTest(snapshot=snapshot):
+                self.panel.get_all_panel_users.return_value = snapshot
+                link = await self.link()
+                self.assertIsNone(link.panel_user)
+                self.panel.create_panel_user.assert_not_awaited()
+                self.assertEqual(self.user.panel_user_uuid, "deleted-panel-user")
+
+    async def test_snapshot_reuses_migrated_profile_instead_of_creating(self):
+        self.incompatible_reference()
+        self.panel.get_all_panel_users.return_value = [self.panel_user]
+        link = await self.link()
+        self.assertFalse(link.panel_user_created_now)
+        self.assertEqual(link.panel_user_uuid, "new-panel-user")
+        self.panel.create_panel_user.assert_not_awaited()
+        self.relink_subscriptions.assert_awaited_once()
+
+    async def test_snapshot_conflicts_and_unverified_email_never_create_or_adopt(self):
+        self.incompatible_reference()
+        for snapshot in (
+            [self.panel_user, {**self.panel_user, "uuid": "another-user"}],
+            [{"uuid": "other", "email": self.user.email, "username": "unrelated"}],
+            [{"uuid": "deleted-panel-user", "telegramId": 99, "username": "unrelated"}],
+        ):
+            with self.subTest(snapshot=snapshot):
+                self.panel.get_all_panel_users.return_value = snapshot
+                link = await self.link()
+                self.assertIsNone(link.panel_user)
+                self.panel.create_panel_user.assert_not_awaited()
+                self.update_user.assert_not_awaited()
+
+    async def test_changed_panel_origin_never_recreates_a_profile(self):
+        self.incompatible_reference()
+        self.user.panel_origin = panel_origin_fingerprint("https://old.example.test/api")
+        link = await self.link()
+        self.assertIsNone(link.panel_user)
+        self.panel.get_all_panel_users.assert_not_awaited()
+        self.panel.create_panel_user.assert_not_awaited()
+
+    async def test_transport_failure_cannot_be_overruled_by_an_empty_snapshot(self):
+        self.incompatible_reference()
+        self.panel.get_users_by_filter.return_value = None
+        link = await self.link()
+        self.assertIsNone(link.panel_user)
+        self.panel.get_all_panel_users.assert_not_awaited()
+        self.panel.create_panel_user.assert_not_awaited()
+
+    async def test_reported_v3_deleted_uuid_through_real_api_adapter(self):
+        await self.check_api_replacement("3.4.5", "legacy-user-uuid", "159")
+
+    async def test_deleted_v3_numeric_id_through_real_api_adapter(self):
+        await self.check_api_replacement("3.4.5", "91", "159")
+
+    async def test_deleted_v2_uuid_through_real_api_adapter(self):
+        await self.check_api_replacement("2.8.1", "deleted-profile", "new-panel-user")
+
+    async def test_deleted_numeric_id_after_panel_rollback(self):
+        await self.check_api_replacement("2.8.1", "91", "new-panel-user")
+
+    async def check_api_replacement(self, version, old_reference, new_reference):
+        self.user.panel_user_uuid = old_reference
+        panel = PanelApiService(settings_stub(PANEL_API_URL="https://panel.example.test/api"))
+        panel._panel_api_compatibility = PanelApiCompatibility.from_metadata(
+            {"response": {"version": version}}
+        )
+        panel._panel_api_compatibility_detected_at = time.monotonic()
+        created = {**self.panel_user, "uuid": new_reference}
+        if version.startswith("3."):
+            created["id"] = int(new_reference)
+            del created["uuid"]
+
+        async def request(method, endpoint, **kwargs):
+            if method == "POST" and endpoint == "/users":
+                return {"response": created}
+            if endpoint in {"/users/stream", "/users"}:
+                return {"response": {"users": []}}
+            if endpoint == f"/users/{new_reference}":
+                return {"response": created}
+            return {"error": True, "status_code": 404, "details": {"errorCode": "A063"}}
+
+        panel._request = AsyncMock(side_effect=request)
+        self.mixin.panel_service = panel
+        link = await self.link()
+        self.assertTrue(link.panel_user_created_now)
+        self.assertEqual(link.panel_user_uuid, new_reference)
+        second = await self.link()
+        self.assertFalse(second.panel_user_created_now)
+        posts = [call for call in panel._request.await_args_list if call.args[0] == "POST"]
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(posts[0].kwargs["json"]["expireAt"], "2026-11-06T00:00:00.000Z")
+        self.assertEqual(posts[0].kwargs["json"]["trafficLimitBytes"], 1000)
