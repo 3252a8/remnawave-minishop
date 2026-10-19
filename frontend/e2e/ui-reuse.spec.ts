@@ -77,6 +77,24 @@ for (const width of [1440, 768, 390, 320]) {
         }));
       });
       expect(geometry.length).toBeGreaterThan(10);
+      const layoutBounds = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+        const bounds = cy.elements().boundingBox();
+        const targets = new Set(cy.edges().map((edge) => edge.target().id()));
+        return {
+          aspectRatio: bounds.w / bounds.h,
+          rootRows: new Set(
+            cy
+              .nodes()
+              .filter((node) => !targets.has(node.id()))
+              .map((node) => Math.round(node.position("y")))
+          ).size,
+        };
+      });
+      // Independent families must occupy several rows, even in the overview.
+      // INCLUDE_CHILDREN previously flattened this fixture into a 30k-pixel strip.
+      expect(layoutBounds.aspectRatio).toBeLessThan(3);
+      expect(layoutBounds.rootRows).toBeGreaterThan(2);
       for (const route of geometry) {
         expect(Math.abs(route.points[0].x - route.points[1].x)).toBeLessThan(0.01);
         expect(Math.abs(route.points.at(-1)!.x - route.points.at(-2)!.x)).toBeLessThan(0.01);

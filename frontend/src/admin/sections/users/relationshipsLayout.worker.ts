@@ -9,6 +9,7 @@ export type RelationshipLayoutRequest = {
   edges: { source: string; target: string }[];
   cardWidth: number;
   cardHeight: number;
+  aspectRatio: number;
 };
 export type RelationshipLayoutResult =
   | { ok: true; positions: { id: string; x: number; y: number }[]; routes: RelationshipEdgeRoute[] }
@@ -44,13 +45,20 @@ self.addEventListener("message", (event: MessageEvent<RelationshipLayoutRequest>
         animate: false,
         elk: {
           algorithm: "layered",
+          aspectRatio: String(input.aspectRatio),
           "elk.direction": "DOWN",
           "elk.edgeRouting": "ORTHOGONAL",
-          "elk.spacing.nodeNode": "48",
-          "elk.layered.spacing.nodeNodeBetweenLayers": "96",
+          "elk.spacing.nodeNode": "36",
+          "elk.spacing.componentComponent": "96",
+          "elk.layered.spacing.nodeNodeBetweenLayers": "80",
           "elk.spacing.edgeEdge": "12",
           "elk.layered.spacing.edgeNodeBetweenLayers": "24",
-          "elk.hierarchyHandling": "INCLUDE_CHILDREN",
+          // There are no compound nodes. INCLUDE_CHILDREN disables component
+          // packing and stretches every independent tree into one wide strip.
+          "elk.hierarchyHandling": "SEPARATE_CHILDREN",
+          "elk.layered.compaction.connectedComponents": "true",
+          // Stagger siblings into sublayers so wide families also use more rows.
+          "elk.layered.layerUnzipping.strategy": "ALTERNATING",
         },
         stop: () => {
           const positions = cy.nodes().map((node) => ({ id: node.id(), ...node.position() }));

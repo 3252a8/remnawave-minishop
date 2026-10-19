@@ -218,6 +218,7 @@
         edges: edges.map((edge) => ({ source: String(edge.source), target: String(edge.target) })),
         cardWidth,
         cardHeight,
+        aspectRatio: Math.max(0.8, Math.min(2, container.clientWidth / container.clientHeight)),
       } satisfies RelationshipLayoutRequest);
     });
   }
