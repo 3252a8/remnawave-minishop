@@ -1,6 +1,6 @@
 import type { Core } from "cytoscape";
 import type { AdminUser } from "$lib/admin/stores/usersStoreState";
-import { accelerateRelationshipDrag } from "./relationshipDrag";
+import { enhanceRelationshipNavigation } from "./relationshipNavigation";
 
 export type RelationshipCardPosition = { user: AdminUser; x: number; y: number; order: number };
 type Bounds = { x1: number; y1: number; x2: number; y2: number };
@@ -21,7 +21,7 @@ export function createRelationshipViewport(
   let frame = 0;
   let force = true;
   let coverageZoom = 0;
-  const stopAccelerating = accelerateRelationshipDrag(graph);
+  const stopNavigation = enhanceRelationshipNavigation(graph);
 
   function update(): void {
     frame = 0;
@@ -109,7 +109,7 @@ export function createRelationshipViewport(
       sync();
     },
     destroy(): void {
-      stopAccelerating();
+      stopNavigation();
       graph.off("pan zoom resize", sync);
       cancelAnimationFrame(frame);
     },

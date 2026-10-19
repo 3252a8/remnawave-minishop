@@ -208,7 +208,6 @@ for (const width of [1440, 768, 390, 320]) {
         );
       await page.mouse.down();
       await page.mouse.move(point.x + 36, point.y + 24, { steps: 8 });
-      await page.mouse.up();
       const panAfter = await graph
         .locator(".relationships-canvas")
         .evaluate((element) =>
@@ -216,6 +215,45 @@ for (const width of [1440, 768, 390, 320]) {
         );
       expect(panAfter.x - panBefore.x).toBeCloseTo(36 * 1.5, 0);
       expect(panAfter.y - panBefore.y).toBeCloseTo(24 * 1.5, 0);
+      await page.mouse.up();
+      const readPan = () =>
+        graph.locator(".relationships-canvas").evaluate((element) => ({
+          ...(element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan(),
+        }));
+      await expect.poll(async () => (await readPan()).x).toBeGreaterThan(panAfter.x + 3);
+      // A fresh press stops inertia immediately, without waiting for a drag.
+      await page.mouse.down();
+      const stopped = await readPan();
+      await page.waitForTimeout(100);
+      expect(await readPan()).toEqual(stopped);
+      await page.mouse.up();
+      if (width === 1440 && theme === "dark") {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.mouse.down();
+        await page.mouse.move(point.x + 48, point.y + 32, { steps: 4 });
+        await page.mouse.up();
+        const reduced = await readPan();
+        await page.waitForTimeout(100);
+        expect(await readPan()).toEqual(reduced);
+        await page.emulateMedia({ reducedMotion: "no-preference" });
+        // Holding a gesture still before release must not cause a stale flick.
+        await page.mouse.down();
+        await page.mouse.move(point.x + 60, point.y + 40, { steps: 4 });
+        await page.waitForTimeout(120);
+        await page.mouse.up();
+        const held = await readPan();
+        await page.waitForTimeout(100);
+        expect(await readPan()).toEqual(held);
+        // A pause before movement must not dilute the velocity of a fresh flick.
+        await page.mouse.down();
+        await page.waitForTimeout(150);
+        await page.mouse.move(point.x + 72, point.y + 48, { steps: 4 });
+        const flick = await readPan();
+        await page.mouse.up();
+        await expect.poll(async () => (await readPan()).x).toBeGreaterThan(flick.x + 3);
+        await page.mouse.down();
+        await page.mouse.up();
+      }
       await expect(layer).not.toHaveAttribute("style", before!);
       await expect(card).toHaveAttribute("style", cardStyle!);
       await expect(card).toHaveAttribute("data-pan-preserved", "true");
@@ -257,7 +295,6 @@ for (const width of [1440, 768, 390, 320]) {
               touchPoints: [{ x: touch.x + 20 + step * 5, y: touch.y + 10 + step * 2.5, id: 1 }],
             });
           }
-          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
           const touchAfter = await canvas.evaluate((element) => {
             const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
             return { pan: { ...cy.pan() }, zoom: cy.zoom() };
@@ -265,6 +302,8 @@ for (const width of [1440, 768, 390, 320]) {
           expect(touchAfter.pan.x - touchBefore.pan.x).toBeCloseTo(40 * 1.5, 0);
           expect(touchAfter.pan.y - touchBefore.pan.y).toBeCloseTo(20 * 1.5, 0);
           expect(touchAfter.zoom).toBe(touchBefore.zoom);
+          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect.poll(async () => (await readPan()).x).toBeGreaterThan(touchAfter.pan.x + 2);
           // Two fingers retain native 1:1 translation and the exact pinch ratio.
           const start = [
             { x: touch.x - 110, y: touch.y, id: 1 },
@@ -273,6 +312,10 @@ for (const width of [1440, 768, 390, 320]) {
           await session.send("Input.dispatchTouchEvent", {
             type: "touchStart",
             touchPoints: start,
+          });
+          const pinchBefore = await canvas.evaluate((element) => {
+            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
           });
           await session.send("Input.dispatchTouchEvent", {
             type: "touchMove",
@@ -293,13 +336,13 @@ for (const width of [1440, 768, 390, 320]) {
             const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
             return { pan: { ...cy.pan() }, zoom: cy.zoom() };
           });
-          expect(pinched.zoom / touchAfter.zoom).toBeCloseTo(1.2, 2);
+          expect(pinched.zoom / pinchBefore.zoom).toBeCloseTo(1.2, 2);
           expect(pinched.pan.x).toBeCloseTo(
-            1.2 * touchAfter.pan.x - 0.2 * (touch.x - box.x) + 10,
+            1.2 * pinchBefore.pan.x - 0.2 * (touch.x - box.x) + 10,
             0
           );
           expect(pinched.pan.y).toBeCloseTo(
-            1.2 * touchAfter.pan.y - 0.2 * (touch.y - box.y) + 6,
+            1.2 * pinchBefore.pan.y - 0.2 * (touch.y - box.y) + 6,
             0
           );
         } finally {
@@ -346,11 +389,19 @@ for (const width of [1440, 768, 390, 320]) {
         )
         .toBeLessThan(1);
       const beforeWheel = await layer.getAttribute("style");
-      const zoomBefore = await graph
+      const wheelPoint = { x: Math.round(point.x), y: Math.round(point.y) };
+      await page.mouse.move(wheelPoint.x, wheelPoint.y);
+      const wheelBefore = await graph
         .locator(".relationships-canvas")
-        .evaluate((element) =>
-          (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.zoom()
-        );
+        .evaluate((element, pointer) => {
+          const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+          const box = element.getBoundingClientRect();
+          return {
+            zoom: cy.zoom(),
+            x: (pointer.x - box.x - cy.pan().x) / cy.zoom(),
+            y: (pointer.y - box.y - cy.pan().y) / cy.zoom(),
+          };
+        }, wheelPoint);
       await page.mouse.wheel(0, -160);
       await expect(layer).not.toHaveAttribute("style", beforeWheel!);
       await expect
@@ -361,7 +412,31 @@ for (const width of [1440, 768, 390, 320]) {
               (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.zoom()
             )
         )
-        .toBeGreaterThan(zoomBefore);
+        .toBeGreaterThanOrEqual(wheelBefore.zoom * 1.12);
+      const wheelAfter = await graph
+        .locator(".relationships-canvas")
+        .evaluate((element, pointer) => {
+          const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+          const box = element.getBoundingClientRect();
+          return {
+            zoom: cy.zoom(),
+            x: (pointer.x - box.x - cy.pan().x) / cy.zoom(),
+            y: (pointer.y - box.y - cy.pan().y) / cy.zoom(),
+          };
+        }, wheelPoint);
+      expect(wheelAfter.zoom).toBeLessThanOrEqual(wheelBefore.zoom * 1.25 + 0.000001);
+      expect(wheelAfter.x).toBeCloseTo(wheelBefore.x, 4);
+      expect(wheelAfter.y).toBeCloseTo(wheelBefore.y, 4);
+      await page.mouse.wheel(0, 160);
+      await expect
+        .poll(() =>
+          graph
+            .locator(".relationships-canvas")
+            .evaluate((element) =>
+              (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.zoom()
+            )
+        )
+        .toBeCloseTo(wheelBefore.zoom, 4);
       await expect(card).toHaveAttribute("style", cardStyle!);
       await expect(card).toHaveAttribute("data-pan-preserved", "true");
       const focusedCards = await graph.locator(".relationships-node").count();
