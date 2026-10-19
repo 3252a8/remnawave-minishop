@@ -37,6 +37,9 @@ for (const [language, locale] of Object.entries({ ru, en })) {
       expect(purchases).toHaveLength(6);
       expect(paymentDescriptionDisplay({ traffic_regular_gb: 25 }, at)).toContain("25");
       expect(paymentDescriptionDisplay({ traffic_premium_gb: 10 }, at)).toContain("10");
+      expect(
+        paymentDescriptionDisplay({ sale_mode: "balance_topup", description: "Balance top-up" }, at)
+      ).toBe(locale.wa_payment_history_desc_balance_topup);
     });
 
     it("explains every history state through the real user locale", () => {

@@ -7,25 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from db.models import Payment
-from db.payment_history import (
-    AWAITING_PAYMENT_STATUSES,
-    CONFIRMED_PAYMENT_STATUSES,
-    PROCESSING_PAYMENT_STATUSES,
-)
+from db.payment_history import AWAITING_PAYMENT_STATUSES
 
 
 def payment_history_filter(user_id: int, now: datetime) -> ColumnElement[bool]:
     status = func.lower(func.trim(func.coalesce(Payment.status, "")))
+    awaiting_payment = or_(
+        status.in_(AWAITING_PAYMENT_STATUSES), status.startswith("pending_", autoescape=True)
+    )
     active_checkout = and_(
-        or_(status.in_(AWAITING_PAYMENT_STATUSES), status.startswith("pending_", autoescape=True)),
+        awaiting_payment,
         Payment.checkout_expires_at > now,
         func.length(func.trim(func.coalesce(Payment.provider_payment_url, ""))) > 0,
     )
     return and_(
         Payment.user_id == user_id,
         or_(
-            status.in_(CONFIRMED_PAYMENT_STATUSES),
-            status.in_(PROCESSING_PAYMENT_STATUSES),
+            ~awaiting_payment,
             Payment.fulfilled_at.is_not(None),
             Payment.reversed_at.is_not(None),
             active_checkout,

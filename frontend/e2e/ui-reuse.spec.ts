@@ -1184,6 +1184,18 @@ for (const [device, viewport] of [
 
     await page.goto(adminUrl("gifts"));
     await expect(page.locator(".admin-pagination-jump-input")).toBeVisible();
+    const currentPage = page.locator(".admin-pagination-page[aria-current='page']");
+    await expect(currentPage).toHaveCount(1);
+    const selectedColor = await currentPage.evaluate(
+      (button) => getComputedStyle(button).backgroundColor
+    );
+    for (const button of await page
+      .locator(".admin-pagination-page:not([aria-current='page'])")
+      .all()) {
+      expect(await button.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(
+        selectedColor
+      );
+    }
     const paginationHeights = await page
       .locator(".admin-pagination input, .admin-pagination button")
       .evaluateAll((nodes) =>

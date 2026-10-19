@@ -25,6 +25,9 @@ describe("paymentDescriptionDisplay", () => {
     expect(paymentDescriptionDisplay({ traffic_regular_gb: 10 }, at)).toBe(regular);
     expect(paymentDescriptionDisplay({ traffic_premium_gb: 12.5 }, at)).toBe(premium);
     expect(paymentDescriptionDisplay({ description: "Manual" }, at)).toBe("Manual");
+    expect(
+      paymentDescriptionDisplay({ sale_mode: "balance_topup", description: "Balance top-up" }, at)
+    ).toBe(language === "ru" ? "Пополнение баланса" : "Balance top-up");
   });
 });
 

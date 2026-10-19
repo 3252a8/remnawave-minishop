@@ -254,7 +254,7 @@ def test_history_distinguishes_provider_processing_from_purchase_crediting(
     assert payment_history_state(payment) == state
 
 
-def test_visibility_keeps_paid_and_processing_rows_and_hides_abandoned_checkouts() -> None:
+def test_visibility_keeps_failed_rows_and_hides_only_abandoned_checkouts() -> None:
     now = datetime(2026, 10, 8, 12, tzinfo=UTC)
     metadata = MetaData()
     table = Table(
@@ -285,8 +285,12 @@ def test_visibility_keeps_paid_and_processing_rows_and_hides_abandoned_checkouts
         "pending_paykilla",
         "canceled",
         "failed_creation",
-        "failed",
+        "  FAILED  ",
         "succeeded",
+        "cancelled",
+        "expired",
+        "declined",
+        "payment_failed",
     ]
     rows = [
         {
@@ -312,6 +316,6 @@ def test_visibility_keeps_paid_and_processing_rows_and_hides_abandoned_checkouts
                 .where(payment_history_filter(42, now))
                 .order_by(Payment.payment_id)
             ).all()
-        assert visible == [1, 2, 3, 4, 5, 6, 7, 8, 9, 15]
+        assert visible == [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 15, 17, 18, 19, 20]
     finally:
         engine.dispose()
