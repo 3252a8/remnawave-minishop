@@ -14,6 +14,7 @@ async function configureDocuments(
   documents: Record<string, unknown>[],
   status = 200
 ) {
+  let documentRequests = 0;
   let releaseDocuments = () => {};
   const documentsReleased = new Promise<void>((resolve) => {
     releaseDocuments = resolve;
@@ -40,6 +41,7 @@ async function configureDocuments(
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === "/api/documents") {
+      documentRequests += 1;
       await documentsReleased;
       return route.fulfill({
         status,
@@ -64,7 +66,7 @@ async function configureDocuments(
     if (path === "/api/gifts") response = { ok: true, enabled: false, gifts: [] };
     await route.fulfill({ json: response });
   });
-  return releaseDocuments;
+  return { releaseDocuments, documentRequests: () => documentRequests };
 }
 
 async function expectPendingDocuments(page: Page, language: "ru" | "en") {
@@ -83,7 +85,7 @@ for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 900 });
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
-      const releaseDocuments = await configureDocuments(page, language, [
+      const { releaseDocuments, documentRequests } = await configureDocuments(page, language, [
         {
           slug: "privacy-policy",
           title: "Managed privacy",
@@ -109,6 +111,14 @@ for (const width of [1440, 390]) {
       ]);
       await page.goto("/demo/runtime/settings?theme_preview=dark");
       await expectPendingDocuments(page, language);
+      const nav = page.locator(".bottom-nav");
+      await nav.getByRole("button", { name: locales[language].wa_nav_home, exact: true }).click();
+      await expect(page.locator(".settings-profile")).toHaveCount(0);
+      await nav
+        .getByRole("button", { name: locales[language].wa_nav_settings, exact: true })
+        .click();
+      await expectPendingDocuments(page, language);
+      expect(documentRequests()).toBe(1);
       releaseDocuments();
       const rows = page.locator(".settings-row-policy");
       await expect(rows).toHaveText([
@@ -129,6 +139,26 @@ for (const width of [1440, 390]) {
       await expect(
         page.getByRole("button", { name: locales[language].wa_settings_user_agreement })
       ).toHaveCount(0);
+      const logout = page.locator(".settings-row-logout");
+      const originalPosition = await logout.evaluate(
+        (element) => (element as HTMLElement).offsetTop
+      );
+      await nav.getByRole("button", { name: locales[language].wa_nav_home, exact: true }).click();
+      await expect(page.locator(".settings-profile")).toHaveCount(0);
+      await nav
+        .getByRole("button", { name: locales[language].wa_nav_settings, exact: true })
+        .click();
+      await expect(rows).toHaveText([
+        "Additional document",
+        "Managed privacy",
+        "Managed agreement",
+      ]);
+      await expect(page.locator(".settings-documents-loading")).toHaveCount(0);
+      expect(documentRequests()).toBe(1);
+      const returnedPosition = await logout.evaluate(
+        (element) => (element as HTMLElement).offsetTop
+      );
+      expect(Math.abs(returnedPosition - originalPosition)).toBeLessThanOrEqual(1);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
       ).toBeLessThanOrEqual(1);
@@ -151,7 +181,7 @@ for (const [width, language] of [
   ] as const) {
     test(`settings resolve legacy documents after ${scenario} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
-      const releaseDocuments = await configureDocuments(page, language, [], status);
+      const { releaseDocuments } = await configureDocuments(page, language, [], status);
       await page.goto("/demo/runtime/settings?theme_preview=dark");
       await expectPendingDocuments(page, language);
       releaseDocuments();
@@ -185,7 +215,7 @@ for (const [width, language] of [
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const releaseDocuments = await configureDocuments(page, language, [
+    const { releaseDocuments } = await configureDocuments(page, language, [
       { slug: "privacy", title: "Hidden privacy", role: "privacy_policy", show_in_settings: false },
     ]);
     await page.goto("/demo/runtime/settings?theme_preview=dark");

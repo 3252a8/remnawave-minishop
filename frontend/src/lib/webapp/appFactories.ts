@@ -3,6 +3,7 @@ import { createBillingStore } from "./stores/billingStore";
 import { createAccountStore } from "./stores/accountStore";
 import { createActionsStore } from "./stores/actionsStore";
 import { createServerStatusStore } from "./stores/serverStatusStore.svelte";
+import { createPublicDocumentsStore } from "./stores/publicDocumentsStore.svelte";
 import { createWebappDataClient } from "./dataClient";
 import { buildApiUrl } from "./publicApi";
 import { createWebappActivationContext } from "./webappActivationContext";
@@ -19,6 +20,7 @@ import {
   setBillingStore,
   setDevicesStore,
   setInstallGuidesStore,
+  setPublicDocumentsStore,
   setSupportStore,
 } from "./context";
 import { createBillingDeeplinkEffects } from "./billingDeeplinkEffects.js";
@@ -572,6 +574,7 @@ export function createAppFactories({
   setDevicesStore(devicesStore);
   setSupportStore(supportStore);
   setInstallGuidesStore(installGuidesStore);
+  setPublicDocumentsStore(createPublicDocumentsStore(api));
   setActionsStore(actionsStore);
   setAccountStore(accountStore);
 
