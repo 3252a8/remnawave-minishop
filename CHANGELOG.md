@@ -137,9 +137,11 @@
   Успех требует проверки SHA, содержимого неизменяемой публикации и текущего
   production-адреса; устаревший pipeline не может перезаписать новую документацию.
   Домены и production-ветки сохраняются.
+  Окружение сборки явно содержит Python 3.12+ и Pillow для примеров писем.
   ([51691e3b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/51691e3b546a40318b29ef9de3128e404b772dea),
   [83b784ef](https://gitlab.com/3252a8/remnawave-minishop/-/commit/83b784efdfededae7205e4aaa989d0d29678dfb6),
-  [11eb5ddc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/11eb5ddc38e77d69040ec86c8aceea554f724627))
+  [11eb5ddc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/11eb5ddc38e77d69040ec86c8aceea554f724627),
+  [26c87b86](https://gitlab.com/3252a8/remnawave-minishop/-/commit/26c87b86623354c1cc5df24f00fe29d1d082cac9))
 
 - **Ручное проведение оплаченного заказа.** Если изменился только срок той же
   подписки, оператор видит предупреждение и после проверки истории может отдельно
