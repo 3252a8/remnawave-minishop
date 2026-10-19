@@ -15,6 +15,48 @@ variables:
   COSIGN_EXPERIMENTAL: "1"
   TRIVY_TIMEOUT: "30m"
 
+build-docs:
+  stage: verify
+  image: node:24-bookworm-slim
+  variables:
+    CF_PAGES_COMMIT_SHA: $CI_COMMIT_SHA
+    CF_PAGES_BRANCH: $CI_COMMIT_BRANCH
+  script:
+    - npm --prefix docs-site ci --no-audit --no-fund
+    - npm run check:docs
+    - npm run build:docs
+  artifacts:
+    paths:
+      - docs-site/dist/
+    expire_in: 1 day
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^(dev|main)$/ && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web")'
+
+publish-docs:
+  stage: publish
+  image: node:24-bookworm-slim
+  needs: [build-docs]
+  resource_group: documentation-$CI_COMMIT_BRANCH
+  interruptible: false
+  timeout: 15m
+  environment:
+    name: documentation/$CI_COMMIT_BRANCH
+  before_script:
+    - apt-get update && apt-get install --yes --no-install-recommends python3 git ca-certificates
+    - test -n "$CLOUDFLARE_API_TOKEN" || (echo "CLOUDFLARE_API_TOKEN is required for the documentation environment" >&2; exit 1)
+    - test -n "$CLOUDFLARE_ACCOUNT_ID" || (echo "CLOUDFLARE_ACCOUNT_ID is required" >&2; exit 1)
+    - npm install --prefix /tmp/pages-cli --no-save --package-lock=false --no-audit --no-fund wrangler@4.151.1
+    - export PATH="/tmp/pages-cli/node_modules/.bin:$PATH"
+  script:
+    - python3 scripts/publish_docs.py
+  artifacts:
+    when: always
+    paths:
+      - pages-deployment.ndjson
+    expire_in: 7 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^(dev|main)$/ && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "web")'
+
 .publish-dockerhub-images:
   stage: publish
   timeout: 2h

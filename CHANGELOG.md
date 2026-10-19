@@ -31,7 +31,8 @@
   отключает её. Колёсико быстрее приближает и отдаляет граф вокруг курсора,
   сохраняя точность жеста двумя пальцами.
   ([8b881c99](https://gitlab.com/3252a8/remnawave-minishop/-/commit/8b881c99b1ff951b452c65bcc1dd6e52c0184dd3),
-  [f5f41342](https://gitlab.com/3252a8/remnawave-minishop/-/commit/f5f41342b45f02bb3dc8e27252b428bd9170dd11))
+  [f5f41342](https://gitlab.com/3252a8/remnawave-minishop/-/commit/f5f41342b45f02bb3dc8e27252b428bd9170dd11),
+  [3c345007](https://gitlab.com/3252a8/remnawave-minishop/-/commit/3c34500715b2dc4ab98d88ceeb1084152f119580))
 
 - **Проверка перед триалом и очистка аккаунтов.** Опциональная капча в Telegram
   и Mini App защищает запуск триала и создание счёта за него; по умолчанию она
@@ -129,12 +130,13 @@
   ([#139](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/139),
   [3dcb6dfc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/3dcb6dfcd3753e45a238ab7ca1ba371cc86f9f00))
 
-- **Статус публикации документации.** CI сверяет SHA опубликованной сборки и
-  страницы двух источников перед восстановлением зависшего callback Cloudflare.
-  Ошибочные, отменённые и несовпадающие публикации сохраняют блокировку проверки.
-  Зависшая очередь и подтверждённый сбой запуска Cloudflare автоматически повторяются
-  до двух раз; ожидание ограничено 90 минутами. Для Pages закреплён Node.js 24.
-  Проверка ждёт оба зеркала, даже если первое уже завершило публикацию.
+- **Публикация документации.** GitLab CI один раз собирает документацию для `dev`
+  и `main` на Node.js 24 и напрямую загружает готовые файлы в Pages.
+  Дублирующий GitHub workflow удалён, автоматические сборки Pages отключены.
+  Публикация больше не зависит от очереди Cloudflare и её callback.
+  Успех требует проверки SHA, содержимого неизменяемой публикации и текущего
+  production-адреса; устаревший pipeline не может перезаписать новую документацию.
+  Домены и production-ветки сохраняются.
   ([51691e3b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/51691e3b546a40318b29ef9de3128e404b772dea),
   [83b784ef](https://gitlab.com/3252a8/remnawave-minishop/-/commit/83b784efdfededae7205e4aaa989d0d29678dfb6),
   [11eb5ddc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/11eb5ddc38e77d69040ec86c8aceea554f724627))
