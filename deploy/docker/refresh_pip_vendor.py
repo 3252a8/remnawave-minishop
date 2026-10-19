@@ -2,7 +2,7 @@
 
 Keep pip's namespace/Brotli patches and pure-Python msgpack layout, as documented
 at https://pip.pypa.io/en/stable/development/vendoring-policy/.
-Remove this helper once upstream pip vendors urllib3 >= 2.8.0, msgpack >= 1.2.1,
+Remove this helper once upstream pip vendors urllib3 >= 2.8.0, msgpack >= 1.2.3,
 and pkg_resources from setuptools >= 80.9.0 (or removes that legacy backend).
 """
 
@@ -31,7 +31,7 @@ def main(source: Path) -> None:
     vendor = Path(pip.__file__).parent / "_vendor"
     for name, distribution, version, license_name in (
         ("urllib3", "urllib3", "2.8.0", "LICENSE.txt"),
-        ("msgpack", "msgpack", "1.2.1", "COPYING"),
+        ("msgpack", "msgpack", "1.2.3", "COPYING"),
         ("pkg_resources", "setuptools", "80.9.0", "LICENSE"),
     ):
         shutil.rmtree(vendor / name)
@@ -62,7 +62,7 @@ def main(source: Path) -> None:
     references: dict[str, str] = {}
     for name, version in (
         ("urllib3", "2.8.0"),
-        ("msgpack", "1.2.1"),
+        ("msgpack", "1.2.3"),
         ("setuptools", "80.9.0"),
     ):
         components = [component for component in bom["components"] if component["name"] == name]

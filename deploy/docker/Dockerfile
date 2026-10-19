@@ -62,7 +62,7 @@ RUN --mount=type=bind,source=.git,target=/repo/.git \
     printf '%s' "$provenance" > /build-provenance
 
 
-FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS python-dependencies
+FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS python-dependencies
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -115,7 +115,7 @@ COPY deploy/docker/refresh_pip_vendor.py /tmp/refresh_pip_vendor.py
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-compile --upgrade "pip==26.2.1" && \
     pip install --no-compile --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
-      "urllib3==2.8.0" "msgpack==1.2.1" "setuptools==80.9.0" && \
+      "urllib3==2.8.0" "msgpack==1.2.3" "setuptools==80.9.0" && \
     pip install --no-compile -r backend/requirements.txt && \
     python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
     rm -rf /tmp/pip-vendor-fixes /tmp/refresh_pip_vendor.py
@@ -136,7 +136,7 @@ COPY --from=version-builder /build-provenance /app/.build-provenance
 USER appuser
 
 
-FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20 AS node-runtime
+FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS node-runtime
 
 FROM node-runtime AS frontend-builder
 
@@ -183,7 +183,7 @@ EXPOSE 8080 8081
 CMD ["python", "backend/plugin_launcher.py", "backend"]
 
 
-FROM docker:29.9.0-cli@sha256:1a4c7cb63513f349bdad01fcc6e0f3f2f67d37b9da86f14dc0d4a0942eecda00 AS docker-test-tools
+FROM docker:29.9.1-cli@sha256:6fae2214c3121a28d5aa639d09032f61310b7c9c75ffbad1025f261a1b621800 AS docker-test-tools
 
 FROM python-dependencies AS qa-deps
 
@@ -225,7 +225,7 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
 CMD ["python", "backend/plugin_launcher.py", "worker"]
 
 
-FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS nginx-brotli-builder
+FROM nginx:1.30.6-alpine@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5 AS nginx-brotli-builder
 
 # Refresh Alpine packages for every published source revision.
 ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
@@ -257,7 +257,7 @@ RUN set -eu; \
     cp objs/ngx_http_brotli_static_module.so /brotli-modules/
 
 
-FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS frontend
+FROM nginx:1.30.6-alpine@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5 AS frontend
 
 ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
 COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh

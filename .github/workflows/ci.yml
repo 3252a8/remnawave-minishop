@@ -32,7 +32,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install "ruff==0.17.0"
+        run: pip install "ruff==0.17.1"
 
       - name: Ruff lint (Python)
         run: ruff check .
