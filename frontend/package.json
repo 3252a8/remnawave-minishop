@@ -40,12 +40,12 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@internationalized/date": "^3.12.4",
-    "@lucide/svelte": "^1.56.0",
+    "@lucide/svelte": "^1.57.0",
     "@neodrag/svelte": "^2.3.3",
-    "@playwright/test": "^1.64.0",
+    "@playwright/test": "^1.64.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
-    "@tanstack/svelte-query": "^6.3.2",
+    "@tanstack/svelte-query": "^6.3.3",
     "@tiptap/core": "^3.32.0",
     "@tiptap/extension-placeholder": "^3.32.0",
     "@tiptap/pm": "^3.32.0",
@@ -72,7 +72,7 @@
     "typescript-eslint": "^8.71.2",
     "uplot": "^1.6.32",
     "vite": "^8.3.4",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "cytoscape": "3.34.4",
