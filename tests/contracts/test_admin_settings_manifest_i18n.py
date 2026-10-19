@@ -753,7 +753,11 @@ def test_payment_provider_logo_assets_are_local_png_files():
         logo_path = REPO_ROOT / "frontend" / "public" / logo_url.removeprefix("/")
         assert logo_path.is_file()
         with logo_path.open("rb") as fh:
-            assert fh.read(len(PNG_SIGNATURE)) == PNG_SIGNATURE
+            header = fh.read(24)
+            assert header.startswith(PNG_SIGNATURE)
+            if logo_url == "/provider-logos/oxapay.png":
+                assert int.from_bytes(header[16:20], "big") >= 96
+                assert int.from_bytes(header[20:24], "big") >= 96
 
 
 def test_payment_provider_settings_i18n_keys_exist_in_admin_locales():
