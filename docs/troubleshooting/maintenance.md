@@ -27,6 +27,38 @@ docker compose up -d
 docker compose logs -f migrate backend worker
 ```
 
+## Место на диске и системный журнал
+
+В новых Compose-профилях журналы контейнеров ротируются автоматически:
+три файла по 10 МБ на контейнер. Настройки и область действия описаны в
+[разделе деплоя](../getting-started/deployment.md#ротация-журналов-контейнеров).
+
+Периодически проверяйте свободное место и размер системного журнала:
+
+```bash
+df -h /
+sudo journalctl --disk-usage
+```
+
+На небольшом сервере с systemd администратор может отдельно ограничить
+`journald`. Следующий пример действует на **весь сервер**, включая другие
+приложения; установщик Minishop не меняет эту системную настройку:
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+sudo tee /etc/systemd/journald.conf.d/50-minishop-limits.conf >/dev/null <<'EOF'
+[Journal]
+SystemMaxUse=256M
+RuntimeMaxUse=64M
+SystemKeepFree=1G
+EOF
+sudo systemctl restart systemd-journald
+```
+
+Лимиты журналов не освобождают место, занятое базой данных, резервными копиями
+или Docker-образами. Не удаляйте volumes и не обнуляйте управляемые Docker
+файлы журналов вручную во время работы контейнеров.
+
 ## Резервная копия PostgreSQL
 
 ```bash

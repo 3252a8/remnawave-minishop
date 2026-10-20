@@ -17,8 +17,15 @@ x-app-environment: &app_environment
   PANEL_API_KEY: ${PANEL_API_KEY:-change_me}
   PANEL_WEBHOOK_SECRET: ${PANEL_WEBHOOK_SECRET:-change_me}
 
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
+    logging: *minishop_logging
     image: postgres:17.11
     restart: unless-stopped
     environment:
@@ -42,6 +49,7 @@ services:
       start_interval: 1s
 
   redis:
+    logging: *minishop_logging
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -58,6 +66,7 @@ services:
       start_interval: 1s
 
   migrate:
+    logging: *minishop_logging
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     command: ["python", "backend/main_migrate.py"]
     environment:
@@ -78,6 +87,7 @@ services:
         condition: service_healthy
 
   backend:
+    logging: *minishop_logging
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     init: true
@@ -111,6 +121,7 @@ services:
       start_interval: 3s
 
   worker:
+    logging: *minishop_logging
     image: 3252a8/remnawave-minishop-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     init: true

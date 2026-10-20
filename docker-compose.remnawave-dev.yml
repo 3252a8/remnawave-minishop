@@ -1,5 +1,12 @@
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   backend:
+    logging: *minishop_logging
     environment:
       PANEL_API_URL: http://remnawave:3000/api
       PANEL_API_KEY: ${REMNAWAVE_DEV_API_TOKEN:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1dWlkIjoiMzAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwidXNlcm5hbWUiOm51bGwsInJvbGUiOiJBUEkiLCJpYXQiOjAsImV4cCI6OTk5OTk5OTk5OX0.ILbG2DvyxMN6m7zGXYmaUTd1gbZsRDJHFYLc_yZQjgY}
@@ -12,6 +19,7 @@ services:
         condition: service_healthy
 
   frontend:
+    logging: *minishop_logging
     depends_on:
       advertising-mock-data:
         condition: service_completed_successfully
@@ -21,10 +29,12 @@ services:
         required: false
 
   postgres:
+    logging: *minishop_logging
     ports:
       - "127.0.0.1:${DEV_POSTGRES_PORT:-6768}:5432"
 
   remnawave:
+    logging: *minishop_logging
     image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.4.5}
     container_name: remnawave-dev-panel
     hostname: remnawave
@@ -76,6 +86,7 @@ services:
         condition: service_healthy
 
   remnawave-db:
+    logging: *minishop_logging
     image: postgres:17.11
     container_name: remnawave-dev-db
     hostname: remnawave-db
@@ -100,6 +111,7 @@ services:
       start_interval: 1s
 
   remnawave-redis:
+    logging: *minishop_logging
     image: valkey/valkey:9-alpine
     container_name: remnawave-dev-redis
     hostname: remnawave-redis
@@ -121,6 +133,7 @@ services:
       start_interval: 1s
 
   remnawave-subscription-page:
+    logging: *minishop_logging
     image: remnawave/subscription-page:${REMNAWAVE_SUBSCRIPTION_PAGE_VERSION:-7.2.6}
     container_name: remnawave-dev-subscription-page
     hostname: remnawave-subscription-page
@@ -142,6 +155,7 @@ services:
         required: false
 
   remnawave-dev-seed:
+    logging: *minishop_logging
     image: postgres:17.11
     container_name: remnawave-dev-seed
     profiles:
@@ -162,6 +176,7 @@ services:
         condition: service_healthy
 
   dev-seed:
+    logging: *minishop_logging
     image: postgres:17.11
     container_name: remnawave-minishop-dev-seed
     profiles:
@@ -184,6 +199,7 @@ services:
         condition: service_completed_successfully
 
   dev-mock-data:
+    logging: *minishop_logging
     image: postgres:17.11
     container_name: remnawave-minishop-dev-mock-data
     profiles:
@@ -215,6 +231,7 @@ services:
         condition: service_completed_successfully
 
   advertising-mock-data:
+    logging: *minishop_logging
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     build:
       context: .

@@ -1,5 +1,12 @@
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   frontend:
+    logging: *minishop_logging
     container_name: remnawave-minishop-frontend
     build:
       context: .
@@ -36,6 +43,7 @@ services:
       start_interval: 2s
 
   backend:
+    logging: *minishop_logging
     container_name: remnawave-minishop-backend
     build:
       context: .
@@ -78,6 +86,7 @@ services:
       start_interval: 3s
 
   worker:
+    logging: *minishop_logging
     container_name: remnawave-minishop-worker
     build:
       context: .
@@ -107,6 +116,7 @@ services:
       - remnawave-minishop
 
   migrate:
+    logging: *minishop_logging
     container_name: remnawave-minishop-migrate
     image: 3252a8/remnawave-minishop-backend:${IMAGE_TAG:-latest}
     build:
@@ -132,6 +142,7 @@ services:
       - remnawave-minishop
 
   postgres:
+    logging: *minishop_logging
     image: postgres:17.11
     container_name: remnawave-minishop-postgres
     restart: unless-stopped
@@ -156,6 +167,7 @@ services:
       start_interval: 1s
 
   redis:
+    logging: *minishop_logging
     image: redis:7-alpine
     container_name: remnawave-minishop-redis
     restart: unless-stopped

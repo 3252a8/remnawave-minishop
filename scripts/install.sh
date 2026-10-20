@@ -6738,6 +6738,11 @@ write_pangolin_compose_file() {
 # пунктом меню "Отключить Web App от Pangolin (Newt)".
 services:
   newt:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: fosrl/newt:latest
     restart: unless-stopped
     environment:
