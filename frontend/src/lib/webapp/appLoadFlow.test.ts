@@ -180,4 +180,27 @@ describe("app load flow decisions", () => {
       targetPath: null,
     });
   });
+
+  it("preserves the dedicated create path without treating it as a ticket ID", () => {
+    expect(
+      resolveSupportLoadRoute({
+        pathname: "/shop/support/new/",
+        routePrefix: "/shop",
+        section: "support",
+      })
+    ).toEqual({
+      initialSupportTicketId: null,
+      targetPath: "/shop/support/new",
+    });
+    expect(
+      resolveSupportLoadRoute({
+        pathname: "/shop/support/new",
+        routePrefix: "/shop",
+        section: "settings",
+      })
+    ).toEqual({
+      initialSupportTicketId: null,
+      targetPath: null,
+    });
+  });
 });

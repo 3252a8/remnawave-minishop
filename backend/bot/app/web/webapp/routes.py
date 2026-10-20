@@ -261,6 +261,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get("/settings/payments", index_route)
     app.router.add_get("/status", index_route)
     app.router.add_get("/support", index_route)
+    app.router.add_get("/support/new", index_route)
     app.router.add_get("/support/{ticket_id:\\d+}", index_route)
     app.router.add_get("/admin", index_route)
     app.router.add_get("/admin/", index_route)

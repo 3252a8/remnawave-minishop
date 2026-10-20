@@ -617,6 +617,7 @@
         <Screen
           maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
           maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+          {routePrefix}
           {user}
           {t}
         />

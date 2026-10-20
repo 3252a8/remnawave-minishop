@@ -20,7 +20,7 @@ export type SyncLoadedRouteInput = {
 };
 
 /**
- * Commits the freshly-resolved load route to the URL. A deep-linked support ticket replaces the
+ * Commits the freshly-resolved load route to the URL. A deep-linked support view replaces the
  * history entry directly (preserving the current query/hash) and cleans the docs-demo route query;
  * every other section defers to `syncAppSectionPath`. Mirrors the original `loadData` branch.
  */
@@ -32,11 +32,10 @@ export function createRouteSync({
 }: RouteSyncDeps) {
   function syncLoadedRoute({
     initialAdminSection,
-    initialSupportTicketId,
     section,
     supportTargetPath,
   }: SyncLoadedRouteInput): void {
-    if (section === "support" && initialSupportTicketId && supportTargetPath) {
+    if (section === "support" && supportTargetPath) {
       const location = getLocation();
       if (location.protocol !== "file:" && location.pathname !== supportTargetPath) {
         replaceHistoryState(`${supportTargetPath}${location.search}${location.hash}`);

@@ -3332,7 +3332,7 @@
   "wa_support_category": "Category",
   "wa_support_priority": "Priority",
   "wa_support_message": "Message",
-  "wa_support_message_placeholder": "Tell us what happened. More details help us respond faster.",
+  "wa_support_message_placeholder": "Tell us what happened…",
   "wa_support_create": "Create ticket",
   "wa_support_creating": "Creating...",
   "wa_support_empty": "No tickets yet",

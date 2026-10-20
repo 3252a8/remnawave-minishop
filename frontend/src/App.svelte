@@ -45,7 +45,7 @@
   import { createPopstateLifecycle } from "./lib/webapp/popstateLifecycle.js";
   import { miniAppPathFromSearch } from "./lib/webapp/miniAppStartRoute.js";
   import { isPlansRoute } from "./lib/webapp/deeplinks.js";
-  import { PLANS_PATH } from "./lib/webapp/routes.js";
+  import { PLANS_PATH, supportTicketIdFromPath } from "./lib/webapp/routes.js";
   import {
     buildAppAdminPanelProps,
     createAppFactories,
@@ -590,7 +590,13 @@
     },
     loadPublicInstall: (shareToken) => appActions.loadPublicInstall(shareToken),
     loadSupport: () => {
-      supportStore.loadList();
+      const ticketId = supportTicketIdFromPath(routePathnameFromLocation(), routePrefix);
+      if (ticketId) {
+        void supportStore.openTicket(ticketId, { skipPush: true });
+      } else {
+        supportStore.closeTicketView({ skipPush: true });
+        void supportStore.loadList();
+      }
     },
     routePathnameFromLocation,
     routePrefix,

@@ -62,6 +62,7 @@ export {
   Moon,
   MousePointerClick,
   Paintbrush,
+  Paperclip,
   Pencil,
   Plus,
   QrCode,

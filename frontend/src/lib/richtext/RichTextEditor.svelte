@@ -50,6 +50,7 @@
     quickInserts = [],
     onRequestQuickInserts,
     showSource = false,
+    showToolbar = true,
     autolink = false,
     disabled = false,
     minHeight = "140px",
@@ -73,6 +74,8 @@
     onRequestQuickInserts?: () => void;
     /** The raw-markup toggle: useful to an admin, noise to a customer. */
     showSource?: boolean;
+    /** Hide formatting controls for compact customer composers. Keyboard shortcuts remain available. */
+    showToolbar?: boolean;
     autolink?: boolean;
     disabled?: boolean;
     minHeight?: string;
@@ -91,8 +94,6 @@
     loadCustomEmojiMedia?: CustomEmojiMediaLoader;
   } = $props();
 
-  // Tiptap's JSON is structurally the subset each storage adapter serializes;
-  // narrow it once at the component boundary.
   const serialize = (editorInstance: Editor): string =>
     format.toSource(editorInstance.getJSON() as unknown as Doc);
 
@@ -130,6 +131,13 @@
     editorMounted = true;
     const instance = new Editor({
       element: host,
+      editorProps: {
+        attributes: {
+          role: "textbox",
+          "aria-multiline": "true",
+          "aria-label": placeholder || labels.toolbar,
+        },
+      },
       extensions: composerExtensions(placeholder, {
         autolink,
         documentBlocks,
@@ -158,9 +166,6 @@
         instance.commands.focus("start");
       });
     }
-    // Bound on the editable element rather than on its wrapper: the wrapper is
-    // presentational, and a keydown handler there would need an interactive
-    // role it must not have.
     instance.view.dom.addEventListener("keydown", handleKeydown);
     return () => {
       editorMounted = false;
@@ -293,7 +298,6 @@
     }
   }
 
-  /** Insert `token` at the caret while the raw-markup textarea has focus. */
   async function insertIntoSource(token: string): Promise<void> {
     const area = sourceArea;
     if (!area) {
@@ -438,185 +442,187 @@
 </script>
 
 <div class="rt-editor">
-  <div class="rt-toolbar" role="toolbar" aria-label={labels.toolbar}>
-    {#if sourceControlsVisible}
-      {#each markButtons as button (button.mark)}
+  {#if showToolbar}
+    <div class="rt-toolbar" role="toolbar" aria-label={labels.toolbar}>
+      {#if sourceControlsVisible}
+        {#each markButtons as button (button.mark)}
+          <button
+            type="button"
+            class="rt-tool"
+            class:is-active={!sourceMode && active[button.mark]}
+            title={button.label}
+            aria-label={button.label}
+            aria-pressed={!sourceMode && active[button.mark]}
+            data-rt-format={button.mark}
+            disabled={disabled ||
+              Boolean(format.enabledMarks && !format.enabledMarks.includes(button.mark))}
+            onclick={() => handleMarkButton(button.mark)}
+          >
+            {button.icon}
+          </button>
+        {/each}
         <button
           type="button"
           class="rt-tool"
-          class:is-active={!sourceMode && active[button.mark]}
-          title={button.label}
-          aria-label={button.label}
-          aria-pressed={!sourceMode && active[button.mark]}
-          data-rt-format={button.mark}
-          disabled={disabled ||
-            Boolean(format.enabledMarks && !format.enabledMarks.includes(button.mark))}
-          onclick={() => handleMarkButton(button.mark)}
+          class:is-active={!sourceMode && active.codeBlock}
+          title={labels.pre}
+          aria-label={labels.pre}
+          data-rt-format="pre"
+          {disabled}
+          onclick={handlePreButton}
         >
-          {button.icon}
+          ⌗
         </button>
-      {/each}
-      <button
-        type="button"
-        class="rt-tool"
-        class:is-active={!sourceMode && active.codeBlock}
-        title={labels.pre}
-        aria-label={labels.pre}
-        data-rt-format="pre"
-        {disabled}
-        onclick={handlePreButton}
-      >
-        ⌗
-      </button>
-      <button
-        type="button"
-        class="rt-tool"
-        class:is-active={!sourceMode && active.blockquote}
-        title={labels.quote}
-        aria-label={labels.quote}
-        data-rt-format="blockquote"
-        {disabled}
-        onclick={handleQuoteButton}
-      >
-        ❝
-      </button>
-      <button
-        type="button"
-        class="rt-tool"
-        class:is-active={!sourceMode && active.link}
-        title={labels.link}
-        aria-label={labels.link}
-        data-rt-format="link"
-        {disabled}
-        onclick={handleLinkButton}
-      >
-        🔗
-      </button>
-    {/if}
+        <button
+          type="button"
+          class="rt-tool"
+          class:is-active={!sourceMode && active.blockquote}
+          title={labels.quote}
+          aria-label={labels.quote}
+          data-rt-format="blockquote"
+          {disabled}
+          onclick={handleQuoteButton}
+        >
+          ❝
+        </button>
+        <button
+          type="button"
+          class="rt-tool"
+          class:is-active={!sourceMode && active.link}
+          title={labels.link}
+          aria-label={labels.link}
+          data-rt-format="link"
+          {disabled}
+          onclick={handleLinkButton}
+        >
+          🔗
+        </button>
+      {/if}
 
-    {#if hasCustomEmojiPicker}
-      <button
-        type="button"
-        class="rt-tool"
-        data-rt-custom-emoji
-        aria-haspopup="dialog"
-        aria-label={labels.customEmoji}
-        title={sourceMode
-          ? labels.customEmojiSourceUnavailable
-          : active.code || active.codeBlock
-            ? labels.customEmojiCodeFallback
-            : labels.customEmoji}
-        disabled={disabled || sourceMode || emojiPicking}
-        onpointerdown={(event) => event.preventDefault()}
-        onclick={() => void pickCustomEmoji()}>🙂</button
-      >
-    {/if}
+      {#if hasCustomEmojiPicker}
+        <button
+          type="button"
+          class="rt-tool"
+          data-rt-custom-emoji
+          aria-haspopup="dialog"
+          aria-label={labels.customEmoji}
+          title={sourceMode
+            ? labels.customEmojiSourceUnavailable
+            : active.code || active.codeBlock
+              ? labels.customEmojiCodeFallback
+              : labels.customEmoji}
+          disabled={disabled || sourceMode || emojiPicking}
+          onpointerdown={(event) => event.preventDefault()}
+          onclick={() => void pickCustomEmoji()}>🙂</button
+        >
+      {/if}
 
-    {#if hasQuickInserts}
-      <div class="rt-menu">
+      {#if hasQuickInserts}
+        <div class="rt-menu">
+          <button
+            type="button"
+            class="rt-tool rt-tool-wide"
+            aria-haspopup="listbox"
+            aria-expanded={insertsOpen}
+            data-rt-inserts-toggle
+            {disabled}
+            onclick={() => (insertsOpen = !insertsOpen)}
+          >
+            {labels.insert}
+          </button>
+          {#if insertsOpen}
+            <div class="rt-menu-list" role="listbox">
+              <ScrollArea class="rt-menu-scroll" maxHeight="min(320px, 48vh)" type="auto">
+                {#if quickInserts.length}
+                  <div class="rt-menu-items">
+                    {#each quickInserts as item (item.id)}
+                      <button
+                        type="button"
+                        class="rt-menu-item"
+                        role="option"
+                        aria-selected="false"
+                        aria-disabled={item.disabled}
+                        class:is-disabled={item.disabled}
+                        onclick={() => pickQuickInsert(item)}
+                      >
+                        <span class="rt-menu-item-title">
+                          {item.label}
+                          {#if item.badge}<em class="rt-menu-badge">{item.badge}</em>{/if}
+                        </span>
+                        {#if item.description}
+                          <span class="rt-menu-item-desc">{item.description}</span>
+                        {/if}
+                      </button>
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="rt-menu-empty">{labels.insertEmpty}</div>
+                {/if}
+              </ScrollArea>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if hasShortcodes}
+        <div class="rt-menu">
+          <button
+            type="button"
+            class="rt-tool rt-tool-wide"
+            aria-haspopup="listbox"
+            aria-expanded={shortcodesOpen}
+            data-rt-shortcodes-toggle
+            {disabled}
+            onclick={() => (shortcodesOpen = !shortcodesOpen)}
+          >
+            {labels.shortcodes}
+          </button>
+          {#if shortcodesOpen}
+            <div class="rt-menu-list" role="listbox">
+              <ScrollArea class="rt-menu-scroll" maxHeight="min(320px, 48vh)" type="auto">
+                {#if shortcodes.length}
+                  <div class="rt-menu-items">
+                    {#each shortcodes as item (item.name)}
+                      <button
+                        type="button"
+                        class="rt-menu-item"
+                        role="option"
+                        aria-selected="false"
+                        onclick={() => pickShortcode(item.name)}
+                      >
+                        <span class="rt-menu-token">{`{${item.name}}`}</span>
+                        <span class="rt-menu-item-desc">{item.description || item.name}</span>
+                        {#if item.owner}<span class="rt-menu-cost">{item.owner}</span>{/if}
+                        {#if item.cost === "panel"}
+                          <span class="rt-menu-cost">{labels.shortcodePanelBadge}</span>
+                        {/if}
+                      </button>
+                    {/each}
+                  </div>
+                {:else}
+                  <div class="rt-menu-empty">{labels.shortcodesLoading}</div>
+                {/if}
+              </ScrollArea>
+            </div>
+          {/if}
+        </div>
+      {/if}
+
+      {#if showSource}
         <button
           type="button"
           class="rt-tool rt-tool-wide"
-          aria-haspopup="listbox"
-          aria-expanded={insertsOpen}
-          data-rt-inserts-toggle
+          class:is-active={sourceMode}
+          data-rt-source-toggle
+          aria-label={sourceMode ? labels.sourceOff : labels.sourceOn}
           {disabled}
-          onclick={() => (insertsOpen = !insertsOpen)}
+          onclick={() => void (sourceMode ? exitSourceMode() : enterSourceMode())}
         >
-          {labels.insert}
+          {sourceMode ? labels.sourceOff : labels.sourceOn}
         </button>
-        {#if insertsOpen}
-          <div class="rt-menu-list" role="listbox">
-            <ScrollArea class="rt-menu-scroll" maxHeight="min(320px, 48vh)" type="auto">
-              {#if quickInserts.length}
-                <div class="rt-menu-items">
-                  {#each quickInserts as item (item.id)}
-                    <button
-                      type="button"
-                      class="rt-menu-item"
-                      role="option"
-                      aria-selected="false"
-                      aria-disabled={item.disabled}
-                      class:is-disabled={item.disabled}
-                      onclick={() => pickQuickInsert(item)}
-                    >
-                      <span class="rt-menu-item-title">
-                        {item.label}
-                        {#if item.badge}<em class="rt-menu-badge">{item.badge}</em>{/if}
-                      </span>
-                      {#if item.description}
-                        <span class="rt-menu-item-desc">{item.description}</span>
-                      {/if}
-                    </button>
-                  {/each}
-                </div>
-              {:else}
-                <div class="rt-menu-empty">{labels.insertEmpty}</div>
-              {/if}
-            </ScrollArea>
-          </div>
-        {/if}
-      </div>
-    {/if}
-
-    {#if hasShortcodes}
-      <div class="rt-menu">
-        <button
-          type="button"
-          class="rt-tool rt-tool-wide"
-          aria-haspopup="listbox"
-          aria-expanded={shortcodesOpen}
-          data-rt-shortcodes-toggle
-          {disabled}
-          onclick={() => (shortcodesOpen = !shortcodesOpen)}
-        >
-          {labels.shortcodes}
-        </button>
-        {#if shortcodesOpen}
-          <div class="rt-menu-list" role="listbox">
-            <ScrollArea class="rt-menu-scroll" maxHeight="min(320px, 48vh)" type="auto">
-              {#if shortcodes.length}
-                <div class="rt-menu-items">
-                  {#each shortcodes as item (item.name)}
-                    <button
-                      type="button"
-                      class="rt-menu-item"
-                      role="option"
-                      aria-selected="false"
-                      onclick={() => pickShortcode(item.name)}
-                    >
-                      <span class="rt-menu-token">{`{${item.name}}`}</span>
-                      <span class="rt-menu-item-desc">{item.description || item.name}</span>
-                      {#if item.owner}<span class="rt-menu-cost">{item.owner}</span>{/if}
-                      {#if item.cost === "panel"}
-                        <span class="rt-menu-cost">{labels.shortcodePanelBadge}</span>
-                      {/if}
-                    </button>
-                  {/each}
-                </div>
-              {:else}
-                <div class="rt-menu-empty">{labels.shortcodesLoading}</div>
-              {/if}
-            </ScrollArea>
-          </div>
-        {/if}
-      </div>
-    {/if}
-
-    {#if showSource}
-      <button
-        type="button"
-        class="rt-tool rt-tool-wide"
-        class:is-active={sourceMode}
-        data-rt-source-toggle
-        aria-label={sourceMode ? labels.sourceOff : labels.sourceOn}
-        {disabled}
-        onclick={() => void (sourceMode ? exitSourceMode() : enterSourceMode())}
-      >
-        {sourceMode ? labels.sourceOff : labels.sourceOn}
-      </button>
-    {/if}
-  </div>
+      {/if}
+    </div>
+  {/if}
 
   {#if invalidEmojiMarkup || emojiPickerFailed || (sourceMode && hasCustomEmojiPicker)}
     <small class="rt-emoji-hint" role="status">

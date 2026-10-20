@@ -71,12 +71,11 @@
       <Badge variant="outline" class={`ticket-status-badge ticket-status-badge--${visibleStatus}`}>
         {t(`wa_support_status_${visibleStatus}`)}
       </Badge>
-      <Badge
-        variant="muted"
-        class={`ticket-priority-badge ticket-priority-badge--${ticket.priority}`}
-      >
-        {t(`wa_support_priority_${ticket.priority}`)}
-      </Badge>
+      {#if ticket.priority === "high"}
+        <Badge variant="muted" class="ticket-priority-badge ticket-priority-badge--high">
+          {t("wa_support_priority_high")}
+        </Badge>
+      {/if}
     </span>
     {#if unread}
       <AttentionDot position="inline" class="ticket-card-unread-dot" />

@@ -3332,7 +3332,7 @@
   "wa_support_category": "Категория",
   "wa_support_priority": "Приоритет",
   "wa_support_message": "Сообщение",
-  "wa_support_message_placeholder": "Расскажите, что произошло. Чем больше деталей, тем быстрее поможем.",
+  "wa_support_message_placeholder": "Опишите, что произошло…",
   "wa_support_create": "Создать тикет",
   "wa_support_creating": "Создаём...",
   "wa_support_empty": "Тикетов пока нет",
