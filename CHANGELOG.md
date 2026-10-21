@@ -100,7 +100,8 @@
   Pydantic 2.13 и SQLAlchemy 2.0 сохранены с учётом ограничений совместимости.
   Certifi обновлён до 2026.10.19 в приложении и встроенной копии pip 26.2.2:
   используется исправленный набор доверенных корневых сертификатов emSign.
-  ([02e6eb07](https://gitlab.com/3252a8/remnawave-minishop/-/commit/02e6eb07659acbce0cf20252a929dc00b2f1009f))
+  ([02e6eb07](https://gitlab.com/3252a8/remnawave-minishop/-/commit/02e6eb07659acbce0cf20252a929dc00b2f1009f),
+  [73865ea9](https://gitlab.com/3252a8/remnawave-minishop/-/commit/73865ea90aa5efa5208ce2c31424123991d3ffbc))
 
 ### Исправлено
 
