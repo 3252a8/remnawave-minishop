@@ -19,7 +19,8 @@ email-validator==2.3.0
 # https://docs.sqlalchemy.org/en/21/changelog/migration_21.html
 sqlalchemy[asyncio]==2.0.55
 asyncpg==0.32.0
-certifi>=2024.7.4
+# GHSA-6q48-6c7w-9gw2: require the corrected emSign trust bundle.
+certifi>=2026.10.19
 PyJWT[crypto]==2.15.1
 webauthn==3.0.1
 cryptography>=50.0.2

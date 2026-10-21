@@ -29,7 +29,7 @@ attrs==26.1.0
     # via aiohttp
 cbor2==6.1.5
     # via webauthn
-certifi==2026.10.18
+certifi==2026.10.19
     # via
     #   -r backend/requirements.in
     #   aiogram

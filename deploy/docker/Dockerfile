@@ -113,7 +113,7 @@ RUN useradd -u 10001 -m appuser
 COPY backend/requirements.txt backend/requirements.txt
 COPY deploy/docker/refresh_pip_vendor.py /tmp/refresh_pip_vendor.py
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-compile --upgrade "pip==26.2.1" && \
+    pip install --no-compile --upgrade "pip==26.2.2" && \
     pip install --no-compile --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
       "urllib3==2.8.0" "msgpack==1.2.3" "setuptools==80.9.0" && \
     pip install --no-compile -r backend/requirements.txt && \

@@ -26,7 +26,7 @@ def replace(path: Path, old: str, new: str, count: int = 1) -> None:
 
 
 def main(source: Path) -> None:
-    if pip.__version__ != "26.2.1" or pip.__file__ is None:
+    if pip.__version__ != "26.2.2" or pip.__file__ is None:
         raise RuntimeError("Recheck the vendoring patches for this pip version")
     vendor = Path(pip.__file__).parent / "_vendor"
     for name, distribution, version, license_name in (
