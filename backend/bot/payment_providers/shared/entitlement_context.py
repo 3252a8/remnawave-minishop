@@ -155,6 +155,8 @@ def build_entitlement_context_snapshot(
 ) -> str | None:
     """Freeze the subscription a one-time entitlement checkout was quoted for."""
 
+    from bot.services.subscription_service_impl.entitlement_helpers import subscription_is_trial
+
     active_subscription_id: int | None = None
     active_tariff_key: str | None = None
     if active_subscription is not None:
@@ -164,6 +166,7 @@ def build_entitlement_context_snapshot(
         sale_mode=sale_mode,
         active_subscription_id=active_subscription_id,
         active_tariff_key=active_tariff_key,
+        active_subscription_is_trial=subscription_is_trial(active_subscription),
         bind_to_active_subscription=bind_to_active_subscription,
     )
 
@@ -173,6 +176,7 @@ def build_entitlement_context_snapshot_from_values(
     sale_mode: str,
     active_subscription_id: Any | None,
     active_tariff_key: Any | None,
+    active_subscription_is_trial: bool = False,
     bind_to_active_subscription: bool = False,
 ) -> str | None:
     """Freeze a quote-owned subscription identity without re-reading current state."""
@@ -208,7 +212,16 @@ def build_entitlement_context_snapshot_from_values(
     )
     if strict_active_subscription and normalized_subscription_id is None:
         raise EntitlementContextError("active_subscription_required")
-    if normalized_subscription_id is not None and normalized_tariff_key != target_tariff_key:
+    trial_traffic_purchase = (
+        base == "traffic_package"
+        and active_subscription_is_trial
+        and not strict_active_subscription
+    )
+    if (
+        normalized_subscription_id is not None
+        and normalized_tariff_key != target_tariff_key
+        and not trial_traffic_purchase
+    ):
         raise EntitlementContextError("active_tariff_mismatch")
 
     return json.dumps(
@@ -299,6 +312,8 @@ def preflight_payment_entitlement(
 ) -> EntitlementPreflightResult:
     """Pure deterministic guard run before a one-time entitlement is mutated."""
 
+    from bot.services.subscription_service_impl.entitlement_helpers import subscription_is_trial
+
     sale_mode = str(getattr(payment, "sale_mode", "") or "")
     base = _sale_mode_base(sale_mode)
     if not payment_uses_entitlement_context(payment):
@@ -376,6 +391,7 @@ def preflight_payment_entitlement(
         payment_tariff_key
         and current_subscription_id is not None
         and current_tariff_key != payment_tariff_key
+        and not (base == "traffic_package" and subscription_is_trial(active_subscription))
     ):
         return EntitlementPreflightResult(
             EntitlementPreflightStatus.DETERMINISTIC_STALE,
