@@ -69,6 +69,9 @@ for (const width of [390, 1280]) {
     await pay.click();
     await expect(failure).toContainText("Других доступных способов");
     await expect(alternative).toHaveCount(0);
+    await expect(
+      failure.getByRole("button", { name: "Вернуться к оплате", exact: true })
+    ).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(failure).toHaveCount(0);
     await expect(pay).toBeEnabled();
