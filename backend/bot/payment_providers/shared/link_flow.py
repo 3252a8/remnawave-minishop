@@ -383,6 +383,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         checkout_expires_at=checkout_expires_at,
         lead_text=lead_text,
         log_prefix=descriptor.log_prefix,
+        settings=settings,
     )
 
 

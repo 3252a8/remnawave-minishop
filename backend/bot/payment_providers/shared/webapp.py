@@ -15,6 +15,7 @@ from .common import (
     payment_creation_failure_metadata,
     payment_failed,
     payment_link_response,
+    payment_provider_unavailable,
 )
 
 logger = logging.getLogger(__name__)
@@ -115,6 +116,13 @@ async def finalize_webapp_link_payment(
                 log_prefix,
                 payment.payment_id,
             )
-        return payment_failed()
+        return payment_failed(
+            provider_unavailable=payment_provider_unavailable(
+                provider_response,
+                api_success=api_success,
+                payment_url=payment_url,
+                provider_payment_id=provider_payment_id,
+            )
+        )
 
     return payment_link_response(payment_url=payment_url, payment_id=payment.payment_id)

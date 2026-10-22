@@ -335,8 +335,31 @@ def payment_unavailable() -> web.Response:
     return json_error(400, "payment_unavailable", "Payment method unavailable")
 
 
-def payment_failed(message: str = "Failed to create payment") -> web.Response:
-    return json_error(502, "payment_failed", message)
+def payment_failed(
+    message: str = "Failed to create payment", *, provider_unavailable: bool = False
+) -> web.Response:
+    code = "payment_provider_unavailable" if provider_unavailable else "payment_failed"
+    return json_error(502, code, message)
+
+
+def payment_provider_unavailable(
+    provider_response: Any,
+    *,
+    api_success: bool,
+    payment_url: str | None,
+    provider_payment_id: str | None,
+) -> bool:
+    """Offer another gateway only after a rejection without a created checkout.
+
+    A transport exception, a malformed success or a persistence failure leaves
+    the provider's state uncertain and must retain the ordinary error flow.
+    """
+    if api_success or payment_url or provider_payment_id:
+        return False
+    status = payment_creation_failure_metadata(provider_response, api_success=False)[
+        "failure_http_status"
+    ]
+    return status in {401, 403, 429} or (status is not None and 500 <= status <= 599)
 
 
 def payment_link_response(

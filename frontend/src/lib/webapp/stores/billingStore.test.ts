@@ -44,6 +44,115 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it.each(["createTopupPayment", "createDeviceTopupPayment", "createTariffChangePayment"] as const)(
+    "%s reports provider failure and retains the selected purchase",
+    async (action) => {
+      const onProviderUnavailable = vi.fn();
+      const { store, billing, deps } = makeBillingStore({
+        billing: {
+          postPayment: vi
+            .fn()
+            .mockResolvedValue({ ok: false, error: "payment_provider_unavailable" }),
+        },
+      });
+      store.update((state) => ({
+        ...state,
+        selectedTopupPlan: { id: "traffic", traffic_gb: 50 },
+        selectedDeviceTopupPlan: { id: "devices", device_count: 2 },
+        selectedChangeAction: { mode: "buy_period", months: 3 },
+        selectedChangeTarget: {
+          tariff_key: "standard",
+          title: "Standard",
+          description: "",
+          billing_model: "period",
+          actions: [],
+        },
+        selectedMethod: "wata",
+      }));
+      await store[action]({ onProviderUnavailable, balanceSource: "user" });
+      expect(onProviderUnavailable).toHaveBeenCalledExactlyOnceWith("wata");
+      expect(billing.postPayment).toHaveBeenCalledOnce();
+      expect(store).toMatchObject({
+        selectedMethod: "wata",
+        selectedTopupPlan: { id: "traffic" },
+        selectedDeviceTopupPlan: { id: "devices" },
+        selectedChangeTarget: { tariff_key: "standard" },
+      });
+      expect(deps.showToast).not.toHaveBeenCalled();
+    }
+  );
+
+  it("reports definitive provider failure without changing purchase context or retrying", async () => {
+    const onProviderUnavailable = vi.fn();
+    const { store, deps, billing } = makeBillingStore({
+      billing: {
+        postPayment: vi
+          .fn()
+          .mockResolvedValue({ ok: false, error: "payment_provider_unavailable" }),
+      },
+    });
+    const plan = { id: "monthly", months: 3, price: 790, tariff_key: "standard" };
+    store.update((state) => ({
+      ...state,
+      selectedPlan: plan,
+      selectedMethod: "wata",
+      selectedTariffKey: "standard",
+      paymentModalOpen: true,
+      checkoutPromoAppliedCode: "SAVE20",
+      renewHwidDevices: true,
+    }));
+    const options = {
+      onProviderUnavailable,
+      balanceSource: "user" as const,
+      checkoutAddons: { device_count: 2, regular_limit_gb: null, premium_limit_gb: null },
+      payerEmail: "user@example.com",
+      payerPhone: "+79991234567",
+    };
+    await store.createPayment(options);
+    expect(onProviderUnavailable).toHaveBeenCalledExactlyOnceWith("wata");
+    expect(billing.postPayment).toHaveBeenCalledOnce();
+    expect(billing.planPaymentBody).toHaveBeenCalledWith(
+      plan,
+      "wata",
+      expect.objectContaining({
+        balanceSource: "user",
+        checkoutAddons: options.checkoutAddons,
+        payerEmail: "user@example.com",
+        payerPhone: "+79991234567",
+        promoCode: "SAVE20",
+      })
+    );
+    expect(store).toMatchObject({
+      selectedPlan: plan,
+      selectedMethod: "wata",
+      selectedTariffKey: "standard",
+      checkoutPromoAppliedCode: "SAVE20",
+      renewHwidDevices: true,
+      paymentModalOpen: true,
+      payBusy: false,
+    });
+    expect(deps.showToast).not.toHaveBeenCalled();
+    expect(deps.openExternalLink).not.toHaveBeenCalled();
+  });
+
+  it.each(["payment_failed", "invalid_plan", "balance_insufficient"])(
+    "does not suggest methods for %s",
+    async (error) => {
+      const onProviderUnavailable = vi.fn();
+      const { store, deps } = makeBillingStore({
+        billing: { postPayment: vi.fn().mockRejectedValue({ error }) },
+      });
+      store.update((state) => ({
+        ...state,
+        selectedPlan: { id: "monthly" },
+        selectedMethod: "wata",
+      }));
+      await store.createPayment({ onProviderUnavailable });
+      expect(onProviderUnavailable).not.toHaveBeenCalled();
+      expect(deps.showToast).toHaveBeenCalledOnce();
+    }
+  );
+
   it.each(["wata_subscription", "rollypay_subscription", "platega_subscription"])(
     "selects the first compatible method before quoting a code from %s",
     async (recurringMethod) => {

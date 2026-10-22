@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { billingErrorMessage } from "$lib/webapp/billingActions.js";
   import { balanceRecurringEligible } from "$lib/webapp/balanceUiPolicy.js";
+  import { createCheckoutPaymentFallback } from "$lib/webapp/checkoutPaymentFallback.svelte.js";
   import CheckoutHeader from "./CheckoutHeader.svelte";
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
   import { ArrowLeft, ArrowRight } from "$components/ui/icons.js";
@@ -107,6 +108,11 @@
     t = (key) => key,
     termUnitLabel = () => "",
   }: PaymentCheckoutDialogProps = $props();
+
+  const paymentFallback = createCheckoutPaymentFallback(
+    () => paymentModalOpen,
+    () => `${planKeyFn(selectedPlan)}:${selectedTariffKey}`
+  );
 
   const methodUsesStars = () =>
     String(calculationMethod || "")
@@ -268,6 +274,7 @@
 
   function checkoutPaymentOptions(): CheckoutPaymentOptions {
     return {
+      onProviderUnavailable: paymentFallback.onUnavailable(),
       balanceSource,
       balanceOnly: balanceFullyCovers,
       balanceAutoRenew:
@@ -818,6 +825,10 @@
     {balanceFullyCovers}
     {paymentMethods}
     {selectedMethod}
+    failedPaymentMethods={paymentFallback.failedMethods}
+    unavailableFallbackMethods={checkoutAddonsSelected()
+      ? selectedPlan?.checkout_addons_unavailable_payment_method_ids || []
+      : []}
     effectiveMethod={effectivePaymentMethod}
     bind:payerEmail
     bind:payerPhone

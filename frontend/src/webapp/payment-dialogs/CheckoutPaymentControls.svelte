@@ -9,6 +9,7 @@
   } from "$components/patterns/webapp/index.js";
   import CheckoutPromoRow from "../CheckoutPromoRow.svelte";
   import PartnerBalanceDiscount from "./PartnerBalanceDiscount.svelte";
+  import CheckoutPaymentFallback from "./CheckoutPaymentFallback.svelte";
   import type { ApiClient, BalanceResponse } from "$lib/webapp/publicApi.js";
   import type { PaymentMethodView, PlanView, StringAction, Translate } from "$lib/webapp/types.js";
 
@@ -32,6 +33,8 @@
     balanceFullyCovers = false,
     paymentMethods = [],
     selectedMethod = "",
+    failedPaymentMethods = [],
+    unavailableFallbackMethods = [],
     effectiveMethod = "",
     payerEmail = $bindable(""),
     payerPhone = $bindable(""),
@@ -75,6 +78,8 @@
     balanceFullyCovers?: boolean;
     paymentMethods?: PaymentMethodView[];
     selectedMethod?: string;
+    failedPaymentMethods?: string[];
+    unavailableFallbackMethods?: string[];
     effectiveMethod?: string;
     payerEmail?: string;
     payerPhone?: string;
@@ -106,6 +111,17 @@
 </script>
 
 <div class="payment-divider" aria-hidden="true"></div>
+{#if !balanceFullyCovers}
+  <CheckoutPaymentFallback
+    methods={paymentMethods}
+    failedMethods={failedPaymentMethods}
+    {selectedMethod}
+    unavailableMethods={unavailableFallbackMethods}
+    disabled={payDisabled}
+    onSelect={selectPaymentMethod}
+    {t}
+  />
+{/if}
 {#if hasMethods}
   <PaymentMethodPicker
     methods={paymentMethods}

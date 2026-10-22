@@ -20,6 +20,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, resolve_checkout_promo
 from bot.utils.callback_answer import callback_message_or_none
+from config.settings import Settings
 from config.subscription_periods import sale_mode_duration_days
 from config.tariffs_config import default_payment_currency_code_for_settings
 from db.dal import payment_dal, subscription_dal
@@ -32,6 +33,7 @@ from .common import (
     mark_payment_failed_creation,
     parse_positive_int_units,
     payment_creation_failure_metadata,
+    payment_provider_unavailable,
     sale_mode_base,
     sale_mode_is_hwid_devices,
     sale_mode_tariff_key,
@@ -42,6 +44,7 @@ from .entitlement_context import (
     build_entitlement_context_snapshot_from_values,
     snapshot_current_entitlement_context,
 )
+from .payment_fallback import payment_fallback_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -709,6 +712,7 @@ async def render_link_or_fail(
     new_status: str | None = None,
     lead_text: str | None = None,
     log_prefix: str,
+    settings: Settings | None = None,
 ) -> None:
     """Finalize the link-based callback flow after the provider API responded.
 
@@ -766,4 +770,29 @@ async def render_link_or_fail(
         log_prefix=log_prefix,
         failure_metadata=failure_metadata,
     )
+    if settings is not None and payment_provider_unavailable(
+        provider_response,
+        api_success=api_success,
+        payment_url=payment_url,
+        provider_payment_id=provider_payment_id,
+    ):
+        keyboard, has_alternative = payment_fallback_keyboard(
+            callback,
+            settings=settings,
+            parts=parts,
+            translator=translator,
+            language=current_lang,
+        )
+        await edit_or_answer(
+            callback,
+            translator(
+                "payment_provider_unavailable_alternative"
+                if has_alternative
+                else "payment_provider_unavailable_retry"
+            ),
+            reply_markup=keyboard,
+            log_prefix=log_prefix,
+        )
+        await safe_callback_answer(callback)
+        return
     await notify_payment_gateway_failure(callback, translator)

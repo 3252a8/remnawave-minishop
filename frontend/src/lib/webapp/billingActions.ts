@@ -72,6 +72,7 @@ export type PartnerBalancePaymentOptions = {
   checkoutAddons?: CheckoutAddonSelection;
   payerEmail?: string;
   payerPhone?: string;
+  onProviderUnavailable?: (method: string) => void;
 };
 
 export type CheckoutPromoOptions = {
