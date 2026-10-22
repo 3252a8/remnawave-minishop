@@ -103,6 +103,7 @@ async def _prefetch_sync_indexes(
     telegram_ids: set[int] = set()
     panel_uuids: set[str] = set()
     emails: set[str] = set()
+    panel_usernames: set[str] = set()
     panel_subscription_uuids: set[str] = set()
     panel_uuids_by_telegram_id: dict[int, set[str]] = {}
 
@@ -118,6 +119,9 @@ async def _prefetch_sync_indexes(
         email = _normalize_panel_email(panel_user.get("email"))
         if email:
             emails.add(email)
+        username = str(panel_user.get("username") or "").strip()
+        if username:
+            panel_usernames.add(username)
         panel_subscription_uuid = panel_user.get("subscriptionUuid") or panel_user.get("shortUuid")
         if panel_subscription_uuid:
             panel_subscription_uuids.add(panel_subscription_uuid)
@@ -134,6 +138,10 @@ async def _prefetch_sync_indexes(
         user_filters.append(User.panel_user_uuid.in_(panel_uuids))
     if emails:
         user_filters.append(func.lower(User.email).in_(emails))
+    if panel_usernames:
+        user_filters.extend(
+            (User.panel_username.in_(panel_usernames), User.minishop_id.in_(panel_usernames))
+        )
     if user_filters:
         result = await session.execute(
             select(User).where(or_(*user_filters)).execution_options(populate_existing=True)

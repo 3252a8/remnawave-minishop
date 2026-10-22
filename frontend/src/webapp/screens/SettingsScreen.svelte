@@ -28,11 +28,10 @@
   import {
     documentHref,
     hasInformationDocumentRole,
-    publicInformationDocuments,
     settingsInformationDocuments,
-    type PublicInformationDocument,
   } from "$lib/webapp/informationPages.js";
-  import { unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
+  import { getPublicDocumentsStore } from "$lib/webapp/context.js";
+  import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
   import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
   import type {
@@ -172,7 +171,8 @@
   const showEmailAccount = $derived(emailAuthEnabled);
   let themeMenuOpen = $state(false);
   let qrApprover = $state<ReturnType<typeof QrLoginApprover>>();
-  let publicDocuments = $state<PublicInformationDocument[] | null>(null);
+  const publicDocumentsStore = getPublicDocumentsStore();
+  const publicDocuments = $derived(publicDocumentsStore.documents);
   const settingsDocuments = $derived(settingsInformationDocuments(publicDocuments ?? []));
   const hasNativePrivacyPolicy = $derived(
     hasInformationDocumentRole(publicDocuments ?? [], "privacy_policy")
@@ -182,20 +182,7 @@
   );
 
   onMount(() => {
-    let mounted = true;
-    const loadDocuments = async () => {
-      try {
-        const documents = api ? publicInformationDocuments(unwrap(await api("/documents"))) : [];
-        if (mounted) publicDocuments = documents;
-      } catch {
-        // Resolve optional content before showing legacy links, including on an older API.
-        if (mounted) publicDocuments = [];
-      }
-    };
-    void loadDocuments();
-    return () => {
-      mounted = false;
-    };
+    void publicDocumentsStore.load();
   });
 </script>
 

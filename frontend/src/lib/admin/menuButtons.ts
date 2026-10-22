@@ -41,6 +41,8 @@ export type MenuButtonDraft = {
   id: string;
   kind: MenuButtonKind;
   target: string;
+  platform?: string;
+  app?: string;
   webapp_icon: string;
   telegram_emoji: string;
   labels: Record<string, string>;
@@ -84,6 +86,10 @@ function normalizeButton(value: unknown): MenuButtonDraft | null {
     id,
     kind,
     target: String(value.target || ""),
+    ...(typeof value.platform === "string" && value.platform.trim()
+      ? { platform: value.platform.trim() }
+      : {}),
+    ...(typeof value.app === "string" && value.app.trim() ? { app: value.app.trim() } : {}),
     webapp_icon:
       typeof value.webapp_icon === "string"
         ? value.webapp_icon

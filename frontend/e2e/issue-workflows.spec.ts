@@ -675,6 +675,28 @@ for (const [device, viewport] of devices) {
       await expect(row.locator(".message-button-target")).toHaveText(
         new RegExp(ru.admin_demo_plugin_page)
       );
+      await row.getByRole("button", { name: ru.admin_broadcast_button_section_select }).click();
+      await page
+        .getByRole("option", { name: ru.admin_broadcast_button_section_install, exact: true })
+        .click();
+      const platform = row.getByRole("button", {
+        name: ru.admin_install_target_platform,
+        exact: true,
+      });
+      const app = row.getByRole("button", { name: ru.admin_install_target_app, exact: true });
+      await expect(app).toBeDisabled();
+      await platform.click();
+      await page.getByRole("option", { name: "iOS", exact: true }).click();
+      await app.click();
+      await expect(page.getByRole("option", { name: "Streisand", exact: true })).toBeVisible();
+      await noOverflow(page);
+      await snapshot(page, `install-target-${name}-${device}`);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("option", { name: "Streisand", exact: true })).toBeHidden();
+      await expect(app).toBeFocused();
+      await app.click();
+      await page.getByRole("option", { name: "Streisand", exact: true }).click();
+      await expect(app).toContainText("Streisand");
       await page.locator("[data-rt-shortcodes-toggle]").first().click();
       const shortcode = page
         .locator(".rt-menu-item")
@@ -697,6 +719,28 @@ for (const [device, viewport] of devices) {
     await expect(page.getByRole("option", { name: ru.admin_demo_plugin_page })).toBeVisible();
     await snapshot(page, `plugin-menu-${device}`);
     await page.getByRole("option", { name: ru.admin_demo_plugin_page }).click();
+    await row.getByRole("button", { name: ru.admin_menu_buttons_webapp_section }).click();
+    await page
+      .getByRole("option", { name: ru.admin_menu_buttons_section_install, exact: true })
+      .click();
+    const platform = row.getByRole("button", {
+      name: ru.admin_install_target_platform,
+      exact: true,
+    });
+    const app = row.getByRole("button", { name: ru.admin_install_target_app, exact: true });
+    await platform.click();
+    await page.getByRole("option", { name: "iOS", exact: true }).click();
+    await app.click();
+    await expect(page.getByRole("option", { name: "Streisand", exact: true })).toBeVisible();
+    await noOverflow(page);
+    await snapshot(page, `install-target-menu-${device}`);
+    await page.getByRole("option", { name: "Streisand", exact: true }).click();
+    await platform.click();
+    await page
+      .getByRole("option", { name: ru.admin_install_target_platform_auto, exact: true })
+      .click();
+    await expect(app).toBeDisabled();
+    await expect(app).toContainText(ru.admin_install_target_app_auto);
     await noOverflow(page);
     expect(errors).toEqual([]);
   });

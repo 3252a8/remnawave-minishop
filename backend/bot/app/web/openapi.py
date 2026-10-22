@@ -148,6 +148,8 @@ def _operation_for_route(
         "responses": {"200": _json_response(contract)},
     }
     parameters = _path_parameters(path, route)
+    if contract is not None:
+        parameters.extend(contract.query_parameters)
     if parameters:
         operation["parameters"] = parameters
     if contract is not None and contract.security is not None:

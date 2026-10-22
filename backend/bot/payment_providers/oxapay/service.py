@@ -511,6 +511,7 @@ def create_service(ctx: ServiceFactoryContext) -> OxaPayService:
 
 SPEC = PaymentProviderSpec(
     id="oxapay",
+    payment_group="crypto",
     provider_key="oxapay",
     label="OxaPay",
     webapp_label="OxaPay",

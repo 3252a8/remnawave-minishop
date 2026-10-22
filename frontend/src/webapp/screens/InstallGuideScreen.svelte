@@ -22,6 +22,11 @@
   import "./InstallGuideScreen.css";
   import { createHeightStageAnimator } from "$lib/webapp/motion/heightStage.js";
   import {
+    installAppId,
+    installTargetFromSearch,
+    resolveInstallTarget,
+  } from "$lib/webapp/installTargets.js";
+  import {
     detectInstallPlatformKey,
     installIconColorStyle,
     isUnsafeInstallUrl,
@@ -93,6 +98,10 @@
   const QR_DELAY_EXTRA_MS = 90;
   let selectedPlatformKey = $state("");
   let selectedAppIndex = $state(0);
+  let requestedTarget = $state(
+    installTargetFromSearch(typeof window === "undefined" ? "" : window.location.search)
+  );
+  let appliedTarget = $state<string | null>(null);
   let qrDataUrl = $state("");
   let lastQrValue = $state("");
   let qrRequestId = 0;
@@ -110,6 +119,13 @@
 
   onMount(() => {
     if (!publicMode) installGuidesStore?.load();
+    const updateTarget = () => {
+      appliedTarget = null;
+      requestedTarget = installTargetFromSearch(window.location.search);
+    };
+    updateTarget();
+    window.addEventListener("popstate", updateTarget);
+    return () => window.removeEventListener("popstate", updateTarget);
   });
 
   onDestroy(() => installStageAnimator.destroy());
@@ -129,8 +145,15 @@
     )
   );
   $effect(() => {
-    if (!platforms.length || selectedPlatformKey) return;
-    selectedPlatformKey = detectedPlatformKey || platforms[0].key;
+    const targetKey = JSON.stringify([
+      requestedTarget,
+      platforms.map((platform) => [platform.key, platform.apps?.map(installAppId)]),
+    ]);
+    if (!platforms.length || appliedTarget === targetKey) return;
+    const selection = resolveInstallTarget(platforms, requestedTarget, detectedPlatformKey);
+    selectedPlatformKey = selection.platform;
+    selectedAppIndex = selection.appIndex;
+    appliedTarget = targetKey;
   });
   $effect(() => {
     if (!selectedPlatformKey || !platforms.length) return;

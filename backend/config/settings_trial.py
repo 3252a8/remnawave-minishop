@@ -7,6 +7,12 @@ from pydantic_settings import BaseSettings
 
 
 class TrialSettings(BaseSettings):
+    TRIAL_CAPTCHA_ENABLED: bool = Field(default=False)
+    UNUSED_ACCOUNTS_CLEANUP_ENABLED: bool = Field(default=False)
+    UNUSED_ACCOUNTS_NO_TRIAL_DAYS: int = Field(default=30, ge=1, le=3650)
+    UNUSED_ACCOUNTS_UNUSED_TRIAL_DAYS: int = Field(default=30, ge=1, le=3650)
+    UNUSED_ACCOUNTS_NO_TRIAL_ENABLED: bool = Field(default=False)
+    UNUSED_ACCOUNTS_UNUSED_TRIAL_ENABLED: bool = Field(default=False)
     TRIAL_ENABLED: bool = Field(default=True)
     TRIAL_PAYMENT_ENABLED: bool = Field(
         default=False,

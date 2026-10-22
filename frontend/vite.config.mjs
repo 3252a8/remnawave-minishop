@@ -32,14 +32,27 @@ export default defineConfig(({ command, mode }) => {
       : "src/main.ts";
 
   return {
+    experimental: {
+      renderBuiltUrl(filename, { hostType }) {
+        if (hostType === "js" && filename.startsWith(`${outputBase}.relationships-layout`)) {
+          return { relative: true };
+        }
+      },
+    },
     define: {
       "process.env.NODE_ENV": JSON.stringify(nodeEnv),
     },
     resolve: {
-      alias: {
-        $lib: path.resolve(__dirname, "src/lib"),
-        $components: path.resolve(__dirname, "src/lib/components"),
-      },
+      alias: [
+        { find: "$lib", replacement: path.resolve(__dirname, "src/lib") },
+        { find: "$components", replacement: path.resolve(__dirname, "src/lib/components") },
+        // Route both published plugin entry shapes through the explicit native
+        // worker adapter; the bundled fake worker cannot run inside a worker.
+        {
+          find: /^elkjs(?:\/lib\/elk\.bundled\.js)?$/,
+          replacement: path.resolve(__dirname, "src/admin/sections/users/relationshipElk.ts"),
+        },
+      ],
     },
     plugins: [
       accordionLifecycleFix(),
@@ -48,6 +61,17 @@ export default defineConfig(({ command, mode }) => {
         dynamicCompileOptions: firstPartyRunesOptions,
       }),
     ],
+    worker: {
+      format: "es",
+      rolldownOptions: {
+        output: {
+          // Workers use the same served, same-origin chunk namespace as the
+          // admin module; no assets/ route or blob: CSP exception is needed.
+          entryFileNames: `${outputBase}.relationships-layout.[hash].js`,
+          chunkFileNames: `${outputBase}.relationships-layout-[name].[hash].js`,
+        },
+      },
+    },
     build: {
       outDir: templateDir,
       emptyOutDir: false,
@@ -79,6 +103,9 @@ export default defineConfig(({ command, mode }) => {
           manualChunks: isAdminBuild
             ? (id) => {
                 const normalizedId = id.split(path.sep).join("/");
+                if (normalizedId.includes("/node_modules/cytoscape/")) {
+                  return "admin-graph";
+                }
                 if (normalizedId.includes("/node_modules/uplot/")) {
                   return "admin-chart";
                 }

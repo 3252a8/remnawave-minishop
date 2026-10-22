@@ -18,7 +18,8 @@ import type {
   CheckoutPromoOptions,
   PartnerBalancePaymentOptions,
 } from "../billingActions";
-import { billingErrorMessage } from "../billingActions";
+import { billingErrorMessage, TrialCaptchaCancelled } from "../billingActions";
+import { paymentProviderUnavailable } from "../paymentFallback.js";
 import type { CheckoutAddonSelection } from "../tariffs";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
@@ -764,7 +765,9 @@ export function createBillingStore({
         updateState((s) => ({ ...s, paymentModalOpen: false }));
       });
     } catch (error: unknown) {
-      showToast(billingErrorMessage(error, t));
+      if (paymentProviderUnavailable(error) && options.onProviderUnavailable)
+        options.onProviderUnavailable(method);
+      else if (!(error instanceof TrialCaptchaCancelled)) showToast(billingErrorMessage(error, t));
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }
@@ -820,7 +823,9 @@ export function createBillingStore({
         updateState((s) => ({ ...s, topupModalOpen: false }));
       });
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
+      if (paymentProviderUnavailable(error) && options.onProviderUnavailable)
+        options.onProviderUnavailable(s.selectedMethod);
+      else showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }
@@ -902,7 +907,9 @@ export function createBillingStore({
         updateState((s) => ({ ...s, changeConfirmOpen: false, changeModalOpen: false }));
       });
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
+      if (paymentProviderUnavailable(error) && options.onProviderUnavailable)
+        options.onProviderUnavailable(s.selectedMethod);
+      else showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }
@@ -948,7 +955,9 @@ export function createBillingStore({
         updateState((s) => ({ ...s, deviceTopupModalOpen: false }));
       });
     } catch (error: unknown) {
-      showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
+      if (paymentProviderUnavailable(error) && options.onProviderUnavailable)
+        options.onProviderUnavailable(s.selectedMethod);
+      else showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
     } finally {
       updateState((s) => ({ ...s, payBusy: false }));
     }

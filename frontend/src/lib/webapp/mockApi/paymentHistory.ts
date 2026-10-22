@@ -69,6 +69,12 @@ export function demoPaymentHistoryItems(userId: number): PaymentHistoryItem[] {
             : [],
         funding_source: String(payment.funding_source || "external"),
       };
+      if (index === 6) {
+        item.sale_mode = "balance_topup";
+        item.description = "Balance top-up";
+        item.traffic_regular_gb = null;
+        item.traffic_premium_gb = null;
+      }
       return item;
     });
 }

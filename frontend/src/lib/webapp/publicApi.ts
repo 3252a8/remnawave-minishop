@@ -77,6 +77,7 @@ type ApiClientOptions = {
   getEmojiCacheScope?: () => string;
   getTariffAccessCode?: () => string;
   onUnauthorized?: () => void;
+  onMaintenance?: () => void;
   mockApi?: MockApi | null;
   getMockContext?: () => MockContext;
   requestTimeoutMs?: number;
@@ -438,6 +439,10 @@ export function buildAdminPanelInternalSquadsPath(): AdminPanelInternalSquadsPat
 }
 
 export type AdminUsersPath = "/admin/users" | `/admin/users?${string}`;
+export function buildAdminUserRelationshipsPath(): BuiltApiPath<"/api/admin/users/relationships"> {
+  return builtApiPath<"/api/admin/users/relationships">("/admin/users/relationships");
+}
+
 export function buildAdminUsersPath(params?: URLSearchParams): AdminUsersPath {
   const query = params?.toString();
   return (query ? `/admin/users?${query}` : "/admin/users") as AdminUsersPath;
@@ -855,6 +860,7 @@ export function createApiClient({
   getEmojiCacheScope = () => "",
   getTariffAccessCode = () => "",
   onUnauthorized = () => {},
+  onMaintenance = () => {},
   mockApi = null,
   getMockContext = () => ({}),
   requestTimeoutMs = DEFAULT_API_REQUEST_TIMEOUT_MS,
@@ -899,7 +905,8 @@ export function createApiClient({
       path,
       { ...options, headers },
       requestTimeoutMs,
-      onUnauthorized
+      onUnauthorized,
+      onMaintenance
     );
   }
 
@@ -925,6 +932,7 @@ export function createApiClient({
     mockApi,
     getMockContext,
     onUnauthorized,
+    onMaintenance,
     requestTimeoutMs,
   });
 

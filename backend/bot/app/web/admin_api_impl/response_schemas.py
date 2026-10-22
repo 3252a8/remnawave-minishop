@@ -158,6 +158,8 @@ class AdminBroadcastButtonOut(HttpResponseModel):
     labels: dict[str, str] = Field(default_factory=dict)
     icon_custom_emoji_id: str | None = None
     icon_emoji: str = ""
+    platform: str = Field(default_factory=str)
+    app: str = Field(default_factory=str)
 
 
 class AdminBroadcastOut(HttpResponseModel):

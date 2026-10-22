@@ -89,6 +89,36 @@ def _delivery(**overrides: Any) -> AdminBroadcastDelivery:
 
 
 class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_scheduled_install_target_survives_storage_and_worker_resolution(self) -> None:
+        queue = _Queue()
+        service = _service(queue)
+        with (
+            patch.object(service, "_mark_queued", AsyncMock()),
+            patch.object(delivery_module.broadcast_dal, "refresh_broadcast_stats", AsyncMock()),
+        ):
+            result = await service._queue_deliveries(
+                _broadcast(
+                    texts={"en": "Install the app"},
+                    buttons=[
+                        {
+                            "kind": "webapp_section",
+                            "section": "install",
+                            "platform": "ios",
+                            "app": "preferred-client",
+                        }
+                    ],
+                ),
+                [_delivery()],
+                [1],
+                ["telegram"],
+            )
+        self.assertEqual(result.queued, 1)
+        native = queue.messages[0]["reply_markup"].inline_keyboard[0][0]
+        self.assertEqual(
+            native.web_app.url,
+            "https://app.example.test/install?platform=ios&app=preferred-client",
+        )
+
     async def test_scheduled_button_icon_survives_worker_deserialization(self) -> None:
         queue = _Queue()
         service = _service(queue)

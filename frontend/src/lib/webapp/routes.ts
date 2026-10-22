@@ -179,6 +179,11 @@ export function adminPaymentsUserIdFromPath(
   return m ? (m[1].startsWith("ms_") ? m[1] : Number(m[1])) : null;
 }
 
+export function isSupportCreatePath(pathname: unknown, routePrefix: unknown = ""): boolean {
+  const normalized = stripRoutePrefix(pathname, routePrefix).toLowerCase().replace(/\/+$/, "");
+  return normalized === "/support/new";
+}
+
 export function supportTicketIdFromPath(
   pathname: unknown,
   routePrefix: unknown = ""

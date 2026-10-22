@@ -14,6 +14,7 @@
   import type { WebappDataClient } from "../lib/webapp/dataClient.js";
   import AppLaunchScreen from "./screens/AppLaunchScreen.svelte";
   import AuthenticatedDialogs from "./AuthenticatedDialogs.svelte";
+  import TrialCaptchaDialog from "./security/TrialCaptchaDialog.svelte";
   import { lazyScreen } from "$lib/webapp/lazyScreen.svelte.js";
   import {
     activeThemeOption,
@@ -23,6 +24,7 @@
 
   import AuthenticatedScreens from "./AuthenticatedScreens.svelte";
   import ScreenLoading from "./screens/ScreenLoading.svelte";
+  import MaintenanceScreen from "./screens/MaintenanceScreen.svelte";
   import AuthScreen from "./auth/AuthScreen.svelte";
   import CheckoutEntryScreen from "./checkout/CheckoutEntryScreen.svelte";
   import PaymentCheckoutDialog from "./payment-dialogs/PaymentCheckoutDialog.svelte";
@@ -366,27 +368,33 @@
 </script>
 
 <div class="app-shell {shellToneClass} {shellThemeClass}" style={shellStyle}>
-  <GiftFeature
-    api={stores.api}
-    billing={stores.giftBillingStore}
-    userId={String(user?.id ?? "")}
-    userLabel={String(user?.email || user?.username || user?.id || "")}
-    loggedIn={mode === "app"}
-    guestPromptBlocked={checkoutEntryRequested}
-    enabled={typeof appSettings.gifts_enabled === "boolean" ? appSettings.gifts_enabled : undefined}
-    {methods}
-    {paymentMethodsDisplayMode}
-    {pendingPayment}
-    {checkoutAddonValueAnimationEnabled}
-    {checkoutAddonEditorExpandedByDefault}
-    {t}
-    {termUnitLabel}
-    onactivated={async () => {
-      await stores.dataClient.loadData({ fresh: true });
-      goHome();
-    }}
-  />
-  {#if mode === "bootError"}
+  {#if mode !== "maintenance"}
+    <GiftFeature
+      api={stores.api}
+      billing={stores.giftBillingStore}
+      userId={String(user?.id ?? "")}
+      userLabel={String(user?.email || user?.username || user?.id || "")}
+      loggedIn={mode === "app"}
+      guestPromptBlocked={checkoutEntryRequested}
+      enabled={typeof appSettings.gifts_enabled === "boolean"
+        ? appSettings.gifts_enabled
+        : undefined}
+      {methods}
+      {paymentMethodsDisplayMode}
+      {pendingPayment}
+      {checkoutAddonValueAnimationEnabled}
+      {checkoutAddonEditorExpandedByDefault}
+      {t}
+      {termUnitLabel}
+      onactivated={async () => {
+        await stores.dataClient.loadData({ fresh: true });
+        goHome();
+      }}
+    />
+  {/if}
+  {#if mode === "maintenance"}
+    <MaintenanceScreen {brand} {brandTitle} {t} />
+  {:else if mode === "bootError"}
     <div class="loader" role="alert">
       <BrandMark {brand} size="md" />
       <div>{t("wa_boot_failed")}</div>
@@ -713,6 +721,7 @@
       {userLanguage}
     />
 
+    <TrialCaptchaDialog store={actionsStore.trialCaptcha} {t} />
     <AuthenticatedDialogs
       api={stores.api}
       loadData={() => stores.dataClient.loadData({ fresh: true })}

@@ -257,6 +257,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
             42,
             commit=False,
             emit_event=False,
+            captcha_verified_payment=True,
         )
         subscription_service.activate_subscription.assert_not_awaited()
         update_status.assert_awaited_once_with(session, 17, "succeeded")

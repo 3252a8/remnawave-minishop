@@ -24,6 +24,7 @@ nano .env
 | --- | --- |
 | `TELEGRAM_ENABLED`, `BOT_TOKEN` | Включение Telegram и токен бота. Для браузерного режима задайте `TELEGRAM_ENABLED=False` и оставьте токен пустым. |
 | `ADMIN_IDS` | Необязательный одноразовый источник импорта старых администраторов с подтверждённым `telegram_id`; повседневный доступ задаётся ролями аккаунтов. |
+| `BOOTSTRAP_OWNER_TELEGRAM_ID` / `BOOTSTRAP_OWNER_EMAIL` | Необязательные идентификаторы первого владельца: первый вход с совпавшей подтверждённой привязкой назначает `owner` один раз. Можно пропустить оба. |
 | `WEBHOOK_BASE_URL` | Публичный URL webhook-домена backend. Для Remnawave Panel `WEBHOOK_URL` будет `WEBHOOK_BASE_URL` + `/webhook/panel`, например `https://app.example.com/webhook/panel`. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Доступы PostgreSQL для Compose и backend. |
 | `WEBAPP_ENABLED` | Включает Web App и админку. Для первого запуска держите `True`. |
@@ -64,7 +65,7 @@ rollback описаны в разделе
 
 ## Настройка через админку
 
-После запуска подтвердите email первого владельца, выполните `docker compose exec backend python backend/scripts/bootstrap_owner.py --email owner@example.com`, войдите в кабинет и откройте админ-панель. Подробности есть в [инструкции автономного режима](../features/telegram-optional.md).
+При установке можно задать Telegram ID и/или email первого владельца. После входа с совпавшей подтверждённой привязкой админка станет доступна автоматически. Если оба поля пропущены, зарегистрируйте аккаунт доступным способом входа, скопируйте Minishop ID из профиля и выполните `docker compose exec backend python backend/scripts/bootstrap_owner.py --minishop-id ms_<id>`. Привязанные Telegram/email для этой команды не нужны; для подтверждённой почты доступна альтернатива `--email owner@example.com`, для Telegram — `--telegram-id 123456789`. Подробности и ограничения есть в [инструкции первого владельца](../features/telegram-optional.md#первый-владелец).
 
 Рекомендуемый порядок первичной настройки:
 
@@ -83,6 +84,7 @@ rollback описаны в разделе
 Не все настройки стоит переносить в базу. В `.env` остаются:
 
 - `TELEGRAM_ENABLED`, токен бота при включённом Telegram и необязательный список `ADMIN_IDS` для разового импорта;
+- необязательные `BOOTSTRAP_OWNER_TELEGRAM_ID` и `BOOTSTRAP_OWNER_EMAIL` для одноразового назначения первого владельца;
 - `TELEGRAM_BOT_PROXY_URL` и необязательный OAuth opt-out `TELEGRAM_OAUTH_USE_BOT_PROXY`;
 - параметры PostgreSQL, Redis, портов и Compose;
 - `WEBHOOK_BASE_URL`, потому что вебхук Telegram устанавливается при старте;

@@ -167,6 +167,12 @@ async def create_payment_route(request: web.Request) -> web.Response:
                 )
 
     if requested_sale_mode == "trial":
+        from bot.services.trial_captcha import TrialCaptchaError, require_trial_captcha
+
+        try:
+            await require_trial_captcha(settings, user_id)
+        except TrialCaptchaError as exc:
+            return _json_error(exc.status, exc.code, exc.code)
         if (
             not settings.TRIAL_ENABLED
             or settings.TRIAL_DURATION_DAYS <= 0

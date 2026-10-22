@@ -46,6 +46,7 @@ from bot.plugins import (
     collect_worker_tasks,
     run_setup,
 )
+from bot.services.account_cleanup_worker import AccountCleanupWorker
 from bot.services.admin_broadcast_delivery import AdminBroadcastDeliveryService
 from bot.services.admin_broadcast_worker import AdminBroadcastWorker
 from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
@@ -528,8 +529,15 @@ async def _outbound_settings_refresh_task(ctx: PluginContext) -> None:
         await asyncio.sleep(5)
 
 
+def _account_cleanup_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
+    return AccountCleanupWorker(
+        ctx.settings, ctx.require_session_factory(), ctx.require_panel_service()
+    ).run()
+
+
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
+        WorkerTaskSpec(name="AccountCleanupWorker", factory=_account_cleanup_task),
         WorkerTaskSpec(name="OutboundSettingsRefresh", factory=_outbound_settings_refresh_task),
         WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
         WorkerTaskSpec(name="ReferralAccrualWorker", factory=_referral_accrual_task),

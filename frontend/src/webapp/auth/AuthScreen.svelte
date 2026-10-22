@@ -222,6 +222,12 @@
         <BrandMark {brand} size="xl" />
         <h1>{brandTitle}</h1>
       </div>
+      {#if CFG.maintenanceModeEnabled === true}
+        <StatusMessage class="auth-maintenance-note" role="status">
+          <strong>{t("wa_maintenance_title")}</strong>
+          {t("wa_maintenance_description")}
+        </StatusMessage>
+      {/if}
       <section class="card auth-card" style:height={authCardHeight}>
         {#key passwordModeActive}
           <div
@@ -649,3 +655,19 @@
   {t}
   onclose={() => (qrLoginOpen = false)}
 />
+
+<style>
+  :global(.status-line.auth-maintenance-note) {
+    margin: 0;
+    max-width: 38ch;
+    justify-self: center;
+    color: var(--warning-text);
+    font-size: 13px;
+    line-height: 1.55;
+    text-align: center;
+  }
+  :global(.auth-maintenance-note strong) {
+    display: block;
+    margin-bottom: 4px;
+  }
+</style>

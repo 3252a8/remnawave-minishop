@@ -34,6 +34,12 @@ function demoRuntimeSettingValue(key: string): unknown {
       DEV_MOCK.config.checkoutAddonEditorExpandedByDefault ?? false,
     SERVER_STATUS_SHOW_ON_HOME: DEV_MOCK.config.serverStatusShowOnHome ?? false,
     TRIAL_WITHOUT_OAUTH_ENABLED: DEV_MOCK.config.trialWithoutOauthEnabled ?? true,
+    TRIAL_CAPTCHA_ENABLED: Boolean(DEV_MOCK.data.settings.trial_captcha_enabled),
+    UNUSED_ACCOUNTS_CLEANUP_ENABLED: false,
+    UNUSED_ACCOUNTS_NO_TRIAL_ENABLED: false,
+    UNUSED_ACCOUNTS_UNUSED_TRIAL_ENABLED: false,
+    UNUSED_ACCOUNTS_NO_TRIAL_DAYS: 30,
+    UNUSED_ACCOUNTS_UNUSED_TRIAL_DAYS: 30,
     REFERRAL_PROGRAM_ENABLED:
       DEV_MOCK.config.referralProgramEnabled ??
       DEV_MOCK.data.settings?.referral_program_enabled ??
@@ -105,6 +111,8 @@ export function demoSettingsSections(clone: CloneFn): ManifestSection[] {
 }
 
 function applyDemoSettingToMock(key: string, value: unknown): void {
+  if (key === "TRIAL_CAPTCHA_ENABLED")
+    DEV_MOCK.data.settings.trial_captcha_enabled = Boolean(value);
   if (key === "USER_BALANCE_ENABLED") {
     DEV_MOCK.data.settings.user_balance_enabled = Boolean(value);
     DEV_MOCK.data.balance.enabled = Boolean(value);

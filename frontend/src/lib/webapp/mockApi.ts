@@ -10,6 +10,8 @@ import { telegramMenuDemoResponse } from "./mockApi/telegramMenuDemo";
 import { accountMergeDemoResponse } from "./mockApi/accountMerge";
 import { issueReviewDemoResponse } from "./mockApi/issueReview";
 import { paymentHistoryDemoResponse } from "./mockApi/paymentHistory";
+import { trialCaptchaDemoResponse } from "./mockApi/trialCaptcha";
+import { paymentFallbackDemoResponse } from "./mockApi/paymentFallback.js";
 
 export async function mockApi(
   path: string,
@@ -23,6 +25,10 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const paymentFallback = paymentFallbackDemoResponse(cleanPath, options);
+  if (paymentFallback !== undefined) return paymentFallback;
+  const trialCaptcha = trialCaptchaDemoResponse(cleanPath, options);
+  if (trialCaptcha !== undefined) return trialCaptcha;
   const paymentHistory = paymentHistoryDemoResponse(path);
   if (paymentHistory !== undefined) return paymentHistory;
   const issueReview = issueReviewDemoResponse(path, options, currentLang);

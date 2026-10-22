@@ -36,13 +36,14 @@ describe("usersStore", () => {
       usersFilter: "active",
       usersPanelStatus: "enabled",
       usersPremiumTraffic: "with",
+      usersTariffFilter: "tariff:Family+Annual",
       usersSort: "created_desc",
     });
 
     await store.loadUsers();
 
     expect(api).toHaveBeenCalledWith(
-      "/admin/users?page=1&page_size=25&q=ivan&filter=active&panel_status=enabled&premium_traffic=with&sort=created_desc"
+      "/admin/users?page=1&page_size=25&q=ivan&filter=active&panel_status=enabled&premium_traffic=with&sort=created_desc&tariff_filter=tariff%3AFamily%2BAnnual"
     );
     expect(store).toMatchObject({
       users: [{ user_id: 42 }],

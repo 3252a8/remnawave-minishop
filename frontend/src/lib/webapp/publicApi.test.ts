@@ -15,6 +15,59 @@ afterEach(() => {
 });
 
 describe("createApiClient", () => {
+  it("shows maintenance on an explicit 503 and keeps the session usable for retry", async () => {
+    const onMaintenance = vi.fn();
+    const onUnauthorized = vi.fn();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ ok: false, error: "maintenance_mode" }, 503))
+      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createApiClient({ onMaintenance, onUnauthorized });
+
+    await expect(client.api("/me")).rejects.toMatchObject({
+      message: "maintenance_mode",
+      status: 503,
+    });
+    expect(onMaintenance).toHaveBeenCalledOnce();
+    expect(onUnauthorized).not.toHaveBeenCalled();
+    await expect(client.api("/me")).resolves.toEqual({ ok: true });
+  });
+
+  it.each([
+    [503, { ok: false, error: "upstream_unavailable" }],
+    [500, { ok: false, error: "maintenance_mode" }],
+    [503, { ok: true, error: "maintenance_mode" }],
+  ])("keeps other service failures out of maintenance (%s, %o)", async (status, payload) => {
+    const onMaintenance = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(payload, status))
+    );
+    const client = createApiClient({ onMaintenance });
+
+    await expect(client.api("/me")).rejects.toMatchObject({ message: "service_unavailable" });
+    expect(onMaintenance).not.toHaveBeenCalled();
+  });
+
+  it("switches to maintenance when a user attachment request is paused", async () => {
+    const onMaintenance = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ...jsonResponse({ ok: false, error: "maintenance_mode" }, 503),
+        ok: false,
+      }))
+    );
+    const client = createApiClient({ onMaintenance });
+
+    await expect(client.apiBlob("/support/images/7")).rejects.toMatchObject({
+      error: "maintenance_mode",
+      status: 503,
+    });
+    expect(onMaintenance).toHaveBeenCalledOnce();
+  });
+
   it("builds same-origin API URLs without duplicating the /api prefix", () => {
     expect(buildApiUrl("/me")).toBe("/api/me");
     expect(buildApiUrl("/api/me")).toBe("/api/me");

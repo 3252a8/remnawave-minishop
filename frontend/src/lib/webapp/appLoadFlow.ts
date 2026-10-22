@@ -1,5 +1,6 @@
 import { activeTabForWebappSection, resolveAvailableWebappSection } from "./sectionAvailability.js";
 import {
+  isSupportCreatePath,
   normalizeAdminSection,
   normalizeSection,
   sectionFromPath,
@@ -140,6 +141,8 @@ export function resolveSupportLoadRoute({
     initialSupportTicketId,
     targetPath: initialSupportTicketId
       ? withRoutePrefix(`/support/${initialSupportTicketId}`, routePrefix)
-      : null,
+      : section === "support" && isSupportCreatePath(pathname, routePrefix)
+        ? withRoutePrefix("/support/new", routePrefix)
+        : null,
   };
 }

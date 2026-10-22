@@ -3,6 +3,7 @@ import { createBillingStore } from "./stores/billingStore";
 import { createAccountStore } from "./stores/accountStore";
 import { createActionsStore } from "./stores/actionsStore";
 import { createServerStatusStore } from "./stores/serverStatusStore.svelte";
+import { createPublicDocumentsStore } from "./stores/publicDocumentsStore.svelte";
 import { createWebappDataClient } from "./dataClient";
 import { buildApiUrl } from "./publicApi";
 import { createWebappActivationContext } from "./webappActivationContext";
@@ -19,6 +20,7 @@ import {
   setBillingStore,
   setDevicesStore,
   setInstallGuidesStore,
+  setPublicDocumentsStore,
   setSupportStore,
 } from "./context";
 import { createBillingDeeplinkEffects } from "./billingDeeplinkEffects.js";
@@ -291,6 +293,9 @@ export function createAppFactories({
       clearToken();
       showLogin();
     },
+    onMaintenance: () => {
+      shellState.mode = "maintenance";
+    },
     mockApi:
       MOCK && getRuntimeMockApi()
         ? (path, options, context) => getRuntimeMockApi()?.(path, options, context) ?? null
@@ -307,6 +312,7 @@ export function createAppFactories({
   const serverStatusStore = createServerStatusStore(api);
   const billing = createBillingActions({
     api,
+    ensureTrialCaptcha: () => actionsStore.trialCaptcha.ensure(),
   });
   const emailAvatarSync = createEmailAvatarSync();
   const activation = createWebappActivationContext({
@@ -568,6 +574,7 @@ export function createAppFactories({
   setDevicesStore(devicesStore);
   setSupportStore(supportStore);
   setInstallGuidesStore(installGuidesStore);
+  setPublicDocumentsStore(createPublicDocumentsStore(api));
   setActionsStore(actionsStore);
   setAccountStore(accountStore);
 

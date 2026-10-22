@@ -60,6 +60,8 @@ export function createUsersStoreQueries({
       params.set("premium_traffic", s.usersPremiumTraffic);
     }
     if (s.usersSort) params.set("sort", s.usersSort);
+    if (s.usersTariffFilter && s.usersTariffFilter !== "all")
+      params.set("tariff_filter", s.usersTariffFilter);
     return params;
   }
 
@@ -72,6 +74,7 @@ export function createUsersStoreQueries({
         page: s.usersPage,
         panelStatus: s.usersPanelStatus,
         premiumTraffic: s.usersPremiumTraffic,
+        tariffFilter: s.usersTariffFilter,
         query: s.usersQuery.trim(),
         sort: s.usersSort,
       },

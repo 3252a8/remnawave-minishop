@@ -700,6 +700,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="lava",
+    payment_group="fiat",
     provider_key="lava",
     label="LAVA",
     webapp_label="LAVA",

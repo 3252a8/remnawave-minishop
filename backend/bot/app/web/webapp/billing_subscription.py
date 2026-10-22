@@ -392,6 +392,10 @@ async def activate_trial_route(request: web.Request) -> web.Response:
                 else "trial_activation_failed"
             )
             status = _TRIAL_ACTIVATION_FAILURE_STATUSES.get(message_key, 400)
+            if message_key == "trial_captcha_required":
+                status = 403
+            elif message_key == "trial_captcha_unavailable":
+                status = 503
             message = _localized_webapp_message(request, lang, message_key)
             return _json_error(status, message_key, message)
 

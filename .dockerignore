@@ -83,6 +83,12 @@ backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.br
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.gz
 
+# Split chunks, source maps and compressed variants are rebuilt in Docker too.
+bot/app/web/templates/subscription_webapp*.js*
+bot/app/web/templates/subscription_webapp*.css*
+backend/bot/app/web/templates/subscription_webapp*.js*
+backend/bot/app/web/templates/subscription_webapp*.css*
+
 # Byte-compiled / optimized / DLL files
 **/__pycache__/
 **/*.py[cod]
@@ -146,6 +152,9 @@ graphify-out/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
 venv/
 
 # PyCharm

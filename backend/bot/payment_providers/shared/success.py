@@ -206,6 +206,7 @@ class PaymentSuccessRequest:
     skip_user_notification: bool = False
     skip_referral_bonus: bool = False
     text_prefix: str | None = None
+    allow_subscription_end_change: bool = False
 
 
 @dataclass
@@ -522,6 +523,7 @@ async def finalize_successful_payment(
         entitlement_preflight = preflight_payment_entitlement(
             locked_payment,
             active_subscription,
+            allow_subscription_end_change=req.allow_subscription_end_change,
         )
         if not entitlement_preflight.allowed:
             logger.error(
@@ -562,6 +564,8 @@ async def finalize_successful_payment(
         getattr(req.payment, "tariff_key", "") or ""
     ).strip() or sale_mode_tariff_key(req.sale_mode)
     activation_extra_kwargs = dict(req.activation_extra_kwargs or {})
+    if req.allow_subscription_end_change:
+        activation_extra_kwargs["allow_subscription_end_change"] = True
     if effective_tariff_key:
         activation_extra_kwargs["tariff_key"] = effective_tariff_key
     else:
@@ -580,6 +584,7 @@ async def finalize_successful_payment(
                 req.user_id,
                 commit=False,
                 emit_event=False,
+                captcha_verified_payment=True,
             )
         else:
             activation = await req.subscription_service.activate_subscription(

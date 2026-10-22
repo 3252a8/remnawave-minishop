@@ -886,6 +886,8 @@ def test_webapp_payment_methods_include_paykilla_minimum_metadata(monkeypatch):
     assert methods == [
         {
             "id": "paykilla",
+            "group": "crypto",
+            "provider_id": "paykilla_service",
             "name": "PayKilla",
             "icon": "Bitcoin",
             "balance_supported": True,

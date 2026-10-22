@@ -1,6 +1,40 @@
 import { expect, test } from "@playwright/test";
 
 for (const width of [1280, 390]) {
+  for (const publicMode of [false, true]) {
+    test(`install destinations select stable app IDs and follow history (${publicMode ? "public" : "account"}, ${width}px)`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      const path = publicMode
+        ? `/s/${"b".repeat(32)}?`
+        : "/demo/runtime/app/?mock=checkout-addons&path=/install&";
+      await page.goto(`${path}platform=android&app=v2rayng`);
+      await expect(page.locator(".install-platform-trigger")).toContainText("Android");
+      await expect(page.locator(".install-app-button.active")).toContainText("v2rayNG");
+      await page.screenshot({ path: testInfo.outputPath("targeted-install.png"), fullPage: true });
+      await page.evaluate(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set("platform", "ios");
+        url.searchParams.delete("app");
+        window.history.pushState(null, "", url);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await expect(page.locator(".install-platform-trigger")).toContainText("iOS");
+      await expect(page.locator(".install-app-button.active")).toContainText("RabbitHole");
+      await page.goBack();
+      await expect(page.locator(".install-platform-trigger")).toContainText("Android");
+      await expect(page.locator(".install-app-button.active")).toContainText("v2rayNG");
+      await page.locator(".install-app-button").filter({ hasText: "Happ" }).click();
+      await expect(page.locator(".install-app-button.active")).toContainText("Happ");
+      await page.evaluate(() => window.dispatchEvent(new PopStateEvent("popstate")));
+      await expect(page.locator(".install-app-button.active")).toContainText("v2rayNG");
+      expect(errors).toEqual([]);
+    });
+  }
+
   test(`public install instructions recover after a preload error (${width}px)`, async ({
     page,
   }, testInfo) => {

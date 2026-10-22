@@ -92,6 +92,7 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/settings/notifications"): "index_route",
             ("GET", "/settings/payments"): "index_route",
             ("GET", "/status"): "index_route",
+            ("GET", "/support/new"): "index_route",
             ("GET", "/admin"): "index_route",
             ("GET", "/admin/"): "index_route",
             ("GET", "/admin/{section}"): "plugin_admin_index_route",

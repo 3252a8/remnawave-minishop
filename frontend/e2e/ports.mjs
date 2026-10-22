@@ -21,9 +21,7 @@ export function browserPort(value) {
   const raw = value === undefined || value === "" ? String(DEFAULT_PORT) : String(value).trim();
   const port = Number(raw);
   if (!/^\d+$/.test(raw) || !Number.isInteger(port) || port < 1 || port > LAST_PORT) {
-    throw new Error(
-      "PORT must be an integer between 1 and 65535; received " + JSON.stringify(value)
-    );
+    throw new Error("PORT must be an integer between 1 and 65535");
   }
   if (BLOCKED_PORTS.has(port)) {
     throw new Error(

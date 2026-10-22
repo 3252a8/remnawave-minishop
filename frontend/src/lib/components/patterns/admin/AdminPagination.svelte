@@ -176,6 +176,7 @@
   </div>
   <div class="admin-pagination-buttons">
     <ActionButton
+      variant={appearance === "webapp" ? "ghost" : "default"}
       class="admin-pagination-nav"
       size="sm"
       controlSize="md"
@@ -192,6 +193,7 @@
             <span class="admin-pagination-ellipsis" aria-hidden="true">...</span>
           {:else}
             <ActionButton
+              variant={appearance === "webapp" ? "ghost" : "default"}
               class={item.index === currentPage
                 ? "admin-pagination-page is-active"
                 : "admin-pagination-page"}
@@ -209,6 +211,7 @@
       </div>
     {/if}
     <ActionButton
+      variant={appearance === "webapp" ? "ghost" : "default"}
       class="admin-pagination-nav"
       size="sm"
       controlSize="md"
@@ -246,6 +249,7 @@
         />
       </label>
       <ActionButton
+        variant={appearance === "webapp" ? "ghost" : "default"}
         class="admin-pagination-jump-button"
         size="sm"
         controlSize="md"

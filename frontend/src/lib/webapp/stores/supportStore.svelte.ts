@@ -25,6 +25,7 @@ import { unwrap } from "../publicApi";
 import { createSupportTypingHeartbeat } from "../supportTyping.js";
 import { messageRequestBody } from "$lib/messageImage";
 import { isCustomEmojiId } from "$lib/richtext/customEmoji";
+import { isMaintenanceFailure } from "../maintenance";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type TicketRecord = Record<string, unknown> & {
@@ -55,6 +56,7 @@ type CountsRecord = {
   open: number;
   total: number;
 };
+type SupportListResult = SupportTicketsResponse | { ok: false; error: "maintenance_mode" };
 export type SupportState = {
   tickets: TicketRecord[];
   openedTicketId: number | null;
@@ -77,7 +79,7 @@ export type SupportState = {
 export type SupportStore = SupportState & {
   loadImage(url: string): Promise<Blob>;
   loadCustomEmojiMedia(ticketId: string | number, id: string, signal: AbortSignal): Promise<Blob>;
-  loadList(options?: LoadListOptions): Promise<SupportTicketsResponse>;
+  loadList(options?: LoadListOptions): Promise<SupportListResult>;
   hydrateUnread(value: unknown): void;
   createTicket(
     payload: PostPayload<"/api/support/tickets">,
@@ -223,7 +225,7 @@ export function createSupportStore({
   let visibilityHandler: (() => void) | null = null;
   let resumeHandler: (() => void) | null = null;
   let listRequestSeq = 0;
-  let listPromise: Promise<SupportTicketsResponse> | null = null;
+  let listPromise: Promise<SupportListResult> | null = null;
   let listPromiseKey = "";
   let unreadPromise: Promise<unknown> | null = null;
   let lastFullDetailAt = 0;
@@ -340,7 +342,7 @@ export function createSupportStore({
     state.unreadLoading = false;
   }
 
-  async function loadList(options: LoadListOptions = {}) {
+  async function loadList(options: LoadListOptions = {}): Promise<SupportListResult> {
     const filter = state.statusFilter;
     const hasTickets = Boolean(state.tickets?.length);
     const requestKey = filter || "all";
@@ -350,8 +352,8 @@ export function createSupportStore({
     const showLoading = !options.silent && (options.showLoading || !hasTickets);
     if (showLoading) state.loading = true;
 
-    let promise: Promise<SupportTicketsResponse>;
-    promise = (async () => {
+    let promise: Promise<SupportListResult>;
+    promise = (async (): Promise<SupportListResult> => {
       try {
         const params = new URLSearchParams({ limit: "50", offset: "0" });
         if (filter && filter !== "all") params.set("status", filter);
@@ -366,6 +368,9 @@ export function createSupportStore({
           showToast(stringField(asRecord(res).message) || stringField(asRecord(res).error));
         }
         return res;
+      } catch (error) {
+        if (isMaintenanceFailure(error)) return { ok: false, error: "maintenance_mode" };
+        throw error;
       } finally {
         if (requestId === listRequestSeq) {
           if (state.loading) state.loading = false;
@@ -482,6 +487,9 @@ export function createSupportStore({
           stringField(asRecord(res).message) || stringField(asRecord(res).error) || "not_found"
         );
       }
+    } catch (error) {
+      if (isMaintenanceFailure(error)) return;
+      throw error;
     } finally {
       if (state.openedTicketId === id) state.detailLoading = false;
       if (pollingEnabled) schedulePoll(activePollDelay());
@@ -576,6 +584,9 @@ export function createSupportStore({
           state.unreadLoaded = true;
         }
         return res;
+      } catch (error) {
+        if (isMaintenanceFailure(error)) return { ok: false, error: "maintenance_mode" };
+        throw error;
       } finally {
         if (!silent) state.unreadLoading = false;
         unreadPromise = null;

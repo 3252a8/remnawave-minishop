@@ -10,6 +10,7 @@
 
   import { lazyScreen } from "../lib/webapp/lazyScreen.svelte.js";
   import { visibleMenuButtons } from "../lib/webapp/menuButtons.js";
+  import { installTargetSearch } from "$lib/webapp/installTargets.js";
   import { withRoutePrefix } from "../lib/webapp/routes.js";
   import { resolveProgramEntryPlacement } from "../lib/webapp/programEntryPolicy.js";
   import {
@@ -376,6 +377,12 @@
         break;
       case "install":
         goInstall();
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${installTargetSearch(window.location.search, { platform: String(button.platform || ""), app: String(button.app || "") })}${window.location.hash}`
+        );
+        window.dispatchEvent(new PopStateEvent("popstate"));
         break;
       case "trial":
         goTrial();
@@ -610,6 +617,7 @@
         <Screen
           maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
           maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+          {routePrefix}
           {user}
           {t}
         />

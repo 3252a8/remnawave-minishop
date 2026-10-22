@@ -537,6 +537,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
 
     return {
         "config": {
+            "maintenanceModeEnabled": bool(settings.MAINTENANCE_MODE_ENABLED),
             "title": webapp_settings.title,
             "primaryColor": webapp_settings.primary_color,
             "userThemeModeEnabled": bool(webapp_settings.user_theme_mode_enabled),

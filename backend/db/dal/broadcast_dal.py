@@ -12,6 +12,7 @@ from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
+from db.dal import user_broadcast_dal
 
 ACTIVE_BROADCAST_STATUSES = ("scheduled", "queued", "running")
 FINAL_DELIVERY_STATUSES = ("sent", "failed")
@@ -26,6 +27,7 @@ async def create_broadcast(
     *,
     actor_id: int | None,
     target: str,
+    user_ids: list[int],
     channels: list[str],
     exclude_blocked_telegram: bool,
     texts: dict[str, str],
@@ -35,6 +37,27 @@ async def create_broadcast(
     is_visible: bool = True,
     image_id: str | None = None,
 ) -> AdminBroadcast:
+    recipient_ids: set[int] = set()
+    total_deliveries = 0
+    if "telegram" in channels:
+        telegram_ids = {
+            user_id
+            for user_id, _ in await user_broadcast_dal.get_telegram_recipients_for_broadcast(
+                session, user_ids, exclude_blocked=exclude_blocked_telegram
+            )
+        }
+        recipient_ids.update(telegram_ids)
+        total_deliveries += len(telegram_ids)
+    if "email" in channels:
+        email_ids = {
+            user_id
+            for user_id, _, _ in await user_broadcast_dal.get_email_recipients_for_broadcast(
+                session, user_ids
+            )
+        }
+        recipient_ids.update(email_ids)
+        total_deliveries += len(email_ids)
+
     status = "scheduled" if scheduled_at > utc_now() else "queued"
     item = AdminBroadcast(
         created_by_admin_id=actor_id,
@@ -48,6 +71,8 @@ async def create_broadcast(
         buttons=list(buttons),
         image_id=image_id,
         scheduled_at=scheduled_at,
+        recipient_count=len(recipient_ids),
+        total_deliveries=total_deliveries,
     )
     session.add(item)
     await session.commit()

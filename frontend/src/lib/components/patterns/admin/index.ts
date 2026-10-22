@@ -25,6 +25,7 @@ export { default as AdminSortHeader } from "./AdminSortHeader.svelte";
 export { default as AdminSortableHeader } from "./AdminSortableHeader.svelte";
 export { default as AdminTable } from "./AdminTable.svelte";
 export { default as AdminUserCell } from "./AdminUserCell.svelte";
+export { default as AdminSubscriptionPlan } from "./AdminSubscriptionPlan.svelte";
 export { default as AdminTableSkeleton } from "./AdminTableSkeleton.svelte";
 export { default as VirtualTableRows } from "./VirtualTableRows.svelte";
 export { default as AdminTrafficCard } from "./AdminTrafficCard.svelte";

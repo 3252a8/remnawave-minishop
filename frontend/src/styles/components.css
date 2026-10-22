@@ -85,7 +85,7 @@
   line-height: 1.15;
 }
 
-.admin-cn-card-title--section {
+.admin-cn-card-title.admin-cn-card-title--section {
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0;
@@ -1616,6 +1616,228 @@
   color: var(--muted);
   font-size: 13px;
   text-align: center;
+}
+
+/* Customer conversations use the available viewport, with one scrollable
+   transcript and a composer that stays reachable even in a long thread. */
+.phone-screen > main.content.support-ticket-screen {
+  height: calc(100dvh - 68px);
+  min-height: 0;
+  max-height: none;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0;
+  overflow: hidden;
+  padding-bottom: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+}
+
+.phone-screen .support-ticket-screen > .support-ticket-card {
+  min-height: 0;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.phone-screen .support-ticket-detail-header {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.phone-screen .support-back-button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  align-self: center;
+}
+
+.phone-screen .support-ticket-screen .ticket-detail-title h1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.phone-screen .support-ticket-screen .ticket-detail-title small {
+  margin: 3px 0 0;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.phone-screen .support-ticket-detail-header .ticket-badges {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.phone-screen .support-ticket-screen .support-conversation-card {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.phone-screen .support-ticket-screen .support-conversation-card--loading {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.phone-screen .support-ticket-screen .support-message-scroll {
+  grid-row: 1;
+  grid-column: 1;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.phone-screen .support-ticket-screen .support-message-scroll > .scroll-area__viewport {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+}
+
+.phone-screen .support-ticket-screen .ticket-message-list {
+  min-height: 100%;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.phone-screen .support-ticket-screen .ticket-message-content {
+  max-width: min(88%, 680px);
+}
+
+.phone-screen .support-ticket-screen .ticket-composer {
+  grid-row: 2;
+  grid-column: 1;
+  margin: 0 14px 14px;
+}
+
+.phone-screen .support-ticket-screen .ticket-typing-indicator {
+  grid-row: 1;
+  grid-column: 1;
+  align-self: end;
+  z-index: 1;
+  margin: 0 18px 4px;
+  padding: 5px 8px;
+  width: fit-content;
+  border-radius: var(--radius-inner);
+  background: var(--panel);
+}
+
+.phone-screen .support-ticket-screen .support-messages-empty {
+  min-height: 0;
+  height: 100%;
+}
+
+.support-closed-notice {
+  grid-row: 2;
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.support-closed-notice svg {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1023px) {
+  body:has(.support-ticket-screen) {
+    overflow: hidden;
+  }
+
+  .phone-screen:has(.support-ticket-screen) {
+    padding: 0;
+    min-height: 0;
+  }
+
+  .phone-screen:has(.support-ticket-screen) > .app-header,
+  .phone-screen:has(.support-ticket-screen) > .bottom-nav {
+    display: none;
+  }
+
+  .phone-screen > main.content.support-ticket-screen {
+    position: fixed;
+    inset-inline: 0;
+    top: var(--support-viewport-top, 0px);
+    width: min(100%, 560px);
+    height: var(--support-viewport-height, 100dvh);
+    margin: 0 auto;
+    padding-top: var(--content-safe-area-top);
+    padding-bottom: var(--content-safe-area-bottom);
+    border: 0;
+    border-radius: 0;
+    background: var(--bg);
+    animation: none;
+  }
+
+  .phone-screen .support-ticket-screen > .support-ticket-card {
+    padding: 8px 10px;
+  }
+
+  .phone-screen .support-ticket-detail-header {
+    gap: 6px;
+  }
+
+  .phone-screen .support-ticket-screen .support-message-scroll {
+    padding: 16px 12px;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-message-row,
+  .phone-screen .support-ticket-screen .ticket-message-row--outgoing {
+    display: flex;
+    gap: 0;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-message-row--outgoing {
+    justify-content: flex-end;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-message-avatar {
+    display: none;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-message-content {
+    width: fit-content;
+    max-width: 92%;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-message-bubble {
+    padding: 10px 12px;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-message-bubble p {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-composer {
+    margin: 0 10px 10px;
+  }
 }
 
 @keyframes ticket-message-enter {

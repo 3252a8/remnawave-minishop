@@ -4,6 +4,7 @@ messages, and plugin-owned sequences."""
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from typing import Any, ClassVar, cast
 from unittest.mock import patch
 
@@ -394,6 +395,54 @@ class SingleUserAudienceTests(unittest.TestCase):
 
 
 class TariffAudienceTests(unittest.TestCase):
+    def test_hidden_tariffs_remain_available_as_broadcast_audiences(self) -> None:
+        from sqlalchemy.orm import sessionmaker
+
+        from bot.app.factories.build_services import _broadcast_tariff_audiences
+        from bot.services.audience_segmentation import AudienceSegmentationService
+        from config.settings import Settings
+        from config.tariffs_config import TariffsConfig
+
+        catalog = TariffsConfig.model_validate(
+            {
+                "default_tariff": "visible",
+                "tariffs": [
+                    {
+                        "key": key,
+                        "names": {"ru": name},
+                        "billing_model": "period",
+                        "monthly_gb": 100,
+                        "prices_rub": {"1": 150},
+                        "enabled_periods": [1],
+                        "enabled": enabled,
+                    }
+                    for key, name, enabled in (
+                        ("visible", "Visible plan", True),
+                        ("hidden", "Hidden plan", False),
+                    )
+                ],
+            }
+        )
+        settings = cast(Settings, SimpleNamespace(tariffs_config=catalog))
+        service = AudienceSegmentationService(
+            cast(sessionmaker, None), tariffs=_broadcast_tariff_audiences(settings)
+        )
+
+        self.assertEqual([tariff.key for tariff in catalog.enabled_tariffs], ["visible"])
+        self.assertEqual(
+            [(definition.target, definition.fallback_label) for definition in service.audiences()],
+            [("tariff:visible", "Visible plan"), ("tariff:hidden", "Hidden plan")],
+        )
+        self.assertTrue(service.has_target("tariff:hidden"))
+        self.assertTrue(service.is_target_available("tariff:hidden"))
+
+    def test_missing_catalog_has_no_broadcast_tariff_audiences(self) -> None:
+        from bot.app.factories.build_services import _broadcast_tariff_audiences
+        from config.settings import Settings
+
+        settings = cast(Settings, SimpleNamespace(tariffs_config=None))
+        self.assertEqual(_broadcast_tariff_audiences(settings), [])
+
     def test_a_tariff_target_round_trips(self) -> None:
         from bot.services.audience_segmentation import (
             audience_target_for_tariff,

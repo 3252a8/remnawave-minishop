@@ -834,6 +834,7 @@ async def _reuse_payment(service: PallyService, payment: Any) -> str | None:
 
 SPEC = PaymentProviderSpec(
     id="pally",
+    payment_group="fiat",
     provider_key="pally",
     label="Pally",
     webapp_label="Pally",

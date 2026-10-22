@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 
 from aiogram import F, Router, types
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
@@ -22,10 +23,13 @@ from bot.utils.install_links import (
 from config.settings import Settings
 
 from .start import send_main_menu
+from .trial_captcha_handler import ensure_bot_trial_captcha
+from .trial_captcha_handler import router as captcha_router
 
 logger = logging.getLogger(__name__)
 
 router = Router(name="user_trial_router")
+router.include_router(captcha_router)
 
 
 async def request_trial_confirmation_handler(
@@ -34,6 +38,7 @@ async def request_trial_confirmation_handler(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     user_id = account_user_id
@@ -78,7 +83,8 @@ async def request_trial_confirmation_handler(
             await callback.answer()
         return
 
-    # Directly activate trial without confirmation
+    if not await ensure_bot_trial_captcha(callback, settings, user_id, i18n, current_lang, state):
+        return
     activation_result = await subscription_service.activate_trial_subscription(session, user_id)
 
     final_message_text_in_chat = ""
@@ -191,6 +197,7 @@ async def confirm_activate_trial_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     user_id = account_user_id
@@ -227,6 +234,8 @@ async def confirm_activate_trial_handler(
         )
         return
 
+    if not await ensure_bot_trial_captcha(callback, settings, user_id, i18n, current_lang, state):
+        return
     activation_result = await subscription_service.activate_trial_subscription(session, user_id)
 
     final_message_text_in_chat = ""

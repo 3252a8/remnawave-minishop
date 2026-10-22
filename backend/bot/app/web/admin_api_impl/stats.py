@@ -18,8 +18,10 @@ from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
+from db.dal import user_subscription_plans
 from .payment_schemas import PaymentOut
 from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut
+from .subscription_plans import admin_active_tariffs
 from sqlalchemy.orm import sessionmaker
 from typing import Any
 import logging
@@ -69,6 +71,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
 
     payload = dict(await _load_admin_db_stats(settings, async_session_factory))
+    payload["active_tariffs"] = admin_active_tariffs(settings, payload.pop("active_tariff_counts"))
 
     panel_service = get_panel_service(request)
     if panel_service is not None:
@@ -82,7 +85,10 @@ async def admin_stats_route(request: web.Request) -> web.Response:
             payload["queue"] = None
 
     payload["currency_symbol"] = default_payment_currency_code_for_settings(settings)
-    return _ok(AdminStatsOut.model_validate(payload).model_dump(mode="json", exclude_none=True))
+    stats = AdminStatsOut.model_validate(payload)
+    response = stats.model_dump(mode="json", exclude_none=True)
+    response["active_tariffs"] = [row.model_dump(mode="json") for row in stats.active_tariffs]
+    return _ok(response)
 
 
 async def _load_admin_db_stats(
@@ -95,7 +101,7 @@ async def _load_admin_db_stats(
     return cast(
         dict[str, Any],
         await cache.get_or_load(
-            "db",
+            "db:subscription-plans-v1",
             lambda: _load_admin_db_stats_uncached(async_session_factory),
         ),
     )
@@ -103,13 +109,18 @@ async def _load_admin_db_stats(
 
 async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> dict[str, Any]:
     async with async_session_factory() as session:
-        user_stats = await user_dal.get_enhanced_user_statistics(session)
+        now = datetime.now(UTC)
+        user_stats = await user_dal.get_enhanced_user_statistics(session, now=now)
+        active_tariff_counts = await user_subscription_plans.get_active_subscription_plan_counts(
+            session, now=now
+        )
         financial_stats = await payment_dal.get_financial_statistics(session)
         sync_status = await panel_sync_dal.get_panel_sync_status(session)
         recent_payments = await payment_dal.get_recent_payment_logs_with_user(session, limit=10)
 
     return {
         "users": user_stats,
+        "active_tariff_counts": active_tariff_counts,
         "financial": financial_stats,
         "panel_sync": AdminPanelSyncOut.from_sync_status(sync_status).model_dump(mode="json"),
         "recent_payments": [_serialize_payment(p) for p in recent_payments],

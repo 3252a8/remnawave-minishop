@@ -1428,6 +1428,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             [
                 {
                     "id": "yookassa",
+                    "group": "fiat",
+                    "provider_id": "yookassa_service",
                     "name": "Bank card",
                     "icon": "WalletCards",
                     "balance_supported": True,
@@ -1459,7 +1461,16 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             methods,
-            [{"id": "wata", "name": "Wata", "icon": "WalletCards", "balance_supported": True}],
+            [
+                {
+                    "id": "wata",
+                    "group": "fiat",
+                    "provider_id": "wata_service",
+                    "name": "Wata",
+                    "icon": "WalletCards",
+                    "balance_supported": True,
+                }
+            ],
         )
 
     async def test_invalidate_all_webapp_user_caches_clears_cached_me_payload(self):

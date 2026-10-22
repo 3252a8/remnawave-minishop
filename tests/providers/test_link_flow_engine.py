@@ -556,6 +556,65 @@ def test_webapp_link_is_not_exposed_without_provider_correlation(
     )
 
 
+def test_webapp_gateway_outage_returns_typed_fallback_error(monkeypatch) -> None:
+    mark_failed = AsyncMock()
+    monkeypatch.setattr(shared_webapp, "mark_payment_failed_creation", mark_failed)
+    response = asyncio.run(
+        shared_webapp.finalize_webapp_link_payment(
+            session=_session(),
+            payment=SimpleNamespace(payment_id=102, user_id=555),
+            api_success=False,
+            payment_url=None,
+            provider_response={"status": 503, "message": "invalid_json"},
+            log_prefix="Fake",
+        )
+    )
+    assert response.status == 502
+    assert response.body and b'"error": "payment_provider_unavailable"' in response.body
+    mark_failed.assert_awaited_once()
+    assert mark_failed.await_args is not None
+    assert mark_failed.await_args.kwargs["suppress_failure_notification"] is True
+
+
+def test_callback_gateway_outage_renders_alternatives_without_creating_payment(monkeypatch) -> None:
+    parts = shared_callbacks.PaymentCallbackParts(months=1, price=100, sale_mode="subscription")
+    settings = _settings()
+    keyboard = object()
+    fallback = AsyncMock(return_value=None)
+    mark_failed = AsyncMock()
+    monkeypatch.setattr(shared_callbacks, "safe_mark_failed_creation", mark_failed)
+    monkeypatch.setattr(shared_callbacks, "safe_callback_answer", AsyncMock())
+    monkeypatch.setattr(shared_callbacks, "edit_or_answer", fallback)
+    monkeypatch.setattr(
+        shared_callbacks, "payment_fallback_keyboard", lambda *_args, **_kwargs: (keyboard, True)
+    )
+    asyncio.run(
+        shared_callbacks.render_link_or_fail(
+            _callback(),
+            translator=lambda key, **_kwargs: key,
+            current_lang="en",
+            i18n=None,
+            parts=parts,
+            session=_session(),
+            payment=SimpleNamespace(payment_id=103, user_id=123),
+            api_success=False,
+            payment_url=None,
+            provider_response={"status": 503},
+            log_prefix="Fake",
+            settings=settings,
+        )
+    )
+    fallback.assert_awaited_once()
+    assert fallback.await_args is not None
+    assert fallback.await_args.args[1] == "payment_provider_unavailable_alternative"
+    assert fallback.await_args.kwargs["reply_markup"] is keyboard
+    mark_failed.assert_awaited_once()
+    assert mark_failed.await_args is not None
+    assert (
+        mark_failed.await_args.kwargs["failure_metadata"]["suppress_failure_notification"] is True
+    )
+
+
 def test_webapp_link_is_not_exposed_after_unsuccessful_provider_response(
     monkeypatch,
 ) -> None:

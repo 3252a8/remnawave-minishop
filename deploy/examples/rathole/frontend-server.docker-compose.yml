@@ -1,5 +1,12 @@
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   frontend:
+    logging: *minishop_logging
     image: 3252a8/remnawave-minishop-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
     init: true
@@ -24,6 +31,7 @@ services:
       start_interval: 2s
 
   rathole-server:
+    logging: *minishop_logging
     image: ${RATHOLE_IMAGE:-rapiz1/rathole:v0.5.0}
     restart: unless-stopped
     command: ["--server", "/etc/rathole/server.toml"]

@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
@@ -704,11 +705,26 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
 
     async def test_finalize_skips_duplicate_payment_after_locked_reload(self):
         session = AsyncMock()
+        end = datetime(2026, 10, 17, tzinfo=UTC)
+        self.lock_active_subscription.return_value = SimpleNamespace(
+            subscription_id=55, tariff_key="standard", end_date=end
+        )
         pending_payment = SimpleNamespace(
             payment_id=12,
             user_id=42,
-            status="succeeded_pending_finalization",
+            status="succeeded_pending_review",
             tariff_key="standard",
+            sale_mode="subscription@standard",
+            checkout_bundle_snapshot=json.dumps(
+                {
+                    "version": 2,
+                    "items": [],
+                    "active_context": {
+                        "subscription_id": 55,
+                        "end_at": (end - timedelta(days=3)).isoformat(),
+                    },
+                }
+            ),
         )
         succeeded_payment = SimpleNamespace(
             payment_id=12,
@@ -749,6 +765,7 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
                 provider_notification="platega",
                 db_user=SimpleNamespace(user_id=42, language_code="en", referred_by_id=None),
                 skip_keyboard=True,
+                allow_subscription_end_change=True,
             )
 
         with (
@@ -776,4 +793,9 @@ class PaymentWebhookNotificationTests(IsolatedAsyncioTestCase):
         self.assertIsNotNone(first)
         self.assertIsNone(second)
         subscription_service.activate_subscription.assert_awaited_once()
+        self.assertTrue(
+            subscription_service.activate_subscription.await_args.kwargs[
+                "allow_subscription_end_change"
+            ]
+        )
         send_success.assert_awaited_once()

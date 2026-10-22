@@ -1,4 +1,5 @@
 type PaymentDescriptionRow = {
+  sale_mode?: string | null;
   description?: string | null;
   traffic_premium_gb?: number | string | null;
   traffic_regular_gb?: number | string | null;
@@ -195,6 +196,9 @@ export function paymentPurchaseDisplay(
 }
 
 export function paymentDescriptionDisplay(payment: PaymentDescriptionRow, at: TranslateFn): string {
+  if (payment.sale_mode === "balance_topup") {
+    return at("payments_desc_balance_topup", {}, "Balance top-up");
+  }
   const regularGb = payment.traffic_regular_gb;
   const premiumGb = payment.traffic_premium_gb;
   if (regularGb != null && premiumGb == null) {

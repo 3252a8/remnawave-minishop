@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from aiohttp import web
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -265,6 +265,9 @@ def parse_supported_currency_codes(value: Any) -> tuple[str, ...]:
     return tuple(currencies)
 
 
+PaymentMethodGroup = Literal["fiat", "crypto", "stars", "mixed"]
+
+
 @dataclass(frozen=True)
 class PaymentProviderSpec:
     id: str
@@ -319,6 +322,12 @@ class PaymentProviderSpec:
     logo_url: str | None = None
     currency_support_note: str = ""
     currency_support_url: str | None = None
+    # Funding instrument, independent of the currency used to price the order.
+    payment_group: PaymentMethodGroup | None = None
+
+    @property
+    def provider_id(self) -> str:
+        return self.service_key or self.provider_key
 
     @property
     def settings_key(self) -> str:

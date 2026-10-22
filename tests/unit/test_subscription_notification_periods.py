@@ -22,7 +22,17 @@ class SubscriptionNotificationPeriodTests(IsolatedAsyncioTestCase):
         self.addAsyncCleanup(self.engine.dispose)
         async with self.engine.begin() as connection:
             await connection.execute(text("PRAGMA foreign_keys=ON"))
-            await connection.run_sync(Base.metadata.create_all)
+            # A fresh database per case still checks real foreign keys/cascades.
+            # These DAL tests need only users, subscriptions and their markers.
+            await connection.run_sync(
+                Base.metadata.create_all,
+                tables=[
+                    User.__table__,
+                    Subscription.__table__,
+                    SubscriptionNotification.__table__,
+                    SubscriptionLifecycleNotification.__table__,
+                ],
+            )
         self.session = async_sessionmaker(self.engine, expire_on_commit=False)()
         self.addAsyncCleanup(self.session.close)
         self.end = datetime(2026, 10, 6, 12, tzinfo=UTC)

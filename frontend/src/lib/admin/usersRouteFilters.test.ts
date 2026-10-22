@@ -17,6 +17,7 @@ describe("usersRouteFilters", () => {
       usersFilter: "paid",
       usersPanelStatus: "active",
       usersPremiumTraffic: "warn",
+      usersTariffFilter: "all",
     });
   });
 
@@ -54,5 +55,28 @@ describe("usersRouteFilters", () => {
       expect(readUsersRouteFilters(`?users_filter=${filter}`).usersFilter).toBe(filter);
     }
     expect(readUsersRouteFilters("?users_filter=PAID").usersFilter).toBe("paid");
+  });
+
+  it("round trips exact tariff keys without changing case or losing other filters", () => {
+    const filters = {
+      ...DEFAULT_USERS_ROUTE_FILTERS,
+      usersFilter: "active_subscription" as const,
+      usersTariffFilter: "tariff:Family / Annual+2026" as const,
+    };
+    const params = writeUsersRouteFilters("?lang=ru", filters);
+    expect(readUsersRouteFilters(params)).toEqual(filters);
+    expect(params.get("lang")).toBe("ru");
+    expect(writeUsersRouteFilters(params, DEFAULT_USERS_ROUTE_FILTERS).toString()).toBe("lang=ru");
+  });
+
+  it("accepts trial and missing-plan filters but rejects an empty tariff key", () => {
+    for (const filter of ["trial", "no_subscription", "no_tariff"]) {
+      expect(readUsersRouteFilters(`?users_tariff=${filter}`).usersTariffFilter).toBe(filter);
+    }
+    for (const filter of ["tariff:", "tariff:   ", "unknown"]) {
+      expect(normalizeUsersRouteFilters({ usersTariffFilter: filter }).usersTariffFilter).toBe(
+        "all"
+      );
+    }
   });
 });

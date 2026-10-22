@@ -5,6 +5,7 @@ import {
   emailError,
 } from "../authHelpers.js";
 import type { LoadDataOptions } from "../dataClient";
+import { restoreInstallAuthDestination } from "../installAuthDestination.js";
 import type { ApiClient, PostPayload } from "../publicApi";
 import {
   buildAuthEmailMagicPath,
@@ -119,13 +120,17 @@ const buildTelegramOAuthUrl = buildTelegramOAuthStartUrl as (
 export function createAuthStore({
   publicApi,
   setToken,
-  loadData,
+  loadData: loadAuthenticatedData,
   telegramSdk,
   getTg,
   linkTelegramAfterExternalAuth,
   t,
   currentLang,
 }: AuthStoreDeps) {
+  async function loadData(options?: LoadDataOptions) {
+    restoreInstallAuthDestination(true);
+    return loadAuthenticatedData(options);
+  }
   const state = $state<AuthStore>({
     authStatus: "",
     authIsError: false,
@@ -611,7 +616,7 @@ export function createAuthStore({
     const s = state;
     if (s.authBusy) return;
     const externalOauthPending = s.externalOauthPending;
-    const code = s.emailCode.replace(/\\D/g, "").slice(0, 6);
+    const code = s.emailCode.replace(/\D/g, "").slice(0, 6);
     if (code.length !== 6) {
       setAuthStatus(t("wa_auth_enter_code_6digits"), true);
       return;

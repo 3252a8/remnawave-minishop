@@ -11,6 +11,19 @@ from .panel_identity import PanelUserCreateOptions
 logger = logging.getLogger(__name__)
 
 
+async def deactivate_replaced_panel_subscriptions(
+    session: AsyncSession,
+    user_id: int,
+    previous_panel_user_uuid: str | None,
+    panel_user_uuid: str,
+) -> None:
+    """Retain replaced profiles as history after confirming the new entitlement."""
+    if previous_panel_user_uuid and previous_panel_user_uuid != panel_user_uuid:
+        await subscription_dal.deactivate_other_active_subscriptions(
+            session, previous_panel_user_uuid, None, user_id=user_id
+        )
+
+
 def subscription_is_trial(subscription: Any | None) -> bool:
     if subscription is None:
         return False

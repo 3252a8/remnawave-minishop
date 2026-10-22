@@ -1,9 +1,11 @@
 import type { CheckoutAddonPreset } from "$lib/webapp/deeplinks.js";
 import type { Snippet } from "svelte";
 import type { ApiClient } from "$lib/webapp/publicApi.js";
-import type { CheckoutPromoOptions } from "$lib/webapp/billingActions.js";
 import type {
-  CheckoutAddonSelection,
+  CheckoutPromoOptions,
+  PartnerBalancePaymentOptions,
+} from "$lib/webapp/billingActions.js";
+import type {
   PaymentMethodView,
   PendingPaymentView,
   PlanView,
@@ -15,15 +17,7 @@ import type {
   VoidAction,
 } from "$lib/webapp/types.js";
 
-export type CheckoutPaymentOptions = {
-  balanceOnly?: boolean;
-  balanceSource?: "user" | "partner" | null;
-  balanceAutoRenew?: boolean;
-  usePartnerBalance?: boolean;
-  checkoutAddons?: CheckoutAddonSelection;
-  payerEmail?: string;
-  payerPhone?: string;
-};
+export type CheckoutPaymentOptions = PartnerBalancePaymentOptions;
 
 type BalancePaymentAction = (options?: CheckoutPaymentOptions) => unknown;
 type CheckoutPromoAction = (options?: CheckoutPromoOptions) => unknown;

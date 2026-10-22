@@ -16,8 +16,8 @@ const baseURL = `http://${E2E_HOST}:${PORT}`;
 
 export default defineConfig({
   testDir: "./e2e",
-  // Port-policy unit tests run in Vitest, not in the browser suite.
-  testIgnore: ["**/ports.test.mjs"],
+  // Node-only runner/build tests run in Vitest, not in the browser suite.
+  testIgnore: ["**/*.test.mjs"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

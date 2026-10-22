@@ -1,17 +1,26 @@
 <script lang="ts">
+  import type { Snippet } from "svelte";
   type Props = {
     name: string;
     secondary?: string;
     idText?: string;
     initials?: string;
     avatarUrl?: string;
+    details?: Snippet;
   };
 
-  let { name, secondary = "", idText = "", initials = "", avatarUrl = "" }: Props = $props();
+  let {
+    name,
+    secondary = "",
+    idText = "",
+    initials = "",
+    avatarUrl = "",
+    details,
+  }: Props = $props();
 </script>
 
 <!-- Avatar plus name/secondary/id stack for user cells in admin tables. -->
-<div class="admin-user-cell">
+<div class="admin-user-cell" class:with-details={Boolean(details)}>
   <span class="admin-avatar admin-avatar-sm">
     {#if avatarUrl}
       <img src={avatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -27,6 +36,7 @@
     {#if idText}
       <span class="admin-user-cell-id">{idText}</span>
     {/if}
+    {@render details?.()}
   </div>
 </div>
 
@@ -43,6 +53,11 @@
     gap: 2px;
     min-width: 0;
     text-align: left;
+    flex: 1;
+  }
+
+  .with-details {
+    align-items: flex-start;
   }
 
   .admin-user-cell-name {

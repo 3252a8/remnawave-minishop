@@ -45,6 +45,7 @@ export type AdminPartnerDashboard = {
 };
 
 export type AdminPartnerDetail = {
+  hasRelationships: boolean;
   partner: PartnerRow;
   links: PartnerLinkRow[];
   clients: PartnerClientRow[];
@@ -266,6 +267,7 @@ export async function loadPartnerDetail(
   return {
     partner,
     links,
+    hasRelationships: payload.has_relationships === true,
     clients: records(payload.clients).map((item) => ({
       id: String(item.public_client_id || ""),
       userId: number(item.client_user_id),

@@ -1,5 +1,6 @@
 <script lang="ts">
   import MessageLocaleTabs from "$lib/admin/components/MessageLocaleTabs.svelte";
+  import InstallTargetFields from "$lib/admin/components/InstallTargetFields.svelte";
   import { onMount } from "svelte";
   import { getAdminApi } from "$lib/admin/context";
   import { createMessageTargets } from "$lib/admin/messageTargets.svelte.js";
@@ -294,14 +295,25 @@
           onValueChange={(kind) => updateKind(index, kind as MenuButtonKind)}
         />
         {#if button.kind === "webapp"}
-          <AdminSelect
-            value={button.target}
-            items={withUnavailableTarget(sectionOptions, button.target, (target) =>
-              at("message_target_unavailable", { target })
-            )}
-            ariaLabel={at("menu_buttons_webapp_section", {}, "Web App section")}
-            onValueChange={(target) => updateButton(index, { target })}
-          />
+          <div class="menu-buttons-target">
+            <AdminSelect
+              value={button.target}
+              items={withUnavailableTarget(sectionOptions, button.target, (target) =>
+                at("message_target_unavailable", { target })
+              )}
+              ariaLabel={at("menu_buttons_webapp_section", {}, "Web App section")}
+              onValueChange={(target) => updateButton(index, { target })}
+            />
+            {#if button.target === "install"}
+              <InstallTargetFields
+                platform={button.platform}
+                app={button.app}
+                platforms={targets.installPlatforms}
+                {at}
+                onChange={(target) => updateButton(index, target)}
+              />
+            {/if}
+          </div>
         {:else if button.kind === "page"}
           <Input
             class="input"
@@ -400,6 +412,11 @@
     display: grid;
     width: 100%;
     gap: 12px;
+  }
+  .menu-buttons-target {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
   }
 
   :global(.menu-buttons-row) {

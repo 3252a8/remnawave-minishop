@@ -1,12 +1,14 @@
 import { currentBootSignal, recordClientTiming } from "./bootBudget";
 import { requestSignal } from "./requestSignal";
+import { isMaintenanceResponse, maintenanceFailure } from "./maintenance";
 
 export async function fetchApiJson(
   url: string,
   path: string,
   options: RequestInit,
   requestTimeoutMs: number,
-  onUnauthorized: () => void
+  onUnauthorized: () => void,
+  onMaintenance: () => void = () => {}
 ): Promise<Record<string, unknown>> {
   const { signal, cleanup } = requestSignal(
     options.signal || currentBootSignal(),
@@ -30,6 +32,10 @@ export async function fetchApiJson(
     requestId = response.headers?.get("X-Request-ID") || undefined;
     if (signal?.aborted) throw new DOMException("request_cancelled", "AbortError");
     outcome = String(response.status);
+    if (isMaintenanceResponse(response.status, payload)) {
+      onMaintenance();
+      throw maintenanceFailure();
+    }
     if (response.status >= 500 || response.status === 429) {
       throw Object.assign(new Error("service_unavailable"), {
         status: response.status,

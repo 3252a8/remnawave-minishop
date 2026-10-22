@@ -587,6 +587,9 @@ def _spec(
         )
     return PaymentProviderSpec(
         id=id,
+        payment_group=(
+            "crypto" if variant == "crypto" else "mixed" if variant == "all_methods" else "fiat"
+        ),
         provider_key=provider_key,
         label="RollyPay",
         webapp_label=webapp_label,

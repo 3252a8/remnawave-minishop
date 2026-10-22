@@ -1,5 +1,12 @@
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mailserver:
+    logging: *minishop_logging
     image: mailserver/docker-mailserver:latest
     container_name: mailserver
     hostname: mail.example.com # Замените на ваш реальный домен (оставить поддомен mail)

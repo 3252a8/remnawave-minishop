@@ -1475,6 +1475,66 @@
         "title": "AdUnassignedOut",
         "type": "object"
       },
+      "AdminActiveTariffOut": {
+        "properties": {
+          "active_users": {
+            "title": "Active Users",
+            "type": "integer"
+          },
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "kind": {
+            "enum": [
+              "tariff",
+              "trial",
+              "unassigned"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tariff Key"
+          },
+          "tariff_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Tariff Names",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "tariff_key",
+          "tariff_names",
+          "is_configured",
+          "is_enabled",
+          "active_users"
+        ],
+        "title": "AdminActiveTariffOut",
+        "type": "object"
+      },
       "AdminAdsListOut": {
         "properties": {
           "campaigns": {
@@ -2150,6 +2210,10 @@
       "AdminBroadcastButtonBody": {
         "description": "One inline button attached to a broadcast.\n\n``kind`` selects how the button URL is produced:\n- ``url`` — explicit ``url`` field;\n- ``promo_bot`` — deep link into the bot applying ``promo_code``;\n- ``promo_webapp`` — link into the Mini App checkout with ``promo_code``;\n- ``webapp_section`` — link that opens the Mini App screen named by\n  ``section`` (invite, support, devices, …).",
         "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
           "icon_custom_emoji_id": {
             "anyOf": [
               {
@@ -2184,6 +2248,10 @@
             "title": "Labels",
             "type": "object"
           },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
           "promo_code": {
             "default": "",
             "title": "Promo Code",
@@ -2205,6 +2273,10 @@
       },
       "AdminBroadcastButtonOut": {
         "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
           "icon_custom_emoji_id": {
             "anyOf": [
               {
@@ -2237,6 +2309,10 @@
             },
             "title": "Labels",
             "type": "object"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
           },
           "promo_code": {
             "default": "",
@@ -3443,6 +3519,49 @@
         "title": "AdminInformationPageSaveBody",
         "type": "object"
       },
+      "AdminInstallAppOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AdminInstallAppOut",
+        "type": "object"
+      },
+      "AdminInstallPlatformOut": {
+        "properties": {
+          "apps": {
+            "items": {
+              "$ref": "#/components/schemas/AdminInstallAppOut"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "AdminInstallPlatformOut",
+        "type": "object"
+      },
       "AdminLogsListOut": {
         "properties": {
           "logs": {
@@ -3587,6 +3706,13 @@
       },
       "AdminMessageTargetsOut": {
         "properties": {
+          "install_platforms": {
+            "items": {
+              "$ref": "#/components/schemas/AdminInstallPlatformOut"
+            },
+            "title": "Install Platforms",
+            "type": "array"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/AdminMessageTargetOut"
@@ -4701,6 +4827,11 @@
             "title": "Confirm Promo Conflict",
             "type": "boolean"
           },
+          "confirm_subscription_end_change": {
+            "default": false,
+            "title": "Confirm Subscription End Change",
+            "type": "boolean"
+          },
           "reason": {
             "maxLength": 500,
             "minLength": 3,
@@ -5470,6 +5601,13 @@
       },
       "AdminStatsOut": {
         "properties": {
+          "active_tariffs": {
+            "items": {
+              "$ref": "#/components/schemas/AdminActiveTariffOut"
+            },
+            "title": "Active Tariffs",
+            "type": "array"
+          },
           "currency_symbol": {
             "title": "Currency Symbol",
             "type": "string"
@@ -5526,7 +5664,8 @@
           "financial",
           "panel_sync",
           "recent_payments",
-          "currency_symbol"
+          "currency_symbol",
+          "active_tariffs"
         ],
         "title": "AdminStatsOut",
         "type": "object"
@@ -5914,6 +6053,66 @@
           "is_throttled"
         ],
         "title": "AdminSubscriptionOut",
+        "type": "object"
+      },
+      "AdminSubscriptionPlanOut": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "kind": {
+            "enum": [
+              "tariff",
+              "trial",
+              "unassigned"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tariff Key"
+          },
+          "tariff_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Tariff Names",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "tariff_key",
+          "tariff_names",
+          "is_configured",
+          "is_enabled",
+          "is_active"
+        ],
+        "title": "AdminSubscriptionPlanOut",
         "type": "object"
       },
       "AdminSupportMessageOut": {
@@ -6620,6 +6819,44 @@
           "status"
         ],
         "title": "AdminSyncResultOut",
+        "type": "object"
+      },
+      "AdminTariffOptionOut": {
+        "properties": {
+          "is_configured": {
+            "title": "Is Configured",
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "tariff_key": {
+            "title": "Tariff Key",
+            "type": "string"
+          },
+          "tariff_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Tariff Names",
+            "type": "object"
+          }
+        },
+        "required": [
+          "tariff_key",
+          "tariff_names",
+          "is_configured",
+          "is_enabled"
+        ],
+        "title": "AdminTariffOptionOut",
         "type": "object"
       },
       "AdminTariffReconciliationApplyBody": {
@@ -7928,6 +8165,33 @@
           }
         },
         "title": "AdminUserRegularTrafficOverrideBody",
+        "type": "object"
+      },
+      "AdminUserRelationshipEdgeOut": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "referral",
+              "partner"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "kind"
+        ],
+        "title": "AdminUserRelationshipEdgeOut",
         "type": "object"
       },
       "AdminUserSquadOverridesPatchBody": {
@@ -11852,6 +12116,11 @@
             "default": null,
             "title": "Idempotence Key"
           },
+          "manual_finalize_requires_context_confirmation": {
+            "default": false,
+            "title": "Manual Finalize Requires Context Confirmation",
+            "type": "boolean"
+          },
           "manual_finalize_requires_promo_confirmation": {
             "default": false,
             "title": "Manual Finalize Requires Promo Confirmation",
@@ -14669,6 +14938,10 @@
       "SupportMessageButtonOut": {
         "description": "A button the admin attached, already resolved to the link it opens.",
         "properties": {
+          "app": {
+            "title": "App",
+            "type": "string"
+          },
           "icon_custom_emoji_id": {
             "anyOf": [
               {
@@ -14692,6 +14965,10 @@
           },
           "label": {
             "title": "Label",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
             "type": "string"
           },
           "promo_code": {
@@ -16710,6 +16987,77 @@
         "title": "TrafficPackage",
         "type": "object"
       },
+      "TrialCaptchaBody": {
+        "properties": {
+          "answer": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Answer",
+            "type": "string"
+          },
+          "challenge_id": {
+            "maxLength": 32,
+            "minLength": 32,
+            "pattern": "^[a-f0-9]+$",
+            "title": "Challenge Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "answer"
+        ],
+        "title": "TrialCaptchaBody",
+        "type": "object"
+      },
+      "TrialCaptchaResponse": {
+        "properties": {
+          "challenge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge Id"
+          },
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "ok": {
+            "const": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "required",
+          "challenge_id",
+          "image",
+          "expires_in_seconds"
+        ],
+        "title": "TrialCaptchaResponse",
+        "type": "object"
+      },
       "TributeProductConfig": {
         "properties": {
           "link": {
@@ -18357,6 +18705,11 @@
           "logoUrl": {
             "title": "Logourl",
             "type": "string"
+          },
+          "maintenanceModeEnabled": {
+            "default": false,
+            "title": "Maintenancemodeenabled",
+            "type": "boolean"
           },
           "notificationPreferencesEnabled": {
             "title": "Notificationpreferencesenabled",
@@ -25119,13 +25472,17 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "has_relationships": {
+                      "type": "boolean"
+                    },
                     "ok": {
                       "const": true,
                       "type": "boolean"
                     }
                   },
                   "required": [
-                    "ok"
+                    "ok",
+                    "has_relationships"
                   ],
                   "type": "object"
                 }
@@ -29703,6 +30060,18 @@
     "/api/admin/users": {
       "get": {
         "operationId": "get_admin_users_list_route",
+        "parameters": [
+          {
+            "description": "Filter the displayed subscription plan: all, trial, no_subscription, no_tariff, or tariff:<exact key>. Live subscriptions take precedence; otherwise the latest historical subscription is used. Combine with filter=active_subscription to match dashboard active tariff counts.",
+            "in": "query",
+            "name": "tariff_filter",
+            "required": false,
+            "schema": {
+              "default": "all",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -29728,6 +30097,12 @@
                     },
                     "partner_balance_enabled": {
                       "type": "boolean"
+                    },
+                    "tariff_options": {
+                      "items": {
+                        "$ref": "#/components/schemas/AdminTariffOptionOut"
+                      },
+                      "type": "array"
                     },
                     "total": {
                       "type": "integer"
@@ -29783,6 +30158,16 @@
                                   "null"
                                 ]
                               },
+                              "subscription_plan": {
+                                "anyOf": [
+                                  {
+                                    "$ref": "#/components/schemas/AdminSubscriptionPlanOut"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "user_balance_amount_minor": {
                                 "type": "integer"
                               }
@@ -29791,6 +30176,7 @@
                               "panel_status",
                               "subscription_expires_at",
                               "premium_traffic",
+                              "subscription_plan",
                               "payments_total_amount",
                               "payments_count",
                               "payments_currency",
@@ -29811,6 +30197,7 @@
                     "page",
                     "page_size",
                     "total",
+                    "tariff_options",
                     "user_balance_enabled",
                     "partner_balance_enabled",
                     "balance_currency",
@@ -29832,6 +30219,59 @@
           }
         ],
         "summary": "Admin Users List",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/relationships": {
+      "get": {
+        "operationId": "get_admin_user_relationships_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "edges": {
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUserRelationshipEdgeOut"
+                      },
+                      "type": "array"
+                    },
+                    "nodes": {
+                      "items": {
+                        "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "nodes",
+                    "edges"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Relationships",
         "tags": [
           "admin"
         ]
@@ -30048,6 +30488,9 @@
                       ],
                       "type": "object"
                     },
+                    "has_relationships": {
+                      "type": "boolean"
+                    },
                     "hwid_devices": {
                       "$ref": "#/components/schemas/AdminUserHwidDevicesOut"
                     },
@@ -30212,6 +30655,7 @@
                   "required": [
                     "ok",
                     "user",
+                    "has_relationships",
                     "active_subscription",
                     "subscriptions",
                     "trial",
@@ -39945,6 +40389,129 @@
           }
         ],
         "summary": "Activate Trial",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/api/trial/captcha": {
+      "get": {
+        "operationId": "get_trial_captcha_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "challenge_id": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "title": "Challenge Id"
+                    },
+                    "expires_in_seconds": {
+                      "title": "Expires In Seconds",
+                      "type": "integer"
+                    },
+                    "image": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "title": "Image"
+                    },
+                    "ok": {
+                      "const": true,
+                      "title": "Ok",
+                      "type": "boolean"
+                    },
+                    "required": {
+                      "title": "Required",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "required",
+                    "challenge_id",
+                    "image",
+                    "expires_in_seconds"
+                  ],
+                  "title": "TrialCaptchaResponse",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Trial Captcha",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/api/trial/captcha/verify": {
+      "post": {
+        "operationId": "post_trial_captcha_verify_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialCaptchaBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Trial Captcha Verify",
         "tags": [
           "trial"
         ]

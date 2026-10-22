@@ -138,11 +138,17 @@ async def start_command_handler(
         notifications_match=notifications_match,
     )
 
-    from bot.services.account_roles import is_admin
+    from bot.services.account_roles import bootstrap_configured_owner, is_admin
 
     started_user = await user_dal.get_user_by_telegram_id(session, telegram_user_id)
     if started_user:
         user_id = int(started_user.user_id)
+        await bootstrap_configured_owner(
+            session,
+            user_id,
+            telegram_id=settings.BOOTSTRAP_OWNER_TELEGRAM_ID,
+            email=settings.BOOTSTRAP_OWNER_EMAIL,
+        )
     if admin_user_match and started_user and await is_admin(session, int(started_user.user_id)):
         user_id = int(started_user.user_id)
         await emit_bot_started(
@@ -312,6 +318,13 @@ async def start_command_handler(
                 session, user_data_to_create, partner_user_id=partner_user_id
             )
             user_id = int(db_user.user_id)
+
+            await bootstrap_configured_owner(
+                session,
+                user_id,
+                telegram_id=settings.BOOTSTRAP_OWNER_TELEGRAM_ID,
+                email=settings.BOOTSTRAP_OWNER_EMAIL,
+            )
 
             if created:
                 if partner_code:

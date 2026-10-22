@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../publicApi.js";
 import { createSupportStore } from "./supportStore.js";
+import { maintenanceFailure } from "../maintenance";
 
 function makeSupportStore() {
   const api = vi.fn(async (path: string, _options?: RequestInit) => {
@@ -40,6 +41,86 @@ function makeListStore(responses: unknown[]) {
 }
 
 describe("supportStore", () => {
+  it("handles maintenance in a list request without replacing tickets and permits recovery", async () => {
+    const { api, store } = makeListStore([]);
+    store.tickets = [{ ticket_id: 9, subject: "Existing ticket" }];
+    store.loadedFilter = "active";
+    api.mockRejectedValueOnce(maintenanceFailure());
+
+    await expect(store.loadList({ force: true, showLoading: true })).resolves.toEqual({
+      ok: false,
+      error: "maintenance_mode",
+    });
+
+    expect(store.tickets).toEqual([{ ticket_id: 9, subject: "Existing ticket" }]);
+    expect(store.loadedFilter).toBe("active");
+    expect(store.loading).toBe(false);
+
+    await store.loadList();
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(store.tickets).toEqual([]);
+  });
+
+  it("continues rejecting ordinary service failures when loading tickets", async () => {
+    const { api, store } = makeListStore([]);
+    const unavailable = Object.assign(new Error("service_unavailable"), {
+      status: 503,
+      payload: { ok: false, error: "upstream_unavailable" },
+    });
+    api.mockRejectedValueOnce(unavailable);
+
+    await expect(store.loadList()).rejects.toBe(unavailable);
+    expect(store.loading).toBe(false);
+  });
+
+  it("handles maintenance while opening a ticket and preserves the held conversation", async () => {
+    const { api, store } = makeSupportStore();
+    store.messages = [{ message_id: 11, body: "Existing message" }];
+    api.mockRejectedValueOnce(maintenanceFailure());
+
+    await expect(store.openTicket(7, { skipPush: true })).resolves.toBeUndefined();
+
+    expect(store.openedTicket).toEqual({ ticket_id: 7, status: "open" });
+    expect(store.messages).toEqual([{ message_id: 11, body: "Existing message" }]);
+    expect(store.detailLoading).toBe(false);
+    expect(api).toHaveBeenCalledOnce();
+  });
+
+  it("keeps unexpected ticket detail failures visible to callers", async () => {
+    const { api, store } = makeSupportStore();
+    const failure = new Error("connection_failed");
+    api.mockRejectedValueOnce(failure);
+
+    await expect(store.openTicket(7, { skipPush: true })).rejects.toBe(failure);
+    expect(store.detailLoading).toBe(false);
+  });
+
+  it("handles maintenance in background unread hydration without replacing the held count", async () => {
+    const { api, store } = makeSupportStore();
+    store.hydrateUnread(4);
+    api.mockRejectedValueOnce(maintenanceFailure());
+
+    await expect(store.refreshUnread()).resolves.toEqual({
+      ok: false,
+      error: "maintenance_mode",
+    });
+
+    expect(store.unreadCount).toBe(4);
+    expect(store.unreadLoading).toBe(false);
+    await store.refreshUnread();
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(store.unreadCount).toBe(0);
+  });
+
+  it("keeps unexpected unread failures visible to callers", async () => {
+    const { api, store } = makeSupportStore();
+    const failure = new Error("connection_failed");
+    api.mockRejectedValueOnce(failure);
+
+    await expect(store.refreshUnread()).rejects.toBe(failure);
+    expect(store.unreadLoading).toBe(false);
+  });
+
   it("loads exact custom emoji IDs through the authenticated ticket-scoped API", async () => {
     const { apiBlob, store } = makeSupportStore();
     const signal = new AbortController().signal;

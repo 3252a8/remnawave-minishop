@@ -21,6 +21,7 @@ class AdminPaymentFinalizeBody(HttpBodyModel):
 
     reason: str = Field(min_length=3, max_length=500)
     confirm_promo_conflict: bool = False
+    confirm_subscription_end_change: bool = False
 
     @field_validator("reason")
     @classmethod
@@ -146,6 +147,7 @@ class PaymentDetailOut(PaymentOut):
     promo_usage_restored: bool = False
     can_manual_finalize: bool = False
     manual_finalize_requires_promo_confirmation: bool = False
+    manual_finalize_requires_context_confirmation: bool = False
     manual_finalize_warnings: list[str] = Field(default_factory=list)
     can_reverse: bool = False
     reversal_block_reason: str | None = None

@@ -60,6 +60,7 @@
   let actionReason = $state("");
   let withoutReason = $state(false);
   let confirmPromoConflict = $state(false);
+  let confirmSubscriptionEndChange = $state(false);
   let restorePromoUsage = $state(true);
   let refundToBalance = $state(true);
   const payment = $derived(
@@ -173,6 +174,7 @@
     actionReason = "";
     withoutReason = false;
     confirmPromoConflict = false;
+    confirmSubscriptionEndChange = false;
     restorePromoUsage = true;
     refundToBalance = true;
   }
@@ -189,7 +191,11 @@
       return;
     const succeeded =
       actionMode === "finalize"
-        ? await paymentsStore.finalizePayment(reason, confirmPromoConflict)
+        ? await paymentsStore.finalizePayment(
+            reason,
+            confirmPromoConflict,
+            confirmSubscriptionEndChange
+          )
         : await paymentsStore.reversePayment(
             reason,
             restorePromoUsage,
@@ -200,6 +206,20 @@
   }
 
   function warningLabel(code: string): string {
+    if (code === "active_subscription_end_changed") {
+      return at(
+        "payment_warning_subscription_end_changed",
+        {},
+        "The subscription end date changed. Check the payment and subscription history before applying the frozen purchase to the current subscription."
+      );
+    }
+    if (code === "entitlement_context_conflict") {
+      return at(
+        "payment_warning_entitlement_context_conflict",
+        {},
+        "The subscription or tariff no longer matches this purchase. Reconcile the payment before applying any entitlement."
+      );
+    }
     if (code === "promo_used_by_another_payment") {
       return at(
         "payment_warning_promo_used_by_another_payment",
@@ -608,7 +628,7 @@
             </ul>
           </section>
 
-          {#if payment.can_manual_finalize || payment.can_reverse || payment.status === "succeeded" || actionMode}
+          {#if payment.can_manual_finalize || payment.can_reverse || payment.status === "succeeded" || payment.manual_finalize_warnings?.includes("entitlement_context_conflict") || actionMode}
             <section class="admin-payment-panel admin-payment-actions-panel">
               <div class="admin-payment-panel-head">
                 <Database size={16} />
@@ -628,6 +648,11 @@
                     </AdminButton>
                   {/if}
                 </div>
+                {#if payment.manual_finalize_warnings?.includes("entitlement_context_conflict")}
+                  <p class="admin-payment-action-unavailable">
+                    {warningLabel("entitlement_context_conflict")}
+                  </p>
+                {/if}
                 {#if payment.status === "succeeded" && !payment.can_reverse}
                   <p class="admin-payment-action-unavailable">
                     {reversalBlockLabel(payment.reversal_block_reason)}
@@ -651,7 +676,7 @@
 
                   {#if actionMode === "finalize" && payment.manual_finalize_warnings?.length}
                     <ul class="admin-payment-warning-list">
-                      {#each payment.manual_finalize_warnings as warning}
+                      {#each payment.manual_finalize_warnings as warning (warning)}
                         <li>{warningLabel(warning)}</li>
                       {/each}
                     </ul>
@@ -669,6 +694,23 @@
                           "payment_manual_confirm_promo_conflict",
                           {},
                           "Honor the frozen promo terms and record an extra override use"
+                        )}
+                      </span>
+                    </label>
+                  {/if}
+
+                  {#if actionMode === "finalize" && payment.manual_finalize_requires_context_confirmation}
+                    <label class="admin-payment-action-check">
+                      <Checkbox
+                        bind:checked={confirmSubscriptionEndChange}
+                        ariaLabel={at("payment_manual_confirm_subscription_end_change")}
+                        disabled={paymentActionBusy}
+                      />
+                      <span>
+                        {at(
+                          "payment_manual_confirm_subscription_end_change",
+                          {},
+                          "I checked the history: this purchase has not been applied. Apply it to the current subscription."
                         )}
                       </span>
                     </label>
@@ -748,7 +790,10 @@
                         ) ||
                         (actionMode === "finalize" &&
                           payment.manual_finalize_requires_promo_confirmation &&
-                          !confirmPromoConflict)}
+                          !confirmPromoConflict) ||
+                        (actionMode === "finalize" &&
+                          payment.manual_finalize_requires_context_confirmation &&
+                          !confirmSubscriptionEndChange)}
                       onclick={submitAction}
                     >
                       {paymentActionBusy

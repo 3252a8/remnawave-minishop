@@ -4,6 +4,8 @@ import ast
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 import bot.app.web.admin_api
 import bot.app.web.subscription_webapp
 import bot.services.subscription_service
@@ -37,38 +39,48 @@ def test_facade_public_exports_are_frozen() -> None:
         assert sorted(actual_exports[file]) == expected
 
 
-def _collect_facade_importers() -> dict[str, set[str]]:
+@pytest.fixture(scope="module")
+def backend_importers() -> dict[str, dict[str, set[str]]]:
+    """Scan once per module, retaining small indexes rather than every AST."""
     facade_modules = {
         "admin_api": "bot.app.web.admin_api",
         "subscription_webapp": "bot.app.web.subscription_webapp",
         "subscription_service": "bot.services.subscription_service",
     }
-    results: dict[str, set[str]] = {name: set() for name in facade_modules}
-    backend_root = _project_root() / "backend"
-
-    for file in backend_root.rglob("*.py"):
+    runtime_modules = {
+        "admin_api_impl_runtime": "bot.app.web.admin_api_impl._runtime",
+        "subscription_service_impl_runtime": "bot.services.subscription_service_impl._runtime",
+        "webapp_runtime": "bot.app.web.webapp._runtime",
+    }
+    facade_importers: dict[str, set[str]] = {name: set() for name in facade_modules}
+    runtime_importers: dict[str, set[str]] = {name: set() for name in runtime_modules}
+    for file in (_project_root() / "backend").rglob("*.py"):
         if "tests" in file.parts:
             continue
-        try:
-            tree = ast.parse(file.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-
+        tree = ast.parse(file.read_text(encoding="utf-8"), filename=str(file))
         relative = file.relative_to(_project_root()).as_posix()
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 module = node.module or ""
                 for name, facade in facade_modules.items():
                     if module == facade or module.startswith(f"{facade}."):
-                        results[name].add(relative)
+                        facade_importers[name].add(relative)
+                for name, runtime in runtime_modules.items():
+                    package_path = "backend/" + runtime.rsplit(".", 1)[0].replace(".", "/")
+                    if module == runtime or (
+                        node.level
+                        and module == "_runtime"
+                        and relative.startswith(package_path + "/")
+                    ):
+                        runtime_importers[name].add(relative)
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     for name, facade in facade_modules.items():
                         imported = alias.name
                         if imported == facade or imported.startswith(f"{facade}."):
-                            results[name].add(relative)
+                            facade_importers[name].add(relative)
 
-    return results
+    return {"facades": facade_importers, "runtimes": runtime_importers}
 
 
 def _module_import_aliases(tree: ast.AST) -> dict[str, str]:
@@ -106,18 +118,22 @@ def _resolve_module_expression(expr: ast.AST, aliases: Mapping[str, str]) -> str
     return None
 
 
-def test_facade_imports_are_explicit_and_frozen() -> None:
+def test_facade_imports_are_explicit_and_frozen(
+    backend_importers: dict[str, dict[str, set[str]]],
+) -> None:
     _, expected_importers, _expected_runtime_importers = _load_baseline()
-    actual_importers = _collect_facade_importers()
+    actual_importers = backend_importers["facades"]
 
     for facade_name, expected in expected_importers.items():
         normalized_expected = sorted(Path(p).as_posix() for p in expected)
         assert sorted(actual_importers[facade_name]) == normalized_expected
 
 
-def test_facade_imports_growth_is_forbidden() -> None:
+def test_facade_imports_growth_is_forbidden(
+    backend_importers: dict[str, dict[str, set[str]]],
+) -> None:
     _, expected_importers, _ = _load_baseline()
-    actual_importers = _collect_facade_importers()
+    actual_importers = backend_importers["facades"]
     legacy_importers = {
         "admin_api": {"backend/bot/app/web/admin_api.py"},
         "subscription_webapp": {
@@ -135,54 +151,6 @@ def test_facade_imports_growth_is_forbidden() -> None:
             f"{sorted(actual_importers[facade_name] - expected_importers_set)}. "
             f"Import concrete implementation modules instead."
         )
-
-
-def _collect_runtime_importers() -> dict[str, set[str]]:
-    runtime_importers = {
-        "admin_api_impl_runtime": set[str](),
-        "subscription_service_impl_runtime": set[str](),
-        "webapp_runtime": set[str](),
-    }
-    backend_root = _project_root() / "backend"
-
-    for file in backend_root.rglob("*.py"):
-        if "tests" in file.parts:
-            continue
-
-        relative = file.relative_to(_project_root()).as_posix()
-        is_admin_api_impl = "backend/bot/app/web/admin_api_impl" in file.as_posix()
-        is_subscription_service_impl = (
-            "backend/bot/services/subscription_service_impl/" in file.as_posix()
-        )
-        is_webapp_package = "backend/bot/app/web/webapp/" in file.as_posix()
-
-        try:
-            tree = ast.parse(file.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ImportFrom):
-                continue
-
-            module = node.module or ""
-            if node.level and module == "_runtime":
-                if is_admin_api_impl:
-                    runtime_importers["admin_api_impl_runtime"].add(relative)
-                if is_subscription_service_impl:
-                    runtime_importers["subscription_service_impl_runtime"].add(relative)
-                if is_webapp_package:
-                    runtime_importers["webapp_runtime"].add(relative)
-                continue
-
-            if module == "bot.app.web.admin_api_impl._runtime":
-                runtime_importers["admin_api_impl_runtime"].add(relative)
-            elif module == "bot.services.subscription_service_impl._runtime":
-                runtime_importers["subscription_service_impl_runtime"].add(relative)
-            elif module == "bot.app.web.webapp._runtime":
-                runtime_importers["webapp_runtime"].add(relative)
-
-    return runtime_importers
 
 
 def test_monkeypatch_targets_avoid_facade_imports() -> None:
@@ -251,9 +219,9 @@ def test_monkeypatch_targets_avoid_facade_imports() -> None:
     )
 
 
-def test_runtime_imports_are_frozen() -> None:
+def test_runtime_imports_are_frozen(backend_importers: dict[str, dict[str, set[str]]]) -> None:
     _, _, expected_runtime_importers = _load_baseline()
-    actual_runtime_importers = _collect_runtime_importers()
+    actual_runtime_importers = backend_importers["runtimes"]
 
     for runtime_name, expected in expected_runtime_importers.items():
         normalized_expected = sorted(Path(p).as_posix() for p in expected)

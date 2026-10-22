@@ -75,6 +75,7 @@
   import PartnerDashboardTables from "./partners/PartnerDashboardTables.svelte";
   import PartnerProgramSkeleton from "./partners/PartnerProgramSkeleton.svelte";
   import PartnerProgramTables from "./partners/PartnerProgramTables.svelte";
+  import { openUserRelationshipsGraph } from "$lib/admin/userRelationships";
   import PartnerActionDialog from "./partners/PartnerActionDialog.svelte";
   import PartnerOperationDetails from "./partners/PartnerOperationDetails.svelte";
   import PartnerReferralImportBanner from "./partners/PartnerReferralImportBanner.svelte";
@@ -128,6 +129,7 @@
   let withdrawals = $state<WithdrawalRow[]>(previewState.withdrawals);
   let partnerLinks = $state<PartnerLinkRow[]>(previewState.partnerLinks);
   let partnerClients = $state<PartnerClientRow[]>(previewState.partnerClients);
+  let partnerHasRelationships = $state(false);
   let partnerCommissions = $state<PartnerCommissionRow[]>(previewState.partnerCommissions);
   let partnerLedger = $state<PartnerLedgerRow[]>(previewState.partnerLedger);
   let partnerAudit = $state<PartnerAuditRow[]>(previewState.partnerAudit);
@@ -332,6 +334,7 @@
     const path = `/admin/partners/${encodeURIComponent(partnerId)}?currency=${encodeURIComponent(currency)}`;
     const detail = await loadPartnerDetail(api, partnerId, currency, path);
     selectedPartner = detail.partner;
+    partnerHasRelationships = detail.hasRelationships;
     partnerLinks = detail.links;
     partnerClients = detail.clients;
     partnerCommissions = detail.commissions;
@@ -711,7 +714,7 @@
         class="admin-tabs-list"
         aria-label={at("partners_navigation", {}, "Partner program navigation")}
       >
-        {#each ["dashboard", "partners", "applications", "withdrawals"] as item}
+        {#each ["dashboard", "partners", "applications", "withdrawals"] as item (item)}
           <Tabs.Trigger class="admin-tabs-trigger" value={item}>
             {at(`partners_tab_${item}`, {}, item)}
             {#if item === "applications" && pendingApplicationCount}
@@ -768,7 +771,7 @@
       class="partners-kpi-grid"
       aria-label={at("partners_kpi_title", {}, "Partner program summary")}
     >
-      {#each dashboardMetrics as metric}
+      {#each dashboardMetrics as metric (metric.key)}
         {@const MetricIcon = metric.icon}
         <article class="partners-kpi-card partners-tone-{metric.tone}">
           <span><MetricIcon size={18} /></span>
@@ -859,6 +862,7 @@
       {view}
       {money}
       onAddPartner={() => (dialog = "create")}
+      onOpenGraph={() => openUserRelationshipsGraph(undefined, routePrefix)}
       onOpenPartner={openPartner}
       onOpenApplication={openApplication}
       onOpenWithdrawal={openWithdrawal}
@@ -867,6 +871,8 @@
     />
   {:else}
     <PartnerOperationDetails
+      {routePrefix}
+      hasRelationships={previewMode ? selectedPartner.clients > 0 : partnerHasRelationships}
       {at}
       {view}
       {selectedPartner}

@@ -249,7 +249,7 @@ async def account_email_verify_route(request: web.Request) -> web.Response:
             await session.rollback()
             return _json_error(
                 409,
-                "account_merge_conflict",
+                exc.code,
                 _merge_conflict_message(request, settings, exc, conflict_language),
             )
         except Exception:

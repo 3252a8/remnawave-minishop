@@ -342,6 +342,8 @@ def _serialize_payment_methods(
             presentation = resolve_provider_presentation(spec, settings, language=lang)
             payload = {
                 "id": method,
+                "group": spec.payment_group,
+                "provider_id": spec.provider_id,
                 "name": presentation.webapp_label,
                 "icon": presentation.webapp_icon,
                 "balance_supported": not spec.manages_recurring

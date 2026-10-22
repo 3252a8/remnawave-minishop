@@ -4,11 +4,11 @@ import { runWebappBoot } from "./webappBoot.js";
 import { createTelegramSdk } from "./telegramSdk.js";
 type TestOverrides = Record<string, unknown>;
 
-function installBrowser(search = "") {
+function installBrowser(search = "", pathname = "/") {
   vi.stubGlobal("document", { title: "Mini Shop" });
   vi.stubGlobal("window", {
     location: {
-      href: `https://app.example.com/${search}`,
+      href: `https://app.example.com${pathname}${search}`,
       search,
     },
     history: { replaceState: vi.fn() },
@@ -51,6 +51,40 @@ afterEach(() => {
 });
 
 describe("runWebappBoot", () => {
+  it("keeps sign-in available before there is an authenticated user", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      refreshSession: vi.fn(async () => ({ authenticated: false })),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.showLogin).toHaveBeenCalledOnce();
+    expect(deps.loadData).not.toHaveBeenCalled();
+    expect(deps.setMode).not.toHaveBeenCalledWith("maintenance");
+  });
+
+  it("shows deliberate maintenance immediately without retrying or clearing the session", async () => {
+    installBrowser();
+    const deps = makeDeps({
+      getToken: () => "saved-session",
+      loadData: vi.fn(async () => {
+        throw Object.assign(new Error("maintenance_mode"), {
+          status: 503,
+          payload: { ok: false, error: "maintenance_mode" },
+        });
+      }),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.setMode).toHaveBeenLastCalledWith("maintenance");
+    expect(deps.loadData).toHaveBeenCalledOnce();
+    expect(deps.clearToken).not.toHaveBeenCalled();
+    expect(deps.showLogin).not.toHaveBeenCalled();
+    expect(deps.setAuthStatus).not.toHaveBeenCalled();
+  });
+
   it("loads Telegram before restoring a cookie session on a clean return URL", async () => {
     installBrowser();
     Object.assign(window, {
@@ -209,6 +243,56 @@ describe("runWebappBoot", () => {
     expect(deps.setAuthStatus).toHaveBeenCalledWith("wa_auth_invite_required", true);
     expect(deps.showLogin).toHaveBeenCalledOnce();
     expect(window.history.replaceState).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes and confirms a successful Telegram link in security settings", async () => {
+    installBrowser("?telegram_auth=success", "/settings/security");
+    const deps = makeDeps();
+
+    await runWebappBoot(deps);
+
+    expect(deps.loadData).toHaveBeenCalledWith({ fresh: true });
+    expect(deps.showAccountLinkStatus).toHaveBeenCalledWith("wa_settings_linked");
+    expect(deps.showLogin).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["cancelled", "wa_auth_telegram_cancelled"],
+    ["not_configured", "wa_auth_telegram_not_configured"],
+    ["invalid_state", "wa_auth_telegram_not_confirmed"],
+    ["invalid_token", "wa_auth_telegram_not_confirmed"],
+    ["unauthorized", "wa_auth_telegram_not_confirmed"],
+    ["failed", "wa_auth_telegram_not_confirmed"],
+  ])("shows Telegram link failure %s in the authenticated settings", async (status, message) => {
+    for (const pathname of ["/settings", "/settings/security"]) {
+      installBrowser(`?telegram_auth=${status}`, pathname);
+      const deps = makeDeps({
+        refreshSession: vi.fn(async () => ({ authenticated: true })),
+      });
+
+      await runWebappBoot(deps);
+
+      expect(deps.loadData).toHaveBeenCalledOnce();
+      expect(deps.showAccountLinkStatus).toHaveBeenCalledWith(message);
+      expect(deps.setAuthStatus).not.toHaveBeenCalled();
+      expect(deps.showLogin).not.toHaveBeenCalled();
+      expect(deps.clearToken).not.toHaveBeenCalled();
+    }
+  });
+
+  it("shows sign-in when the Telegram link callback has lost its session", async () => {
+    installBrowser("?telegram_auth=unauthorized", "/settings/security");
+    const deps = makeDeps({
+      loadData: vi.fn(async () => {
+        throw { status: 401 };
+      }),
+    });
+
+    await runWebappBoot(deps);
+
+    expect(deps.setAuthStatus).toHaveBeenCalledWith("wa_auth_telegram_not_confirmed", true);
+    expect(deps.showAccountLinkStatus).not.toHaveBeenCalled();
+    expect(deps.showLogin).toHaveBeenCalledOnce();
   });
 
   it.each(["google", "yandex", "discord", "future-provider"])(

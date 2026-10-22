@@ -9,6 +9,14 @@ import {
   type DemoUserDetail,
 } from "./dataset";
 import { demoSupportTickets } from "./state";
+import {
+  demoSubscriptionRows as demoSubscriptions,
+  isDemoActiveSubscription,
+  demoSubscriptionPlan,
+  demoHasUnmappedActiveSubscription,
+} from "./subscriptionPlans";
+import { subscriptionPlanFilter } from "$lib/admin/subscriptionPlans";
+import { demoPartnerRelationships } from "./partnerProgram";
 
 export function userName(user: DemoRecord | null | undefined): string {
   const record = (user || {}) as DemoAdminUser;
@@ -50,6 +58,7 @@ export function withDemoAdminUserMetrics(user: DemoAdminUser): DemoAdminUser {
     payments_currency: user.payments_currency || "RUB",
     invited_users_count: invitedCount,
     subscription_expires_at: subscriptionExpiresAt,
+    subscription_plan: demoSubscriptionPlan(user),
   };
 }
 
@@ -83,6 +92,13 @@ export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail 
     : 0;
   return {
     ...decorated,
+    has_relationships: Boolean(
+      inviter ||
+      invitees.length ||
+      demoPartnerRelationships().some(
+        (edge) => edge.source === Number(user.user_id) || edge.target === Number(user.user_id)
+      )
+    ),
     user: withDemoAdminUserMetrics(user),
     hwid_devices: decorated.hwid_devices ?? {
       current_devices: currentDevices,
@@ -100,23 +116,6 @@ export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail 
 
 export function withDemoAvatarTickets(tickets: DemoTicket[], size = 96): DemoTicket[] {
   return (tickets || []).map((ticket) => withDemoAvatarTicket(ticket, size) as DemoTicket);
-}
-
-function demoSubscriptions(user: DemoAdminUser): DemoRecord[] {
-  const detail = DATASET.adminUserDetails?.[String(user.user_id)] || {};
-  const subscriptions = Array.isArray(detail.subscriptions)
-    ? (detail.subscriptions as DemoRecord[])
-    : [];
-  const active = detail.active_subscription;
-  if (!active || subscriptions.includes(active)) return subscriptions;
-  return [active, ...subscriptions];
-}
-
-function isDemoActiveSubscription(subscription: DemoRecord): boolean {
-  return (
-    subscription.is_active === true &&
-    stringDate(subscription.end_date as string | null | undefined) > Date.now()
-  );
 }
 
 function demoSubscriptionSegment(user: DemoAdminUser): "paid" | "trial" | "free" | null {
@@ -190,6 +189,8 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
     );
   } else if (filter === "paid" || filter === "trial" || filter === "free") {
     out = out.filter((user) => demoSubscriptionSegment(user) === filter);
+  } else if (filter === "unmapped_tariff") {
+    out = out.filter(demoHasUnmappedActiveSubscription);
   } else if (filter === "tg_linked") out = out.filter((user) => user.telegram_linked);
   else if (filter === "no_tg") out = out.filter((user) => !user.telegram_linked);
   else if (filter === "email_linked") out = out.filter((user) => Boolean(user.email));
@@ -197,6 +198,17 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
   else if (filter === "panel_linked") out = out.filter((user) => Boolean(user.panel_user_uuid));
 
   const panelStatus = params.get("panel_status") || "all";
+  const tariffFilter = params.get("tariff_filter") || "all";
+  if (tariffFilter !== "all") {
+    out = out.filter((user) =>
+      tariffFilter === "no_subscription"
+        ? !user.subscription_plan
+        : Boolean(
+            user.subscription_plan &&
+            subscriptionPlanFilter(user.subscription_plan) === tariffFilter
+          )
+    );
+  }
   if (panelStatus !== "all") out = out.filter((user) => user.panel_status === panelStatus);
 
   const premiumTraffic = params.get("premium_traffic") || "all";

@@ -93,4 +93,19 @@ describe("createRouteSync", () => {
     expect(deps.syncAppSectionPath).toHaveBeenCalledWith("support", true, null);
     expect(deps.replaceHistoryState).not.toHaveBeenCalled();
   });
+
+  it("preserves a support create target without a numeric ticket ID", () => {
+    const { deps, routeSync } = makeRouteSync({ location: { hash: "#draft" } });
+
+    routeSync.syncLoadedRoute({
+      initialAdminSection: null,
+      initialSupportTicketId: null,
+      section: "support",
+      supportTargetPath: "/demo/runtime/support/new",
+    });
+
+    expect(deps.replaceHistoryState).toHaveBeenCalledWith("/demo/runtime/support/new?ref=1#draft");
+    expect(deps.cleanDocsDemoRouteQuery).toHaveBeenCalledOnce();
+    expect(deps.syncAppSectionPath).not.toHaveBeenCalled();
+  });
 });

@@ -2834,6 +2834,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/relationships": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Relationships */
+    get: operations["get_admin_user_relationships_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}": {
     parameters: {
       query?: never;
@@ -4624,6 +4641,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/trial/captcha": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Trial Captcha */
+    get: operations["get_trial_captcha_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/trial/captcha/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Trial Captcha Verify */
+    post: operations["post_trial_captcha_verify_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5319,6 +5370,26 @@ export interface components {
       /** Touches */
       touches: components["schemas"]["AdTouchOut"][];
     };
+    /** AdminActiveTariffOut */
+    AdminActiveTariffOut: {
+      /** Active Users */
+      active_users: number;
+      /** Is Configured */
+      is_configured: boolean;
+      /** Is Enabled */
+      is_enabled: boolean | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "tariff" | "trial" | "unassigned";
+      /** Tariff Key */
+      tariff_key: string | null;
+      /** Tariff Names */
+      tariff_names: {
+        [key: string]: string;
+      };
+    };
     /** AdminAdsListOut */
     AdminAdsListOut: {
       /** Campaigns */
@@ -5638,6 +5709,8 @@ export interface components {
      *       ``section`` (invite, support, devices, …).
      */
     AdminBroadcastButtonBody: {
+      /** App */
+      app?: string;
       /**
        * Icon Custom Emoji Id
        * @default null
@@ -5662,6 +5735,8 @@ export interface components {
       labels?: {
         [key: string]: string;
       };
+      /** Platform */
+      platform?: string;
       /**
        * Promo Code
        * @default
@@ -5680,6 +5755,8 @@ export interface components {
     };
     /** AdminBroadcastButtonOut */
     AdminBroadcastButtonOut: {
+      /** App */
+      app?: string;
       /**
        * Icon Custom Emoji Id
        * @default null
@@ -5701,6 +5778,8 @@ export interface components {
       labels?: {
         [key: string]: string;
       };
+      /** Platform */
+      platform?: string;
       /**
        * Promo Code
        * @default
@@ -6294,6 +6373,22 @@ export interface components {
        */
       previous_path: string | null;
     };
+    /** AdminInstallAppOut */
+    AdminInstallAppOut: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+    };
+    /** AdminInstallPlatformOut */
+    AdminInstallPlatformOut: {
+      /** Apps */
+      apps?: components["schemas"]["AdminInstallAppOut"][];
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+    };
     /** AdminLogsListOut */
     AdminLogsListOut: {
       /** Logs */
@@ -6350,6 +6445,8 @@ export interface components {
     };
     /** AdminMessageTargetsOut */
     AdminMessageTargetsOut: {
+      /** Install Platforms */
+      install_platforms?: components["schemas"]["AdminInstallPlatformOut"][];
       /** Sections */
       sections?: components["schemas"]["AdminMessageTargetOut"][];
     };
@@ -6794,6 +6891,11 @@ export interface components {
        * @default false
        */
       confirm_promo_conflict: boolean;
+      /**
+       * Confirm Subscription End Change
+       * @default false
+       */
+      confirm_subscription_end_change: boolean;
       /** Reason */
       reason: string;
     };
@@ -7100,6 +7202,8 @@ export interface components {
     };
     /** AdminStatsOut */
     AdminStatsOut: {
+      /** Active Tariffs */
+      active_tariffs: components["schemas"]["AdminActiveTariffOut"][];
       /** Currency Symbol */
       currency_symbol: string;
       /** Financial */
@@ -7289,6 +7393,26 @@ export interface components {
        * @default null
        */
       traffic_used_bytes: number | null;
+    };
+    /** AdminSubscriptionPlanOut */
+    AdminSubscriptionPlanOut: {
+      /** Is Active */
+      is_active: boolean;
+      /** Is Configured */
+      is_configured: boolean;
+      /** Is Enabled */
+      is_enabled: boolean | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "tariff" | "trial" | "unassigned";
+      /** Tariff Key */
+      tariff_key: string | null;
+      /** Tariff Names */
+      tariff_names: {
+        [key: string]: string;
+      };
     };
     /** AdminSupportMessageOut */
     AdminSupportMessageOut: {
@@ -7578,6 +7702,19 @@ export interface components {
     AdminSyncResultOut: {
       /** Status */
       status: string;
+    };
+    /** AdminTariffOptionOut */
+    AdminTariffOptionOut: {
+      /** Is Configured */
+      is_configured: boolean;
+      /** Is Enabled */
+      is_enabled: boolean | null;
+      /** Tariff Key */
+      tariff_key: string;
+      /** Tariff Names */
+      tariff_names: {
+        [key: string]: string;
+      };
     };
     /** AdminTariffReconciliationApplyBody */
     AdminTariffReconciliationApplyBody: {
@@ -8183,6 +8320,18 @@ export interface components {
        * @default false
        */
       unlimited: unknown;
+    };
+    /** AdminUserRelationshipEdgeOut */
+    AdminUserRelationshipEdgeOut: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "referral" | "partner";
+      /** Source */
+      source: number;
+      /** Target */
+      target: number;
     };
     /** AdminUserSquadOverridesPatchBody */
     AdminUserSquadOverridesPatchBody: {
@@ -9898,6 +10047,11 @@ export interface components {
        */
       idempotence_key: string | null;
       /**
+       * Manual Finalize Requires Context Confirmation
+       * @default false
+       */
+      manual_finalize_requires_context_confirmation: boolean;
+      /**
        * Manual Finalize Requires Promo Confirmation
        * @default false
        */
@@ -11113,6 +11267,8 @@ export interface components {
      * @description A button the admin attached, already resolved to the link it opens.
      */
     SupportMessageButtonOut: {
+      /** App */
+      app?: string;
       /**
        * Icon Custom Emoji Id
        * @default null
@@ -11127,6 +11283,8 @@ export interface components {
       kind: string;
       /** Label */
       label: string;
+      /** Platform */
+      platform?: string;
       /**
        * Promo Code
        * @default
@@ -12017,6 +12175,29 @@ export interface components {
       /** Price */
       price: number;
     };
+    /** TrialCaptchaBody */
+    TrialCaptchaBody: {
+      /** Answer */
+      answer: string;
+      /** Challenge Id */
+      challenge_id: string;
+    };
+    /** TrialCaptchaResponse */
+    TrialCaptchaResponse: {
+      /** Challenge Id */
+      challenge_id: string | null;
+      /** Expires In Seconds */
+      expires_in_seconds: number;
+      /** Image */
+      image: string | null;
+      /**
+       * Ok
+       * @constant
+       */
+      ok: true;
+      /** Required */
+      required: boolean;
+    };
     /** TributeProductConfig */
     TributeProductConfig: {
       /** Link */
@@ -12792,6 +12973,11 @@ export interface components {
       languages: components["schemas"]["WebappBootstrapLanguageOut"][];
       /** Logourl */
       logoUrl: string;
+      /**
+       * Maintenancemodeenabled
+       * @default false
+       */
+      maintenanceModeEnabled: boolean;
       /** Notificationpreferencesenabled */
       notificationPreferencesEnabled: boolean;
       /**
@@ -15974,6 +16160,7 @@ export interface operations {
         };
         content: {
           "application/json": {
+            has_relationships: boolean;
             /** @constant */
             ok: true;
           };
@@ -18194,7 +18381,10 @@ export interface operations {
   };
   get_admin_users_list_route: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Filter the displayed subscription plan: all, trial, no_subscription, no_tariff, or tariff:<exact key>. Live subscriptions take precedence; otherwise the latest historical subscription is used. Combine with filter=active_subscription to match dashboard active tariff counts. */
+        tariff_filter?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -18215,6 +18405,7 @@ export interface operations {
             page: number;
             page_size: number;
             partner_balance_enabled: boolean;
+            tariff_options: components["schemas"]["AdminTariffOptionOut"][];
             total: number;
             user_balance_enabled: boolean;
             users: (components["schemas"]["AdminUserWithAvatarOut"] & {
@@ -18229,8 +18420,34 @@ export interface operations {
                 [key: string]: unknown;
               };
               subscription_expires_at: string | null;
+              subscription_plan: components["schemas"]["AdminSubscriptionPlanOut"] | null;
               user_balance_amount_minor: number;
             })[];
+          };
+        };
+      };
+    };
+  };
+  get_admin_user_relationships_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            edges: components["schemas"]["AdminUserRelationshipEdgeOut"][];
+            nodes: components["schemas"]["AdminUserWithAvatarOut"][];
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -18290,6 +18507,7 @@ export interface operations {
               topup_min_amount: number;
               topup_presets: number[];
             };
+            has_relationships: boolean;
             hwid_devices: components["schemas"]["AdminUserHwidDevicesOut"];
             install_share_url: string | null;
             last_vpn_connected_at: string | null;
@@ -22264,6 +22482,67 @@ export interface operations {
             /** @constant */
             ok: true;
             traffic_gb: number | null;
+          };
+        };
+      };
+    };
+  };
+  get_trial_captcha_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Challenge Id */
+            challenge_id: string | null;
+            /** Expires In Seconds */
+            expires_in_seconds: number;
+            /** Image */
+            image: string | null;
+            /**
+             * Ok
+             * @constant
+             */
+            ok: true;
+            /** Required */
+            required: boolean;
+          };
+        };
+      };
+    };
+  };
+  post_trial_captcha_verify_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TrialCaptchaBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

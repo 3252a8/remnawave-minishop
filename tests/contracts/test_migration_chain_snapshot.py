@@ -123,6 +123,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0104_gift_referral_qualification",
     "0105_provider_mandates",
     "0106_support_connector",
+    "0107_cleaned_trial_history",
 ]
 
 

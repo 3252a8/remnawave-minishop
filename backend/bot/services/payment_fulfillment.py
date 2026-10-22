@@ -199,6 +199,11 @@ def persist_payment_fulfillment(
 
 
 async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[str, Any]:
+    from bot.payment_providers.shared.entitlement_context import (
+        payment_uses_entitlement_context,
+        preflight_payment_entitlement,
+    )
+
     status = str(payment.status or "").strip().lower()
     is_balance_topup = sale_mode_base(payment.sale_mode) == "balance_topup"
     warnings: list[str] = []
@@ -226,6 +231,25 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
     can_finalize = status not in _FINAL_PAYMENT_STATUSES and bool(
         str(payment.sale_mode or "").strip()
     )
+    context_confirmation = False
+    if can_finalize and payment_uses_entitlement_context(payment):
+        active_subscription = await subscription_dal.get_active_subscription_by_user_id(
+            session, int(payment.user_id)
+        )
+        preflight = preflight_payment_entitlement(payment, active_subscription)
+        if not preflight.allowed:
+            context_confirmation = (
+                preflight.reason == "active_subscription_end_changed"
+                and preflight_payment_entitlement(
+                    payment, active_subscription, allow_subscription_end_change=True
+                ).allowed
+            )
+            warnings.append(
+                "active_subscription_end_changed"
+                if context_confirmation
+                else "entitlement_context_conflict"
+            )
+            can_finalize = context_confirmation
     reversal_block_reason = None
     if status != "succeeded":
         reversal_block_reason = "payment_not_succeeded"
@@ -245,6 +269,7 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
     return {
         "can_manual_finalize": can_finalize,
         "manual_finalize_requires_promo_confirmation": promo_conflict,
+        "manual_finalize_requires_context_confirmation": context_confirmation,
         "manual_finalize_warnings": warnings,
         "can_reverse": reversal_block_reason is None,
         "reversal_block_reason": reversal_block_reason,

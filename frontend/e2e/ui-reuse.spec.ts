@@ -1,7 +1,717 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Core } from "cytoscape";
 
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
+
+for (const width of [1440, 768, 390, 320]) {
+  for (const theme of ["dark", "light"]) {
+    test(`relationship graph supports complete referral and partner navigation at ${width}px ${theme}`, async ({
+      page,
+    }, testInfo) => {
+      const errors: string[] = [];
+      let workers = 0;
+      let graphRequests = 0;
+      page.on("pageerror", (error) => errors.push(error.message));
+      page.on("worker", () => workers++);
+      page.on("request", (request) => {
+        if (new URL(request.url()).pathname.endsWith("/api/admin/users/relationships"))
+          graphRequests++;
+      });
+      await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+      await page.goto(`/demo/runtime/admin/users/910083?theme_preview=${theme}`);
+      await page.locator('[data-admin-action="show-in-relationships-graph"]').click();
+      const graph = page.locator("[data-relationships-graph]");
+      await expect(graph).toBeVisible();
+      await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
+      await expect(page).toHaveURL(/view=relationships.*focus=910083/);
+      await expect(graph.locator('[data-graph-user-id="910083"]')).toBeVisible();
+      // A middle generation includes both its inviter and its own invitees.
+      await expect(
+        graph.locator('.relationships-selection li[data-relationship-kind="referral"]')
+      ).toHaveCount(5);
+      await graph.locator('input[type="search"]').fill("910001");
+      await graph.locator('input[type="search"]').press("Enter");
+      await expect(graph.locator('[data-graph-user-id="910001"]')).toHaveClass(/selected/);
+      expect(
+        await graph
+          .locator('.relationships-selection li[data-relationship-kind="referral"]')
+          .count()
+      ).toBeGreaterThan(0);
+      expect(
+        await graph.locator('.relationships-selection li[data-relationship-kind="partner"]').count()
+      ).toBeGreaterThan(0);
+      await expect(graph.locator(".relationships-stage canvas").first()).toBeVisible();
+      const backgrounds = await graph
+        .locator(
+          ".relationships-stage, .relationships-node, .admin-list-toolbar, .relationships-selection, .admin-btn"
+        )
+        .evaluateAll((elements) =>
+          elements.map((element) => getComputedStyle(element).backgroundImage)
+        );
+      expect(backgrounds.every((background) => background === "none")).toBe(true);
+      if (width === 1440 && theme === "dark") {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await expect
+          .poll(() =>
+            graph.locator(".relationships-node.selected").evaluate((node) => {
+              const bounds = node.getBoundingClientRect(),
+                stage = node.closest(".relationships-stage")!.getBoundingClientRect();
+              return bounds.left >= stage.left && bounds.right <= stage.right;
+            })
+          )
+          .toBe(true);
+        await page.screenshot({
+          path: testInfo.outputPath("relationships-resized-mobile.png"),
+          fullPage: true,
+          animations: "disabled",
+        });
+        await page.setViewportSize({ width, height: 900 });
+      }
+      const geometry = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+        return cy.edges().map((edge) => ({
+          source: edge.source().id(),
+          target: edge.target().id(),
+          points: [edge.sourceEndpoint(), ...(edge.segmentPoints() || []), edge.targetEndpoint()],
+        }));
+      });
+      expect(geometry.length).toBeGreaterThan(10);
+      const layoutBounds = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+        const bounds = cy.elements().boundingBox();
+        const targets = new Set(cy.edges().map((edge) => edge.target().id()));
+        return {
+          aspectRatio: bounds.w / bounds.h,
+          rootRows: new Set(
+            cy
+              .nodes()
+              .filter((node) => !targets.has(node.id()))
+              .map((node) => Math.round(node.position("y")))
+          ).size,
+        };
+      });
+      // Independent families must occupy several rows, even in the overview.
+      // INCLUDE_CHILDREN previously flattened this fixture into a 30k-pixel strip.
+      expect(layoutBounds.aspectRatio).toBeLessThan(3);
+      expect(layoutBounds.rootRows).toBeGreaterThan(2);
+      for (const route of geometry) {
+        expect(Math.abs(route.points[0].x - route.points[1].x)).toBeLessThan(0.01);
+        expect(Math.abs(route.points.at(-1)!.x - route.points.at(-2)!.x)).toBeLessThan(0.01);
+        for (let index = 1; index < route.points.length; index++) {
+          const before = route.points[index - 1],
+            after = route.points[index];
+          expect(Math.abs(before.x - after.x) < 0.01 || Math.abs(before.y - after.y) < 0.01).toBe(
+            true
+          );
+        }
+      }
+      const uuid = graph.locator(".relationships-node.selected dl > div:first-child dd");
+      await expect(uuid).toHaveText(/^ms_[0-9a-f]{32}$/);
+      expect(await uuid.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+        true
+      );
+      const identityGeometry = await graph
+        .locator(".relationships-node.selected")
+        .evaluate((node) => {
+          const avatar = node.querySelector(".admin-avatar")!.getBoundingClientRect();
+          const values = Array.from(node.querySelectorAll("dl dd, .admin-user-cell-name")).map(
+            (value) => value.getBoundingClientRect()
+          );
+          return {
+            rightOfAvatar: values.every((value) => value.left >= avatar.right),
+            fitsHeight: node.scrollHeight <= node.clientHeight,
+            height: node.clientHeight,
+          };
+        });
+      expect(identityGeometry.rightOfAvatar).toBe(true);
+      expect(identityGeometry.fitsHeight).toBe(true);
+      expect(identityGeometry.height).toBeLessThanOrEqual(112);
+      if (width === 1440 && theme === "dark") {
+        const focusBefore = new URL(page.url()).searchParams.get("focus");
+        await graph.locator(".relationships-node").first().focus();
+        await page.keyboard.press("Tab");
+        await expect
+          .poll(() =>
+            graph.evaluate((element) => {
+              const active = document.activeElement;
+              const stage = element.querySelector(".relationships-stage")!,
+                overlay = element.querySelector(".relationships-overlays")!;
+              if (!active?.matches(".relationships-node")) return false;
+              const bounds = active.getBoundingClientRect(),
+                viewport = stage.getBoundingClientRect();
+              return (
+                stage.scrollLeft === 0 &&
+                stage.scrollTop === 0 &&
+                overlay.scrollLeft === 0 &&
+                overlay.scrollTop === 0 &&
+                bounds.left >= viewport.left &&
+                bounds.right <= viewport.right &&
+                bounds.top >= viewport.top &&
+                bounds.bottom <= viewport.bottom
+              );
+            })
+          )
+          .toBe(true);
+        expect(new URL(page.url()).searchParams.get("focus")).toBe(focusBefore);
+        await graph.locator('input[type="search"]').press("Enter");
+      }
+      // Pointer gestures over the HTML card must still reach the canvas beneath it.
+      const card = graph.locator(".relationships-node.selected");
+      const layer = graph.locator(".relationships-node-layer");
+      await graph.locator(".relationships-stage").scrollIntoViewIfNeeded();
+      await card.scrollIntoViewIfNeeded();
+      const before = await layer.getAttribute("style");
+      const cardStyle = await card.getAttribute("style");
+      await card.evaluate((element) => element.setAttribute("data-pan-preserved", "true"));
+      const bounds = (await card.boundingBox())!;
+      const stageBounds = (await graph.locator(".relationships-stage").boundingBox())!;
+      const point = {
+        x:
+          (Math.max(bounds.x, stageBounds.x, 0) +
+            Math.min(bounds.x + bounds.width, stageBounds.x + stageBounds.width, width)) /
+          2,
+        y:
+          (Math.max(bounds.y, stageBounds.y, 0) +
+            Math.min(
+              bounds.y + bounds.height,
+              stageBounds.y + stageBounds.height,
+              width < 600 ? 844 : 900
+            )) /
+          2,
+      };
+      expect(
+        await page.evaluate(
+          ({ x, y }) => Boolean(document.elementFromPoint(x, y)?.closest(".relationships-canvas")),
+          point
+        )
+      ).toBe(true);
+      // Cytoscape deliberately ignores wheel zoom for 250 ms after an ancestor
+      // scroll; wait for its real scroll guard instead of sending into it.
+      await expect
+        .poll(() =>
+          graph.locator(".relationships-canvas").evaluate((element) => {
+            const cy = (
+              element as HTMLDivElement & {
+                _cyreg: { cy: Core & { renderer(): { scrollingPage?: boolean } } };
+              }
+            )._cyreg.cy;
+            return Boolean(cy.renderer().scrollingPage);
+          })
+        )
+        .toBe(false);
+      await page.mouse.move(point.x, point.y);
+      const panBefore = await graph
+        .locator(".relationships-canvas")
+        .evaluate((element) =>
+          (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan()
+        );
+      await page.mouse.down();
+      await page.mouse.move(point.x + 36, point.y + 24, { steps: 8 });
+      const panAfter = await graph
+        .locator(".relationships-canvas")
+        .evaluate((element) =>
+          (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan()
+        );
+      expect(panAfter.x - panBefore.x).toBeCloseTo(36 * 1.5, 0);
+      expect(panAfter.y - panBefore.y).toBeCloseTo(24 * 1.5, 0);
+      await page.mouse.up();
+      const readPan = () =>
+        graph.locator(".relationships-canvas").evaluate((element) => ({
+          ...(element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan(),
+        }));
+      await expect.poll(async () => (await readPan()).x).toBeGreaterThan(panAfter.x + 3);
+      // A fresh press stops inertia immediately, without waiting for a drag.
+      await page.mouse.down();
+      const stopped = await readPan();
+      await page.waitForTimeout(100);
+      expect(await readPan()).toEqual(stopped);
+      await page.mouse.up();
+      if (width === 1440 && theme === "dark") {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await page.mouse.down();
+        await page.mouse.move(point.x + 48, point.y + 32, { steps: 4 });
+        await page.mouse.up();
+        const reduced = await readPan();
+        await page.waitForTimeout(100);
+        expect(await readPan()).toEqual(reduced);
+        await page.emulateMedia({ reducedMotion: "no-preference" });
+        // Holding a gesture still before release must not cause a stale flick.
+        await page.mouse.down();
+        await page.mouse.move(point.x + 60, point.y + 40, { steps: 4 });
+        await page.waitForTimeout(120);
+        await page.mouse.up();
+        const held = await readPan();
+        await page.waitForTimeout(100);
+        expect(await readPan()).toEqual(held);
+        // A pause before movement must not dilute the velocity of a fresh flick.
+        await page.mouse.down();
+        await page.waitForTimeout(150);
+        await page.mouse.move(point.x + 72, point.y + 48, { steps: 4 });
+        const flick = await readPan();
+        await page.mouse.up();
+        await expect.poll(async () => (await readPan()).x).toBeGreaterThan(flick.x + 3);
+        await page.mouse.down();
+        await page.mouse.up();
+      }
+      await expect(layer).not.toHaveAttribute("style", before!);
+      await expect(card).toHaveAttribute("style", cardStyle!);
+      await expect(card).toHaveAttribute("data-pan-preserved", "true");
+      if ((width === 390 || width === 1440) && theme === "dark") {
+        const canvas = graph.locator(".relationships-canvas");
+        const box = (await canvas.boundingBox())!;
+        const touch = { x: box.x + box.width / 2, y: Math.max(70, Math.min(box.y + 120, 760)) };
+        const touchInitial = await canvas.evaluate((element) => {
+          const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+          return { pan: { ...cy.pan() }, zoom: cy.zoom() };
+        });
+        const session = await page.context().newCDPSession(page);
+        try {
+          await session.send("Input.dispatchTouchEvent", {
+            type: "touchStart",
+            touchPoints: [{ ...touch, id: 1 }],
+          });
+          // Cross the browser/Cytoscape touch threshold before measuring the
+          // steady drag: the native initial threshold delta depends on zoom.
+          await session.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x: touch.x + 20, y: touch.y + 10, id: 1 }],
+          });
+          await expect
+            .poll(() =>
+              canvas.evaluate(
+                (element) =>
+                  (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan().x
+              )
+            )
+            .not.toBe(touchInitial.pan.x);
+          const touchBefore = await canvas.evaluate((element) => {
+            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
+          });
+          for (let step = 1; step <= 8; step++) {
+            await session.send("Input.dispatchTouchEvent", {
+              type: "touchMove",
+              touchPoints: [{ x: touch.x + 20 + step * 5, y: touch.y + 10 + step * 2.5, id: 1 }],
+            });
+          }
+          const touchAfter = await canvas.evaluate((element) => {
+            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
+          });
+          expect(touchAfter.pan.x - touchBefore.pan.x).toBeCloseTo(40 * 1.5, 0);
+          expect(touchAfter.pan.y - touchBefore.pan.y).toBeCloseTo(20 * 1.5, 0);
+          expect(touchAfter.zoom).toBe(touchBefore.zoom);
+          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect.poll(async () => (await readPan()).x).toBeGreaterThan(touchAfter.pan.x + 2);
+          // Two fingers retain native 1:1 translation and the exact pinch ratio.
+          const start = [
+            { x: touch.x - 110, y: touch.y, id: 1 },
+            { x: touch.x + 110, y: touch.y, id: 2 },
+          ];
+          await session.send("Input.dispatchTouchEvent", {
+            type: "touchStart",
+            touchPoints: start,
+          });
+          const pinchBefore = await canvas.evaluate((element) => {
+            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
+          });
+          await session.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [
+              { x: touch.x - 132, y: touch.y, id: 1 },
+              { x: touch.x + 132, y: touch.y, id: 2 },
+            ],
+          });
+          await session.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [
+              { x: touch.x - 132 + 10, y: touch.y + 6, id: 1 },
+              { x: touch.x + 132 + 10, y: touch.y + 6, id: 2 },
+            ],
+          });
+          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          const pinched = await canvas.evaluate((element) => {
+            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
+          });
+          expect(pinched.zoom / pinchBefore.zoom).toBeCloseTo(1.2, 2);
+          expect(pinched.pan.x).toBeCloseTo(
+            1.2 * pinchBefore.pan.x - 0.2 * (touch.x - box.x) + 10,
+            0
+          );
+          expect(pinched.pan.y).toBeCloseTo(
+            1.2 * pinchBefore.pan.y - 0.2 * (touch.y - box.y) + 6,
+            0
+          );
+        } finally {
+          await session.detach();
+        }
+        await expect
+          .poll(() =>
+            card.evaluate((element) => {
+              const canvas = element
+                .closest(".relationships-stage")!
+                .querySelector(".relationships-canvas") as HTMLDivElement & {
+                _cyreg: { cy: Core };
+              };
+              const point = canvas._cyreg.cy
+                .getElementById(element.getAttribute("data-graph-user-id")!)
+                .renderedPosition();
+              const bounds = element.getBoundingClientRect(),
+                viewport = canvas.getBoundingClientRect();
+              return Math.max(
+                Math.abs(bounds.x + bounds.width / 2 - viewport.x - point.x),
+                Math.abs(bounds.y + bounds.height / 2 - viewport.y - point.y)
+              );
+            })
+          )
+          .toBeLessThan(1);
+        await expect(card).toHaveAttribute("data-pan-preserved", "true");
+      }
+      await expect
+        .poll(() =>
+          card.evaluate((element) => {
+            const canvas = element
+              .closest(".relationships-stage")!
+              .querySelector(".relationships-canvas") as HTMLDivElement & { _cyreg: { cy: Core } };
+            const point = canvas._cyreg.cy
+              .getElementById(element.getAttribute("data-graph-user-id")!)
+              .renderedPosition();
+            const box = element.getBoundingClientRect(),
+              stage = canvas.getBoundingClientRect();
+            return Math.max(
+              Math.abs(box.x + box.width / 2 - stage.x - point.x),
+              Math.abs(box.y + box.height / 2 - stage.y - point.y)
+            );
+          })
+        )
+        .toBeLessThan(1);
+      const beforeWheel = await layer.getAttribute("style");
+      const wheelPoint = { x: Math.round(point.x), y: Math.round(point.y) };
+      await page.mouse.move(wheelPoint.x, wheelPoint.y);
+      const wheelBefore = await graph
+        .locator(".relationships-canvas")
+        .evaluate((element, pointer) => {
+          const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+          const box = element.getBoundingClientRect();
+          return {
+            zoom: cy.zoom(),
+            x: (pointer.x - box.x - cy.pan().x) / cy.zoom(),
+            y: (pointer.y - box.y - cy.pan().y) / cy.zoom(),
+          };
+        }, wheelPoint);
+      await page.mouse.wheel(0, -160);
+      await expect(layer).not.toHaveAttribute("style", beforeWheel!);
+      await expect
+        .poll(() =>
+          graph
+            .locator(".relationships-canvas")
+            .evaluate((element) =>
+              (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.zoom()
+            )
+        )
+        .toBeGreaterThanOrEqual(wheelBefore.zoom * 1.12);
+      const wheelAfter = await graph
+        .locator(".relationships-canvas")
+        .evaluate((element, pointer) => {
+          const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+          const box = element.getBoundingClientRect();
+          return {
+            zoom: cy.zoom(),
+            x: (pointer.x - box.x - cy.pan().x) / cy.zoom(),
+            y: (pointer.y - box.y - cy.pan().y) / cy.zoom(),
+          };
+        }, wheelPoint);
+      expect(wheelAfter.zoom).toBeLessThanOrEqual(wheelBefore.zoom * 1.25 + 0.000001);
+      expect(wheelAfter.x).toBeCloseTo(wheelBefore.x, 4);
+      expect(wheelAfter.y).toBeCloseTo(wheelBefore.y, 4);
+      await page.mouse.wheel(0, 160);
+      await expect
+        .poll(() =>
+          graph
+            .locator(".relationships-canvas")
+            .evaluate((element) =>
+              (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.zoom()
+            )
+        )
+        .toBeCloseTo(wheelBefore.zoom, 4);
+      await expect(card).toHaveAttribute("style", cardStyle!);
+      await expect(card).toHaveAttribute("data-pan-preserved", "true");
+      const focusedCards = await graph.locator(".relationships-node").count();
+      await graph.getByRole("button", { name: /Весь граф|Fit graph/, exact: true }).click();
+      await expect
+        .poll(() => graph.locator(".relationships-node").count())
+        .toBeGreaterThan(focusedCards);
+      const overviewCards = await graph.locator(".relationships-node").count();
+      await page.locator(".admin-main").evaluate((element) => element.scrollTo({ top: 0 }));
+      await page.screenshot({
+        path: testInfo.outputPath(`relationships-overview-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+      await graph.locator('input[type="search"]').press("Enter");
+      await expect
+        .poll(() => graph.locator(".relationships-node").count())
+        .toBeLessThan(overviewCards);
+      await graph
+        .locator(".relationships-stage")
+        .screenshot({ path: testInfo.outputPath(`relationships-${theme}-${width}.png`) });
+      await graph
+        .locator(".relationships-selection")
+        .screenshot({ path: testInfo.outputPath(`relationships-user-${theme}-${width}.png`) });
+      await page.locator(".admin-main").evaluate((element) => element.scrollTo({ top: 0 }));
+      await page.screenshot({
+        path: testInfo.outputPath(`relationships-screen-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+      if (width < 1000) {
+        await graph.locator(".relationships-selection").scrollIntoViewIfNeeded();
+        await page.screenshot({
+          path: testInfo.outputPath(`relationships-details-screen-${theme}-${width}.png`),
+          fullPage: true,
+          animations: "disabled",
+        });
+      }
+      await noOverflow(graph);
+      await graph.getByRole("button", { name: /Снять выделение|Clear selection/ }).click();
+      await expect(graph.locator(".relationships-selection")).toHaveCount(0);
+      await expect(page).not.toHaveURL(/focus=/);
+      await graph.locator('input[type="search"]').press("Enter");
+      const parallel = geometry.find((route, index) =>
+        geometry.some(
+          (other, otherIndex) =>
+            index !== otherIndex && route.source === other.source && route.target === other.target
+        )
+      );
+      if (parallel) {
+        await graph.locator(".relationships-canvas").evaluate((element, pair) => {
+          const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+          cy.fit(cy.getElementById(pair.source).union(cy.getElementById(pair.target)), 32);
+        }, parallel);
+        await page.locator(".admin-main").evaluate((element) => element.scrollTo({ top: 0 }));
+        await page.screenshot({
+          path: testInfo.outputPath(`relationships-parallel-${theme}-${width}.png`),
+          fullPage: true,
+          animations: "disabled",
+        });
+      }
+      // Filters reuse the complete layout and hide users without matching edges.
+      const loadedWorkers = workers,
+        loadedRequests = graphRequests;
+      const initial = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+        const referrals = new Set(
+          cy
+            .edges('[kind="referral"]')
+            .connectedNodes()
+            .map((node) => node.id())
+        );
+        const partners = new Set(
+          cy
+            .edges('[kind="partner"]')
+            .connectedNodes()
+            .map((node) => node.id())
+        );
+        return {
+          nodes: cy.nodes().length,
+          referrals: referrals.size,
+          partners: partners.size,
+          referralOnly: [...referrals].find((id) => !partners.has(id))!,
+          positions: cy.nodes().map((node) => ({ id: node.id(), ...node.position() })),
+        };
+      });
+      expect(initial.referrals).not.toBe(initial.partners);
+      const filter = graph.getByRole("button", { name: /Связи|Connections/, exact: true });
+      await filter.click();
+      await expect(page.getByRole("listbox")).toBeVisible();
+      expect(
+        await page
+          .getByRole("listbox")
+          .evaluate((element) => getComputedStyle(element).backgroundImage)
+      ).toBe("none");
+      await page.screenshot({
+        path: testInfo.outputPath(`relationships-filter-menu-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+      await page.getByRole("option", { name: /Рефералы|Referrals/, exact: true }).click();
+      await expect(page).toHaveURL(/graph_kind=referral/);
+      await expect
+        .poll(() =>
+          graph.locator(".relationships-canvas").evaluate((element) => {
+            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+            return cy.nodes(":visible").length;
+          })
+        )
+        .toBe(initial.referrals);
+      await expect(
+        graph.locator('.relationships-selection li[data-relationship-kind="partner"]')
+      ).toHaveCount(0);
+      await graph.locator('input[type="search"]').fill(initial.referralOnly);
+      await graph.locator('input[type="search"]').press("Enter");
+      await expect(graph.locator(".relationships-node.selected")).toHaveAttribute(
+        "data-graph-user-id",
+        initial.referralOnly
+      );
+      await filter.click();
+      await page.getByRole("option", { name: /Партнёры|Partners/, exact: true }).click();
+      await expect(page).toHaveURL(/graph_kind=partner/);
+      await expect(page).not.toHaveURL(/focus=/);
+      await expect(graph.locator(".relationships-selection")).toHaveCount(0);
+      await expect(graph.locator(".relationships-list summary")).toContainText("0");
+      await expect(graph.getByRole("button", { name: /Найти|Find/, exact: true })).toBeDisabled();
+      const filtered = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
+        return {
+          nodes: cy.nodes(":visible").length,
+          kinds: cy.edges(":visible").map((edge) => edge.data("kind")),
+          positions: cy.nodes().map((node) => ({ id: node.id(), ...node.position() })),
+        };
+      });
+      expect(filtered.nodes).toBe(initial.partners);
+      expect(filtered.kinds.every((kind) => kind === "partner")).toBe(true);
+      expect(filtered.positions).toEqual(initial.positions);
+      expect(workers).toBe(loadedWorkers);
+      expect(graphRequests).toBe(loadedRequests);
+      await page.locator(".admin-main").evaluate((element) => element.scrollTo({ top: 0 }));
+      await page.screenshot({
+        path: testInfo.outputPath(`relationships-partners-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+      await page.reload();
+      await expect(filter).toContainText(/Партнёры|Partners/);
+      await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
+      await page.goBack();
+      await expect(filter).toContainText(/Рефералы|Referrals/);
+      await expect(graph.locator(".relationships-node.selected")).toHaveAttribute(
+        "data-graph-user-id",
+        initial.referralOnly
+      );
+      await page.goForward();
+      await expect(filter).toContainText(/Партнёры|Partners/);
+      await expect(graph.locator(".relationships-selection")).toHaveCount(0);
+      await filter.click();
+      await page.getByRole("option", { name: /Все|All/, exact: true }).click();
+      await expect(page).not.toHaveURL(/graph_kind=/);
+      await expect
+        .poll(() =>
+          graph
+            .locator(".relationships-canvas")
+            .evaluate(
+              (element) =>
+                (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.nodes(":visible")
+                  .length
+            )
+        )
+        .toBe(initial.nodes);
+      await graph.locator('input[type="search"]').fill("910001");
+      await graph.locator('input[type="search"]').press("Enter");
+      await page.reload();
+      await expect(graph.locator(".relationships-node.selected")).toHaveAttribute(
+        "data-graph-user-id",
+        "910001"
+      );
+      await graph
+        .getByRole("button", { name: /К списку пользователей|Back to users/, exact: true })
+        .click();
+      await expect(page.locator('[data-admin-action="open-relationships-graph"]')).toBeVisible();
+      await expect(page).not.toHaveURL(/graph_kind=/);
+      await page.screenshot({
+        path: testInfo.outputPath(`users-list-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+      await page.goBack();
+      await expect(graph).toBeVisible();
+      await page.goto(`/demo/runtime/admin/users?theme_preview=${theme}&view=relationships`);
+      await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
+      await expect(graph.locator(".relationships-node.selected")).toHaveCount(0);
+      await page.screenshot({
+        path: testInfo.outputPath(`relationships-default-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+      if (width === 320 || width === 1440) {
+        await page.goto(
+          `/demo/runtime/admin/users?theme_preview=${theme}&view=relationships&focus=910001&relationships_scenario=long-identity`
+        );
+        await expect(graph.locator(".relationships-selection")).toContainText(
+          "alexandra.rozhdestvenskaya+partner.operations@very-long-domain.example.com"
+        );
+        await noOverflow(graph);
+        await page.screenshot({
+          path: testInfo.outputPath(`relationships-long-${theme}-${width}.png`),
+          fullPage: true,
+          animations: "disabled",
+        });
+        if (width === 320) {
+          await graph.locator(".relationships-selection").scrollIntoViewIfNeeded();
+          await page.screenshot({
+            path: testInfo.outputPath(`relationships-long-details-${theme}-${width}.png`),
+            fullPage: true,
+            animations: "disabled",
+          });
+        }
+      }
+      expect(errors).toEqual([]);
+    });
+  }
+}
+
+test("relationship graph omits isolated users and recovers from worker failures", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/demo/runtime/admin/users/910370?theme_preview=dark");
+  await expect(page.locator(".admin-user-detail-page")).toBeVisible();
+  await expect(page.locator('[data-admin-action="show-in-relationships-graph"]')).toHaveCount(0);
+  await page.goto("/demo/runtime/admin/users?theme_preview=dark&view=relationships&focus=910370");
+  const graph = page.locator("[data-relationships-graph]");
+  await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
+  await expect(graph.getByRole("status")).toContainText(/нет связей|no connections/);
+  await expect(graph.locator('[data-graph-user-id="910370"]')).toHaveCount(0);
+  const workerPattern = "**/subscription_webapp_admin.relationships-layout.*.js";
+  await page.route(workerPattern, (route) => route.abort());
+  await page.reload();
+  await expect(graph.getByRole("alert")).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("relationships-error-screen.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+  await page.unroute(workerPattern);
+  await graph.getByRole("button", { name: /Обновить|Refresh/, exact: true }).click();
+  await expect(graph.getByRole("alert")).toHaveCount(0);
+  await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
+  await expect(graph.locator(".relationships-node").first()).toBeVisible();
+  await page.goto("/demo/runtime/admin/partners/partner/10001?theme_preview=dark");
+  await page.locator('[data-admin-action="show-partner-in-relationships-graph"]').click();
+  await expect(graph.locator(".relationships-node.selected")).toHaveAttribute(
+    "data-graph-user-id",
+    "910001"
+  );
+  await page.goto(
+    "/demo/runtime/admin/users?theme_preview=light&view=relationships&relationships_scenario=empty"
+  );
+  await expect(graph.locator(".admin-empty")).toContainText(/связей пока нет|connections yet/);
+  await expect(graph.locator(".relationships-stage")).toBeHidden();
+  const filter = graph.getByRole("button", { name: /Связи|Connections/, exact: true });
+  await filter.click();
+  await page.getByRole("option", { name: /Партнёры|Partners/, exact: true }).click();
+  await expect(filter).toBeEnabled();
+  await expect(page).toHaveURL(/graph_kind=partner/);
+  await filter.click();
+  await page.getByRole("option", { name: /Все|All/, exact: true }).click();
+  await expect(page).not.toHaveURL(/graph_kind=/);
+  await page.screenshot({
+    path: testInfo.outputPath("relationships-empty-screen.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+});
 
 for (const width of [1440, 768, 390]) {
   test(`hosted payment methods stay inside provider cards at ${width}px`, async ({
@@ -528,7 +1238,7 @@ for (const [device, viewport] of [
       await page.locator(".admin-users-filter-toggle").click();
       const dialog = page.locator(".admin-users-filter-dialog");
       await expect(dialog).toBeVisible();
-      await dialog.locator(".admin-select-trigger").first().click();
+      await dialog.locator('.admin-select-trigger[aria-label="Фильтр"]').click();
       const menu = page.locator(".admin-select-content[data-state='open']");
       const menuViewport = menu.locator(".admin-select-viewport");
       await expect(page.getByRole("option").first()).toBeVisible();
@@ -549,6 +1259,18 @@ for (const [device, viewport] of [
 
     await page.goto(adminUrl("gifts"));
     await expect(page.locator(".admin-pagination-jump-input")).toBeVisible();
+    const currentPage = page.locator(".admin-pagination-page[aria-current='page']");
+    await expect(currentPage).toHaveCount(1);
+    const selectedColor = await currentPage.evaluate(
+      (button) => getComputedStyle(button).backgroundColor
+    );
+    for (const button of await page
+      .locator(".admin-pagination-page:not([aria-current='page'])")
+      .all()) {
+      expect(await button.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(
+        selectedColor
+      );
+    }
     const paginationHeights = await page
       .locator(".admin-pagination input, .admin-pagination button")
       .evaluateAll((nodes) =>
@@ -614,7 +1336,7 @@ for (const [device, viewport] of [
   test(`shared copy field, payment provider and manual controls render on ${device}`, async ({
     page,
     context,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     // Keep the actual UI; seed the operation and both confirmation variants.
@@ -650,6 +1372,8 @@ for (const [device, viewport] of [
                       can_manual_finalize: true,
                       can_reverse: true,
                       manual_finalize_requires_promo_confirmation: true,
+                      manual_finalize_requires_context_confirmation: true,
+                      manual_finalize_warnings: ["active_subscription_end_changed"],
                       promo_code_id: 14,
                     },
                   };
@@ -704,7 +1428,18 @@ for (const [device, viewport] of [
     await expect(confirm).toBeDisabled();
     await conflict.press("Space");
     await expect(conflict).toBeChecked();
+    await expect(confirm).toBeDisabled();
+    const contextConfirmation = paymentDialog.getByRole("checkbox", {
+      name: /История проверена: эта покупка ещё не начислена/,
+    });
+    await expect(contextConfirmation).toHaveClass(/ui-checkbox/);
+    await contextConfirmation.press("Space");
+    await expect(contextConfirmation).toBeChecked();
     await expect(confirm).toBeEnabled();
+    await noOverflow(paymentDialog);
+    await paymentDialog.screenshot({
+      path: testInfo.outputPath(`payment-confirmation-${device}.png`),
+    });
     await paymentDialog.getByRole("button", { name: "Отмена", exact: true }).click();
     await paymentDialog.getByRole("button", { name: "Отменить платёж", exact: true }).click();
     const restore = paymentDialog.getByRole("checkbox", {

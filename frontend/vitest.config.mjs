@@ -1,3 +1,4 @@
+import { availableParallelism } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,7 +28,10 @@ export default defineConfig({
   },
   test: {
     fsModuleCache: true,
+    // Transform requests share one Vite server; extra workers add contention.
+    // Keep file isolation and allow an explicit --maxWorkers override.
+    maxWorkers: Math.min(4, availableParallelism()),
     environment: "node",
-    include: ["src/**/*.{test,spec}.{js,ts}", "e2e/ports.test.mjs"],
+    include: ["src/**/*.{test,spec}.{js,ts}", "e2e/*.test.mjs"],
   },
 });

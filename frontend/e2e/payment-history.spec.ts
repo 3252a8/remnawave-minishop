@@ -1,4 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function expectCurrentPage(page: Page, number: number) {
+  const pages = page.locator(".webapp-pagination .admin-pagination-page");
+  await expect(page.locator(".webapp-pagination [aria-current='page']")).toHaveText(String(number));
+  await expect(page.locator(".webapp-pagination [aria-current='page']")).toHaveCount(1);
+  const colors = await pages.evaluateAll((buttons) =>
+    buttons.map((button) => ({
+      active: button.getAttribute("aria-current") === "page",
+      background: getComputedStyle(button).backgroundColor,
+    }))
+  );
+  const selectedColor = colors.find((button) => button.active)?.background;
+  expect(selectedColor).toBeDefined();
+  expect(colors.filter((button) => !button.active).length).toBeGreaterThan(0);
+  for (const button of colors.filter((button) => !button.active)) {
+    expect(button.background).not.toBe(selectedColor);
+  }
+}
 
 for (const width of [1440, 390]) {
   test.describe(`payment history at ${width}px`, () => {
@@ -19,6 +37,7 @@ for (const width of [1440, 390]) {
       ).toBeVisible();
       const rows = page.locator("[data-payment-history-id]");
       await expect(rows).toHaveCount(10);
+      await expectCurrentPage(page, 1);
       const paginationHeights = await page
         .locator(".webapp-pagination input, .webapp-pagination button")
         .evaluateAll((nodes) =>
@@ -91,6 +110,7 @@ for (const width of [1440, 390]) {
       await page.getByRole("button", { name: "Далее", exact: true }).click();
       await expect(rows.first()).not.toHaveAttribute("data-payment-history-id", firstId!);
       await expect(rows).toHaveCount(3);
+      await expectCurrentPage(page, 2);
       await page.getByRole("button", { name: "Назад", exact: true }).first().click();
       await expect(page.locator(".settings-row-payments")).toBeVisible();
       const sidebar = page.locator(
@@ -131,6 +151,34 @@ for (const width of [1440, 390]) {
       await expect(page.locator("[data-payment-history-id]")).toHaveCount(0);
     });
   });
+}
+
+for (const width of [1440, 390]) {
+  for (const language of ["ru", "en"] as const) {
+    test(`payment history localizes top-ups and retains failed payments at ${width}px in ${language}`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript((lang) => {
+        localStorage.setItem("rw_minishop_demo_language", lang);
+      }, language);
+      await page.goto("/demo/runtime/settings/payments?theme_preview=dark");
+      await expect(
+        page.getByText(language === "ru" ? "Пополнение баланса" : "Balance top-up", { exact: true })
+      ).toBeVisible();
+      const failed = page.locator("[data-payment-history-id]").filter({
+        has: page.getByRole("button", {
+          name: language === "ru" ? "Платёж не завершён" : "Payment incomplete",
+          exact: true,
+        }),
+      });
+      await expect(failed).toHaveCount(1);
+      await expectCurrentPage(page, 1);
+      await page.screenshot({
+        path: testInfo.outputPath(`payment-history-${width}-${language}.png`),
+      });
+    });
+  }
 }
 
 for (const width of [1440, 780, 390]) {

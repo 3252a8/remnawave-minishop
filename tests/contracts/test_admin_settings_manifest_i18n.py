@@ -203,14 +203,18 @@ def _has_locale_key(messages: dict[str, str], key: str) -> bool:
     return resolve_locale_key(key) in messages
 
 
-def test_webapp_title_is_first_general_admin_setting():
+def test_maintenance_precedes_webapp_title_in_general_admin_settings():
     items = _manifest_items()
     manifest = {item["key"]: item for item in items}
     field = manifest["WEBAPP_TITLE"]
 
     assert field["section"] == "general"
     assert field["section_order"] == 1
-    assert next(item["key"] for item in items if item["section"] == "general") == "WEBAPP_TITLE"
+    assert field["label"] == "Web App title"
+    assert [item["key"] for item in items if item["section"] == "general"][:2] == [
+        "MAINTENANCE_MODE_ENABLED",
+        "WEBAPP_TITLE",
+    ]
 
 
 def test_webapp_session_lifetime_is_editable_in_general_settings():
@@ -749,7 +753,11 @@ def test_payment_provider_logo_assets_are_local_png_files():
         logo_path = REPO_ROOT / "frontend" / "public" / logo_url.removeprefix("/")
         assert logo_path.is_file()
         with logo_path.open("rb") as fh:
-            assert fh.read(len(PNG_SIGNATURE)) == PNG_SIGNATURE
+            header = fh.read(24)
+            assert header.startswith(PNG_SIGNATURE)
+            if logo_url == "/provider-logos/oxapay.png":
+                assert int.from_bytes(header[16:20], "big") >= 96
+                assert int.from_bytes(header[20:24], "big") >= 96
 
 
 def test_payment_provider_settings_i18n_keys_exist_in_admin_locales():

@@ -401,6 +401,13 @@
   flex-shrink: 0;
 }
 
+.admin-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 .admin-section-stage {
   display: flex;
   flex-direction: column;

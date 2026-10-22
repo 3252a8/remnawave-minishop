@@ -5,8 +5,10 @@ import {
   adminPartnersDeepLinkFromPath,
   adminSectionFromPath,
   adminUserIdFromPath,
+  isSupportCreatePath,
   normalizeAdminSection,
   sectionFromPath,
+  supportTicketIdFromPath,
 } from "./routes";
 
 describe("admin user links", () => {
@@ -37,6 +39,21 @@ describe("sectionFromPath", () => {
     expect(sectionFromPath("/demo/runtime/settings/notifications", "/demo/runtime")).toBe(
       "notifications"
     );
+  });
+});
+
+describe("support create routes", () => {
+  it("recognizes the dedicated create path with normalized prefixes and trailing slashes", () => {
+    expect(isSupportCreatePath("/support/new")).toBe(true);
+    expect(isSupportCreatePath("/demo/runtime/SUPPORT/NEW/", "/demo/runtime")).toBe(true);
+    expect(sectionFromPath("/demo/runtime/support/new", "/demo/runtime")).toBe("support");
+  });
+
+  it("keeps creation separate from ticket IDs and rejects nested or similar paths", () => {
+    expect(supportTicketIdFromPath("/support/new")).toBeNull();
+    for (const path of ["/support", "/support/42", "/support/news", "/support/new/more"]) {
+      expect(isSupportCreatePath(path)).toBe(false);
+    }
   });
 });
 

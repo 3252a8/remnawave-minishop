@@ -1,6 +1,10 @@
 <script lang="ts">
   import { DollarSign, UsersRound } from "$components/ui/icons.js";
-  import { AdminBadge, AdminUserCell } from "$components/patterns/admin/index.js";
+  import {
+    AdminBadge,
+    AdminUserCell,
+    AdminSubscriptionPlan,
+  } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
 
@@ -16,6 +20,7 @@
 
   let {
     at,
+    currentLang,
     user,
     onopen,
     resolvedAvatarUrl,
@@ -32,6 +37,7 @@
     fmtDateShort,
   }: {
     at: TranslateFn;
+    currentLang: string;
     user: AdminUser;
     onopen: () => void;
     resolvedAvatarUrl: (user: AdminUser) => string;
@@ -79,6 +85,10 @@
     </div>
 
     <dl class="admin-user-mobile-metrics">
+      <div class="admin-user-mobile-plan">
+        <dt>{at("users_col_tariff", {}, "Tariff / trial")}</dt>
+        <dd><AdminSubscriptionPlan plan={user.subscription_plan} {at} {currentLang} /></dd>
+      </div>
       {#if userBalanceEnabled}
         <div>
           <dt>{at("users_col_user_balance", {}, "Balance")}</dt>
@@ -144,6 +154,9 @@
 </li>
 
 <style>
+  .admin-user-mobile-metrics > .admin-user-mobile-plan {
+    grid-column: 1 / -1;
+  }
   .admin-user-mobile-card {
     display: grid;
     gap: 10px;

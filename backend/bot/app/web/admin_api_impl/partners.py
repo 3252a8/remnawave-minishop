@@ -27,6 +27,7 @@ from bot.services.partner_common import PartnerError, compact_json, currency_sca
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.partner_withdrawal_service import PartnerWithdrawalService
 from db.dal import partner_dal, partner_profile_reporting_dal, user_dal, user_reads_dal
+from db.dal.user_relationships_dal import has_user_relationships
 
 from ..partner_serialization import (
     application_out,
@@ -292,6 +293,11 @@ async def admin_partner_detail_route(request: web.Request) -> web.Response:
         if not profile:
             return _error(404, "partner_not_found")
         partner = await _profile_payload(session, profile, currency=currency)
+        has_relationships = (
+            await has_user_relationships(session, int(profile.user_id))
+            if profile.user_id is not None
+            else False
+        )
         clients, clients_total = await partner_dal.list_clients(
             session,
             partner_id,
@@ -345,6 +351,7 @@ async def admin_partner_detail_route(request: web.Request) -> web.Response:
     return _ok(
         {
             "partner": partner,
+            "has_relationships": has_relationships,
             "clients": [
                 {
                     "partner_client_id": int(client.partner_client_id),

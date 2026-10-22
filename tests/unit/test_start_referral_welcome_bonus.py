@@ -18,6 +18,8 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         values = {
             "DEFAULT_LANGUAGE": "en",
             "ADMIN_IDS": [],
+            "BOOTSTRAP_OWNER_TELEGRAM_ID": None,
+            "BOOTSTRAP_OWNER_EMAIL": None,
             "DISABLE_WELCOME_MESSAGE": False,
             "REGISTRATION_INVITE_ONLY_ENABLED": False,
             "LEGACY_REFS": True,

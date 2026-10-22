@@ -411,6 +411,7 @@
       usersFilter: usersStore.usersFilter,
       usersPanelStatus: usersStore.usersPanelStatus,
       usersPremiumTraffic: usersStore.usersPremiumTraffic,
+      usersTariffFilter: usersStore.usersTariffFilter,
     });
   }
 
@@ -449,10 +450,11 @@
     if (active === "users") replaceCurrentUsersRouteFilters(filters);
   }
 
-  function openUsersFilter(filter: UsersFilter): void {
+  function openUsersFilter(filter: UsersFilter, tariffFilter = "all"): void {
     const filters = normalizeUsersRouteFilters({
       ...DEFAULT_USERS_ROUTE_FILTERS,
       usersFilter: filter,
+      usersTariffFilter: tariffFilter,
     });
     applyUsersRouteFilters(filters, { resetQuery: true });
     sidebarOpen = false;

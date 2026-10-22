@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from config.extension_targets import extension_page_parts
 from config.information_pages import normalize_information_page_path
+from config.install_targets import install_target_params
 from config.link_targets import is_telegram_button_link, normalize_button_link
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,13 @@ class MenuButton(BaseModel):
     show_in_bot: bool = True
     show_in_telegram_webapp: bool = True
     show_in_browser: bool = True
+    platform: str = ""
+    app: str = ""
+
+    @field_validator("platform", "app", mode="before")
+    @classmethod
+    def normalize_install_target(cls, value: Any) -> str:
+        return str(value or "").strip()
 
     @model_validator(mode="before")
     @classmethod
@@ -287,6 +295,11 @@ def public_menu_buttons(
                 button,
                 language,
                 default_language=default_language,
+            ),
+            **(
+                install_target_params(button.platform, button.app)
+                if button.kind == "webapp" and button.target == "install"
+                else {}
             ),
         }
         for button in configured_menu_buttons(raw)

@@ -29,12 +29,15 @@
     WithdrawalRow,
   } from "$lib/admin/previewMock/partnerProgram.js";
   import PartnerDetailActivity from "./PartnerDetailActivity.svelte";
+  import { openUserRelationshipsGraph } from "$lib/admin/userRelationships";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type DetailView = "partner_detail" | "application_detail" | "withdrawal_detail";
   type DialogKind = "" | "create" | "rate" | "balance" | "import" | "status" | "link";
 
   let {
+    routePrefix,
+    hasRelationships,
     at,
     view,
     selectedPartner,
@@ -70,6 +73,8 @@
     approvalWelcome = $bindable(),
     rejectMessage = $bindable(),
   }: {
+    routePrefix: string;
+    hasRelationships: boolean;
     at: TranslateFn;
     view: DetailView;
     selectedPartner: PartnerRow;
@@ -129,6 +134,15 @@
         onclick={() => onOpenUserCard(selectedPartner.userId)}
       />
       <div class="partners-detail-head-meta">
+        {#if hasRelationships}
+          <AdminButton
+            size="sm"
+            data-admin-action="show-partner-in-relationships-graph"
+            onclick={() => openUserRelationshipsGraph(selectedPartner.userId, routePrefix)}
+          >
+            {at("relationships_show_user", {}, "Show in graph")}
+          </AdminButton>
+        {/if}
         <AdminBadge variant={partnerStatusVariant(selectedPartner.status)}>
           {statusLabel(selectedPartner.status)}
         </AdminBadge>

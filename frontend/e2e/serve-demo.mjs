@@ -67,6 +67,12 @@ function runDemoBuild() {
       cwd: docsSiteRoot,
       stdio: "inherit",
       shell: isWindows,
+      env: {
+        ...process.env,
+        MINISHOP_DEMO_INSTALL_GUIDES_CONFIG: fileURLToPath(
+          new URL("./fixtures/install-guides.json", import.meta.url)
+        ),
+      },
     });
     child.on("error", reject);
     child.on("exit", (code) => {

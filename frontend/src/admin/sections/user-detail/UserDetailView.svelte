@@ -241,6 +241,7 @@
       {#snippet details()}
         {#if openedUserDetail}
           <UserDetailFacts
+            {routePrefix}
             {at}
             {usersStore}
             {openedUser}

@@ -772,6 +772,7 @@ def _extract_provider_id(response_data: dict) -> str | None:
 
 SPEC = PaymentProviderSpec(
     id="cloudpayments",
+    payment_group="fiat",
     provider_key="cloudpayments",
     label="CloudPayments",
     webapp_label="CloudPayments",

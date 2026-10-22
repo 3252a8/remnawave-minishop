@@ -1,5 +1,12 @@
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   demo:
+    logging: *minishop_logging
     image: nginx:alpine
     ports:
       - "8088:80"

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from sqlalchemy import Table
 from sqlalchemy.sql.dml import Update
+from sqlalchemy.sql.selectable import Select
 
 from bot.app.web.webapp.auth_panel import _link_telegram_to_user
 from db.dal import user_merge_dal
@@ -72,11 +73,23 @@ def _user(user_id: int, **overrides: object) -> SimpleNamespace:
 
 
 async def _merge(
-    source: SimpleNamespace, target: SimpleNamespace
+    source: SimpleNamespace, target: SimpleNamespace, *, privileged_target: bool = False
 ) -> tuple[object, SimpleNamespace]:
+    async def execute(statement: object) -> _Result:
+        if privileged_target and isinstance(statement, Select):
+            tables = {
+                table.name for table in statement.get_final_froms() if isinstance(table, Table)
+            }
+            if tables & {"account_roles", "account_role_events"} and (
+                statement.whereclause is None
+                or target.user_id in statement.compile().params.values()
+            ):
+                return _Result([target.user_id])
+        return _Result()
+
     session = SimpleNamespace(
         get=AsyncMock(return_value=None),
-        execute=AsyncMock(return_value=_Result()),
+        execute=AsyncMock(side_effect=execute),
         scalar=AsyncMock(return_value=None),
         add=Mock(),
         delete=AsyncMock(),
@@ -156,6 +169,26 @@ async def _merge_keeps_established_email_and_notification_and_moves_auth_methods
 
 def test_merge_keeps_established_email_and_notification_and_moves_auth_methods() -> None:
     asyncio.run(_merge_keeps_established_email_and_notification_and_moves_auth_methods())
+
+
+def test_merge_keeps_privileged_target_and_its_administrative_history() -> None:
+    async def scenario() -> None:
+        source = _user(-10, email="google@example.test", email_verified_at=datetime.now(UTC))
+        target = _user(42, telegram_id=42)
+
+        merged, session = await _merge(source, target, privileged_target=True)
+
+        assert merged is target
+        assert target.user_id == 42
+        assert target.telegram_id == 42
+        assert target.email == "google@example.test"
+        session.delete.assert_awaited_once_with(source)
+        for call in session.execute.await_args_list:
+            statement = call.args[0]
+            if isinstance(statement, Update) and isinstance(statement.table, Table):
+                assert statement.table.name not in {"account_roles", "account_role_events"}
+
+    asyncio.run(scenario())
 
 
 async def _merge_promotes_verified_source_over_unverified_target_email() -> None:

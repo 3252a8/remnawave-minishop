@@ -1,6 +1,7 @@
 import { withDemoIdentities } from "../demoIdentities.js";
 import { DEMO_DATASET } from "../demoDataset.js";
 import { structuredCloneSafe } from "../../safeClone.js";
+import type { SubscriptionPlan } from "$lib/admin/subscriptionPlans";
 
 export type DemoRecord = Record<string, unknown>;
 
@@ -26,6 +27,7 @@ export type DemoAdminUser = DemoRecord & {
   invited_users_count?: number | null;
   subscription_expires_at?: string | null;
   panel_status_expired_at?: string | null;
+  subscription_plan?: SubscriptionPlan | null;
 };
 
 export type DemoTicket = DemoRecord & {

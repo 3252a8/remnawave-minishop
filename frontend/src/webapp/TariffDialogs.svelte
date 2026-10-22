@@ -1,5 +1,8 @@
 <script lang="ts">
   import { billingDurationDays } from "$lib/webapp/subscriptionPeriods.js";
+  import { createCheckoutPaymentFallback } from "$lib/webapp/checkoutPaymentFallback.svelte.js";
+  import type { PartnerBalancePaymentOptions } from "$lib/webapp/billingActions.js";
+  import CheckoutPaymentFallback from "./payment-dialogs/CheckoutPaymentFallback.svelte";
   import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
@@ -43,7 +46,7 @@
   } from "$lib/webapp/types.js";
 
   type CheckoutPlan = PlanView | TariffChangeAction;
-  type BalancePaymentAction = (options?: { balanceSource?: "user" | "partner" | null }) => unknown;
+  type BalancePaymentAction = (options?: PartnerBalancePaymentOptions) => unknown;
 
   let {
     api,
@@ -135,6 +138,16 @@
     t?: Translate;
   } = $props();
 
+  const paymentFallback = createCheckoutPaymentFallback(
+    () => topupModalOpen || deviceTopupModalOpen || changeModalOpen,
+    () =>
+      topupModalOpen
+        ? `traffic:${topupKind}:${planKey(selectedTopupPlan)}`
+        : deviceTopupModalOpen
+          ? `devices:${planKey(selectedDeviceTopupPlan)}`
+          : `change:${selectedChangeTarget?.tariff_key}:${actionKey(selectedChangeAction)}`
+  );
+
   function priceLabel(plan: CheckoutPlan | null) {
     return priceLabelFn(plan, selectedMethod);
   }
@@ -216,9 +229,18 @@
     return actionKeyFn(action);
   }
 
-  const changePaymentMethods = $derived(methodsForPlan(methods, selectedChangeAction));
-  const topupPaymentMethods = $derived(methodsForPlan(methods, selectedTopupPlan));
-  const devicePaymentMethods = $derived(methodsForPlan(methods, selectedDeviceTopupPlan));
+  let changeBalanceSource = $state<"user" | "partner" | null>(null);
+  let topupBalanceSource = $state<"user" | "partner" | null>(null);
+  let deviceBalanceSource = $state<"user" | "partner" | null>(null);
+  const changePaymentMethods = $derived(
+    methodsForPlan(methods, selectedChangeAction, changeBalanceSource)
+  );
+  const topupPaymentMethods = $derived(
+    methodsForPlan(methods, selectedTopupPlan, topupBalanceSource)
+  );
+  const devicePaymentMethods = $derived(
+    methodsForPlan(methods, selectedDeviceTopupPlan, deviceBalanceSource)
+  );
   const changePaymentMethodSelected = $derived(
     methodSelectable(changePaymentMethods, selectedMethod)
   );
@@ -381,11 +403,8 @@
     return Boolean(plan || checkoutPromoAppliedCode || checkoutPromoStatus);
   }
 
-  let changeBalanceSource = $state<"user" | "partner" | null>(null);
   let changePartnerBalanceDiscount = $state(0);
-  let topupBalanceSource = $state<"user" | "partner" | null>(null);
   let topupPartnerBalanceDiscount = $state(0);
-  let deviceBalanceSource = $state<"user" | "partner" | null>(null);
   let devicePartnerBalanceDiscount = $state(0);
 
   function checkoutAmount(plan: CheckoutPlan | null) {
@@ -444,6 +463,17 @@
     };
   }
 </script>
+
+{#snippet paymentFailure(paymentMethods: PaymentMethodView[])}
+  <CheckoutPaymentFallback
+    methods={paymentMethods}
+    failedMethods={paymentFallback.failedMethods}
+    {selectedMethod}
+    disabled={payBusy}
+    onSelect={(id) => (selectedMethod = id)}
+    {t}
+  />
+{/snippet}
 
 <Dialog
   open={changeModalOpen}
@@ -579,6 +609,7 @@
       {/each}
     </Card>
     {#if selectedChangeAction?.kind === "payment"}
+      {@render paymentFailure(changePaymentMethods)}
       <PartnerBalanceDiscount
         {api}
         open={changeConfirmOpen}
@@ -593,7 +624,11 @@
     {/if}
     <Button
       class="wide bottom-action payment-submit-button"
-      onclick={() => applyTariffChange({ balanceSource: changeBalanceSource })}
+      onclick={() =>
+        applyTariffChange({
+          balanceSource: changeBalanceSource,
+          onProviderUnavailable: paymentFallback.onUnavailable(),
+        })}
       disabled={tariffActionBusy ||
         payBusy ||
         (selectedChangeAction?.kind === "payment" && !changePaymentMethodSelected)}
@@ -683,6 +718,7 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {@render paymentFailure(topupPaymentMethods)}
       {#if checkoutPromoBlock(selectedTopupPlan)}
         <CheckoutPromoRow
           inputId="webapp-topup-checkout-code"
@@ -710,7 +746,11 @@
       />
       <Button
         class="wide bottom-action payment-submit-button"
-        onclick={() => createTopupPayment({ balanceSource: topupBalanceSource })}
+        onclick={() =>
+          createTopupPayment({
+            balanceSource: topupBalanceSource,
+            onProviderUnavailable: paymentFallback.onUnavailable(),
+          })}
         disabled={!selectedTopupPlan || !topupPaymentMethodSelected || payBusy}
       >
         {t("wa_buy_traffic")}
@@ -796,6 +836,7 @@
         {t}
         onSelect={(id) => (selectedMethod = id)}
       />
+      {@render paymentFailure(devicePaymentMethods)}
       {#if checkoutPromoBlock(selectedDeviceTopupPlan)}
         <CheckoutPromoRow
           inputId="webapp-device-topup-checkout-code"
@@ -823,7 +864,11 @@
       />
       <Button
         class="wide bottom-action payment-submit-button"
-        onclick={() => createDeviceTopupPayment({ balanceSource: deviceBalanceSource })}
+        onclick={() =>
+          createDeviceTopupPayment({
+            balanceSource: deviceBalanceSource,
+            onProviderUnavailable: paymentFallback.onUnavailable(),
+          })}
         disabled={!selectedDeviceTopupPlan || !devicePaymentMethodSelected || payBusy}
       >
         {t("wa_pay")}

@@ -5,7 +5,7 @@
 Рекомендуемый порядок:
 
 1. Заполнить минимальный `.env` по `.env.example`.
-2. Запустить стек, подтвердить email и назначить первого владельца серверной командой из [инструкции автономного режима](../features/telegram-optional.md).
+2. Запустить стек и войти с подтверждённой привязкой, заданной в `BOOTSTRAP_OWNER_TELEGRAM_ID` или `BOOTSTRAP_OWNER_EMAIL`. Если оба поля пусты, зарегистрировать аккаунт и назначить первого владельца [серверной командой по Minishop ID](../features/telegram-optional.md#первый-владелец).
 3. Настроить Remnawave, платежи, внешний вид, поддержку, уведомления и тарифы через админку.
 
 ## Навигация по справочнику
@@ -30,6 +30,8 @@
 | `TELEGRAM_BOT_API_BASE_URL` | Только `.env` | Необязательный HTTP(S) endpoint собственного Local Bot API для `backend` и `worker`. |
 | `TELEGRAM_OAUTH_USE_BOT_PROXY` | Только `.env` | Разрешает server-side запросам Telegram OAuth использовать `TELEGRAM_BOT_PROXY_URL`. По умолчанию `True`; без URL сохраняется прямой маршрут. |
 | `ADMIN_IDS` | Только `.env` | Необязательный разовый импорт старых администраторов по сохранённой Telegram identity. Права затем хранятся как роли аккаунтов. |
+| `BOOTSTRAP_OWNER_TELEGRAM_ID` | Только `.env` | Необязательный Telegram User ID первого владельца; первый совпавший подтверждённый аккаунт получает роль `owner`. Не внутренний ID аккаунта. |
+| `BOOTSTRAP_OWNER_EMAIL` | Только `.env` | Необязательный подтверждённый email первого владельца, без учёта регистра. Вместе с Telegram ID назначает только одного первого владельца; существующие роли не заменяются. Без обоих полей используйте [ручную команду](../features/telegram-optional.md#первый-владелец). |
 | `WEBHOOK_BASE_URL` | `.env` | Публичный URL backend/webhook-домена. Используется для URL вебхуков Telegram, платежных провайдеров и Remnawave. |
 | `POSTGRES_USER` | `.env` / Compose | Пользователь PostgreSQL. |
 | `POSTGRES_PASSWORD` | `.env` / Compose | Пароль PostgreSQL. |
@@ -278,6 +280,7 @@ Trust-all вариант записывается как
 | Переменная | Назначение |
 | --- | --- |
 | `DEFAULT_LANGUAGE` | Язык по умолчанию: `ru` или `en`. |
+| `MAINTENANCE_MODE_ENABLED` | По умолчанию `False`. Ручной [режим обслуживания](../troubleshooting/maintenance.md#режим-обслуживания-пользователей) для Telegram-бота и Mini App; переключается в общих настройках админки без перезапуска. Администраторы сохраняют доступ. |
 | `DEFAULT_CURRENCY_SYMBOL` | Символ/код валюты в интерфейсе. |
 | `SUPPORT_LINK` | Внешняя HTTP(S)-ссылка поддержки; Telegram-формы `@username` и `t.me/username` автоматически приводятся к `https://t.me/username`. |
 | `SERVER_STATUS_URL` | Внешняя страница статуса для источника `url`. |

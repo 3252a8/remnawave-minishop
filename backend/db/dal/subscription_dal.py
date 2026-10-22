@@ -471,7 +471,11 @@ async def upsert_subscription(session: AsyncSession, sub_payload: dict[str, Any]
 
 
 async def deactivate_other_active_subscriptions(
-    session: AsyncSession, panel_user_uuid: str, current_panel_subscription_uuid: str | None
+    session: AsyncSession,
+    panel_user_uuid: str,
+    current_panel_subscription_uuid: str | None,
+    *,
+    user_id: int | None = None,
 ) -> None:
     stmt = (
         update(Subscription)
@@ -483,6 +487,8 @@ async def deactivate_other_active_subscriptions(
     )
     if current_panel_subscription_uuid:
         stmt = stmt.where(Subscription.panel_subscription_uuid != current_panel_subscription_uuid)
+    if user_id is not None:
+        stmt = stmt.where(Subscription.user_id == user_id)
 
     result = await session.execute(stmt)
     affected = rowcount(result)
@@ -582,7 +588,22 @@ async def has_trial_blocking_subscription_for_user(session: AsyncSession, user_i
         .limit(1)
     )
     result = await session.execute(stmt)
-    return result.scalar_one_or_none() is not None
+    if result.scalar_one_or_none() is not None:
+        return True
+
+    from .account_cleanup_dal import has_cleaned_trial
+
+    identity = (
+        await session.execute(
+            select(User.telegram_id, User.trial_eligibility_reset_at).where(User.user_id == user_id)
+        )
+    ).one_or_none()
+    return bool(
+        identity is not None
+        and identity[0] is not None
+        and identity[1] is None
+        and await has_cleaned_trial(session, int(identity[0]))
+    )
 
 
 async def get_subscriptions_near_expiration(

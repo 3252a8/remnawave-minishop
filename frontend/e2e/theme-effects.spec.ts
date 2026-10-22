@@ -1,6 +1,8 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { build } from "esbuild";
 import { readFileSync } from "node:fs";
+import ru from "../../locales/ru.json";
+import en from "../../locales/en.json";
 import type { createThemeEffectsRuntime } from "../src/lib/webapp/themeEffectsRuntime";
 import type { createThemeEffectHost, ThemeEffectModule } from "../src/lib/webapp/themeEffectsSdk";
 
@@ -23,6 +25,121 @@ async function bundle(file: string, globalName: string) {
   return result.outputFiles[0].text;
 }
 
+async function installViewerFixture(
+  page: Page,
+  viewer: { isAdmin: boolean; enabled: boolean; language?: "ru" | "en" }
+) {
+  const digest = "b".repeat(64);
+  const state = {
+    requests: 0,
+    mergeError: "",
+    emailError: "",
+    mergeProvider: "telegram",
+    confirmRequests: 0,
+    cancelRequests: 0,
+  };
+  await page.route("**/demo/runtime/**", async (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    const response = await route.fetch();
+    const config = {
+      title: "Theme effects fixture",
+      adminThemeEffectsEnabled: viewer.enabled,
+      authProviders: ["telegram", "email", "google", "yandex", "passkey"],
+    };
+    const body = (await response.text()).replace(
+      "</head>",
+      `<script id="webapp-config" type="application/json">${JSON.stringify(config)}</script></head>`
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.startsWith("/api/theme-effects/assets/")) {
+      if (path.endsWith("/tilt.js"))
+        return route.fulfill({
+          contentType: "text/javascript",
+          body: readFileSync("../examples/theme-effects/tilt/effects/main.js", "utf8"),
+        });
+      return route.fulfill({
+        contentType: "text/javascript",
+        body: `import { mount as mountTilt } from './tilt.js';
+          export async function mount(host, context) {
+            const instance = await mountTilt(host, context);
+            document.documentElement.dataset.themeViewerEffect = 'mounted';
+            return instance;
+          }`,
+      });
+    }
+    let response: Record<string, unknown> = { ok: true };
+    if (path === "/api/auth/session")
+      response = { ok: true, authenticated: true, csrf_token: "fixture-csrf" };
+    if (path.startsWith("/api/i18n")) response = { ok: true, i18n: { ru, en } };
+    if (path === "/api/me")
+      response = {
+        ok: true,
+        user: { id: 42, language_code: viewer.language || "ru", is_admin: viewer.isAdmin },
+        settings: {
+          auth_providers: ["telegram", "email", "google", "yandex", "passkey"],
+          email_auth_enabled: true,
+        },
+        subscription: { active: false },
+        plans: [],
+        payment_methods: [],
+        referral: {},
+      };
+    if (path === "/api/extensions/runtime") response = { ok: true, generation: 1, plugins: [] };
+    if (path === "/api/gifts") response = { ok: true, enabled: false, gifts: [] };
+    if (path === "/api/support/tickets")
+      response = { ok: true, tickets: [], total: 0, page: 0, pages: 1 };
+    if (path === "/api/account/merge/status")
+      response = {
+        ok: true,
+        provider: state.mergeProvider,
+        providers: ["google", "telegram", "passkey"],
+        target_confirmed: false,
+        email_available: true,
+        email: "long.account.address@example.com",
+      };
+    if (path === "/api/account/merge/request") response = { ok: true, email_code: "123456" };
+    if (path === "/api/account/email/request") response = { ok: true, email_code: "123456" };
+    if (path === "/api/account/email/verify") {
+      state.mergeProvider = "email";
+      response = state.emailError ? { ok: false, error: state.emailError } : { ok: true };
+    }
+    if (path === "/api/account/merge/confirm") {
+      state.confirmRequests++;
+      response = state.mergeError
+        ? { ok: false, error: state.mergeError }
+        : { ok: true, csrf_token: "fixture-csrf" };
+    }
+    if (path === "/api/account/merge/cancel") state.cancelRequests++;
+    if (path === "/api/theme-effects") {
+      state.requests++;
+      response = {
+        ok: true,
+        effect: {
+          key: "dark",
+          digest,
+          effects_digest: digest,
+          lease_seconds: 60,
+          entry: `/api/theme-effects/assets/dark/${digest}/main.js`,
+          styles: [],
+          assets: {},
+          manifest: {
+            api_version: 1,
+            runtime: "trusted-dom",
+            entry: "main.js",
+            description: {},
+            targets: ["home.header.surface"],
+          },
+        },
+      };
+    }
+    await route.fulfill({ json: response });
+  });
+  return state;
+}
+
 for (const viewer of [
   { label: "visitor", isAdmin: false, enabled: false, allowed: true },
   { label: "administrator without consent", isAdmin: true, enabled: false, allowed: false },
@@ -31,90 +148,130 @@ for (const viewer of [
   test(`the app starts theme effects for ${viewer.label} with the real account shape`, async ({
     page,
   }) => {
-    const digest = "b".repeat(64);
-    let requests = 0;
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.route("**/demo/runtime/**", async (route) => {
-      if (route.request().resourceType() !== "document") return route.continue();
-      const response = await route.fetch();
-      const config = { title: "Theme effects fixture", adminThemeEffectsEnabled: viewer.enabled };
-      const body = (await response.text()).replace(
-        "</head>",
-        `<script id="webapp-config" type="application/json">${JSON.stringify(config)}</script></head>`
-      );
-      await route.fulfill({ response, body });
-    });
-    await page.route("**/api/**", async (route) => {
-      const path = new URL(route.request().url()).pathname;
-      if (path.startsWith("/api/theme-effects/assets/")) {
-        if (path.endsWith("/tilt.js"))
-          return route.fulfill({
-            contentType: "text/javascript",
-            body: readFileSync("../examples/theme-effects/tilt/effects/main.js", "utf8"),
-          });
-        return route.fulfill({
-          contentType: "text/javascript",
-          body: `import { mount as mountTilt } from './tilt.js';
-          export async function mount(host, context) {
-            const instance = await mountTilt(host, context);
-            document.documentElement.dataset.themeViewerEffect = 'mounted';
-            return instance;
-          }`,
-        });
-      }
-      let response: Record<string, unknown> = { ok: true };
-      if (path === "/api/auth/session")
-        response = { ok: true, authenticated: true, csrf_token: "fixture-csrf" };
-      if (path.startsWith("/api/i18n")) response = { ok: true, i18n: { ru: {}, en: {} } };
-      if (path === "/api/me")
-        response = {
-          ok: true,
-          user: { id: 42, language_code: "ru", is_admin: viewer.isAdmin },
-          settings: {},
-          subscription: { active: false },
-          plans: [],
-          payment_methods: [],
-          referral: {},
-        };
-      if (path === "/api/extensions/runtime") response = { ok: true, generation: 1, plugins: [] };
-      if (path === "/api/gifts") response = { ok: true, enabled: false, gifts: [] };
-      if (path === "/api/support/tickets")
-        response = { ok: true, tickets: [], total: 0, page: 0, pages: 1 };
-      if (path === "/api/theme-effects") {
-        requests++;
-        response = {
-          ok: true,
-          effect: {
-            key: "dark",
-            digest,
-            effects_digest: digest,
-            lease_seconds: 60,
-            entry: `/api/theme-effects/assets/dark/${digest}/main.js`,
-            styles: [],
-            assets: {},
-            manifest: {
-              api_version: 1,
-              runtime: "trusted-dom",
-              entry: "main.js",
-              description: {},
-              targets: ["home.header.surface"],
-            },
-          },
-        };
-      }
-      await route.fulfill({ json: response });
-    });
+    const state = await installViewerFixture(page, viewer);
     await page.goto("/demo/runtime/app/");
     await expect(page.locator(".bottom-nav")).toBeVisible();
     if (viewer.allowed) {
       await expect(page.locator("html")).toHaveAttribute("data-theme-viewer-effect", "mounted");
-      expect(requests).toBeGreaterThan(0);
+      expect(state.requests).toBeGreaterThan(0);
     } else {
       await expect(page.locator("html")).not.toHaveAttribute("data-theme-viewer-effect", "mounted");
-      expect(requests).toBe(0);
+      expect(state.requests).toBe(0);
     }
     expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [1280, 390]) {
+  for (const language of ["ru", "en"] as const) {
+    test(`theme effect control yields to account merge at ${width} in ${language}`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 844 });
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      const copy = language === "ru" ? ru : en;
+      const state = await installViewerFixture(page, { isAdmin: true, enabled: true, language });
+      state.mergeError = "account_merge_privileged_source";
+      await page.goto("/demo/runtime/app/?external_auth=telegram:account_merge_required");
+      const dialog = page.getByRole("dialog", { name: copy.wa_account_merge_title });
+      const control = page.locator(".theme-effects-control");
+      await expect(dialog).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-theme-viewer-effect", "mounted");
+      await expect(page.locator("body")).toHaveAttribute("data-scroll-locked", "");
+      await page.screenshot({
+        path: testInfo.outputPath(`merge-effects-${width}-${language}.png`),
+      });
+      await expect(control).toBeHidden();
+      const confirm = dialog.getByRole("button", {
+        name: copy.wa_account_merge_confirm,
+        exact: true,
+      });
+      await expect(confirm).toBeEnabled();
+      await confirm.scrollIntoViewIfNeeded();
+      await confirm.click();
+      const error = dialog.locator(".status-line.error");
+      await expect(error).toHaveText(copy.wa_account_merge_privileged_source);
+      await error.scrollIntoViewIfNeeded();
+      await expect(error).toBeInViewport();
+      await expect(dialog).toBeVisible();
+      expect(state.confirmRequests).toBe(1);
+      await page.screenshot({
+        path: testInfo.outputPath(`merge-protected-${width}-${language}.png`),
+      });
+      await dialog.locator(".dialog-close-button").click();
+      await expect(dialog).toBeHidden();
+      await expect(control).toBeVisible();
+      expect(state.cancelRequests).toBe(1);
+      await expect(page.locator("html")).toHaveAttribute("data-theme-viewer-effect", "mounted");
+
+      state.mergeError = "";
+      await page.goto("/demo/runtime/app/?external_auth=telegram:account_merge_required");
+      await expect(dialog).toBeVisible();
+      await expect(confirm).toBeEnabled();
+      await confirm.click();
+      await expect(dialog).toContainText(copy.wa_account_merge_done);
+      await expect(control).toBeHidden();
+      await dialog.getByRole("button", { name: copy.wa_done, exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(control).toBeVisible();
+      expect(state.confirmRequests).toBe(2);
+      expect(state.cancelRequests).toBe(1);
+      expect(errors).toEqual([]);
+    });
+  }
+}
+
+for (const width of [1280, 390]) {
+  test(`administrator can start provider and email linking at ${width}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    const state = await installViewerFixture(page, { isAdmin: true, enabled: true });
+    const securityUrl = "/demo/runtime/settings/security";
+    for (const provider of ["google", "yandex"]) {
+      await page.goto(securityUrl);
+      await page.route(`**/auth/${provider}/start?*`, (route) => route.fulfill({ body: "" }));
+      const request = page.waitForRequest(`**/auth/${provider}/start?*`);
+      await page
+        .locator(".security-methods .settings-row")
+        .filter({ has: page.locator(`[data-provider-logo="${provider}"]`) })
+        .click();
+      const url = new URL((await request).url());
+      expect(url.searchParams.get("purpose")).toBe("link");
+      expect(url.searchParams.get("lang")).toBe("ru");
+    }
+
+    await page.goto(securityUrl);
+    await page.getByRole("button", { name: ru.wa_settings_link_email_action, exact: true }).click();
+    const email = page.locator(".webapp-link-email-dialog");
+    await email.locator('input[type="email"]').fill("another@example.com");
+    await email.getByRole("button", { name: ru.wa_send_code_email, exact: true }).click();
+    const code = page.locator(".webapp-link-email-code-dialog");
+    await expect(code).toBeVisible();
+    await expect(page.locator(".theme-effects-control")).toBeHidden();
+    state.emailError = "account_merge_privileged_source";
+    await code.getByRole("button", { name: ru.wa_confirm, exact: true }).click();
+    await expect(code.locator(".status-line.error")).toHaveText(
+      ru.wa_account_merge_privileged_source
+    );
+    await expect(code).toHaveCSS("opacity", "1");
+    await page.screenshot({ path: testInfo.outputPath(`admin-email-link-${width}.png`) });
+
+    state.emailError = "account_merge_required";
+    await code.getByRole("button", { name: ru.wa_confirm, exact: true }).click();
+    await expect(code).toBeHidden();
+    const merge = page.getByRole("dialog", { name: ru.wa_account_merge_title });
+    await expect(merge).toBeVisible();
+    await expect(merge.locator(".account-merge-source")).toHaveText(
+      ru.wa_account_merge_source.replace("{provider}", ru.wa_security_email_source)
+    );
+    await expect(page.locator(".theme-effects-control")).toBeHidden();
+    await merge.locator(".dialog-close-button").click();
+    await expect(merge).toBeHidden();
+    await expect(page.locator(".theme-effects-control")).toBeVisible();
   });
 }
 

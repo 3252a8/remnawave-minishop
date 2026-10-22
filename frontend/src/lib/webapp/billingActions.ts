@@ -72,6 +72,7 @@ export type PartnerBalancePaymentOptions = {
   checkoutAddons?: CheckoutAddonSelection;
   payerEmail?: string;
   payerPhone?: string;
+  onProviderUnavailable?: (method: string) => void;
 };
 
 export type CheckoutPromoOptions = {
@@ -140,7 +141,15 @@ export type BillingActions = {
   ): PostPayload<"/api/tariffs/change-payment">;
 };
 
-export function createBillingActions({ api }: { api: BillingApi }): BillingActions {
+export class TrialCaptchaCancelled extends Error {}
+
+export function createBillingActions({
+  api,
+  ensureTrialCaptcha = async () => true,
+}: {
+  api: BillingApi;
+  ensureTrialCaptcha?: () => Promise<boolean>;
+}): BillingActions {
   async function fetchTopupOptions(kind: string): Promise<TariffTopupOptionsResponse> {
     return api(buildTariffTopupOptionsPath(kind));
   }
@@ -160,6 +169,8 @@ export function createBillingActions({ api }: { api: BillingApi }): BillingActio
   }
 
   async function postPayment(body: PostPayload<"/api/payments">): Promise<PaymentCreateResponse> {
+    if (body.sale_mode === "trial" && !(await ensureTrialCaptcha()))
+      throw new TrialCaptchaCancelled();
     return api(buildPaymentsPath(), { method: "POST", body: JSON.stringify(body) });
   }
 

@@ -360,6 +360,7 @@ _PRESENTATION_MANIFEST = tuple(
 )
 SPEC = PaymentProviderSpec(
     id="cryptomus",
+    payment_group="crypto",
     provider_key="cryptomus",
     label="Cryptomus",
     webapp_label="Cryptomus",

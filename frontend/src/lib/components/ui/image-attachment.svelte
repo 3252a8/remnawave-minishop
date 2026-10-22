@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Upload, X } from "./icons.js";
+  import { Paperclip, Upload, X } from "./icons.js";
   import Button from "./button.svelte";
   import FileInput from "./file-input.svelte";
   import {
@@ -23,12 +23,15 @@
     file = $bindable(null),
     disabled = false,
     compact = false,
+    iconOnly = false,
     globalDropzone = false,
     labels,
   }: {
     file?: File | null;
     disabled?: boolean;
     compact?: boolean;
+    /** A quiet attachment trigger; the selected image keeps its readable preview. */
+    iconOnly?: boolean;
     globalDropzone?: boolean;
     labels: ImageAttachmentLabels;
   } = $props();
@@ -158,6 +161,7 @@
   class="message-image-attachment"
   class:is-dragging={dragging}
   class:is-compact={compact}
+  class:is-icon-only={iconOnly}
   role="group"
   ondragover={onDragOver}
   ondragleave={onDragLeave}
@@ -171,6 +175,21 @@
       onchange={onChange}
     />
   </span>
+
+  {#if iconOnly}
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      class="message-image-icon-trigger"
+      aria-label={labels.upload ?? labels.choose}
+      title={labels.upload ?? labels.choose}
+      {disabled}
+      onclick={choose}
+    >
+      <Paperclip size={19} />
+    </Button>
+  {/if}
 
   {#if file && previewUrl}
     <div class="message-image-preview">
@@ -191,7 +210,7 @@
         <X size={16} />
       </Button>
     </div>
-  {:else}
+  {:else if !iconOnly}
     <button type="button" class="message-image-dropzone" {disabled} onclick={choose}>
       <Upload size={18} />
       {#if compact}

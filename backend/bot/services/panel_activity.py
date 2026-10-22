@@ -223,6 +223,37 @@ def connection_activity_from_snapshot(last_connected_at: datetime | None) -> dic
     return {"status": "connected", "last_connected_at": connected_at.isoformat()}
 
 
+def panel_user_is_confirmed_unused(panel_user_data: Any, now: datetime) -> bool:
+    """Require explicit zero traffic and empty connection history for deletion."""
+    panel_user = _panel_user_payload(panel_user_data)
+    if _panel_user_connection_activity(panel_user)["status"] != "never":
+        return False
+    history_known = False
+    for container in _panel_user_connection_containers(panel_user):
+        if any(key in container for key in ("firstConnectedAt", "first_connected_at")):
+            history_known = True
+        for key in _PANEL_CONNECTION_MARKER_KEYS:
+            if key in container and container[key] not in (None, "", 0, False):
+                return False
+    traffic_known = False
+    for container in [panel_user, *_panel_nested_dicts(panel_user, _PANEL_TRAFFIC_OBJECT_KEYS)]:
+        for key in _PANEL_TRAFFIC_USED_KEYS:
+            if key not in container:
+                continue
+            value = _coerce_panel_int(container[key])
+            if value is None or value != 0:
+                return False
+            traffic_known = True
+            if key in ("lifetimeUsedTrafficBytes", "lifetime_used_traffic_bytes"):
+                history_known = True
+    for key in ("expireAt", "expire_at"):
+        if key in panel_user:
+            expiry = _coerce_panel_datetime(panel_user[key])
+            if expiry is None or datetime.fromisoformat(expiry) > now:
+                return False
+    return traffic_known and history_known
+
+
 async def record_subscription_panel_activity(
     session: AsyncSession,
     subscription: Subscription,

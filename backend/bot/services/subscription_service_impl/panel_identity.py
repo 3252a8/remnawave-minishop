@@ -286,7 +286,10 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     candidate = lookup.get("user")
                     if isinstance(candidate, dict):
                         panel_user_obj_from_api = candidate
-                elif not isinstance(lookup, dict) or lookup.get("not_found") is not True:
+                elif not isinstance(lookup, dict) or (
+                    lookup.get("not_found") is not True
+                    and lookup.get("reference_incompatible") is not True
+                ):
                     identity_lookup_failed = True
             else:
                 panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
@@ -414,11 +417,42 @@ class PanelIdentityMixin(SubscriptionServiceMixinContract):
                     panel_user_obj_from_api = await self.panel_service.get_user_by_uuid(
                         current_local_panel_uuid
                     )
-                if not panel_user_obj_from_api and not (
+                absence_confirmed = bool(
                     isinstance(lookup, dict)
                     and lookup.get("not_found") is True
                     and not lookup.get("ok")
+                )
+                if (
+                    not panel_user_obj_from_api
+                    and isinstance(lookup, dict)
+                    and lookup.get("reference_incompatible") is True
+                    and not identity_lookup_failed
                 ):
+                    # An old UUID cannot be queried on a numeric-ID panel (or
+                    # vice versa after rollback). Only a fresh, complete snapshot
+                    # can distinguish deletion from an unresolved migrated link.
+                    snapshot = await self.panel_service.get_all_panel_users(use_cache=False)
+                    if snapshot is not None and all(user.get("uuid") for user in snapshot):
+                        matches = [
+                            user
+                            for user in snapshot
+                            if str(user["uuid"]) == current_local_panel_uuid
+                            or panel_candidate_matches_account(db_user, user)
+                            or (
+                                db_user.email
+                                and str(user.get("email") or "").strip().casefold()
+                                == db_user.email.strip().casefold()
+                            )
+                        ]
+                        if len(matches) == 1:
+                            panel_user_obj_from_api = matches[0]
+                        elif not matches:
+                            absence_confirmed = True
+                        else:
+                            logger.error(
+                                "Ambiguous panel snapshot identity for account %s", user_id
+                            )
+                if not panel_user_obj_from_api and not absence_confirmed:
                     logger.error(
                         "Existing panel link %s for account %s could not be verified; "
                         "manual reconciliation is required before creating another panel user.",

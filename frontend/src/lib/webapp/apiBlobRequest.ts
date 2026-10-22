@@ -5,6 +5,7 @@ import { EmojiPreviewBatch } from "./emojiPreviewBatch";
 import { persistentEmojiKey, readEmojiPreview, writeEmojiPreview } from "./emojiPreviewStorage";
 import type { ApiClient, MockApi } from "./publicApi";
 import { catalogEmojiPreviewUrl } from "./emojiCatalogStorage";
+import { isMaintenanceResponse } from "./maintenance";
 
 type Options = {
   authenticatedHeaders: (options: RequestInit) => Headers;
@@ -14,6 +15,7 @@ type Options = {
   mockApi: MockApi | null;
   getMockContext: () => Parameters<MockApi>[2];
   onUnauthorized: () => void;
+  onMaintenance: () => void;
   requestTimeoutMs: number;
 };
 
@@ -70,6 +72,7 @@ export function createBlobRequester(config: Options): ApiClient["apiBlob"] {
             error: "image_load_failed",
             status: response.status,
           }));
+          if (isMaintenanceResponse(response.status, payload)) config.onMaintenance();
           throw { ...payload, status: response.status };
         }
         const blob = await response.blob();

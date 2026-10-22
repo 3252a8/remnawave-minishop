@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
+  import { createCheckoutPaymentFallback } from "$lib/webapp/checkoutPaymentFallback.svelte.js";
+  import { paymentProviderUnavailable } from "$lib/webapp/paymentFallback.js";
+  import { methodsForPlan, methodSelectable } from "$lib/webapp/tariffs.js";
+  import CheckoutPaymentFallback from "./CheckoutPaymentFallback.svelte";
   import Button from "$components/ui/button.svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { LockKeyhole, WalletCards } from "$components/ui/icons.js";
@@ -61,11 +65,21 @@
   );
   const parsedAmount = $derived(decimalTopupAmount(amount, Number(balance.currency_scale || 0)));
   const numericAmount = $derived(parsedAmount ?? 0);
+  const paymentMethods = $derived(
+    methodsForPlan(availableMethods, {
+      price: numericAmount,
+      currency: String(balance.currency || ""),
+    })
+  );
+  const paymentFallback = createCheckoutPaymentFallback(
+    () => open,
+    () => `${numericAmount}:${balance.currency}`
+  );
   const valid = $derived(
     parsedAmount !== null &&
       numericAmount >= minimum &&
       numericAmount <= maximum &&
-      !!selectedMethod &&
+      methodSelectable(paymentMethods, selectedMethod) &&
       !busy &&
       !notice
   );
@@ -114,6 +128,8 @@
 
   async function submit(): Promise<void> {
     if (!valid) return;
+    const reportUnavailable = paymentFallback.onUnavailable();
+    const method = selectedMethod;
     busy = true;
     error = "";
     try {
@@ -124,6 +140,7 @@
         })
       );
       if (response.ok !== true) {
+        if (paymentProviderUnavailable(response)) throw response;
         throw new Error(String(response.message || response.error || "balance_topup_failed"));
       }
       const outcome = paymentOutcome(response);
@@ -147,6 +164,10 @@
       }
       throw new Error("balance_topup_failed");
     } catch (cause) {
+      if (paymentProviderUnavailable(cause)) {
+        reportUnavailable(method);
+        return;
+      }
       error =
         cause instanceof Error && cause.message !== "balance_topup_failed"
           ? cause.message
@@ -167,10 +188,13 @@
     buttonAnimatedAmount = initialAmount;
     inputAnimatedAmount = initialAmount;
     inputAnimationVisible = false;
-    selectedMethod = String(
-      availableMethods.find((method) => method.id === selectedMethod)?.id ||
-        availableMethods[0]?.id ||
-        ""
+    const initialMethods = availableMethods;
+    selectedMethod = untrack(() =>
+      String(
+        initialMethods.find((method) => method.id === selectedMethod)?.id ||
+          initialMethods[0]?.id ||
+          ""
+      )
     );
     error = "";
   });
@@ -248,8 +272,16 @@
       </div>
     {/if}
     {#if availableMethods.length}
+      <CheckoutPaymentFallback
+        methods={paymentMethods}
+        failedMethods={paymentFallback.failedMethods}
+        {selectedMethod}
+        disabled={busy}
+        onSelect={selectMethod}
+        {t}
+      />
       <PaymentMethodPicker
-        methods={availableMethods}
+        methods={paymentMethods}
         {selectedMethod}
         mode={paymentMethodsDisplayMode}
         {t}

@@ -35,6 +35,8 @@ class SupportButtonPayload(TypedDict):
     kind: str
     promo_code: str
     section: str
+    platform: str
+    app: str
     icon_custom_emoji_id: str | None
     icon_emoji: str
 
@@ -49,6 +51,8 @@ def encode_support_buttons(buttons: Sequence[MessageButton]) -> str | None:
             "kind": str(button.kind or ""),
             "promo_code": str(button.promo_code or ""),
             "section": str(button.section or ""),
+            "platform": button.platform,
+            "app": button.app,
             "web_app_url": str(button.telegram_web_app_url or "")[:_MAX_STORED_URL],
             "icon_custom_emoji_id": button.icon_custom_emoji_id,
             "icon_emoji": button.icon_emoji,
@@ -96,6 +100,8 @@ def decode_support_buttons(raw: object) -> list[MessageButton]:
                 kind=kind,
                 promo_code=str(item.get("promo_code") or "").strip(),
                 section=str(item.get("section") or "").strip(),
+                platform=str(item.get("platform") or "").strip(),
+                app=str(item.get("app") or "").strip(),
                 telegram_web_app_url=web_app_url or None,
                 icon_custom_emoji_id=identifier,
                 icon_emoji=emoji,
@@ -114,6 +120,8 @@ def support_buttons_payload(raw: object) -> list[SupportButtonPayload]:
             "kind": button.kind,
             "promo_code": button.promo_code,
             "section": button.section,
+            "platform": button.platform,
+            "app": button.app,
             "icon_custom_emoji_id": button.icon_custom_emoji_id,
             "icon_emoji": button.icon_emoji,
         }

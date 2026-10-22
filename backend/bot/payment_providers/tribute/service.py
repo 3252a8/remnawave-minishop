@@ -836,6 +836,7 @@ def create_service(ctx: ServiceFactoryContext) -> TributeService:
 
 SPEC = PaymentProviderSpec(
     id=TRIBUTE_PROVIDER,
+    payment_group="fiat",
     provider_key=TRIBUTE_PROVIDER,
     label="Tribute",
     pending_status=TRIBUTE_PENDING_STATUS,

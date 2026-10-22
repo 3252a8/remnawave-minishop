@@ -6,6 +6,8 @@ import {
   searchSettingsEntries,
 } from "./settingsSearch";
 import type { AdminSettingField, AdminSettingsSection } from "./settingsSections";
+import manifest from "../webapp/settingsManifest.generated.json";
+import ru from "../../../../locales/ru.json";
 
 const field = (key: string, extra: Partial<AdminSettingField> = {}): AdminSettingField =>
   ({
@@ -67,6 +69,35 @@ describe("settingsSearch", () => {
     expect(searchSettingsEntries(entries, "new users").map((item) => item.key)).toEqual([
       "DEFAULT_LANGUAGE",
     ]);
+  });
+
+  it("indexes every manifest field once and routes specialized editors correctly", () => {
+    const allEntries = buildSettingsSearchEntries(manifest as AdminSettingsSection[], {
+      sectionTitle: (id) => id,
+      subsectionTitle: (group) => group.id,
+      fieldLabelText: (item) => ru[item.i18n_label_key as keyof typeof ru] || item.label,
+      fieldDescriptionText: (item) => item.description || "",
+    });
+    const keys = manifest.flatMap((section) => section.fields.map((item) => item.key));
+    expect(allEntries.map((entry) => entry.key)).toEqual(expect.arrayContaining(keys));
+    expect(new Set(allEntries.map((entry) => entry.key)).size).toBe(keys.length);
+    expect(searchSettingsEntries(allEntries, "капча")).toMatchObject([
+      { key: "TRIAL_CAPTCHA_ENABLED", navigationSection: "tariffs" },
+    ]);
+    expect(searchSettingsEntries(allEntries, "TRIAL_CAPTCHA_ENABLED")[0]).toMatchObject({
+      navigationSection: "tariffs",
+    });
+    expect(searchSettingsEntries(allEntries, "WEBAPP_COMPACT_HOME_ENABLED")[0]).toMatchObject({
+      navigationSection: "appearance",
+    });
+    for (const [key, sectionId] of [
+      ["REFERRAL_PROGRAM_ENABLED", "referral"],
+      ["PARTNER_PROGRAM_ENABLED", "partner"],
+    ]) {
+      const entry = searchSettingsEntries(allEntries, key)[0];
+      expect(entry.sectionId).toBe(sectionId);
+      expect(entry.navigationSection).toBeUndefined();
+    }
   });
 
   it("finds settings rendered outside the generic list by label or name", () => {

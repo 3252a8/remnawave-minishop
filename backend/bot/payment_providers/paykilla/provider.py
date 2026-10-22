@@ -357,6 +357,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="paykilla",
+    payment_group="crypto",
     provider_key="paykilla",
     label="PayKilla",
     webapp_label="PayKilla",

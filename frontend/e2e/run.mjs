@@ -4,13 +4,17 @@ import { selectBrowserPort } from "./ports.mjs";
 
 // A fresh server must not reuse somebody else's demo or a reserved Windows port.
 const env = { ...process.env };
+let port;
 try {
-  env.PORT = String(await selectBrowserPort(env.PORT));
-} catch (error) {
-  console.error(error.message);
+  port = Number(await selectBrowserPort(env.PORT));
+  env.PORT = String(port);
+} catch {
+  console.error(
+    "Unable to select a browser-safe demo port. Check PORT or unset it for automatic selection."
+  );
   process.exit(1);
 }
-console.log("Playwright demo port: " + env.PORT);
+console.log("Playwright demo port: " + port);
 const child = spawn(
   process.execPath,
   [

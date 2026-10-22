@@ -455,9 +455,11 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   const composer = page.locator(".support-ticket-screen .ticket-composer");
   await expect(composer).toBeVisible();
   await assertCompactReadableTicketBubbles(page, page.locator(".support-ticket-screen"), "webapp");
-  const uploadButton = composer.locator(".message-image-dropzone");
+  const uploadButton = composer.locator(".message-image-icon-trigger");
   const sendButton = composer.locator(".ticket-composer-send");
-  await expect(uploadButton).toContainText("Загрузить файл");
+  await expect(uploadButton).toHaveAccessibleName("Загрузить файл");
+  await expect(composer.getByRole("toolbar")).toBeHidden();
+  await expect(composer.locator(".ticket-composer-format")).toHaveCount(0);
   const actionHeights = await Promise.all([uploadButton.boundingBox(), sendButton.boundingBox()]);
   expect(
     Boolean(
@@ -519,7 +521,7 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await page.setViewportSize(MOBILE_VIEWPORT);
   await expect
     .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
-    .toBe("visible");
+    .toBe("auto");
   await expect
     .poll(() =>
       page
@@ -532,18 +534,53 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   });
   await page.evaluate(() => window.scrollTo(0, 0));
   await swipeUp(page, messageViewport, "webapp-support:mobile-scroll");
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-  await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect
+    .poll(() => messageViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
   await expect(composer).toBeInViewport();
   await composerInput.focus();
   await expect(nav).toBeHidden();
   await composerInput.evaluate((element) => (element as HTMLElement).blur());
+  await expect(nav).toBeHidden();
+
+  await page.locator(".support-back-button").click();
+  await expect(page.locator(".support-screen")).toBeVisible();
   await expect(nav).toBeVisible();
 
   await page.setViewportSize(DESKTOP_VIEWPORT);
-  await page.locator(".support-back-button").click();
-  await expect(page.locator(".support-screen")).toBeVisible();
+  await page.locator(".support-new-ticket-button").click();
+  await expect(page).toHaveURL(/\/support\/new(?:[?#]|$)/);
+  const createScreen = page.locator(".support-screen--create");
+  await expect(createScreen).toBeVisible();
+  await expect(page.locator(".support-list-card")).toBeHidden();
+  await expect(createScreen.getByRole("toolbar")).toBeHidden();
+  await expect(createScreen.locator("details")).toHaveCount(0);
+  await expect(createScreen.getByRole("combobox")).toHaveCount(0);
+  await page.setViewportSize(MOBILE_VIEWPORT);
+  await expect(createScreen.locator(".ticket-composer-send")).toBeInViewport();
+  await expect
+    .poll(() =>
+      createScreen
+        .locator(".ProseMirror")
+        .evaluate((element) => element.getBoundingClientRect().height)
+    )
+    .toBeGreaterThan(MOBILE_VIEWPORT.height / 2);
+  await createScreen
+    .getByRole("textbox", { name: "Тема", exact: true })
+    .fill("Saved support draft");
+  await createScreen.getByRole("button", { name: "Назад", exact: true }).click();
+  await expect(page.locator(".support-new-ticket-button")).toBeVisible();
+  await page.goForward();
+  await expect(createScreen).toBeVisible();
+  await page.reload();
+  await expect(page).toHaveURL(/\/support\/new(?:[?#]|$)/);
+  await expect(createScreen.getByRole("textbox", { name: "Тема", exact: true })).toHaveValue(
+    "Saved support draft"
+  );
+  await createScreen.getByRole("button", { name: "Назад", exact: true }).click();
+  await expect(page.locator(".support-new-ticket-button")).toBeVisible();
+  await page.setViewportSize(DESKTOP_VIEWPORT);
 }
 
 async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): Promise<void> {
@@ -1146,6 +1183,44 @@ test("optional home widgets stay disabled by default and use dedicated presets",
   await expect(page.locator(".server-status-card")).toBeVisible();
   await expect(page.locator(".home-compact-summary")).toHaveCount(0);
   await expect(page.locator(".home-balance-card")).toHaveCount(0);
+});
+
+test("compact renewal keeps its state and balance top-up action through toggles", async ({
+  page,
+}) => {
+  const errors = trackErrors(page, () => "compact renewal");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      "minishop-demo-settings-changes",
+      JSON.stringify([
+        ["WEBAPP_COMPACT_HOME_ENABLED", { value: true, deleted: false }],
+        ["USER_BALANCE_ENABLED", { value: true, deleted: false }],
+      ])
+    );
+  });
+  for (const width of [320, 360, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`${APP_URL}?path=/home&mock=auto-renew`);
+    const card = page.locator(".home-compact-summary");
+    const renewal = card.getByRole("button", { name: "Автопродление включено", exact: true });
+    await expect(renewal).toHaveAttribute("aria-pressed", "true");
+    await renewal.click();
+    const disabledRenewal = card.getByRole("button", {
+      name: "Автопродление отключено",
+      exact: true,
+    });
+    await expect(disabledRenewal).toHaveAttribute("aria-pressed", "false");
+    await disabledRenewal.click();
+    await expect(renewal).toHaveAttribute("aria-pressed", "true");
+    await card.locator('[data-webapp-action="open-balance-topup"]').click();
+    await expect(page.locator(".balance-topup-dialog")).toBeVisible();
+    // Focus moves into the dialog on the next animation frame after it becomes visible.
+    await expect(page.locator(".balance-topup-dialog .dialog-close-button")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".balance-topup-dialog")).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
 });
 
 test("home actions stay at the viewport bottom when the logo changes size", async ({ page }) => {
@@ -2617,7 +2692,11 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const mobileUserCard = usersShell.locator(".admin-user-mobile-card").first();
   await expect(mobileUserCard).toBeVisible();
   await expect(usersShell.locator(".admin-table-wrap")).toBeHidden();
-  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(4);
+  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(5);
+  const mobileTariff = mobileUserCard.locator(".admin-user-mobile-plan");
+  await expect(mobileTariff.locator("dt")).toHaveText("Тариф / триал");
+  await expect(page.locator(".admin-users-filter-chips")).toContainText("Платные пользователи");
+  await expect(mobileTariff.locator(".admin-subscription-plan-name")).toHaveText("Стандарт");
   await expect(mobileUserCard.locator(".admin-user-mobile-dates > div")).toHaveCount(2);
   const mobileUsersGeometry = await usersShell.evaluate((element) => ({
     clientWidth: element.clientWidth,
@@ -2626,7 +2705,15 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   expect(mobileUsersGeometry.scrollWidth).toBeLessThanOrEqual(mobileUsersGeometry.clientWidth);
   const mobileUserCardBox = await mobileUserCard.boundingBox();
   expect(mobileUserCardBox).not.toBeNull();
-  expect(mobileUserCardBox!.height).toBeLessThan(320);
+  const mobileTariffRowHeight = await mobileTariff.evaluate((row) => {
+    const metrics = row.parentElement!;
+    return row.getBoundingClientRect().height + Number.parseFloat(getComputedStyle(metrics).rowGap);
+  });
+  // The tariff occupies one additional full-width row; the original metrics
+  // retain their compact-card budget, and the new row has its own bound.
+  expect(mobileTariffRowHeight).toBeLessThanOrEqual(64);
+  expect(mobileUserCardBox!.height - mobileTariffRowHeight).toBeLessThan(320);
+  expect(mobileUserCardBox!.height).toBeLessThan(384);
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
 

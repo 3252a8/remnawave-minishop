@@ -79,7 +79,7 @@ def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> st
 
 def _telegram_oauth_redirect_url(path: str = "/", *, status: str | None = None) -> str:
     target_path = path if path.startswith("/") else "/"
-    if target_path not in {"/", "/settings"} and not re.fullmatch(
+    if target_path not in {"/", "/settings", "/settings/security"} and not re.fullmatch(
         r"/checkout/[a-f0-9]{32}", target_path
     ):
         target_path = "/"

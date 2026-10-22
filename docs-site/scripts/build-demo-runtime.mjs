@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { installGuidesConfigPayload } from "./install-guides-config.mjs";
 
 const siteRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const repoRoot = path.resolve(siteRoot, "..");
@@ -38,9 +39,6 @@ const providerLogosTargetDir = path.join(siteRoot, "public", "provider-logos");
 const fontsSourceDir = path.join(frontendRoot, "public", "fonts");
 const fontsTargetDir = path.join(siteRoot, "public", "fonts");
 const runtimeBase = "/demo/runtime";
-const installGuidesConfigUrl =
-  "https://raw.githubusercontent.com/legiz-ru/my-remnawave/main/sub-page/subpage-config/multiapp.json";
-const installGuidesConfigRetries = 3;
 const isWindows = process.platform === "win32";
 const npmExecPath = process.env.npm_execpath || "";
 
@@ -193,10 +191,6 @@ async function assertModuleGraphIsComplete(entryNames) {
   );
 }
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function jsonScriptPayload(value) {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
@@ -207,31 +201,6 @@ async function demoI18nPayload() {
     readFile(path.join(localesDir, "en.json"), "utf8"),
   ]);
   return jsonScriptPayload({ ru: JSON.parse(ru), en: JSON.parse(en) });
-}
-
-async function installGuidesConfigPayload() {
-  let lastError;
-
-  for (let attempt = 1; attempt <= installGuidesConfigRetries; attempt += 1) {
-    try {
-      const response = await fetch(installGuidesConfigUrl, {
-        headers: { accept: "application/json" },
-      });
-      if (!response.ok) {
-        throw new Error(
-          `Unable to download demo install guides config (${response.status} ${response.statusText})`,
-        );
-      }
-      const config = await response.json();
-      return `${JSON.stringify(config, null, 2)}\n`;
-    } catch (error) {
-      lastError = error;
-      if (attempt === installGuidesConfigRetries) break;
-      await wait(500 * attempt);
-    }
-  }
-
-  throw lastError;
 }
 
 async function appHtml() {
@@ -291,7 +260,9 @@ const [, , , , bundleChunkNames] = await Promise.all([
   copyDirectory(providerLogosSourceDir, providerLogosTargetDir),
   copyDirectory(fontsSourceDir, fontsTargetDir),
   writeFile(path.join(runtimeDir, "app", "index.html"), html, "utf8"),
-  installGuidesConfigPayload().then((payload) =>
+  installGuidesConfigPayload({
+    configFile: process.env.MINISHOP_DEMO_INSTALL_GUIDES_CONFIG,
+  }).then((payload) =>
     writeFile(
       path.join(runtimeDir, "subscription-guides-config.json"),
       payload,

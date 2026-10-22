@@ -1,5 +1,6 @@
 import type { components, operations } from "../../api/openapi.generated";
 import type { ApiClient, ApiResponse } from "../../webapp/publicApi";
+import type { TariffOption } from "../subscriptionPlans";
 
 export const USERS_PAGE_SIZE = 25;
 export const USER_LOGS_PAGE_SIZE = 20;
@@ -40,6 +41,8 @@ export type AdminStoreState = {
   usersFilter: string;
   usersPanelStatus: string;
   usersPremiumTraffic: string;
+  usersTariffFilter: string;
+  usersTariffOptions: TariffOption[];
   usersSort: string;
   usersLoading: boolean;
   userBalanceEnabled: boolean;
@@ -140,6 +143,8 @@ export function createInitialUsersState(): AdminStoreState {
     usersFilter: "all",
     usersPanelStatus: "all",
     usersPremiumTraffic: "all",
+    usersTariffFilter: "all",
+    usersTariffOptions: [],
     usersSort: "",
     usersLoading: false,
     userBalanceEnabled: false,

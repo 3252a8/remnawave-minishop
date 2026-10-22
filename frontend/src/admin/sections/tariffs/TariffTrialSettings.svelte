@@ -24,6 +24,7 @@
     type SettingsDirtyState,
   } from "$lib/admin/tariffSettings";
   import type { SettingField, SettingsSavedPayload } from "$lib/admin/stores/settingsStore";
+  import { settingsSearchTargetKey } from "$lib/admin/settingsSearchTarget";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -48,7 +49,7 @@
   const settingsStore = getSettingsStore();
   const tariffsStore = getTariffsStore();
 
-  let trialSettingsOpen = $state(false);
+  let trialSettingsOpen = $state(TRIAL_SETTING_KEYS.includes(settingsSearchTargetKey()));
   let selectedTrialSquad = $state("");
   let selectedTrialPremiumSquad = $state("");
   let trialSquadSelectKey = $state(0);
@@ -224,7 +225,11 @@
               </AdminButton>
             </div>
           {/if}
-          <div class="admin-settings-field-groups admin-trial-settings-groups">
+          <fieldset
+            class="admin-settings-field-groups admin-trial-settings-groups"
+            disabled={settingsSaving}
+            style="border: 0; padding: 0; margin: 0; min-width: 0;"
+          >
             <section
               class="admin-settings-field-group"
               class:is-dirty={dirtyCount(TRIAL_SWITCH_KEYS, settingsDirty)}
@@ -287,6 +292,60 @@
                         size="sm"
                         variant="ghost"
                         onclick={() => resetSetting("TRIAL_ENABLED")}
+                      >
+                        <X size={12} />
+                        {at("reset", {}, "Reset")}
+                      </AdminButton>
+                    {/if}
+                  </div>
+                </div>
+                <div
+                  class="admin-setting admin-trial-setting-row"
+                  class:is-dirty={isSettingDirty("TRIAL_CAPTCHA_ENABLED", settingsDirty)}
+                >
+                  <div class="admin-setting-meta">
+                    <strong>
+                      {at("settings_trial_captcha_label", {}, "CAPTCHA before trial")}
+                      {#if isSettingDirty("TRIAL_CAPTCHA_ENABLED", settingsDirty)}
+                        <AdminBadge variant="warning">
+                          {at("settings_badge_dirty", {}, "Changed")}
+                        </AdminBadge>
+                      {/if}
+                    </strong>
+                    <code>TRIAL_CAPTCHA_ENABLED</code>
+                    <small>
+                      {at(
+                        "settings_trial_captcha_description",
+                        {},
+                        "Require an image challenge before activating a trial or creating its invoice."
+                      )}
+                    </small>
+                  </div>
+                  <div class="admin-setting-control">
+                    <div class="admin-setting-switch">
+                      <Switch.Root
+                        aria-label={at("settings_trial_captcha_label", {}, "CAPTCHA before trial")}
+                        checked={boolValue(
+                          "TRIAL_CAPTCHA_ENABLED",
+                          settingsDirty,
+                          settingsFieldMap
+                        )}
+                        onCheckedChange={(checked) => setSetting("TRIAL_CAPTCHA_ENABLED", checked)}
+                        class="admin-switch-root"
+                      >
+                        <Switch.Thumb class="admin-switch-thumb" />
+                      </Switch.Root>
+                      <span>
+                        {boolValue("TRIAL_CAPTCHA_ENABLED", settingsDirty, settingsFieldMap)
+                          ? at("enabled", {}, "Enabled")
+                          : at("disabled", {}, "Disabled")}
+                      </span>
+                    </div>
+                    {#if isSettingDirty("TRIAL_CAPTCHA_ENABLED", settingsDirty)}
+                      <AdminButton
+                        size="sm"
+                        variant="ghost"
+                        onclick={() => resetSetting("TRIAL_CAPTCHA_ENABLED")}
                       >
                         <X size={12} />
                         {at("reset", {}, "Reset")}
@@ -755,7 +814,7 @@
                 </div>
               </div>
             </section>
-          </div>
+          </fieldset>
         </div>
       </div>
     {/if}

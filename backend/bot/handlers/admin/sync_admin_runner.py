@@ -14,10 +14,7 @@ from bot.services.panel_activity import (
     panel_user_last_connected_datetime,
 )
 from bot.services.panel_api_service import PanelApiService
-from bot.services.panel_identity_match import (
-    panel_candidate_matches_account,
-    panel_origin_fingerprint,
-)
+from bot.services.panel_identity_match import panel_origin_fingerprint
 from config.settings import Settings
 from db.advisory_locks import (
     acquire_subscription_background_sync_lock,
@@ -26,7 +23,6 @@ from db.advisory_locks import (
 from db.dal import (
     panel_sync_dal,
     subscription_dal,
-    user_panel_squad_override_dal,
 )
 from db.models import Subscription, User, UserEmailAddress
 
@@ -57,6 +53,11 @@ from .sync_admin_identity import (
     _merge_local_duplicate_panel_user_if_needed,
     _prefetch_sync_indexes,
     _select_existing_subscription_for_panel_sync,
+)
+from .sync_admin_relink import (
+    PanelSyncIdentityIndex,
+    bind_sync_panel_identity,
+    finish_sync_panel_relink,
 )
 from .sync_admin_snapshot import capture_subscription_snapshot
 from .sync_admin_summary import (
@@ -164,6 +165,7 @@ async def _perform_sync_impl(
             for panel_user in panel_users_data
             if panel_user.get("uuid")
         }
+        identity_index = PanelSyncIdentityIndex(panel_users_data)
 
         handled_panel_uuids: set[str] = set()
         for panel_offset, panel_user_dict in enumerate(panel_users_data):
@@ -195,8 +197,15 @@ async def _perform_sync_impl(
                     sync_indexes.get("subscriptions_by_user", {}),
                 )
                 numeric_generation = bool(sync_indexes.get("numeric_generation", False))
+                stale_owners = identity_index.stale_owners(
+                    panel_users_data[
+                        panel_offset : panel_offset + PANEL_SYNC_TRANSACTION_BATCH_SIZE
+                    ],
+                    users_by_user_id,
+                )
                 reload_batch = False
                 batch_started = time.monotonic()
+            previous_panel_uuid_for_reconciliation: str | None = None
             try:
                 panel_records_checked += 1
                 panel_uuid = panel_user_dict.get("uuid")
@@ -220,8 +229,10 @@ async def _perform_sync_impl(
                 # A proven Telegram duplicate can adopt an external native panel link.
                 # Panel email and a coincidentally equal internal ID prove nothing.
                 existing_user = users_by_panel_uuid.get(panel_uuid)
+                stale_owner = stale_owners.get(str(panel_uuid)) if existing_user is None else None
+                existing_user = existing_user or stale_owner
                 is_panel_telegram_duplicate = False
-                if existing_user is None and telegram_id_from_panel:
+                if stale_owner is None and existing_user is None and telegram_id_from_panel:
                     existing_user = users_by_telegram_id.get(telegram_id_from_panel)
                     if existing_user and existing_user.panel_user_uuid:
                         is_panel_telegram_duplicate = bool(
@@ -300,32 +311,26 @@ async def _perform_sync_impl(
                         panel_uuid,
                     )
 
-                current_panel_origin = panel_origin_fingerprint(settings.PANEL_API_URL)
-                if (
-                    getattr(existing_user, "panel_origin", None)
-                    and existing_user.panel_origin != current_panel_origin
-                ) or (
-                    (
-                        existing_user.panel_user_uuid != panel_uuid
-                        or not getattr(existing_user, "panel_origin", None)
+                panel_subscription = subscriptions_by_panel_uuid.get(
+                    panel_user_dict.get("subscriptionUuid") or panel_user_dict.get("shortUuid")
+                )
+                if panel_subscription and panel_subscription.user_id != existing_user.user_id:
+                    sync_errors.append(
+                        f"Panel user {panel_uuid} claims another account's subscription; "
+                        "manual review required"
                     )
-                    and not is_panel_telegram_duplicate
-                    and not panel_candidate_matches_account(existing_user, panel_user_dict)
+                    continue
+                if not bind_sync_panel_identity(
+                    existing_user,
+                    panel_user_dict,
+                    panel_origin_fingerprint(settings.PANEL_API_URL),
+                    telegram_duplicate=is_panel_telegram_duplicate,
                 ):
                     sync_errors.append(
                         f"Panel user {panel_uuid} does not prove ownership of local account; "
                         "manual review required"
                     )
                     continue
-                existing_user.panel_origin = current_panel_origin
-                actual_panel_username = str(panel_user_dict.get("username") or "").strip()
-                if actual_panel_username and not is_panel_telegram_duplicate:
-                    existing_user.panel_username = actual_panel_username
-                    existing_user.panel_username_state = (
-                        "current"
-                        if actual_panel_username == existing_user.minishop_id
-                        else "legacy_pending"
-                    )
 
                 # User found in local DB
                 users_found_in_db += 1
@@ -335,7 +340,6 @@ async def _perform_sync_impl(
                 # Get the actual user_id for subscription operations
                 actual_user_id = existing_user.user_id
                 is_duplicate_panel_identity = False
-                previous_panel_uuid_for_reconciliation: str | None = None
 
                 # Update panel UUID if different
                 if existing_user.panel_user_uuid != panel_uuid:
@@ -521,16 +525,11 @@ async def _perform_sync_impl(
                             str(previous_panel_uuid) if previous_panel_uuid else None
                         )
                         existing_user.panel_user_uuid = panel_uuid
-                        if previous_panel_uuid:
-                            await user_panel_squad_override_dal.merge_panel_user_uuid(
-                                session,
-                                user_id=int(existing_user.user_id),
-                                old_panel_user_uuid=previous_panel_uuid,
-                                new_panel_user_uuid=str(panel_uuid),
-                            )
                         user_was_updated = True
                         _append_unique(user_update_reasons, "panel_uuid_synced")
                         users_uuid_updated += 1
+                        if previous_panel_uuid:
+                            users_by_panel_uuid.pop(str(previous_panel_uuid), None)
                         users_by_panel_uuid[panel_uuid] = existing_user
                         logger.info(
                             "Updated panel UUID for user %s: %s", actual_user_id, panel_uuid
@@ -905,8 +904,15 @@ async def _perform_sync_impl(
             except Exception as e_user:
                 panel_user_uuid = panel_user_dict.get("uuid", "unknown")
                 sync_errors.append(f"Error processing panel user {panel_user_uuid}: {e_user!s}")
-                logger.error("Error syncing user: %s", e_user)
+                logger.exception("Error syncing user: %s", e_user)
             finally:
+                if previous_panel_uuid_for_reconciliation:
+                    await finish_sync_panel_relink(
+                        session,
+                        user_id=int(actual_user_id),
+                        old_reference=previous_panel_uuid_for_reconciliation,
+                        new_reference=str(panel_uuid),
+                    )
                 if (
                     panel_records_checked % PANEL_SYNC_TRANSACTION_BATCH_SIZE == 0
                     or time.monotonic() - batch_started >= 0.75

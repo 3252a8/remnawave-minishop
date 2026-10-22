@@ -1,5 +1,12 @@
+x-logging: &minishop_logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   rathole-client:
+    logging: *minishop_logging
     image: ${RATHOLE_IMAGE:-rapiz1/rathole:v0.5.0}
     restart: unless-stopped
     command: ["--client", "/etc/rathole/client.toml"]

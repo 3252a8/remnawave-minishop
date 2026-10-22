@@ -800,6 +800,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="freekassa",
+    payment_group="mixed",
     provider_key="freekassa",
     label="FreeKassa",
     webapp_label="FreeKassa / SBP",

@@ -1,6 +1,7 @@
 export const USERS_FILTER_QUERY_PARAM = "users_filter";
 export const USERS_PANEL_STATUS_QUERY_PARAM = "users_panel_status";
 export const USERS_PREMIUM_TRAFFIC_QUERY_PARAM = "users_premium_traffic";
+export const USERS_TARIFF_QUERY_PARAM = "users_tariff";
 
 export const USERS_FILTER_VALUES = [
   "all",
@@ -35,18 +36,33 @@ export const USERS_PREMIUM_TRAFFIC_VALUES = [
 export type UsersFilter = (typeof USERS_FILTER_VALUES)[number];
 export type UsersPanelStatusFilter = (typeof USERS_PANEL_STATUS_VALUES)[number];
 export type UsersPremiumTrafficFilter = (typeof USERS_PREMIUM_TRAFFIC_VALUES)[number];
+export type UsersTariffFilter =
+  "all" | "trial" | "no_subscription" | "no_tariff" | `tariff:${string}`;
 
 export type UsersRouteFilters = {
   usersFilter: UsersFilter;
   usersPanelStatus: UsersPanelStatusFilter;
   usersPremiumTraffic: UsersPremiumTrafficFilter;
+  usersTariffFilter: UsersTariffFilter;
 };
 
 export const DEFAULT_USERS_ROUTE_FILTERS: UsersRouteFilters = {
   usersFilter: "all",
   usersPanelStatus: "all",
   usersPremiumTraffic: "all",
+  usersTariffFilter: "all",
 };
+
+export function normalizeUsersTariffFilter(value: unknown): UsersTariffFilter {
+  const normalized = String(value || "").trim();
+  if (normalized.startsWith("tariff:") && normalized.slice(7).trim()) {
+    return normalized as UsersTariffFilter;
+  }
+  if (["trial", "no_subscription", "no_tariff"].includes(normalized)) {
+    return normalized as UsersTariffFilter;
+  }
+  return "all";
+}
 
 function normalizedValue<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   const normalized = String(value || "")
@@ -74,6 +90,7 @@ export function normalizeUsersRouteFilters(
       USERS_PREMIUM_TRAFFIC_VALUES,
       DEFAULT_USERS_ROUTE_FILTERS.usersPremiumTraffic
     ),
+    usersTariffFilter: normalizeUsersTariffFilter(filters.usersTariffFilter),
   };
 }
 
@@ -83,6 +100,7 @@ export function readUsersRouteFilters(search: string | URLSearchParams): UsersRo
     usersFilter: params.get(USERS_FILTER_QUERY_PARAM),
     usersPanelStatus: params.get(USERS_PANEL_STATUS_QUERY_PARAM),
     usersPremiumTraffic: params.get(USERS_PREMIUM_TRAFFIC_QUERY_PARAM),
+    usersTariffFilter: params.get(USERS_TARIFF_QUERY_PARAM),
   });
 }
 
@@ -105,6 +123,11 @@ export function writeUsersRouteFilters(
       normalized.usersPremiumTraffic,
       DEFAULT_USERS_ROUTE_FILTERS.usersPremiumTraffic,
     ],
+    [
+      USERS_TARIFF_QUERY_PARAM,
+      normalized.usersTariffFilter,
+      DEFAULT_USERS_ROUTE_FILTERS.usersTariffFilter,
+    ],
   ];
 
   for (const [key, value, defaultValue] of entries) {
@@ -118,6 +141,7 @@ export function usersRouteFiltersEqual(a: UsersRouteFilters, b: UsersRouteFilter
   return (
     a.usersFilter === b.usersFilter &&
     a.usersPanelStatus === b.usersPanelStatus &&
-    a.usersPremiumTraffic === b.usersPremiumTraffic
+    a.usersPremiumTraffic === b.usersPremiumTraffic &&
+    a.usersTariffFilter === b.usersTariffFilter
   );
 }

@@ -272,9 +272,6 @@
   .admin-field-label {
   max-width: 520px;
 }
-.admin-user-detail-page .admin-user-action-sheet--message .admin-user-action-sheet-body {
-  max-width: 1000px;
-}
 .admin-user-detail-page .admin-user-override-stack .input {
   max-width: 240px;
 }

@@ -511,6 +511,7 @@ def _wata_supported_currencies(source: Any, provider: str) -> tuple[str, ...]:
 
 SPEC = PaymentProviderSpec(
     id=WATA_PROVIDER,
+    payment_group="fiat",
     provider_key=WATA_PROVIDER,
     label="Wata",
     webapp_label="Wata",
@@ -549,6 +550,7 @@ SPEC = PaymentProviderSpec(
 
 CRYPTO_SPEC = PaymentProviderSpec(
     id=WATA_CRYPTO_PROVIDER,
+    payment_group="crypto",
     provider_key=WATA_CRYPTO_PROVIDER,
     label="Wata",
     webapp_label="Wata Crypto",
@@ -582,6 +584,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
 
 SUBSCRIPTION_SPEC = PaymentProviderSpec(
     id=WATA_SUBSCRIPTION_PROVIDER,
+    payment_group="fiat",
     provider_key=WATA_PROVIDER,
     label="Wata",
     webapp_label="Wata · Subscription",

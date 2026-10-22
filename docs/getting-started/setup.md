@@ -17,6 +17,8 @@ curl -fsSL https://gitlab.com/3252a8/remnawave-minishop/-/raw/main/scripts/insta
 sh install.sh
 ```
 
+В мастере Telegram ID и email первого владельца необязательны. Первый вход с совпавшей подтверждённой привязкой выдаст доступ в админку один раз. Если оба поля пропущены, после регистрации выполните из каталога установки `docker compose exec backend python backend/scripts/bootstrap_owner.py --minishop-id ms_<id>`, подставив ID из профиля. Это работает без привязанного Telegram/email. Если настройка Telegram и SMTP отложена, сначала настройте доступный способ регистрации. Подробности: [первый владелец](../features/telegram-optional.md#первый-владелец).
+
 Ручной минимальный запуск из уже скачанного репозитория:
 
 ```bash
@@ -29,7 +31,7 @@ docker compose logs -f backend worker frontend
 
 ## Что заполнить в первую очередь
 
-- `TELEGRAM_ENABLED=False` для автономного режима; `BOT_TOKEN` нужен только при включённом Telegram. Первый владелец назначается по подтверждённому email [серверной командой](../features/telegram-optional.md).
+- `TELEGRAM_ENABLED=False` для автономного режима; `BOT_TOKEN` нужен только при включённом Telegram. Необязательные `BOOTSTRAP_OWNER_TELEGRAM_ID` и `BOOTSTRAP_OWNER_EMAIL` назначают первого владельца при подтверждённом входе; без них доступна [серверная команда по Minishop ID](../features/telegram-optional.md#первый-владелец).
 - `WEBHOOK_BASE_URL` для платежных вебхуков и вебхуков панели (а также Telegram при его включении).
 - `PUBLIC_APP_URL` для кабинета и писем; `SUBSCRIPTION_MINI_APP_URL` остаётся совместимым алиасом.
 - `EMAIL_AUTH_SECRET`, `SMTP_HOST` и `SMTP_FROM_EMAIL` для входа по email.

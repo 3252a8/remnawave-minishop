@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getSupportStore } from "$lib/webapp/context";
-  import { tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import { Badge, Button, ScrollArea, Skeleton } from "$components/ui/index.js";
   import Card from "$components/ui/card.svelte";
-  import { ArrowLeft } from "$components/ui/icons.js";
+  import { ArrowLeft, CheckCircle2 } from "$components/ui/icons.js";
   import TicketComposer from "$components/patterns/webapp/TicketComposer.svelte";
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import type { TicketMessageButtonLike } from "$components/patterns/webapp/types";
@@ -60,6 +60,25 @@
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageKey = $state("");
   let replyDraftKey = $state("");
+  let viewportHeight = $state("100dvh");
+  let viewportTop = $state("0px");
+
+  onMount(() => {
+    const viewport = window.visualViewport;
+    const syncViewport = () => {
+      viewportHeight = `${viewport?.height ?? window.innerHeight}px`;
+      viewportTop = `${viewport?.offsetTop ?? 0}px`;
+    };
+    syncViewport();
+    viewport?.addEventListener("resize", syncViewport);
+    viewport?.addEventListener("scroll", syncViewport);
+    window.addEventListener("resize", syncViewport);
+    return () => {
+      viewport?.removeEventListener("resize", syncViewport);
+      viewport?.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("resize", syncViewport);
+    };
+  });
 
   const labels = $derived(webappRichTextLabels(t));
   const imageLabels = $derived({
@@ -130,10 +149,31 @@
   }
 
   function messageAuthorName(message: MessageRecord) {
+    if (["admin", "connector"].includes(String(message.author_role || ""))) {
+      return t("wa_support_role_admin");
+    }
     if (message?.author_label) return message.author_label;
     if (message?.author_name) return message.author_name;
     return message?.author_role === "user" ? t("wa_support_role_user") : "";
   }
+
+  $effect(() => {
+    const viewport = messagesScrollEl;
+    if (!viewport) return;
+    let atBottom = true;
+    const trackPosition = () => {
+      atBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 64;
+    };
+    const observer = new ResizeObserver(() => {
+      if (atBottom) viewport.scrollTop = viewport.scrollHeight;
+    });
+    observer.observe(viewport);
+    viewport.addEventListener("scroll", trackPosition, { passive: true });
+    return () => {
+      observer.disconnect();
+      viewport.removeEventListener("scroll", trackPosition);
+    };
+  });
 
   $effect(() => {
     const nextKey = `${openedTicket?.ticket_id || ""}:${messages.length}:${messages.at(-1)?.message_id || ""}`;
@@ -143,7 +183,10 @@
   });
 </script>
 
-<main class="content with-nav support-ticket-screen">
+<main
+  class="content with-nav support-ticket-screen"
+  style={`--support-viewport-height:${viewportHeight};--support-viewport-top:${viewportTop}`}
+>
   {#if detailLoading && !openedTicket}
     <Card class="support-ticket-card">
       <header class="ticket-detail-header support-ticket-detail-header">
@@ -151,10 +194,11 @@
           variant="ghost"
           size="sm"
           class="support-back-button"
+          aria-label={t("wa_back")}
+          title={t("wa_back")}
           onclick={() => supportStore.closeTicketView()}
         >
           <ArrowLeft size={16} />
-          <span>{t("wa_back")}</span>
         </Button>
 
         <div class="ticket-detail-title">
@@ -197,15 +241,16 @@
           variant="ghost"
           size="sm"
           class="support-back-button"
+          aria-label={t("wa_back")}
+          title={t("wa_back")}
           onclick={() => supportStore.closeTicketView()}
         >
           <ArrowLeft size={16} />
-          <span>{t("wa_back")}</span>
         </Button>
 
         <div class="ticket-detail-title">
+          <h1 title={openedTicket.subject}>{openedTicket.subject}</h1>
           <small>{t("wa_support_ticket_number", { id: openedTicket.ticket_id })}</small>
-          <h1>{openedTicket.subject}</h1>
         </div>
 
         <div class="ticket-badges">
@@ -214,12 +259,6 @@
             class={`ticket-status-badge ticket-status-badge--${visibleStatus}`}
           >
             {t(`wa_support_status_${visibleStatus}`)}
-          </Badge>
-          <Badge
-            variant="muted"
-            class={`ticket-priority-badge ticket-priority-badge--${openedTicket.priority}`}
-          >
-            {t(`wa_support_priority_${openedTicket.priority}`)}
           </Badge>
         </div>
       </header>
@@ -264,19 +303,25 @@
         <TypingIndicator label={t("wa_support_admin_typing")} />
       {/if}
 
-      <TicketComposer
-        bind:value={reply}
-        bind:image={replyImage}
-        {labels}
-        {imageLabels}
-        maxLength={maxBodyLength}
-        disabled={closed}
-        {sending}
-        placeholder={closed ? t("wa_support_closed_hint") : t("wa_support_reply_placeholder")}
-        sendLabel={t("wa_support_send")}
-        onSend={send}
-        onTyping={supportStore.notifyTyping}
-      />
+      {#if closed}
+        <div class="support-closed-notice" role="status">
+          <CheckCircle2 size={18} />
+          <span>{t("wa_support_closed_hint")}</span>
+        </div>
+      {:else}
+        <TicketComposer
+          bind:value={reply}
+          bind:image={replyImage}
+          {labels}
+          {imageLabels}
+          maxLength={maxBodyLength}
+          {sending}
+          placeholder={t("wa_support_reply_placeholder")}
+          sendLabel={t("wa_support_send")}
+          onSend={send}
+          onTyping={supportStore.notifyTyping}
+        />
+      {/if}
     </Card>
   {/if}
 </main>

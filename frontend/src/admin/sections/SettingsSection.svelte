@@ -2,6 +2,7 @@
   import { getSettingsStore, getTranslationsStore } from "$lib/admin/context";
   import * as UiIcons from "$components/ui/icons.js";
   import SettingsContent from "./settings/SettingsContent.svelte";
+  import SettingsMaintenanceStatus from "./settings/SettingsMaintenanceStatus.svelte";
   import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
   import { onDestroy, onMount, tick } from "svelte";
   import { prefersReducedMotion } from "svelte/motion";
@@ -19,13 +20,11 @@
     settingsSubsectionRoute,
   } from "$lib/admin/settingsSections";
   import {
-    buildSectionFieldSearchEntries,
     buildSettingsSearchEntries,
     normalizeSettingsSearchText,
     searchSettingsEntries,
     type SettingsSearchEntry,
   } from "$lib/admin/settingsSearch";
-  import { REFERRAL_SETTING_KEYS } from "$lib/admin/tariffSettings";
   import { filterServerStatusSettings } from "$lib/admin/serverStatusSettings";
   import type { ComponentType, SvelteComponent } from "svelte";
   import type {
@@ -85,8 +84,9 @@
   const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
   const menuButtonLanguages = $derived(translationsStore.translationLanguages || []);
+  let revealedSearchKey = $state("");
   const visibleSettingsSections = $derived(
-    filterServerStatusSettings(settingsSections, settingsDirty)
+    filterServerStatusSettings(settingsSections, settingsDirty, revealedSearchKey)
       .filter((section) => !SETTINGS_SECTION_IDS_HIDDEN_IN_GENERAL_SETTINGS.has(section.id))
       .map((section) => ({
         ...section,
@@ -129,31 +129,13 @@
   const filteredIconOptions = $derived(
     iconOptions.filter((name) => name.toLowerCase().includes(iconPickerSearch.trim().toLowerCase()))
   );
-  const settingsFieldsByKey = $derived(
-    new Map(
-      settingsSections
-        .flatMap((section) => section.fields || [])
-        .map((field): [string, AdminSettingField] => [field.key, field])
-    )
-  );
   const settingsSearchEntries = $derived([
-    ...buildSettingsSearchEntries(visibleSettingsSections, {
+    ...buildSettingsSearchEntries(settingsSections, {
       sectionTitle,
       subsectionTitle,
       fieldLabelText,
       fieldDescriptionText,
     }),
-    // The referral program renders its settings on a screen of its own, outside
-    // the generic list, so they need their own entries to be found.
-    ...buildSectionFieldSearchEntries(
-      REFERRAL_SETTING_KEYS,
-      settingsFieldsByKey,
-      {
-        sectionId: "referral",
-        pathLabel: at("marketing_programs_referral", {}, "Referral program"),
-      },
-      { fieldLabelText, fieldDescriptionText }
-    ),
     ...programSearchEntries(),
     {
       key: "ADMINISTRATORS",
@@ -228,6 +210,12 @@
   }
 
   async function selectSettingsSearchResult(result: SettingsSearchEntry): Promise<void> {
+    if (result.navigationSection) {
+      window.history.replaceState(null, "", `#${result.anchorKey}`);
+      onNavigateSection(result.navigationSection);
+      return;
+    }
+    revealedSearchKey = result.key;
     const routePath = result.subsectionId
       ? settingsSubsectionRoute(result.sectionId, result.subsectionId)
       : settingsSectionRoute(result.sectionId);
@@ -711,6 +699,8 @@
   }
 
   function sectionTitle(id: string): string {
+    if (id === "referral") return at("marketing_programs_referral", {}, "Referral program");
+    if (id === "partner") return at("marketing_programs_partner", {}, "Partner program");
     const map = {
       general: "General",
       login_methods: "Login methods",
@@ -827,6 +817,7 @@
   }
 </script>
 
+<SettingsMaintenanceStatus {at} sections={settingsSections} />
 <SettingsContent
   {at}
   {appRepositoryUrl}

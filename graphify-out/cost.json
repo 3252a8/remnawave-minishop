@@ -4,15 +4,41 @@
       "date": "2026-07-08T10:07:16.783733+00:00",
       "input_tokens": 0,
       "output_tokens": 0,
-      "files": 1194
+      "files": 1194,
+      "token_scope": "external_graphify_provider_api",
+      "host_agent_usage_metered": false
     },
     {
       "date": "2026-07-16T23:05:39.562253+00:00",
       "input_tokens": 0,
       "output_tokens": 0,
-      "files": 425
+      "files": 425,
+      "token_scope": "external_graphify_provider_api",
+      "host_agent_usage_metered": false
+    },
+    {
+      "date": "2026-10-15T12:37:44.587592+00:00",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "files": 2570,
+      "usage_available": true,
+      "note": "No external Graphify provider API calls for this refresh. Host-agent semantic extraction uses the host model. Its token usage and cost are not metered by this workflow and are unknown; zero external API counters do not mean the semantic work was free.",
+      "token_scope": "external_graphify_provider_api",
+      "host_agent_usage_metered": false
     }
   ],
   "total_input_tokens": 0,
-  "total_output_tokens": 0
+  "total_output_tokens": 0,
+  "token_scope": "external_graphify_provider_api",
+  "host_agent_usage": {
+    "metered": false,
+    "input_tokens": null,
+    "output_tokens": null,
+    "cost": null,
+    "note": "Host-agent semantic extraction uses the host model. Its token usage and cost are not metered by this workflow and are unknown; zero external API counters do not mean the semantic work was free."
+  },
+  "notes": [
+    "All numeric token counters are scoped to recorded external Graphify provider API usage only.",
+    "Historical zero counters are preserved as recorded; they do not measure or establish host-agent semantic usage or cost."
+  ]
 }

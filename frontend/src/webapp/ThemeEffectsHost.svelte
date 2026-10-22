@@ -177,6 +177,11 @@
 {/if}
 
 <style>
+  :global(body[data-scroll-locked]) .theme-effects-control,
+  :global(body:has([aria-modal="true"])) .theme-effects-control {
+    display: none;
+  }
+
   .theme-effects-control {
     position: fixed;
     right: max(12px, var(--content-safe-area-right, 0px));

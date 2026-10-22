@@ -536,6 +536,7 @@ _PRESENTATION_MANIFEST = tuple(
 
 SPEC = PaymentProviderSpec(
     id="stars",
+    payment_group="stars",
     provider_key="telegram_stars",
     label="Telegram Stars",
     webapp_label="Telegram Stars",

@@ -36,6 +36,7 @@ export type {
   CheckoutAddonKind,
   CheckoutAddonSelection,
   PaymentMethod,
+  PaymentMethodGroup,
   TariffCatalogEntry,
 } from "./tariffs";
 
@@ -84,6 +85,7 @@ export type WebappConfig = BootstrapResponse["config"] &
     userThemeModeEnabled?: boolean;
   };
 export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
+  maintenanceModeEnabled: false,
   adminCssAsset: "",
   adminThemeEffectsEnabled: false,
   adminJsAsset: "",
@@ -162,6 +164,7 @@ export type InstallGuideBlock = InstallGuideRecord & {
   title?: InstallLocalizedValue;
 };
 export type InstallGuideApp = InstallGuideRecord & {
+  id?: string;
   blocks?: InstallGuideBlock[];
   featured?: boolean;
   name?: string;

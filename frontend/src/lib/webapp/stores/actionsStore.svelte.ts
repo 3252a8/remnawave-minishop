@@ -9,12 +9,14 @@ import {
 } from "../publicApi";
 import { formatPromoEffectSummary } from "../promoEffectSummary.js";
 import type { TermUnitLabel } from "../types.js";
+import { createTrialCaptchaStore, type TrialCaptchaStore } from "./trialCaptchaStore.svelte.js";
 
 type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type MaybeRecord = Record<string, unknown>;
 export type PromoDeeplinkStatus = "" | "activated" | "already_used" | "invalid" | "error";
 export type PromoDeeplinkContext = { modalOpened?: boolean };
 export type ActionsState = {
+  trialCaptcha: TrialCaptchaStore;
   promoCode: string;
   promoBusy: boolean;
   promoStatus: string;
@@ -72,6 +74,7 @@ export function createActionsStore({
   prefillCheckoutPromo = () => {},
 }: ActionsStoreDeps) {
   const state = $state<ActionsStore>({
+    trialCaptcha: createTrialCaptchaStore(api, t),
     promoCode: "",
     promoBusy: false,
     promoStatus: "",
@@ -337,6 +340,7 @@ export function createActionsStore({
     state.trialActivationResult = null;
     state.trialActivationError = "";
     try {
+      if (!(await state.trialCaptcha.ensure())) return;
       const response = await api(buildTrialActivatePath(), {
         method: "POST",
         body: JSON.stringify({} as PostPayload<"/api/trial/activate">),

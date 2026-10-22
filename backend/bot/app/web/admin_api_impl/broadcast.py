@@ -545,6 +545,8 @@ def _broadcast_out(item: AdminBroadcast) -> AdminBroadcastOut:
                 url=str(button.get("url") or ""),
                 promo_code=str(button.get("promo_code") or ""),
                 section=str(button.get("section") or ""),
+                platform=str(button.get("platform") or ""),
+                app=str(button.get("app") or ""),
                 labels={
                     str(key): str(value) for key, value in dict(button.get("labels") or {}).items()
                 },
@@ -635,7 +637,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
 
     audience_service = _resolve_audience_service(request)
     try:
-        await audience_service.resolve_user_ids(target)
+        user_ids = await audience_service.resolve_user_ids(target)
     except AudienceNotFoundError:
         return _error(400, "invalid_audience", target)
     except AudienceUnavailableError:
@@ -678,6 +680,7 @@ async def admin_broadcast_route(request: web.Request) -> web.Response:
             session,
             actor_id=actor_id,
             target=target,
+            user_ids=user_ids,
             channels=channels,
             exclude_blocked_telegram=exclude_blocked_telegram,
             texts=texts,

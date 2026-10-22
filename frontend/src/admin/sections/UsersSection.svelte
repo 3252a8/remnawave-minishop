@@ -11,6 +11,9 @@
     type UsersRouteFilters,
   } from "../../lib/admin/usersRouteFilters";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import { tariffFilterOptions } from "$lib/admin/subscriptionPlans";
+  import { openUserRelationshipsGraph, userRelationshipsRoute } from "$lib/admin/userRelationships";
+  import UserRelationshipsGraph from "./users/UserRelationshipsGraph.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -25,11 +28,13 @@
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = "usersFilter" | "usersPanelStatus" | "usersPremiumTraffic";
+  type FilterKey = keyof UsersRouteFilters;
   type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
   type FilterChip = { key: FilterKey; label: string; value: string };
   type UsersSectionProps = {
+    routePrefix?: string;
     at?: TranslateFn;
+    currentLang?: string;
     fmtDateShort?: (value: string | null | undefined) => string;
     fmtMoney?: (value: number, currency?: string | null) => string;
     panelStatusBadge?: (user: AdminUser) => { label?: string; variant?: AdminBadgeVariant };
@@ -50,7 +55,9 @@
     | undefined;
 
   let {
+    routePrefix = "",
     at = (key) => key,
+    currentLang = "en",
     fmtDateShort = (value) => String(value || ""),
     fmtMoney = (value) => String(value),
     panelStatusBadge = () => ({}),
@@ -65,6 +72,15 @@
   }: UsersSectionProps = $props();
 
   const usersStore = getUsersStore();
+  let graphRoute = $state(userRelationshipsRoute());
+  function closeGraph(): void {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("view");
+    url.searchParams.delete("focus");
+    url.searchParams.delete("graph_kind");
+    window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
   const usersTable = new TableHandler<AdminUser>();
   const usersState = $derived(usersStore);
   const users = $derived(usersState.users);
@@ -74,6 +90,10 @@
   const usersFilter = $derived(usersState.usersFilter);
   const usersPanelStatus = $derived(usersState.usersPanelStatus);
   const usersPremiumTraffic = $derived(usersState.usersPremiumTraffic);
+  const usersTariffFilter = $derived(usersState.usersTariffFilter);
+  const USERS_TARIFF_OPTIONS = $derived(
+    tariffFilterOptions(usersState.usersTariffOptions, usersTariffFilter, currentLang, at)
+  );
   const usersSort = $derived(usersState.usersSort);
   const usersLoading = $derived(usersState.usersLoading);
   const userBalanceEnabled = $derived(usersState.userBalanceEnabled);
@@ -177,6 +197,7 @@
       usersFilter: patch.usersFilter ?? usersFilter,
       usersPanelStatus: patch.usersPanelStatus ?? usersPanelStatus,
       usersPremiumTraffic: patch.usersPremiumTraffic ?? usersPremiumTraffic,
+      usersTariffFilter: patch.usersTariffFilter ?? usersTariffFilter,
     });
     usersStore.updateState({ ...patch, usersPage: 0 });
     onUsersFiltersChange(filters);
@@ -189,6 +210,8 @@
     updateUsersFilterState({ usersPanelStatus: value })) as ComponentCallback;
   const updateUsersPremiumTraffic = ((value: string) =>
     updateUsersFilterState({ usersPremiumTraffic: value })) as ComponentCallback;
+  const updateUsersTariffFilter = (value: string) =>
+    updateUsersFilterState({ usersTariffFilter: value });
   const updateToolbarUsersFilter = ((value: string) => {
     updateUsersFilterState({ usersFilter: value });
   }) as ComponentCallback;
@@ -204,6 +227,7 @@
       usersFilter: "all",
       usersPanelStatus: "all",
       usersPremiumTraffic: "all",
+      usersTariffFilter: "all",
     });
   }
 
@@ -211,6 +235,7 @@
     if (key === "usersFilter") updateUsersFilterState({ usersFilter: "all" });
     if (key === "usersPanelStatus") updateUsersFilterState({ usersPanelStatus: "all" });
     if (key === "usersPremiumTraffic") updateUsersFilterState({ usersPremiumTraffic: "all" });
+    if (key === "usersTariffFilter") updateUsersFilterState({ usersTariffFilter: "all" });
   }
 
   function isFilterChip(value: FilterChip | false): value is FilterChip {
@@ -233,6 +258,7 @@
   function userTableColumns(): UserTableColumn[] {
     return [
       { key: "user", label: at("user", {}, "User"), sort: SORT_COLUMNS.user },
+      { key: "tariff", label: at("users_col_tariff", {}, "Tariff / trial") },
       ...(userBalanceEnabled
         ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance") }]
         : []),
@@ -352,6 +378,11 @@
           label: at("premium_traffic_filter_label", {}, "Premium traffic"),
           value: optionLabel(USERS_PREMIUM_TRAFFIC_OPTIONS, usersPremiumTraffic),
         },
+        usersTariffFilter !== "all" && {
+          key: "usersTariffFilter",
+          label: at("users_col_tariff", {}, "Tariff / trial"),
+          value: optionLabel(USERS_TARIFF_OPTIONS, usersTariffFilter),
+        },
       ] satisfies (FilterChip | false)[]
     ).filter(isFilterChip)
   );
@@ -359,6 +390,7 @@
   const userTableHeaders = $derived(userTableColumns().map((column) => column.label));
   const userTableWidths = $derived([
     "220px",
+    "170px",
     ...(userBalanceEnabled ? ["118px"] : []),
     ...(partnerBalanceEnabled ? ["136px"] : []),
     "128px",
@@ -373,56 +405,79 @@
 
   onMount(() => {
     usersStore.loadUsers();
+    const syncGraphRoute = () => {
+      graphRoute = userRelationshipsRoute();
+    };
+    window.addEventListener("popstate", syncGraphRoute);
+    return () => window.removeEventListener("popstate", syncGraphRoute);
   });
 </script>
 
-<UsersView
-  {at}
-  {usersStore}
-  {onOpenUserCard}
-  {usersTable}
-  bind:usersFilterSheetOpen
-  {usersFilter}
-  {usersPanelStatus}
-  {usersPremiumTraffic}
-  {usersQuery}
-  {usersTotal}
-  {usersPage}
-  {usersPageCount}
-  {usersLoading}
-  {USERS_PAGE_SIZE}
-  {USERS_FILTER_OPTIONS}
-  {USERS_PANEL_STATUS_OPTIONS}
-  {USERS_PREMIUM_TRAFFIC_OPTIONS}
-  {activeUsersFilterCount}
-  {activeUserFilterChips}
-  {userTableHeaders}
-  {userTableWidths}
-  {userTableColumnCount}
-  {userBalanceEnabled}
-  {partnerBalanceEnabled}
-  {updateUsersFilter}
-  {updateUsersPanelStatus}
-  {updateUsersPremiumTraffic}
-  {updateToolbarUsersFilter}
-  {updateToolbarPanelStatus}
-  {updateToolbarPremiumTraffic}
-  {resetUsersFilters}
-  {clearUsersFilter}
-  {handleUsersSearchInput}
-  {handleUsersSearchKeydown}
-  {userTableColumns}
-  {sortState}
-  {sortTitle}
-  {toggleUsersSortForColumn}
-  {resolvedAvatarUrl}
-  {panelStatusBadge}
-  {userInitials}
-  {userDisplayName}
-  {userSecondaryName}
-  {premiumTrafficBadgeVariant}
-  {premiumTrafficBadgeText}
-  {rowPaymentsTotal}
-  {rowBalance}
-  {fmtDateShort}
-/>
+{#if graphRoute.open}
+  <UserRelationshipsGraph
+    {at}
+    focus={graphRoute.focus}
+    filter={graphRoute.filter}
+    onBack={closeGraph}
+    {onOpenUserCard}
+    {resolvedAvatarUrl}
+    {userDisplayName}
+    {userInitials}
+  />
+{:else}
+  <UsersView
+    {at}
+    {currentLang}
+    {usersStore}
+    {onOpenUserCard}
+    onOpenGraph={() => openUserRelationshipsGraph(undefined, routePrefix)}
+    {usersTable}
+    bind:usersFilterSheetOpen
+    {usersFilter}
+    {usersPanelStatus}
+    {usersPremiumTraffic}
+    {usersTariffFilter}
+    {usersQuery}
+    {usersTotal}
+    {usersPage}
+    {usersPageCount}
+    {usersLoading}
+    {USERS_PAGE_SIZE}
+    {USERS_FILTER_OPTIONS}
+    {USERS_PANEL_STATUS_OPTIONS}
+    {USERS_PREMIUM_TRAFFIC_OPTIONS}
+    {USERS_TARIFF_OPTIONS}
+    {activeUsersFilterCount}
+    {activeUserFilterChips}
+    {userTableHeaders}
+    {userTableWidths}
+    {userTableColumnCount}
+    {userBalanceEnabled}
+    {partnerBalanceEnabled}
+    {updateUsersFilter}
+    {updateUsersPanelStatus}
+    {updateUsersPremiumTraffic}
+    {updateUsersTariffFilter}
+    {updateToolbarUsersFilter}
+    {updateToolbarPanelStatus}
+    {updateToolbarPremiumTraffic}
+    {resetUsersFilters}
+    {clearUsersFilter}
+    {handleUsersSearchInput}
+    {handleUsersSearchKeydown}
+    {userTableColumns}
+    {sortState}
+    {sortTitle}
+    {toggleUsersSortForColumn}
+    {resolvedAvatarUrl}
+    {panelStatusBadge}
+    {userInitials}
+    {userDisplayName}
+    {userSecondaryName}
+    {premiumTrafficBadgeVariant}
+    {premiumTrafficBadgeText}
+    {rowPaymentsTotal}
+    {rowBalance}
+    {fmtDateShort}
+  />
+{/if}

@@ -91,6 +91,7 @@ from .schema_helpers import (
 from .schema_helpers import (
     float_or_none as _float_or_none,
 )
+from .subscription_plan_schemas import AdminActiveTariffOut
 from .user_schemas import (
     AdminSubscriptionOut as AdminSubscriptionOut,
 )
@@ -405,6 +406,8 @@ class AdminBroadcastButtonBody(HttpBodyModel):
     labels: dict[str, str] = Field(default_factory=dict)
     icon_custom_emoji_id: str | None = None
     icon_emoji: str = ""
+    platform: str = Field(default_factory=str)
+    app: str = Field(default_factory=str)
 
     @model_validator(mode="after")
     def _validate_icon(self) -> AdminBroadcastButtonBody:
@@ -421,7 +424,7 @@ class AdminBroadcastButtonBody(HttpBodyModel):
     def _normalize_kind(cls, value: Any) -> str:
         return _strip_text(value).lower()
 
-    @field_validator("label", "url", "promo_code", mode="before")
+    @field_validator("label", "url", "promo_code", "platform", "app", mode="before")
     @classmethod
     def _normalize_button_text(cls, value: Any) -> str:
         return _strip_text(value)
@@ -843,6 +846,7 @@ class AdminStatsOut(HttpResponseModel):
     panel_sync: AdminPanelSyncOut
     recent_payments: list[PaymentOut]
     currency_symbol: str
+    active_tariffs: list[AdminActiveTariffOut]
     panel: dict[str, Any] | None = None
     queue: dict[str, Any] | None = None
 

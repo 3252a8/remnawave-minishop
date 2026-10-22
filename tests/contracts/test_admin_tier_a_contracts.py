@@ -104,6 +104,7 @@ def test_payment_response_models_match_legacy_serializer():
         "promo_usage_restored": False,
         "can_manual_finalize": False,
         "manual_finalize_requires_promo_confirmation": False,
+        "manual_finalize_requires_context_confirmation": False,
         "manual_finalize_warnings": [],
         "can_reverse": False,
         "reversal_block_reason": None,

@@ -99,6 +99,8 @@ TELEGRAM_ENABLED_VALUE=""
 TELEGRAM_BOT_PROXY_URL_VALUE=""
 TELEGRAM_OAUTH_USE_BOT_PROXY_VALUE=""
 ADMIN_IDS_VALUE=""
+BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE=""
+BOOTSTRAP_OWNER_EMAIL_VALUE=""
 POSTGRES_USER_VALUE=""
 POSTGRES_PASSWORD_VALUE=""
 POSTGRES_DB_VALUE=""
@@ -126,7 +128,7 @@ TELEGRAM_OAUTH_CLIENT_SECRET_VALUE=""
 TELEGRAM_OAUTH_REQUEST_ACCESS_VALUE=""
 EXISTING_PROXY_CONTAINER_NAME=""
 
-KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN TELEGRAM_ENABLED TELEGRAM_BOT_PROXY_URL TELEGRAM_OAUTH_USE_BOT_PROXY ADMIN_IDS POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET EMAIL_AUTH_SECRET PUBLIC_APP_URL EMAIL_LOGIN_ENABLED SMTP_HOST SMTP_PORT SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_PUBLIC_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
+KNOWN_ENV_KEYS="DEPLOYMENT_PROFILE COMPOSE_PROJECT_NAME IMAGE_TAG WEBHOOK_HOST MINIAPP_HOST WEBHOOK_PUBLIC_URL MINIAPP_PUBLIC_URL FRONTEND_BACKEND_MODE INSTALL_NODE_ROLE WEBAPP_API_BASE_URL WEBAPP_BACKEND_UPSTREAM WEBAPP_BACKEND_UPSTREAM_HOST MINISHOP_EDGE_TOKEN MINISHOP_EDGE_TOKEN_HEADER HTTP_BIND HTTPS_BIND WEB_SERVER_BIND WEBAPP_SERVER_BIND FRONTEND_BIND RATHOLE_IMAGE RATHOLE_CONTROL_BIND RATHOLE_CONTROL_REMOTE RATHOLE_SERVICE_TOKEN RATHOLE_SERVICE_PORT PANGOLIN_ENDPOINT NEWT_ID NEWT_SECRET BOT_TOKEN TELEGRAM_ENABLED TELEGRAM_BOT_PROXY_URL TELEGRAM_OAUTH_USE_BOT_PROXY ADMIN_IDS BOOTSTRAP_OWNER_TELEGRAM_ID BOOTSTRAP_OWNER_EMAIL POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB WEBAPP_ENABLED WEBAPP_TITLE WEBAPP_SESSION_SECRET EMAIL_AUTH_SECRET PUBLIC_APP_URL EMAIL_LOGIN_ENABLED SMTP_HOST SMTP_PORT SMTP_USERNAME SMTP_PASSWORD SMTP_FROM_EMAIL WEBHOOK_SECRET_TOKEN TRUSTED_PROXIES PANEL_API_URL PANEL_PUBLIC_URL PANEL_API_KEY PANEL_API_COOKIE PANEL_WEBHOOK_SECRET TELEGRAM_OAUTH_CLIENT_ID TELEGRAM_OAUTH_CLIENT_SECRET TELEGRAM_OAUTH_REQUEST_ACCESS"
 
 color() {
     printf '%s%s%s' "$2" "$1" "$RESET"
@@ -374,6 +376,12 @@ print_validation_hint() {
         socks5)
             warn "Используйте socks5://host:port или socks5://user:password@host:port. Спецсимволы credentials кодируйте через percent-encoding."
             ;;
+        owner-telegram)
+            warn "Укажите один положительный Telegram User ID цифрами, а не username или список. Минус (-) очищает сохранённое значение."
+            ;;
+        owner-email)
+            warn "Укажите email вида owner@example.com. Минус (-) очищает сохранённое значение."
+            ;;
     esac
 }
 
@@ -395,6 +403,12 @@ validate_value() {
             ;;
         socks5)
             is_valid_socks5_url "$value"
+            ;;
+        owner-telegram)
+            [ "$value" = "-" ] || printf '%s' "$value" | grep -Eq '^[1-9][0-9]{0,17}$'
+            ;;
+        owner-email)
+            [ "$value" = "-" ] || { [ "${#value}" -le 254 ] && printf '%s' "$value" | grep -Eq '^[^[:space:]@]+@[^[:space:]@.]+(\.[^[:space:]@.]+)+$'; }
             ;;
         *)
             return 0
@@ -1750,6 +1764,61 @@ download_profile_files() {
     esac
 }
 
+show_owner_bootstrap_help() {
+    if [ -n "$BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE" ] || [ -n "$BOOTSTRAP_OWNER_EMAIL_VALUE" ]; then
+        info "Первый аккаунт с указанным Telegram ID или подтверждённым email получит роль владельца при входе. Это один владелец; разные аккаунты автоматически не объединяются."
+        info "Telegram ID требует входа через Telegram; email нужно подтвердить кодом/ссылкой или доверенным провайдером. После назначения настройки больше не выдают роли."
+    else
+        info "Автоматическое назначение владельца пропущено. Зарегистрируйте аккаунт доступным способом входа, скопируйте Minishop ID (ms_...) из профиля и выполните из каталога установки:"
+        info "docker compose exec backend python backend/scripts/bootstrap_owner.py --minishop-id ms_<id>"
+        info "Команда работает без привязанного Telegram и email; существующего владельца она не заменяет. На отдельном backend node запускайте её в каталоге backend."
+    fi
+    info "Ручные альтернативы для зарегистрированного аккаунта: --telegram-id <id> или --email <подтверждённый-email>. Документация: docs/features/telegram-optional.md, раздел «Первый владелец»."
+}
+
+prompt_owner_bootstrap() {
+    section "Первый владелец (оба поля необязательны)"
+    info "Можно заполнить один идентификатор, оба для одного человека или оставить оба пустыми. Enter сохраняет существующее значение; минус (-) очищает его."
+    prompt_value "Telegram User ID первого владельца (пусто = пропустить)" "$(env_get BOOTSTRAP_OWNER_TELEGRAM_ID '')" 0 0 "owner-telegram" || return 1
+    BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE="$PROMPT_VALUE"
+    [ "$BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE" != "-" ] || BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE=""
+    prompt_value "Email первого владельца (пусто = пропустить)" "$(env_get BOOTSTRAP_OWNER_EMAIL '')" 0 0 "owner-email" || return 1
+    BOOTSTRAP_OWNER_EMAIL_VALUE=$(printf '%s' "$PROMPT_VALUE" | tr '[:upper:]' '[:lower:]')
+    [ "$BOOTSTRAP_OWNER_EMAIL_VALUE" != "-" ] || BOOTSTRAP_OWNER_EMAIL_VALUE=""
+    show_owner_bootstrap_help
+}
+
+prompt_email_transport() {
+    EMAIL_LOGIN_ENABLED_VALUE="$(env_get EMAIL_LOGIN_ENABLED True)"
+    SMTP_HOST_VALUE="$(env_get SMTP_HOST '')"
+    SMTP_FROM_EMAIL_VALUE="$(env_get SMTP_FROM_EMAIL '')"
+    SMTP_PORT_VALUE="$(env_get SMTP_PORT 587)"
+    SMTP_USERNAME_VALUE="$(env_get SMTP_USERNAME '')"
+    SMTP_PASSWORD_VALUE="$(env_get SMTP_PASSWORD '')"
+    smtp_setup_default=0
+    if [ "$TELEGRAM_ENABLED_VALUE" = "False" ] || [ -n "$BOOTSTRAP_OWNER_EMAIL_VALUE" ] || [ -n "$SMTP_HOST_VALUE" ]; then
+        smtp_setup_default=1
+    fi
+    if confirm "Настроить SMTP для входа по email сейчас? (можно пропустить)" "$smtp_setup_default"; then
+        EMAIL_LOGIN_ENABLED_VALUE="True"
+        prompt_value "SMTP host для входа по email" "$SMTP_HOST_VALUE" 1 0 "" || return 1
+        SMTP_HOST_VALUE="$PROMPT_VALUE"
+        prompt_value "Email отправителя" "$SMTP_FROM_EMAIL_VALUE" 1 0 "" || return 1
+        SMTP_FROM_EMAIL_VALUE="$PROMPT_VALUE"
+        prompt_value "SMTP port" "$SMTP_PORT_VALUE" 1 0 "" || return 1
+        SMTP_PORT_VALUE="$PROMPT_VALUE"
+        prompt_value "SMTP username (пусто = без авторизации)" "$SMTP_USERNAME_VALUE" 0 0 "" || return 1
+        SMTP_USERNAME_VALUE="$PROMPT_VALUE"
+        prompt_value "SMTP password (пусто = без авторизации)" "$SMTP_PASSWORD_VALUE" 0 1 "" || return 1
+        SMTP_PASSWORD_VALUE="$PROMPT_VALUE"
+    elif [ -z "$SMTP_HOST_VALUE" ] || [ -z "$SMTP_FROM_EMAIL_VALUE" ]; then
+        EMAIL_LOGIN_ENABLED_VALUE="False"
+        if [ "$TELEGRAM_ENABLED_VALUE" = "False" ]; then
+            warn "Для регистрации до ручного назначения владельца настройте доступный способ входа: SMTP/email, Telegram или внешний OAuth-провайдер."
+        fi
+    fi
+}
+
 prompt_common_env() {
     section "Основные настройки .env"
     prompt_value "Имя Docker Compose проекта" "$(env_get COMPOSE_PROJECT_NAME remnawave-minishop)" 0 0 ""
@@ -1796,10 +1865,11 @@ prompt_common_env() {
         fi
     fi
     ADMIN_IDS_VALUE=""
-    if [ "$TELEGRAM_ENABLED_VALUE" = "True" ]; then
+    if [ "$TELEGRAM_ENABLED_VALUE" = "True" ] && { [ -n "$detected_admin_ids" ] || [ -n "$LEGACY_SOURCE" ]; }; then
         prompt_value "Старые Telegram ID администраторов для однократного импорта (пусто = пропустить)" "$detected_admin_ids" 0 0 "" "$detected_admin_ids_prefilled"
         ADMIN_IDS_VALUE="$PROMPT_VALUE"
     fi
+    prompt_owner_bootstrap || return 1
     prompt_value "Пользователь PostgreSQL" "$(env_get POSTGRES_USER remnawave_minishop)" 1 0 ""
     POSTGRES_USER_VALUE="$PROMPT_VALUE"
     existing_postgres_password=$(env_get POSTGRES_PASSWORD "")
@@ -1822,28 +1892,7 @@ prompt_common_env() {
     if [ -z "$EMAIL_AUTH_SECRET_VALUE" ]; then
         EMAIL_AUTH_SECRET_VALUE="$(secret_hex 32)"
     fi
-    EMAIL_LOGIN_ENABLED_VALUE="$(env_get EMAIL_LOGIN_ENABLED True)"
-    if [ "$TELEGRAM_ENABLED_VALUE" = "False" ]; then
-        EMAIL_LOGIN_ENABLED_VALUE="True"
-        prompt_value "SMTP host для входа по email" "$(env_get SMTP_HOST '')" 1 0 ""
-        SMTP_HOST_VALUE="$PROMPT_VALUE"
-        prompt_value "Email отправителя" "$(env_get SMTP_FROM_EMAIL '')" 1 0 ""
-        SMTP_FROM_EMAIL_VALUE="$PROMPT_VALUE"
-    else
-        SMTP_HOST_VALUE="$(env_get SMTP_HOST '')"
-        SMTP_FROM_EMAIL_VALUE="$(env_get SMTP_FROM_EMAIL '')"
-    fi
-    SMTP_PORT_VALUE="$(env_get SMTP_PORT 587)"
-    SMTP_USERNAME_VALUE="$(env_get SMTP_USERNAME '')"
-    SMTP_PASSWORD_VALUE="$(env_get SMTP_PASSWORD '')"
-    if [ -n "$SMTP_HOST_VALUE" ]; then
-        prompt_value "SMTP port" "$SMTP_PORT_VALUE" 1 0 ""
-        SMTP_PORT_VALUE="$PROMPT_VALUE"
-        prompt_value "SMTP username (пусто = без авторизации)" "$SMTP_USERNAME_VALUE" 0 0 ""
-        SMTP_USERNAME_VALUE="$PROMPT_VALUE"
-        prompt_value "SMTP password (пусто = без авторизации)" "$SMTP_PASSWORD_VALUE" 0 1 ""
-        SMTP_PASSWORD_VALUE="$PROMPT_VALUE"
-    fi
+    prompt_email_transport || return 1
     WEBHOOK_SECRET_TOKEN_VALUE="$(env_get WEBHOOK_SECRET_TOKEN "")"
     if [ -z "$WEBHOOK_SECRET_TOKEN_VALUE" ]; then
         WEBHOOK_SECRET_TOKEN_VALUE="$(detect_webhook_secret_token || true)"
@@ -2048,6 +2097,8 @@ display_env_summary() {
     show_env_value TELEGRAM_BOT_PROXY_URL "$TELEGRAM_BOT_PROXY_URL_VALUE"
     show_env_value TELEGRAM_OAUTH_USE_BOT_PROXY "$TELEGRAM_OAUTH_USE_BOT_PROXY_VALUE"
     show_env_value ADMIN_IDS "$ADMIN_IDS_VALUE"
+    show_env_value BOOTSTRAP_OWNER_TELEGRAM_ID "$BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE"
+    show_env_value BOOTSTRAP_OWNER_EMAIL "$BOOTSTRAP_OWNER_EMAIL_VALUE"
     show_env_value POSTGRES_USER "$POSTGRES_USER_VALUE"
     show_env_value POSTGRES_PASSWORD "$POSTGRES_PASSWORD_VALUE"
     show_env_value POSTGRES_DB "$POSTGRES_DB_VALUE"
@@ -2139,6 +2190,9 @@ render_env_file() {
     env_line TELEGRAM_BOT_PROXY_URL "$TELEGRAM_BOT_PROXY_URL_VALUE" "$output"
     env_line TELEGRAM_OAUTH_USE_BOT_PROXY "$TELEGRAM_OAUTH_USE_BOT_PROXY_VALUE" "$output"
     env_line ADMIN_IDS "$ADMIN_IDS_VALUE" "$output"
+    printf '\n# Optional first-owner identities (consumed once)\n' >> "$output"
+    env_line BOOTSTRAP_OWNER_TELEGRAM_ID "$BOOTSTRAP_OWNER_TELEGRAM_ID_VALUE" "$output"
+    env_line BOOTSTRAP_OWNER_EMAIL "$BOOTSTRAP_OWNER_EMAIL_VALUE" "$output"
 
     printf '\n# PostgreSQL\n' >> "$output"
     env_line POSTGRES_USER "$POSTGRES_USER_VALUE" "$output"
@@ -6684,6 +6738,11 @@ write_pangolin_compose_file() {
 # пунктом меню "Отключить Web App от Pangolin (Newt)".
 services:
   newt:
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: fosrl/newt:latest
     restart: unless-stopped
     environment:
@@ -6970,6 +7029,9 @@ install_flow() {
             ;;
     esac
     offer_pangolin_connect_after_install || return 1
+    if [ "$INSTALL_NODE_ROLE_VALUE" != "frontend-node" ]; then
+        show_owner_bootstrap_help
+    fi
 }
 
 migration_only_flow() {

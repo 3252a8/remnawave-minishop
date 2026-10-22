@@ -22,7 +22,15 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
         *,
         commit: bool = True,
         emit_event: bool = True,
+        captcha_verified_payment: bool = False,
     ) -> dict[str, Any] | None:
+        if not captcha_verified_payment:
+            from bot.services.trial_captcha import TrialCaptchaError, require_trial_captcha
+
+            try:
+                await require_trial_captcha(self.settings, user_id)
+            except TrialCaptchaError as exc:
+                return {"eligible": True, "activated": False, "message_key": exc.code}
         if not self.settings.TRIAL_ENABLED or self.settings.TRIAL_DURATION_DAYS <= 0:
             return {
                 "eligible": False,

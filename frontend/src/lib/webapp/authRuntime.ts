@@ -1,6 +1,7 @@
 import { readEmailCodeLoginDeeplink } from "./deeplinks.js";
 import { isPasswordLoginPath, syncPasswordLoginPath } from "./passwordLoginRoute.js";
 import { shellState } from "./shellState.svelte";
+import { rememberInstallAuthDestination } from "./installAuthDestination.js";
 import type { AuthState } from "./stores/authStore";
 
 type AuthStoreLike = {
@@ -72,6 +73,7 @@ export function createAuthRuntime({
   }
 
   function showLogin() {
+    rememberInstallAuthDestination("login");
     shellState.mode = "login";
     setScreen("login");
     shellState.activeTab = "home";

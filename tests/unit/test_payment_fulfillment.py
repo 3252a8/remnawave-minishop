@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
@@ -42,6 +42,44 @@ class _ScalarResult:
 
 
 class PaymentFulfillmentTests(IsolatedAsyncioTestCase):
+    async def test_changed_subscription_end_requires_explicit_manual_confirmation(self):
+        end = datetime(2026, 10, 17, tzinfo=UTC)
+        payment = _payment(
+            status="succeeded_pending_review",
+            sale_mode="subscription@basic",
+            tariff_key="basic",
+            checkout_bundle_snapshot=json.dumps(
+                {
+                    "version": 2,
+                    "items": [],
+                    "active_context": {"subscription_id": 11, "end_at": end.isoformat()},
+                }
+            ),
+        )
+        subscription = SimpleNamespace(
+            subscription_id=11, tariff_key="basic", end_date=end + timedelta(days=3)
+        )
+        with patch(
+            "bot.services.payment_fulfillment.subscription_dal.get_active_subscription_by_user_id",
+            AsyncMock(return_value=subscription),
+        ):
+            state = await payment_action_state(AsyncMock(), payment)
+            self.assertTrue(state["can_manual_finalize"])
+            self.assertTrue(state["manual_finalize_requires_context_confirmation"])
+            self.assertIn("active_subscription_end_changed", state["manual_finalize_warnings"])
+
+            for changed_field, value in (("tariff_key", "other"), ("subscription_id", 12)):
+                with self.subTest(changed_field=changed_field):
+                    original = getattr(subscription, changed_field)
+                    setattr(subscription, changed_field, value)
+                    blocked = await payment_action_state(AsyncMock(), payment)
+                    self.assertFalse(blocked["can_manual_finalize"])
+                    self.assertFalse(blocked["manual_finalize_requires_context_confirmation"])
+                    self.assertIn(
+                        "entitlement_context_conflict", blocked["manual_finalize_warnings"]
+                    )
+                    setattr(subscription, changed_field, original)
+
     async def test_merged_payment_history_does_not_require_a_false_promo_override(self):
         payment = _payment(promo_code_id=5)
         session = AsyncMock()

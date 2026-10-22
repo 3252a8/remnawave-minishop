@@ -126,6 +126,11 @@ async def init_db(
             .limit(1)
         )
     if not admin_ids:
+        if settings.BOOTSTRAP_OWNER_TELEGRAM_ID is not None or settings.BOOTSTRAP_OWNER_EMAIL:
+            logger.info(
+                "First-owner identities are configured. Sign in with the configured Telegram "
+                "identity or verified email to receive the owner role once."
+            )
         registration_url = str(
             settings.PUBLIC_APP_URL or settings.SUBSCRIPTION_MINI_APP_URL or "the public Web App"
         ).rstrip("/")

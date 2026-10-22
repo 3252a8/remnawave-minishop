@@ -1,6 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { billingErrorMessage, createBillingActions } from "./billingActions.js";
+import {
+  billingErrorMessage,
+  createBillingActions,
+  TrialCaptchaCancelled,
+} from "./billingActions.js";
+
+describe("paid trial verification", () => {
+  it("does not create an invoice when verification is cancelled", async () => {
+    const api = vi.fn();
+    const ensureTrialCaptcha = vi.fn(async () => false);
+    const actions = createBillingActions({ api, ensureTrialCaptcha });
+    await expect(
+      actions.postPayment(actions.planPaymentBody({ sale_mode: "trial" }, "card"))
+    ).rejects.toThrow(TrialCaptchaCancelled);
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it("checks paid trial proof immediately before invoicing and leaves other payments alone", async () => {
+    const api = vi.fn().mockResolvedValue({ ok: true });
+    const ensureTrialCaptcha = vi.fn(async () => true);
+    const actions = createBillingActions({ api, ensureTrialCaptcha });
+    await actions.postPayment(actions.planPaymentBody({ sale_mode: "subscription" }, "card"));
+    expect(ensureTrialCaptcha).not.toHaveBeenCalled();
+    await actions.postPayment(actions.planPaymentBody({ sale_mode: "trial" }, "card"));
+    expect(ensureTrialCaptcha).toHaveBeenCalledOnce();
+    expect(api).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("billing error translation", () => {
   it("uses the tariff error code for both quote and payment failures", () => {
