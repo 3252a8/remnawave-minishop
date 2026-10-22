@@ -7,7 +7,7 @@ import pytest
 from aiogram import types
 
 from bot.payment_providers import registry
-from bot.payment_providers.base import PaymentProviderSpec
+from bot.payment_providers.base import PaymentMethodGroup, PaymentProviderSpec
 from bot.payment_providers.shared.callbacks import PaymentCallbackParts
 from bot.payment_providers.shared.common import payment_provider_unavailable
 from bot.payment_providers.shared.payment_fallback import payment_fallback_keyboard
@@ -56,6 +56,7 @@ def _spec(method: str) -> PaymentProviderSpec:
         pending_status=f"pending_{method}",
         enabled=lambda _settings: True,
         callback_prefix=f"pay_{method}",
+        payment_group="fiat",
     )
 
 
@@ -95,14 +96,14 @@ def _translate(key: str, **params: object) -> str:
     return f"{key}:{params.get('method', '')}"
 
 
-def test_next_method_wraps_and_preserves_exact_order_and_stars_prices(
+def test_next_method_wraps_within_the_same_group_and_preserves_exact_order(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     specs = (
         _spec("alpha"),
         _spec("bravo"),
         _spec("charlie"),
-        replace(_spec("stars"), price_source="stars"),
+        replace(_spec("stars"), price_source="stars", payment_group="stars"),
     )
     monkeypatch.setattr(registry, "PAYMENT_PROVIDER_SPECS", specs)
     mode = "subscription@basic|d30|p7"
@@ -122,13 +123,39 @@ def test_next_method_wraps_and_preserves_exact_order_and_stars_prices(
     )
     assert has_alternative
     actions = [row[0].callback_data for row in markup.inline_keyboard]
-    assert actions[:3] == [
-        f"pay_stars:1:99:{mode}",
+    assert actions[:-1] == [
         f"pay_alpha:1:200:{mode}",
         f"pay_bravo:1:200:{mode}",
     ]
     assert markup.inline_keyboard[0][0].text.startswith("payment_try_alternative:")
     assert not any(action and action.startswith("pay_charlie:") for action in actions)
+
+
+@pytest.mark.parametrize("group", ["fiat", "crypto", "stars", "mixed", None])
+def test_alternatives_keep_the_funding_group_and_skip_the_failed_provider(
+    monkeypatch: pytest.MonkeyPatch, group: PaymentMethodGroup | None
+) -> None:
+    specs = (
+        replace(_spec("alpha"), payment_group=group, service_key="first"),
+        replace(_spec("bravo"), payment_group=group, service_key="first"),
+        replace(_spec("charlie"), payment_group=group, service_key="second"),
+        replace(_spec("stars"), payment_group="crypto" if group != "crypto" else "fiat"),
+    )
+    monkeypatch.setattr(registry, "PAYMENT_PROVIDER_SPECS", specs)
+    callback = _callback(
+        "pay_alpha:1:200:subscription",
+        [(spec.id, f"pay_{spec.id}:1:200:subscription") for spec in specs],
+    )
+    markup, has_alternative = payment_fallback_keyboard(
+        callback,
+        settings=_settings(),
+        parts=PaymentCallbackParts(months=1, price=200, sale_mode="subscription"),
+        translator=_translate,
+        language="en",
+    )
+    assert has_alternative is (group is not None)
+    expected = "pay_charlie:1:200:subscription" if group is not None else callback.data
+    assert [row[0].callback_data for row in markup.inline_keyboard][:-1] == [expected]
 
 
 def test_hidden_disabled_wrong_order_currency_and_context_methods_are_excluded(

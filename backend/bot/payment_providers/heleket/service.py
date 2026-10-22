@@ -706,6 +706,7 @@ def create_service(ctx: ServiceFactoryContext) -> HeleketService:
 
 SPEC = PaymentProviderSpec(
     id="heleket",
+    payment_group="crypto",
     provider_key="heleket",
     label="Heleket",
     webapp_label="Heleket",

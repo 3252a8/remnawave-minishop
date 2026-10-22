@@ -571,6 +571,7 @@ _SBP_MANIFEST = CONFIG_MANIFEST + platega_presentation_manifest(
 
 SBP_SPEC = PaymentProviderSpec(
     id="platega_sbp",
+    payment_group="fiat",
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · SBP",
@@ -608,6 +609,7 @@ SBP_SPEC = PaymentProviderSpec(
 
 CARD_SPEC = PaymentProviderSpec(
     id="platega_card",
+    payment_group="fiat",
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · Card",
@@ -641,6 +643,7 @@ CARD_SPEC = PaymentProviderSpec(
 
 CRYPTO_SPEC = PaymentProviderSpec(
     id="platega_crypto",
+    payment_group="crypto",
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · Crypto",
@@ -675,6 +678,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
 
 INTERNATIONAL_SPEC = PaymentProviderSpec(
     id="platega_international",
+    payment_group="fiat",
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · International",
@@ -722,6 +726,7 @@ INTERNATIONAL_SPEC = PaymentProviderSpec(
 
 ALL_METHODS_SPEC = PaymentProviderSpec(
     id="platega_all_methods",
+    payment_group="mixed",
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · All methods",
@@ -767,6 +772,7 @@ ALL_METHODS_SPEC = PaymentProviderSpec(
 
 SUBSCRIPTION_SPEC = PaymentProviderSpec(
     id="platega_subscription",
+    payment_group="fiat",
     provider_key="platega",
     label="Platega",
     webapp_label="Platega · Subscription",

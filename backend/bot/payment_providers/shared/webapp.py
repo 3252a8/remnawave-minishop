@@ -85,6 +85,12 @@ async def finalize_webapp_link_payment(
             )
 
     if not api_success or not payment_url or not provider_payment_id or not provider_id_stored:
+        provider_unavailable = payment_provider_unavailable(
+            provider_response,
+            api_success=api_success,
+            payment_url=payment_url,
+            provider_payment_id=provider_payment_id,
+        )
         logger.error(
             "%s: WebApp payment creation failed for payment %s "
             "(user_id=%s, api_success=%s, has_payment_url=%s, "
@@ -104,6 +110,8 @@ async def finalize_webapp_link_payment(
             )
             if not provider_id_stored:
                 failure_metadata["failure_kind"] = "provider_correlation_persist_failed"
+            if provider_unavailable:
+                failure_metadata["suppress_failure_notification"] = True
             await mark_payment_failed_creation(
                 session,
                 payment.payment_id,
@@ -116,13 +124,6 @@ async def finalize_webapp_link_payment(
                 log_prefix,
                 payment.payment_id,
             )
-        return payment_failed(
-            provider_unavailable=payment_provider_unavailable(
-                provider_response,
-                api_success=api_success,
-                payment_url=payment_url,
-                provider_payment_id=provider_payment_id,
-            )
-        )
+        return payment_failed(provider_unavailable=provider_unavailable)
 
     return payment_link_response(payment_url=payment_url, payment_id=payment.payment_id)

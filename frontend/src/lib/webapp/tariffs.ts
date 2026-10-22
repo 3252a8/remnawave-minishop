@@ -114,16 +114,20 @@ export type TariffCatalogEntry = Pick<
   title: string;
   traffic_packages: number[];
 };
+export type PaymentMethodGroup = "fiat" | "crypto" | "stars" | "mixed";
+
 export type PaymentMethod = WebappRecord & {
   balance_supported?: boolean;
   disabled?: boolean;
   disabled_reason?: string;
+  group?: PaymentMethodGroup | null;
   id?: string | number;
   min_amount?: number | string;
   min_currency?: string;
   minimum_amount?: number | string;
   minimum_amount_text?: string;
   price_managed_externally?: boolean;
+  provider_id?: string | null;
   shop_limit_currency?: string;
   shop_min_amount?: number | string;
 };

@@ -49,12 +49,21 @@ def payment_fallback_keyboard(
         ),
         -1,
     )
+    failed_spec = ordered_specs[failed_index] if failed_index >= 0 else None
     ordered_specs = ordered_specs[failed_index + 1 :] + ordered_specs[: failed_index + 1]
     rows: list[list[types.InlineKeyboardButton]] = []
     seen: set[str] = set()
     for spec in ordered_specs:
         prefix = spec.callback_prefix
-        if not prefix or prefix == failed_prefix or prefix in seen:
+        if (
+            not prefix
+            or prefix == failed_prefix
+            or prefix in seen
+            or failed_spec is None
+            or failed_spec.payment_group is None
+            or spec.payment_group != failed_spec.payment_group
+            or spec.provider_id == failed_spec.provider_id
+        ):
             continue
         seen.add(prefix)
         button = original_buttons.get(prefix)

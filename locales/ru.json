@@ -8,7 +8,7 @@
   "wa_payment_fallback_select": "Выбрать {method}",
   "wa_payment_fallback_back": "Вернуться к оплате",
   "wa_payment_fallback_hint": "Параметры покупки сохранятся.",
-  "wa_payment_fallback_none": "Других доступных способов сейчас нет. Можно повторить попытку позже.",
+  "wa_payment_fallback_none": "Других доступных способов этого типа сейчас нет. Можно повторить попытку позже.",
   "wa_boot_failed": "Не удалось загрузить приложение. Проверьте подключение и попробуйте ещё раз.",
   "admin_color_picker_title": "Цвет",
   "admin_color_picker_close": "Закрыть палитру",

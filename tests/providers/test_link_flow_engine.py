@@ -572,6 +572,8 @@ def test_webapp_gateway_outage_returns_typed_fallback_error(monkeypatch) -> None
     assert response.status == 502
     assert response.body and b'"error": "payment_provider_unavailable"' in response.body
     mark_failed.assert_awaited_once()
+    assert mark_failed.await_args is not None
+    assert mark_failed.await_args.kwargs["suppress_failure_notification"] is True
 
 
 def test_callback_gateway_outage_renders_alternatives_without_creating_payment(monkeypatch) -> None:
@@ -579,7 +581,8 @@ def test_callback_gateway_outage_renders_alternatives_without_creating_payment(m
     settings = _settings()
     keyboard = object()
     fallback = AsyncMock(return_value=None)
-    monkeypatch.setattr(shared_callbacks, "safe_mark_failed_creation", AsyncMock())
+    mark_failed = AsyncMock()
+    monkeypatch.setattr(shared_callbacks, "safe_mark_failed_creation", mark_failed)
     monkeypatch.setattr(shared_callbacks, "safe_callback_answer", AsyncMock())
     monkeypatch.setattr(shared_callbacks, "edit_or_answer", fallback)
     monkeypatch.setattr(
@@ -605,6 +608,11 @@ def test_callback_gateway_outage_renders_alternatives_without_creating_payment(m
     assert fallback.await_args is not None
     assert fallback.await_args.args[1] == "payment_provider_unavailable_alternative"
     assert fallback.await_args.kwargs["reply_markup"] is keyboard
+    mark_failed.assert_awaited_once()
+    assert mark_failed.await_args is not None
+    assert (
+        mark_failed.await_args.kwargs["failure_metadata"]["suppress_failure_notification"] is True
+    )
 
 
 def test_webapp_link_is_not_exposed_after_unsuccessful_provider_response(

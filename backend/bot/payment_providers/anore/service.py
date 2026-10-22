@@ -237,6 +237,7 @@ _PRESENTATION_MANIFEST = tuple(
 )
 SPEC = PaymentProviderSpec(
     id="anore",
+    payment_group="mixed",
     provider_key="anore",
     label="Anore",
     webapp_label="Anore",

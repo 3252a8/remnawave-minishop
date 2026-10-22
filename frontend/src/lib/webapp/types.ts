@@ -36,6 +36,7 @@ export type {
   CheckoutAddonKind,
   CheckoutAddonSelection,
   PaymentMethod,
+  PaymentMethodGroup,
   TariffCatalogEntry,
 } from "./tariffs";
 

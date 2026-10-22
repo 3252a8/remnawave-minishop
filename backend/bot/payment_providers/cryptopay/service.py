@@ -825,6 +825,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="cryptopay",
+    payment_group="crypto",
     provider_key="cryptopay",
     label="CryptoPay",
     webapp_label="CryptoPay",

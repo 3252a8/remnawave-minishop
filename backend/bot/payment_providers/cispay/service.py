@@ -388,6 +388,7 @@ _PRESENTATION_MANIFEST = tuple(
 )
 SPEC = PaymentProviderSpec(
     id="cispay",
+    payment_group="fiat",
     provider_key="cispay",
     label="CisPay",
     webapp_label="CisPay",

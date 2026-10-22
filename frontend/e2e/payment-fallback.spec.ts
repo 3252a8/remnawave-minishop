@@ -61,13 +61,9 @@ for (const width of [390, 1280]) {
     expect(await attempts(page)).toHaveLength(1);
     await expect(dialog.locator(".checkout-promo-input")).toHaveValue("SAVE20");
     await pay.click();
-    await expect(alternative).toContainText("Crypto Pay");
+    await expect(failure).toContainText("Других доступных способов этого типа");
     const secondAttempt = (await attempts(page))[1];
     expect(secondAttempt).toEqual({ ...firstAttempt, method: "platega_sbp" });
-    await alternative.click();
-    await expect(pay).toBeEnabled();
-    await pay.click();
-    await expect(failure).toContainText("Других доступных способов");
     await expect(alternative).toHaveCount(0);
     await expect(
       failure.getByRole("button", { name: "Вернуться к оплате", exact: true })
@@ -175,11 +171,53 @@ for (const flow of ["regular", "device", "balance"]) {
       await expect(dialog.locator(".balance-amount-field input")).toHaveValue("777");
     await expect(pay).toBeEnabled();
     await pay.click();
-    await expect(fallback).toContainText("Crypto Pay");
+    await expect(fallback).toContainText("Других доступных способов этого типа");
+    await expect(fallback.locator('[data-webapp-action="select-payment-alternative"]')).toHaveCount(
+      0
+    );
     const purchases = await attempts(page);
     expect(purchases[1]).toEqual({ ...purchases[0], method: "platega_sbp" });
   });
 }
+
+for (const width of [390, 1280]) {
+  test(`crypto fallback skips fiat and the rejected gateway at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 950 });
+    await page.goto(
+      "/demo/runtime/home?mock=checkout-addons&payment_failure=crypto&theme_preview=dark"
+    );
+    const checkout = await openCheckout(page);
+    const picker = checkout.locator(".payment-method-select-trigger");
+    const pay = checkout.locator(".payment-submit-button").last();
+    await expect(picker).toContainText("Crypto Pay");
+    await pay.click();
+    const modal = page.locator(".webapp-payment-fallback-dialog");
+    const alternative = modal.locator('[data-webapp-action="select-payment-alternative"]');
+    await expect(alternative).toContainText("Cryptomus");
+    await alternative.click();
+    await expect(picker).toContainText("Cryptomus");
+    await expect(pay).toBeEnabled();
+    expect(await attempts(page)).toHaveLength(1);
+    await pay.click();
+    await expect(modal).toContainText("Других доступных способов этого типа");
+    await expect(alternative).toHaveCount(0);
+    const purchases = await attempts(page);
+    expect(purchases[0].method).toBe("cryptopay");
+    expect(purchases[1]).toEqual({ ...purchases[0], method: "cryptomus" });
+  });
+}
+
+test("unknown payment groups leave the ordinary method picker available", async ({ page }) => {
+  await page.goto("/demo/runtime/home?mock=checkout-addons&payment_failure=unknown");
+  const checkout = await openCheckout(page);
+  await checkout.locator(".payment-submit-button").last().click();
+  const modal = page.locator(".webapp-payment-fallback-dialog");
+  await expect(modal).toContainText("Других доступных способов этого типа");
+  await expect(modal.locator('[data-webapp-action="select-payment-alternative"]')).toHaveCount(0);
+  await modal.getByRole("button", { name: "Вернуться к оплате", exact: true }).click();
+  await checkout.locator(".payment-method-select-trigger").click();
+  await expect(page.getByRole("option", { name: "Crypto Pay", exact: true })).toBeEnabled();
+});
 
 for (const width of [390, 1280]) {
   test(`failure modal keeps the form size and restores keyboard focus at ${width}px`, async ({

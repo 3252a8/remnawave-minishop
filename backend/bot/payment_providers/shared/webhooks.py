@@ -74,6 +74,11 @@ async def notify_user_payment_failed(
     message_key: str = "payment_failed",
 ) -> None:
     """Publish the standard payment-canceled event; reactions notify the user."""
+    if (
+        str(getattr(payment, "status", "") or "").lower() == "failed_creation"
+        and getattr(payment, "failure_notified_at", None) is not None
+    ):
+        return
     grace_seconds = max(0, int(settings.PAYMENT_FAILURE_NOTIFICATION_GRACE_SECONDS or 0))
     failure_at = getattr(payment, "updated_at", None) or getattr(payment, "created_at", None)
     if grace_seconds > 0 and isinstance(failure_at, datetime):

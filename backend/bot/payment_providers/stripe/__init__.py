@@ -203,6 +203,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="stripe",
+    payment_group="fiat",
     provider_key="stripe",
     label="Stripe",
     webapp_label="Stripe",

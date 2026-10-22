@@ -8,7 +8,7 @@
   "wa_payment_fallback_select": "Select {method}",
   "wa_payment_fallback_back": "Back to payment",
   "wa_payment_fallback_hint": "Your purchase settings will be kept.",
-  "wa_payment_fallback_none": "No other payment methods are available. You can try again later.",
+  "wa_payment_fallback_none": "No other payment methods of this type are available. You can try again later.",
   "wa_boot_failed": "Unable to load the app. Check your connection and try again.",
   "admin_color_picker_title": "Color",
   "admin_color_picker_close": "Close color picker",

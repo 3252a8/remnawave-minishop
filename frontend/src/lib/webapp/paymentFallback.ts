@@ -16,7 +16,17 @@ export function paymentProviderUnavailable(error: unknown): boolean {
   );
 }
 
-/** Keep the configured order, continuing after the rejected method and wrapping once. */
+function normalizedId(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function providerId(method: PaymentMethodView): string {
+  return normalizedId(method.provider_id) || normalizedId(method.id);
+}
+
+/** Continue within the payment group, without retrying a rejected provider. */
 export function nextCheckoutPaymentMethod(
   methods: PaymentMethodView[],
   failedMethods: string[],
@@ -24,12 +34,29 @@ export function nextCheckoutPaymentMethod(
 ): PaymentMethodView | null {
   const lastFailed = failedMethods.at(-1);
   if (!lastFailed) return null;
-  const start = methods.findIndex((method) => method.id === lastFailed) + 1;
+  const lastFailedIndex = methods.findIndex(
+    (method) => normalizedId(method.id) === normalizedId(lastFailed)
+  );
+  const group = methods[lastFailedIndex]?.group;
+  if (!group || !["fiat", "crypto", "stars", "mixed"].includes(group)) return null;
+  const start = lastFailedIndex + 1;
   const ordered = [...methods.slice(start), ...methods.slice(0, start)];
-  const excluded = new Set([...failedMethods, ...unavailableMethods].map((id) => id.toLowerCase()));
+  const excluded = new Set([...failedMethods, ...unavailableMethods].map(normalizedId));
+  const failedIds = new Set(failedMethods.map(normalizedId));
+  // Eligibility changes may hide a rejected method; its unknown provider is unsafe to retry.
+  if ([...failedIds].some((id) => !methods.some((method) => normalizedId(method.id) === id)))
+    return null;
+  const failedProviders = new Set(
+    methods.filter((method) => failedIds.has(normalizedId(method.id))).map(providerId)
+  );
   return (
     ordered.find(
-      (method) => method.id && !method.disabled && !excluded.has(String(method.id).toLowerCase())
+      (method) =>
+        method.id &&
+        method.group === group &&
+        !method.disabled &&
+        !excluded.has(normalizedId(method.id)) &&
+        !failedProviders.has(providerId(method))
     ) || null
   );
 }

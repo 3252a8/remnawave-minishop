@@ -764,18 +764,21 @@ async def render_link_or_fail(
     )
     if not provider_id_stored:
         failure_metadata["failure_kind"] = "provider_correlation_persist_failed"
+    provider_unavailable = payment_provider_unavailable(
+        provider_response,
+        api_success=api_success,
+        payment_url=payment_url,
+        provider_payment_id=provider_payment_id,
+    )
+    if provider_unavailable:
+        failure_metadata["suppress_failure_notification"] = True
     await safe_mark_failed_creation(
         session,
         payment,
         log_prefix=log_prefix,
         failure_metadata=failure_metadata,
     )
-    if settings is not None and payment_provider_unavailable(
-        provider_response,
-        api_success=api_success,
-        payment_url=payment_url,
-        provider_payment_id=provider_payment_id,
-    ):
+    if settings is not None and provider_unavailable:
         keyboard, has_alternative = payment_fallback_keyboard(
             callback,
             settings=settings,

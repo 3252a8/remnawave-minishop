@@ -776,6 +776,7 @@ async def mark_payment_failed_creation(
     failure_kind: str | None = None,
     failure_http_status: int | None = None,
     failure_provider_code: str | None = None,
+    suppress_failure_notification: bool = False,
 ) -> None:
     await payment_dal.update_payment_status_by_db_id(
         session,
@@ -784,5 +785,6 @@ async def mark_payment_failed_creation(
         failure_kind=failure_kind,
         failure_http_status=failure_http_status,
         failure_provider_code=failure_provider_code,
+        suppress_failure_notification=suppress_failure_notification,
     )
     await session.commit()

@@ -619,6 +619,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="severpay",
+    payment_group="fiat",
     provider_key="severpay",
     label="SeverPay",
     webapp_label="SeverPay",

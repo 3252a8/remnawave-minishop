@@ -194,6 +194,7 @@ _CONFIG_MANIFEST = (
 
 SPEC = PaymentProviderSpec(
     id="yookassa",
+    payment_group="fiat",
     provider_key="yookassa",
     label="YooKassa",
     webapp_label="YooKassa",
