@@ -10,8 +10,12 @@
 
 ## В разработке · dev
 
-Номер и дата следующего выпуска пока не назначены.
-[Сравнить с v3.8.2](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.2...dev).
+Новых изменений продукта после v3.8.3 пока не зафиксировано.
+[Сравнить с v3.8.3](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.3...dev).
+
+## v3.8.3 — 2026-10-22
+
+[GitLab](https://gitlab.com/3252a8/remnawave-minishop/-/releases/v3.8.3) · [GitHub](https://github.com/3252a8/remnawave-minishop/releases/tag/v3.8.3)
 
 ### Добавлено
 
