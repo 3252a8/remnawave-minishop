@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { nextCheckoutPaymentMethod, paymentProviderUnavailable } from "./paymentFallback.js";
+import { createApiClient } from "./publicApi.js";
 import { methodsForPlan } from "./tariffs.js";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("checkout payment fallback", () => {
   const methods = [{ id: "before" }, { id: "wata" }, { id: "card" }, { id: "crypto" }];
@@ -45,5 +48,31 @@ describe("checkout payment fallback", () => {
     ]) {
       expect(paymentProviderUnavailable(error)).toBe(false);
     }
+  });
+
+  it("recognizes the provider rejection wrapped by the real HTTP client", async () => {
+    const payload = { ok: false, error: "payment_provider_unavailable" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(payload, { status: 502 }))
+    );
+    const client = createApiClient();
+    const error = await client.api("/payments", { method: "POST" }).catch((cause) => cause);
+
+    expect(error).toMatchObject({ message: "service_unavailable", status: 502, payload });
+    expect(paymentProviderUnavailable(error)).toBe(true);
+  });
+
+  it.each([
+    { status: 502, payload: { ok: false, error: "payment_failed" } },
+    { status: 502, payload: { ok: true, error: "payment_provider_unavailable" } },
+    { status: 502, payload: { error: "payment_provider_unavailable" } },
+    { status: 503, payload: { ok: false, error: "payment_provider_unavailable" } },
+    { status: 429, payload: { ok: false, error: "payment_provider_unavailable" } },
+    { status: 502, payload: null },
+  ])("does not treat an unrelated HTTP failure as a provider rejection (%o)", (error) => {
+    expect(paymentProviderUnavailable(Object.assign(new Error("service_unavailable"), error))).toBe(
+      false
+    );
   });
 });

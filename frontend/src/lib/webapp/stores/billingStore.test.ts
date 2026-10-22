@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createApiClient } from "../publicApi.js";
 import { createBillingStore } from "./billingStore.js";
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 type TestOverrides = Record<string, unknown>;
 
 const translateFallback = (key: string, params: Record<string, unknown> = {}, fallback = "") =>
@@ -44,6 +48,32 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it("offers another method after a provider rejection over HTTP 502", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ ok: false, error: "payment_provider_unavailable" }, { status: 502 })
+      )
+    );
+    const client = createApiClient();
+    const onProviderUnavailable = vi.fn();
+    const { store, deps } = makeBillingStore({
+      billing: { postPayment: () => client.api("/payments", { method: "POST" }) },
+    });
+    store.update((state) => ({
+      ...state,
+      selectedPlan: { id: "monthly", months: 3, price: 790 },
+      selectedMethod: "wata",
+      paymentModalOpen: true,
+    }));
+
+    await store.createPayment({ onProviderUnavailable });
+
+    expect(onProviderUnavailable).toHaveBeenCalledExactlyOnceWith("wata");
+    expect(deps.showToast).not.toHaveBeenCalled();
+    expect(store).toMatchObject({ paymentModalOpen: true, selectedMethod: "wata", payBusy: false });
+  });
+
   it.each(["createTopupPayment", "createDeviceTopupPayment", "createTariffChangePayment"] as const)(
     "%s reports provider failure and retains the selected purchase",
     async (action) => {

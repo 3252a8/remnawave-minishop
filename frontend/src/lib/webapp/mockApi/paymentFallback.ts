@@ -56,5 +56,8 @@ export function paymentFallbackDemoResponse(path: string, options: RequestInit):
   sessionStorage.setItem(key, JSON.stringify(attempts));
   if (scenario === "validation")
     return { ok: false, error: "invalid_plan", message: "Invalid plan" };
-  return { ok: false, error: "payment_provider_unavailable" };
+  throw Object.assign(new Error("service_unavailable"), {
+    status: 502,
+    payload: { ok: false, error: "payment_provider_unavailable" },
+  });
 }
