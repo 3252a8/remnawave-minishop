@@ -2361,6 +2361,7 @@
   "admin_status_limited": "Ограничен",
   "admin_status_expired": "Истёк",
   "admin_status_disabled": "Выключен",
+  "admin_status_hidden": "Скрытый",
   "admin_status_not_configured": "Не настроен",
   "admin_status_bot_only": "Только бот",
   "admin_user_detail_title": "Пользователь {id}",

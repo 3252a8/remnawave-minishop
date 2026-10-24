@@ -2361,6 +2361,7 @@
   "admin_status_limited": "Limited",
   "admin_status_expired": "Expired",
   "admin_status_disabled": "Disabled",
+  "admin_status_hidden": "Hidden",
   "admin_status_not_configured": "Not configured",
   "admin_status_bot_only": "Bot Only",
   "admin_user_detail_title": "User {id}",
