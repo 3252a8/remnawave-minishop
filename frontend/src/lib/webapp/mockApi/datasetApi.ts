@@ -636,8 +636,25 @@ export function demoApiResponse(
       reverted: deletes.length,
     };
   }
-  if (cleanPath === "/admin/settings")
-    return { ok: true, sections: demoSettingsSections(clone), features: [] };
+  if (cleanPath === "/admin/settings") {
+    const sections = demoSettingsSections(clone);
+    const channelId = Number(
+      sections
+        .flatMap((section) => section.fields || [])
+        .find((field) => field.key === "REQUIRED_CHANNEL_ID")?.value
+    );
+    const configured = Number.isSafeInteger(channelId) && channelId !== 0;
+    return {
+      ok: true,
+      sections,
+      features: [],
+      required_channel_diagnostics: {
+        channel_id: configured ? channelId : null,
+        status: configured ? "available" : "disabled",
+        checked_at: configured ? new Date().toISOString() : null,
+      },
+    };
+  }
 
   if (cleanPath === "/documents" && method === "GET") {
     return {

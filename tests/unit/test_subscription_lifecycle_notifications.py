@@ -403,12 +403,13 @@ def test_unstarted_telegram_failure_marks_status_without_recording_delivery(monk
     assert delivery.email_sent is False
     assert bot.calls[0][0] == 777
     assert recorded == []
+    assert isinstance(status_changes[0]["checked_at"], datetime)
     assert status_changes == [
         {
             "user_id": 123,
             "status": lifecycle.TELEGRAM_NOTIFICATIONS_NEEDS_START,
-            "telegram_id": None,
-            "checked_at": None,
+            "telegram_id": 777,
+            "checked_at": status_changes[0]["checked_at"],
         }
     ]
 

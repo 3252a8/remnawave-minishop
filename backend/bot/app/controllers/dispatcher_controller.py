@@ -21,6 +21,10 @@ from bot.middlewares.maintenance import MaintenanceMiddleware
 from bot.middlewares.profile_sync import ProfileSyncMiddleware
 from bot.middlewares.registration_invite import RegistrationInviteMiddleware
 from bot.middlewares.telegram_menu_settings import TelegramMenuSettingsMiddleware
+from bot.middlewares.telegram_service_updates import (
+    TelegramInteractionMiddleware,
+    UserInteractionMiddleware,
+)
 from bot.middlewares.update_antiflood import UpdateAntiFloodMiddleware
 from config.settings import Settings
 
@@ -49,21 +53,19 @@ def build_dispatcher(
         session_factory=async_session_factory,
     )
 
-    dp.update.outer_middleware(UpdateAntiFloodMiddleware(settings=settings))
-    dp.update.outer_middleware(TelegramMenuSettingsMiddleware(settings, async_session_factory))
-    dp.update.outer_middleware(
-        MaintenanceMiddleware(settings, async_session_factory, i18n_instance)
-    )
+    def user_middleware(middleware):
+        dp.update.outer_middleware(UserInteractionMiddleware(middleware))
+
+    user_middleware(UpdateAntiFloodMiddleware(settings=settings))
+    user_middleware(TelegramMenuSettingsMiddleware(settings, async_session_factory))
+    user_middleware(MaintenanceMiddleware(settings, async_session_factory, i18n_instance))
     dp.update.outer_middleware(DBSessionMiddleware(async_session_factory))
-    dp.update.outer_middleware(I18nMiddleware(i18n=i18n_instance, settings=settings))
-    dp.update.outer_middleware(
-        RegistrationInviteMiddleware(settings=settings, i18n_instance=i18n_instance)
-    )
-    dp.update.outer_middleware(ProfileSyncMiddleware())
-    dp.update.outer_middleware(BanCheckMiddleware(settings=settings, i18n_instance=i18n_instance))
-    dp.update.outer_middleware(
-        ChannelSubscriptionMiddleware(settings=settings, i18n_instance=i18n_instance)
-    )
-    dp.update.outer_middleware(ActionLoggerMiddleware(settings=settings))
+    dp.update.outer_middleware(TelegramInteractionMiddleware())
+    user_middleware(I18nMiddleware(i18n=i18n_instance, settings=settings))
+    user_middleware(RegistrationInviteMiddleware(settings=settings, i18n_instance=i18n_instance))
+    user_middleware(ProfileSyncMiddleware())
+    user_middleware(BanCheckMiddleware(settings=settings, i18n_instance=i18n_instance))
+    user_middleware(ChannelSubscriptionMiddleware(settings=settings, i18n_instance=i18n_instance))
+    user_middleware(ActionLoggerMiddleware(settings=settings))
 
     return dp

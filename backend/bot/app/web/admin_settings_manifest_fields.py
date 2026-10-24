@@ -150,6 +150,18 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ("Controls the 'Required Channel Link' setting in admin overrides."),
     ),
     # ─── Login methods ─────────────────────────────────────────────
+    SettingField(
+        "REQUIRED_CHANNEL_VERIFICATION_TTL_SECONDS",
+        "int",
+        "general",
+        "Channel membership verification lifetime",
+        "Seconds to trust channel membership before checking again.",
+        optional=False,
+        min=5,
+        max=86400,
+        i18n_label_key="admin_channel_verification_ttl",
+        i18n_description_key="admin_channel_verification_ttl_hint",
+    ),
     *LOGIN_METHOD_SETTINGS_FIELDS,
     # ─── Email auth & SMTP ─────────────────────────────────────────
     *EMAIL_SETTINGS_FIELDS,

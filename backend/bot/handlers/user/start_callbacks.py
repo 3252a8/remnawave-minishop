@@ -83,7 +83,7 @@ async def verify_channel_subscription_callback(
     db_user = await user_dal.get_user_by_telegram_id(session, callback.from_user.id)
 
     verified = await ensure_required_channel_subscription(
-        callback, settings, i18n, current_lang, session, db_user
+        callback, settings, i18n, current_lang, session, db_user, force=True
     )
     if not verified:
         return

@@ -238,7 +238,7 @@ async def start_command_handler(
     sanitized_username = sanitize_username(user.username)
     sanitized_first_name = sanitize_display_name(user.first_name)
     sanitized_last_name = sanitize_display_name(user.last_name)
-    notification_status_now = datetime.now(UTC)
+    notification_status_now = message.date
 
     db_user = started_user
     is_existing_user = db_user is not None
@@ -467,11 +467,6 @@ async def start_command_handler(
             update_payload["language_code"] = current_lang
         if db_user.telegram_id != telegram_user_id:
             update_payload["telegram_id"] = telegram_user_id
-        if db_user.telegram_notifications_status != TELEGRAM_NOTIFICATIONS_ENABLED:
-            update_payload["telegram_notifications_status"] = TELEGRAM_NOTIFICATIONS_ENABLED
-            update_payload["telegram_notifications_checked_at"] = notification_status_now
-            update_payload["telegram_notifications_enabled_at"] = notification_status_now
-            update_payload["telegram_notifications_blocked_at"] = None
         # Set referral only if not already set AND user is not currently active.
         # This allows previously subscribed but currently inactive users to be attributed.
         if referred_by_user_id and db_user.referred_by_id is None:

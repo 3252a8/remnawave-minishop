@@ -235,6 +235,12 @@ class Settings(
     REQUIRED_CHANNEL_ID: int | None = Field(
         default=None, description="Telegram channel ID the user must join to access the bot"
     )
+    REQUIRED_CHANNEL_VERIFICATION_TTL_SECONDS: int = Field(
+        default=900,
+        ge=5,
+        le=86400,
+        description="Seconds to trust required channel membership before rechecking",
+    )
     REQUIRED_CHANNEL_LINK: str | None = Field(
         default=None,
         description="Public username or invite link to the required channel for join button",

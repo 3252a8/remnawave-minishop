@@ -180,7 +180,9 @@ class TelegramMaintenanceTests(unittest.IsolatedAsyncioTestCase):
         dispatcher = build_dispatcher(
             self.settings, self.factory, bot=None, i18n_instance=self.i18n
         )
-        middleware_types = [type(item) for item in dispatcher.update.outer_middleware]
+        middleware_types = [
+            type(getattr(item, "middleware", item)) for item in dispatcher.update.outer_middleware
+        ]
         self.assertLess(
             middleware_types.index(UpdateAntiFloodMiddleware),
             middleware_types.index(TelegramMenuSettingsMiddleware),

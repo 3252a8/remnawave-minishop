@@ -4,6 +4,34 @@ import type { Core } from "cytoscape";
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
+for (const width of [1440, 390]) {
+  test(`required channel diagnostics follow saved settings at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(adminUrl("settings/general"));
+    const field = page.locator('[data-settings-anchor="settings-field:REQUIRED_CHANNEL_ID"]');
+    const diagnostic = field.getByRole("status");
+    await expect(diagnostic).toContainText("Проверка подписки доступна");
+    await expect(diagnostic.locator("time")).toBeVisible();
+    await expect(diagnostic.locator("time")).toHaveAttribute("datetime", /T.*Z$/);
+    await noOverflow(field);
+    await field.screenshot({
+      path: testInfo.outputPath(`required-channel-available-${width}.png`),
+    });
+
+    await field.locator("input").fill("0");
+    await expect(diagnostic).toContainText("Сохраните настройку канала");
+    await expect(diagnostic.locator("time")).toHaveCount(0);
+    await expect(diagnostic).not.toContainText("Проверка подписки доступна");
+    await page.locator("header").getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(diagnostic).toContainText("Обязательный канал не настроен");
+    await expect(diagnostic).toContainText("Проверка ещё не выполнялась");
+    await noOverflow(field);
+    await field.screenshot({ path: testInfo.outputPath(`required-channel-disabled-${width}.png`) });
+  });
+}
+
 for (const width of [1440, 768, 390, 320]) {
   for (const theme of ["dark", "light"]) {
     test(`relationship graph supports complete referral and partner navigation at ${width}px ${theme}`, async ({

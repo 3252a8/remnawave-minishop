@@ -13,6 +13,7 @@ from bot.services.telegram_notifications import (
 )
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
+from db.dal import user_dal
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class OutboundMessagingService:
             )
             return True
 
+        delivery_observed_at = datetime.now(UTC)
         try:
             await self.bot.send_message(
                 int(user_id),
@@ -76,7 +78,15 @@ class OutboundMessagingService:
         except Exception as exc:
             status = telegram_notification_status_from_error(exc)
             if status:
-                await mark_telegram_notifications_status(session, int(user_id), status)
+                user = await user_dal.get_user_by_telegram_id(session, int(user_id))
+                if user is not None:
+                    await mark_telegram_notifications_status(
+                        session,
+                        int(user.user_id),
+                        status,
+                        checked_at=delivery_observed_at,
+                        telegram_id=int(user_id),
+                    )
                 return False
             logger.exception("Failed to send outbound message to user %s.", user_id)
             return False

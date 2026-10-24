@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from typing import Any
 
 from aiogram.types import BufferedInputFile
@@ -31,8 +32,11 @@ from bot.services.message_composition import (
 )
 from bot.services.message_image_service import StoredMessageImage, load_message_image
 from bot.services.message_image_telegram import prepare_telegram_photo
-from bot.services.telegram_notifications import record_telegram_notification_failure
-from bot.utils.message_queue import MessageQueueManager
+from bot.services.telegram_notifications import (
+    mark_telegram_notifications_status,
+    record_telegram_notification_failure,
+)
+from bot.utils.message_queue import MessageQueueManager, delivery_attempted_at
 from config.settings import Settings
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
 from db.dal import broadcast_dal, user_dal
@@ -346,6 +350,7 @@ class AdminBroadcastDeliveryService:
         remaining = 1
         failure: str | None = None
         telegram_status_recorded = False
+        queued_at = datetime.now(UTC)
 
         async def finish_part(error: Exception | None = None) -> None:
             nonlocal remaining, failure
@@ -360,6 +365,18 @@ class AdminBroadcastDeliveryService:
                 )
 
         async def on_success(_result: Any) -> None:
+            try:
+                async with self.session_factory() as session:
+                    await mark_telegram_notifications_status(
+                        session,
+                        int(delivery.user_id),
+                        "enabled",
+                        telegram_id=int(delivery.destination),
+                        checked_at=delivery_attempted_at.get() or queued_at,
+                    )
+                    await session.commit()
+            except Exception:
+                logger.exception("metric telegram_delivery_state_write_errors_total=1")
             await finish_part()
 
         async def on_failure(exc: Exception) -> None:
@@ -369,6 +386,8 @@ class AdminBroadcastDeliveryService:
                     self.session_factory,
                     int(delivery.user_id),
                     exc,
+                    attempted_at=delivery_attempted_at.get() or queued_at,
+                    telegram_id=int(delivery.destination),
                 )
                 telegram_status_recorded = telegram_status is not None
             await finish_part(exc)

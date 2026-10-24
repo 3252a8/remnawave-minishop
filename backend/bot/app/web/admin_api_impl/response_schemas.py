@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import ConfigDict, Field
 
@@ -355,7 +355,14 @@ class AdminSettingsSectionOut(HttpResponseModel):
     fields: list[AdminSettingsFieldOut]
 
 
+class RequiredChannelDiagnostics(HttpResponseModel):
+    channel_id: int | None = None
+    status: Literal["disabled", "available", "missing_rights", "unavailable"]
+    checked_at: str | None = None
+
+
 class AdminSettingsOut(HttpResponseModel):
+    required_channel_diagnostics: RequiredChannelDiagnostics | None = None
     sections: list[AdminSettingsSectionOut]
     features: list[str]
     partner_encryption_available: bool

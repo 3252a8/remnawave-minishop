@@ -27,6 +27,9 @@ type AdminApi = <
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type SettingsPatchPayload = components["schemas"]["AdminSettingsPatchBody"];
+export type RequiredChannelDiagnostics = NonNullable<
+  components["schemas"]["AdminSettingsOut"]["required_channel_diagnostics"]
+>;
 
 export type SettingChoice = {
   value: string;
@@ -106,6 +109,7 @@ export type SettingsState = {
   /** True once the feature manifest has been loaded at least once. */
   featuresResolved: boolean;
   partnerEncryptionAvailable: boolean;
+  requiredChannelDiagnostics: RequiredChannelDiagnostics | null;
   settingsLoading: boolean;
   settingsDirty: SettingsDirtyState;
   settingsSaving: boolean;
@@ -167,6 +171,7 @@ export function createSettingsStore({
     features: [],
     featuresResolved: false,
     partnerEncryptionAvailable: false,
+    requiredChannelDiagnostics: null,
     settingsLoading: false,
     settingsDirty: {},
     settingsSaving: false,
@@ -250,6 +255,7 @@ export function createSettingsStore({
         updateState((s) => ({
           ...s,
           settingsSections: normalizeSections(result.sections),
+          requiredChannelDiagnostics: result.required_channel_diagnostics ?? null,
           features: Array.isArray(result.features) ? result.features : [],
           featuresResolved: true,
           partnerEncryptionAvailable: Boolean(result.partner_encryption_available),
@@ -299,6 +305,11 @@ export function createSettingsStore({
     updateState((s) => ({
       ...s,
       settingsDirty: {},
+      requiredChannelDiagnostics:
+        Object.prototype.hasOwnProperty.call(updates, "REQUIRED_CHANNEL_ID") ||
+        deletedKeys.has("REQUIRED_CHANNEL_ID")
+          ? null
+          : s.requiredChannelDiagnostics,
       // Do not briefly fall back to the old GET snapshot after PATCH succeeds.
       // The following GET remains the server reconciliation step, not the source
       // of the value displayed between a successful save and that response.

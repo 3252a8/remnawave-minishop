@@ -1,10 +1,8 @@
 import contextlib
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from aiogram import Bot, types
-from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
@@ -12,13 +10,13 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.account_roles import is_admin
+from bot.services.channel_membership import check_membership
 from bot.utils.callback_answer import (
     callback_message,
     message_bot,
     message_from_user,
 )
 from bot.utils.channel_subscription import (
-    is_required_channel_access_error,
     normalize_required_channel_id,
     resolve_required_channel_link,
 )
@@ -36,6 +34,8 @@ async def ensure_required_channel_subscription(
     current_lang: str,
     session: AsyncSession,
     db_user: User | None = None,
+    *,
+    force: bool = False,
 ) -> bool:
     """
     Verify that the user is a member of the required channel (if configured).
@@ -79,58 +79,13 @@ async def ensure_required_channel_subscription(
     if await is_admin(session, int(db_user.user_id)):
         return True
 
-    if (
-        db_user.channel_subscription_verified
-        and db_user.channel_subscription_verified_for == required_channel_id
-    ):
-        return True
-
     def translate(key: str, **kwargs: Any) -> str:
         if i18n:
             return str(i18n.gettext(current_lang, key, **kwargs))
         return key
 
-    now = datetime.now(UTC)
-    is_member = False
-    status_value = None
-
-    try:
-        member = await bot_instance.get_chat_member(required_channel_id, user_id)
-        status = getattr(member, "status", None)
-        status_value = getattr(status, "value", status)
-        allowed_statuses = {"creator", "administrator", "member", "restricted"}
-        if status_value in allowed_statuses:
-            is_member = True
-    except TelegramBadRequest as bad_request:
-        if is_required_channel_access_error(bad_request):
-            logger.error(
-                "Required channel check failed due to channel access/configuration error "
-                "(configured=%s, normalized=%s): %s",
-                settings.REQUIRED_CHANNEL_ID,
-                required_channel_id,
-                bad_request,
-            )
-            error_text = translate("channel_subscription_check_failed")
-            if isinstance(event, types.CallbackQuery):
-                with contextlib.suppress(Exception):
-                    await event.answer(error_text, show_alert=True)
-                if message_obj:
-                    with contextlib.suppress(Exception):
-                        await message_obj.answer(error_text)
-            else:
-                await event.answer(error_text)
-            return False
-
-        logger.info(
-            "Required channel check: user %s not subscribed (details: %s)",
-            user_id,
-            bad_request,
-        )
-    except TelegramForbiddenError as forbidden_error:
-        logger.error(
-            "Required channel check failed due to insufficient permissions: %s",
-            forbidden_error,
-        )
+    is_member = await check_membership(session, bot_instance, settings, db_user, force=force)
+    if is_member is None:
         error_text = translate("channel_subscription_check_failed")
         if isinstance(event, types.CallbackQuery):
             with contextlib.suppress(Exception):
@@ -141,38 +96,7 @@ async def ensure_required_channel_subscription(
         else:
             await event.answer(error_text)
         return False
-    except TelegramAPIError as api_error:
-        logger.exception("Required channel check failed for user %s: %s", user_id, api_error)
-        error_text = translate("channel_subscription_check_failed")
-        if isinstance(event, types.CallbackQuery):
-            with contextlib.suppress(Exception):
-                await event.answer(error_text, show_alert=True)
-            if message_obj:
-                with contextlib.suppress(Exception):
-                    await message_obj.answer(error_text)
-        else:
-            await event.answer(error_text)
-        return False
-
-    update_payload = {
-        "channel_subscription_checked_at": now,
-        "channel_subscription_verified_for": required_channel_id,
-        "channel_subscription_verified": is_member,
-    }
-    try:
-        await user_dal.update_user(session, user_id, update_payload)
-    except Exception as update_error:
-        logger.exception(
-            "Failed to persist channel verification result for user %s: %s", user_id, update_error
-        )
-
     if is_member:
-        logger.info(
-            "User %s confirmed as member of required channel %s (status=%s).",
-            user_id,
-            required_channel_id,
-            status_value,
-        )
         return True
 
     channel_link = await resolve_required_channel_link(

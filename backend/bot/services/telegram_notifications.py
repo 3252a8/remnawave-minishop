@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
 from db.dal import user_dal
+from db.dal.telegram_state_dal import record_delivery_state
 from db.models import User
 
 logger = logging.getLogger(__name__)
@@ -93,27 +94,22 @@ async def mark_telegram_notifications_status(
     *,
     telegram_id: int | None = None,
     checked_at: datetime | None = None,
+    update_id: int = 0,
 ) -> User | None:
     normalized = normalize_telegram_notification_status(status)
     now = checked_at or datetime.now(UTC)
-    update_data: dict[str, Any] = {
-        "telegram_notifications_status": normalized,
-        "telegram_notifications_checked_at": now,
-    }
-    if telegram_id:
-        update_data["telegram_id"] = int(telegram_id)
-    if normalized == TELEGRAM_NOTIFICATIONS_ENABLED:
-        update_data["telegram_notifications_enabled_at"] = now
-        update_data["telegram_notifications_blocked_at"] = None
-    elif normalized == TELEGRAM_NOTIFICATIONS_BLOCKED:
-        update_data["telegram_notifications_blocked_at"] = now
-    return await user_dal.update_user(session, user_id, update_data)
+    return await record_delivery_state(
+        session, user_id, normalized, now, telegram_id=telegram_id, update_id=update_id
+    )
 
 
 async def record_telegram_notification_failure(
     session_factory: Any,
     user_id: int,
     exc: Exception,
+    *,
+    attempted_at: datetime | None = None,
+    telegram_id: int | None = None,
 ) -> str | None:
     """Persist an expected permanent Telegram delivery failure.
 
@@ -125,7 +121,9 @@ async def record_telegram_notification_failure(
         return None
     try:
         async with session_factory() as session:
-            await mark_telegram_notifications_status(session, int(user_id), status)
+            await mark_telegram_notifications_status(
+                session, int(user_id), status, checked_at=attempted_at, telegram_id=telegram_id
+            )
             await session.commit()
     except Exception:
         logger.exception(
@@ -138,6 +136,9 @@ async def record_telegram_notification_failure(
 async def mark_telegram_notifications_enabled_for_telegram_user(
     session: AsyncSession,
     telegram_id: int,
+    *,
+    checked_at: datetime | None = None,
+    update_id: int = 0,
 ) -> User | None:
     db_user = await user_dal.get_user_by_telegram_id(session, telegram_id)
     if not db_user:
@@ -147,6 +148,8 @@ async def mark_telegram_notifications_enabled_for_telegram_user(
         int(db_user.user_id),
         TELEGRAM_NOTIFICATIONS_ENABLED,
         telegram_id=telegram_id,
+        checked_at=checked_at,
+        update_id=update_id,
     )
 
 
@@ -178,12 +181,19 @@ async def probe_telegram_notifications(
             "start_link": telegram_notifications_start_link(bot_username),
         }
 
+    attempted_at = datetime.now(UTC)
     try:
         await bot.get_chat(int(telegram_id))
     except Exception as exc:
         status = telegram_notification_status_from_error(exc)
         if status:
-            await mark_telegram_notifications_status(session, int(user.user_id), status)
+            await mark_telegram_notifications_status(
+                session,
+                int(user.user_id),
+                status,
+                checked_at=attempted_at,
+                telegram_id=int(telegram_id),
+            )
             return {
                 "ok": False,
                 "status": status,
@@ -195,25 +205,16 @@ async def probe_telegram_notifications(
             telegram_id,
             exc,
         )
-        await mark_telegram_notifications_status(
-            session,
-            int(user.user_id),
-            TELEGRAM_NOTIFICATIONS_UNKNOWN,
-        )
         return {
             "ok": False,
             "status": TELEGRAM_NOTIFICATIONS_UNKNOWN,
             "start_link": telegram_notifications_start_link(bot_username),
         }
 
-    await mark_telegram_notifications_status(
-        session,
-        int(user.user_id),
-        TELEGRAM_NOTIFICATIONS_ENABLED,
-        telegram_id=int(telegram_id),
-    )
+    # getChat proves only that chat information is readable. Only real delivery
+    # or a private incoming interaction can confirm notification availability.
     return {
-        "ok": True,
-        "status": TELEGRAM_NOTIFICATIONS_ENABLED,
+        "ok": current_status == TELEGRAM_NOTIFICATIONS_ENABLED,
+        "status": current_status,
         "start_link": telegram_notifications_start_link(bot_username),
     }

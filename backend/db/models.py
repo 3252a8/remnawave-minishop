@@ -24,9 +24,12 @@ from db import provider_mandate_models, subscription_notification_models
 from db.base import Base
 from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
+from db.user_telegram_state_columns import UserTelegramStateColumns
 
 
-class User(UserAccountIdentityColumns, UserNotificationPreferenceColumns, Base):
+class User(
+    UserAccountIdentityColumns, UserNotificationPreferenceColumns, UserTelegramStateColumns, Base
+):
     __tablename__ = "users"
 
     user_id = Column(BigInteger, primary_key=True, index=True)
@@ -38,10 +41,6 @@ class User(UserAccountIdentityColumns, UserNotificationPreferenceColumns, Base):
     password_set_at = Column(DateTime(timezone=True), nullable=True)
     telegram_id = Column(BigInteger, nullable=True, unique=True, index=True)
     telegram_photo_url = Column(Text, nullable=True)
-    telegram_notifications_status = Column(String(32), nullable=False, default="unknown")
-    telegram_notifications_checked_at = Column(DateTime(timezone=True), nullable=True)
-    telegram_notifications_enabled_at = Column(DateTime(timezone=True), nullable=True)
-    telegram_notifications_blocked_at = Column(DateTime(timezone=True), nullable=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     language_code = Column(String, default="ru")
@@ -56,9 +55,6 @@ class User(UserAccountIdentityColumns, UserNotificationPreferenceColumns, Base):
     trial_eligibility_reset_at = Column(DateTime(timezone=True), nullable=True)
     referral_welcome_bonus_claimed_at = Column(DateTime(timezone=True), nullable=True)
     period_accrual_reserved_until = Column(DateTime(timezone=True), nullable=True)
-    channel_subscription_verified = Column(Boolean, nullable=True)
-    channel_subscription_checked_at = Column(DateTime(timezone=True), nullable=True)
-    channel_subscription_verified_for = Column(BigInteger, nullable=True)
 
     referrer = relationship("User", remote_side=[user_id], backref="referrals")
     subscriptions = relationship(

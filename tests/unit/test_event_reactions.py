@@ -960,7 +960,11 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             register_core_reactions(ctx)
             await events.emit(events.PAYMENT_CANCELED, payload)
 
-        record_failure.assert_awaited_once_with(ctx.session_factory, 42, error)
+        record_failure.assert_awaited_once()
+        assert record_failure.await_args is not None
+        self.assertEqual(record_failure.await_args.args, (ctx.session_factory, 42, error))
+        self.assertEqual(record_failure.await_args.kwargs["telegram_id"], 42)
+        self.assertIsNotNone(record_failure.await_args.kwargs["attempted_at"])
         rendered_logs = "\n".join(logs.output)
         self.assertIn("user_id=42 notification=canceled_payment status=blocked", rendered_logs)
         self.assertNotIn("Traceback", rendered_logs)

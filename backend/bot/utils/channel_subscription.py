@@ -4,6 +4,16 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def chat_member_is_present(member: Any) -> bool:
+    """Telegram restricted members may still be outside the chat."""
+    status = getattr(member, "status", None)
+    status = getattr(status, "value", status)
+    return status in {"creator", "administrator", "member"} or (
+        status == "restricted" and getattr(member, "is_member", False) is True
+    )
+
+
 _TELEGRAM_LINK_RE = re.compile(r"^(?:https?://|tg://)", re.IGNORECASE)
 _TELEGRAM_USERNAME_RE = re.compile(r"^[A-Za-z0-9_]{5,64}$")
 

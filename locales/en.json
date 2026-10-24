@@ -1864,6 +1864,13 @@
   "admin_provider": "Provider",
   "admin_description": "Description",
   "admin_status": "Status",
+  "admin_required_channel_available": "Membership checks are available",
+  "admin_required_channel_missing_rights": "Bot administrator rights are required",
+  "admin_required_channel_unavailable": "Channel is unavailable",
+  "admin_required_channel_disabled": "Required channel is not configured",
+  "admin_required_channel_last_check": "Last checked:",
+  "admin_required_channel_not_checked": "Not checked yet",
+  "admin_required_channel_save_to_check": "Save the channel setting to check the bot's access.",
   "admin_date": "Date",
   "admin_calendar_locale": "en",
   "admin_clear_date": "Clear date",
@@ -6311,5 +6318,11 @@
   "admin_relationships_legend_partners": "Partners",
   "admin_relationships_filter": "Connections",
   "admin_relationships_filter_all": "All",
-  "admin_relationships_filter_empty": "No connections of this type."
+  "admin_relationships_filter_empty": "No connections of this type.",
+  "admin_channel_verification_ttl": "Channel membership cache lifetime (seconds)",
+  "admin_channel_verification_ttl_hint": "Membership is checked again after this interval. The Check button rechecks immediately, at most once every five seconds.",
+  "required_channel_status_changed": "Required channel {channel_id}: {status}.",
+  "required_channel_status_available": "subscription verification is available",
+  "required_channel_status_missing_rights": "the bot needs administrator rights",
+  "required_channel_status_unavailable": "the channel cannot be checked"
 }

@@ -7181,6 +7181,8 @@ export interface components {
       features: string[];
       /** Partner Encryption Available */
       partner_encryption_available: boolean;
+      /** @default null */
+      required_channel_diagnostics: components["schemas"]["RequiredChannelDiagnostics"] | null;
       /** Sections */
       sections: components["schemas"]["AdminSettingsSectionOut"][];
     };
@@ -11132,6 +11134,24 @@ export interface components {
       subdir: string;
       /** Url */
       url: string;
+    };
+    /** RequiredChannelDiagnostics */
+    RequiredChannelDiagnostics: {
+      /**
+       * Channel Id
+       * @default null
+       */
+      channel_id: number | null;
+      /**
+       * Checked At
+       * @default null
+       */
+      checked_at: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "disabled" | "available" | "missing_rights" | "unavailable";
     };
     /** ServerStatus */
     ServerStatus: {

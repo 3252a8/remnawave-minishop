@@ -5545,6 +5545,17 @@
             "title": "Partner Encryption Available",
             "type": "boolean"
           },
+          "required_channel_diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequiredChannelDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/AdminSettingsSectionOut"
@@ -14613,6 +14624,49 @@
           "url"
         ],
         "title": "RepositoryRequest",
+        "type": "object"
+      },
+      "RequiredChannelDiagnostics": {
+        "properties": {
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel Id"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checked At"
+          },
+          "status": {
+            "enum": [
+              "disabled",
+              "available",
+              "missing_rights",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RequiredChannelDiagnostics",
         "type": "object"
       },
       "ServerStatus": {

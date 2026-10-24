@@ -1864,6 +1864,13 @@
   "admin_provider": "Провайдер",
   "admin_description": "Описание",
   "admin_status": "Статус",
+  "admin_required_channel_available": "Проверка подписки доступна",
+  "admin_required_channel_missing_rights": "Боту нужны права администратора",
+  "admin_required_channel_unavailable": "Канал недоступен",
+  "admin_required_channel_disabled": "Обязательный канал не настроен",
+  "admin_required_channel_last_check": "Последняя проверка:",
+  "admin_required_channel_not_checked": "Проверка ещё не выполнялась",
+  "admin_required_channel_save_to_check": "Сохраните настройку канала, чтобы проверить доступ бота.",
   "admin_date": "Дата",
   "admin_calendar_locale": "ru",
   "admin_clear_date": "Очистить дату",
@@ -6311,5 +6318,11 @@
   "admin_relationships_legend_partners": "Партнёры",
   "admin_relationships_filter": "Связи",
   "admin_relationships_filter_all": "Все",
-  "admin_relationships_filter_empty": "Связей этого типа пока нет."
+  "admin_relationships_filter_empty": "Связей этого типа пока нет.",
+  "admin_channel_verification_ttl": "Срок подтверждения подписки на канал (секунды)",
+  "admin_channel_verification_ttl_hint": "После этого срока подписка проверяется заново. Кнопка «Проверить» запускает проверку сразу, не чаще раза в пять секунд.",
+  "required_channel_status_changed": "Обязательный канал {channel_id}: {status}.",
+  "required_channel_status_available": "проверка подписки доступна",
+  "required_channel_status_missing_rights": "боту нужны права администратора",
+  "required_channel_status_unavailable": "канал не удаётся проверить"
 }
