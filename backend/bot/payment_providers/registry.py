@@ -63,6 +63,8 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
     wata.CRYPTO_SPEC,
     wata.SUBSCRIPTION_SPEC,
     yookassa.SPEC,
+    yookassa.SBP_SPEC,
+    yookassa.CARD_SPEC,
     stars.SPEC,
     cryptopay.SPEC,
     heleket.SPEC,
@@ -290,6 +292,8 @@ def _localized_default(
 # listed here resolve ``payment_provider_<id>_<kind>_label`` first.
 _LOCALE_LABEL_SPEC_IDS = frozenset(
     {
+        "yookassa_sbp",
+        "yookassa_bank_card",
         "freekassa",
         "platega_sbp",
         "platega_card",

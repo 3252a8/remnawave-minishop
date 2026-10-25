@@ -6329,5 +6329,14 @@
   "required_channel_status_changed": "Required channel {channel_id}: {status}.",
   "required_channel_status_available": "subscription verification is available",
   "required_channel_status_missing_rights": "the bot needs administrator rights",
-  "required_channel_status_unavailable": "the channel cannot be checked"
+  "required_channel_status_unavailable": "the channel cannot be checked",
+  "payment_provider_yookassa_sbp_webapp_label": "YooKassa · SBP",
+  "payment_provider_yookassa_sbp_telegram_label": "YooKassa · SBP",
+  "payment_provider_yookassa_bank_card_webapp_label": "YooKassa · Bank card",
+  "payment_provider_yookassa_bank_card_telegram_label": "YooKassa · Bank card",
+  "admin_settings_field_yookassa_payment_methods_label": "YooKassa checkout methods and order",
+  "admin_settings_field_yookassa_payment_methods_description": "Comma-separated sbp,bank_card,other. Empty keeps one YooKassa button; other opens its method selection page. SBP is a one-time payment without saving the account.",
+  "admin_settings_group_yookassa_common": "Common settings and method selection",
+  "admin_settings_group_yookassa_sbp": "SBP button",
+  "admin_settings_group_yookassa_bank_card": "Bank card button"
 }

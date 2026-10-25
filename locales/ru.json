@@ -6329,5 +6329,14 @@
   "required_channel_status_changed": "Обязательный канал {channel_id}: {status}.",
   "required_channel_status_available": "проверка подписки доступна",
   "required_channel_status_missing_rights": "боту нужны права администратора",
-  "required_channel_status_unavailable": "канал не удаётся проверить"
+  "required_channel_status_unavailable": "канал не удаётся проверить",
+  "payment_provider_yookassa_sbp_webapp_label": "YooKassa · СБП",
+  "payment_provider_yookassa_sbp_telegram_label": "YooKassa · СБП",
+  "payment_provider_yookassa_bank_card_webapp_label": "YooKassa · Банковская карта",
+  "payment_provider_yookassa_bank_card_telegram_label": "YooKassa · Банковская карта",
+  "admin_settings_field_yookassa_payment_methods_label": "Способы оплаты ЮKassa и порядок",
+  "admin_settings_field_yookassa_payment_methods_description": "Список через запятую: sbp,bank_card,other. Пусто — одна кнопка ЮKassa. other — выбор на странице ЮKassa. СБП здесь используется для разовой оплаты без сохранения счёта.",
+  "admin_settings_group_yookassa_common": "Общие настройки и выбор способа",
+  "admin_settings_group_yookassa_sbp": "Кнопка СБП",
+  "admin_settings_group_yookassa_bank_card": "Кнопка банковской карты"
 }

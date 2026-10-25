@@ -41,6 +41,8 @@ GIFT_PAYMENT_METHODS = (
     ("wata_crypto", True),
     ("wata_subscription", False),
     ("yookassa", True),
+    ("yookassa_sbp", True),
+    ("yookassa_bank_card", True),
     ("stars", True),
     ("cryptopay", True),
     ("heleket", True),

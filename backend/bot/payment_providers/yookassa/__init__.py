@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 
 from bot.infra import events
 from db.dal import payment_dal, user_billing_dal, user_dal
@@ -17,7 +18,12 @@ from .callbacks import (
     pay_yk_saved_list_handler,
     pay_yk_use_saved_handler,
 )
-from .config import YooKassaConfig, YooKassaPresentation
+from .config import (
+    YooKassaCardPresentation,
+    YooKassaConfig,
+    YooKassaPresentation,
+    YooKassaSbpPresentation,
+)
 from .payment_methods import (
     payment_method_bind,
     payment_method_delete,
@@ -142,6 +148,15 @@ _PRESENTATION_MANIFEST = tuple(
 
 _CONFIG_MANIFEST = (
     ProviderManifestField(
+        "YOOKASSA_PAYMENT_METHODS",
+        "string",
+        "Checkout methods and order",
+        description="Comma-separated sbp,bank_card,other. Empty keeps the YooKassa payment page.",
+        placeholder="sbp,bank_card,other",
+        subsection="YooKassa",
+        attr="PAYMENT_METHODS",
+    ),
+    ProviderManifestField(
         "YOOKASSA_ENABLED", "bool", "Enabled", subsection="YooKassa", attr="ENABLED"
     ),
     ProviderManifestField(
@@ -226,6 +241,40 @@ SPEC = PaymentProviderSpec(
     info_url="https://yookassa.ru/",
     currency_support_url="https://yookassa.ru/developers/payment-acceptance/integration-scenarios/smart-payment",
 )
+
+
+def _method_spec(method: str, presentation: type[YooKassaPresentation]) -> PaymentProviderSpec:
+    label = "SBP" if method == "sbp" else "Bank card"
+    return replace(
+        SPEC,
+        id=f"yookassa_{method}",
+        webhook_path=None,
+        webhook_route=None,
+        callback_prefix=f"pay_yk_{method}",
+        enabled=lambda config: bool(
+            getattr(config, "ENABLED", False) and method in getattr(config, "checkout_methods", [])
+        ),
+        enabled_manifest_key="YOOKASSA_ENABLED",
+        admin_only_manifest_key="YOOKASSA_ADMIN_ONLY_ENABLED",
+        admin_only_enabled=lambda config: bool(
+            getattr(config, "ADMIN_ONLY_ENABLED", False)
+            and method in getattr(config, "checkout_methods", [])
+        ),
+        webapp_label=f"YooKassa · {label}",
+        webapp_labels={"en": f"YooKassa · {label}"},
+        telegram_labels={"en": f"YooKassa · {label}"},
+        telegram_emoji="⚡" if method == "sbp" else "💳",
+        supports_recurring=method == "bank_card",
+        presentation_class=presentation,
+        manifest_fields=tuple(
+            replace(field, key=field.key.replace("YOOKASSA_", f"YOOKASSA_{method.upper()}_"))
+            for field in _PRESENTATION_MANIFEST
+        ),
+    )
+
+
+SBP_SPEC = _method_spec("sbp", YooKassaSbpPresentation)
+CARD_SPEC = _method_spec("bank_card", YooKassaCardPresentation)
 
 __all__ = [
     "DEFERRED_EVENTS_KEY",

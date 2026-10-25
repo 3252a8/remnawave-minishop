@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from yookassa import Configuration
 from yookassa import Payment as YooKassaPayment
-from yookassa.domain.common.confirmation_type import ConfirmationType
-from yookassa.domain.request.payment_request_builder import PaymentRequestBuilder
 
 from config.settings import Settings
 from db.dal import auto_renew_dal, payment_dal
@@ -37,6 +35,7 @@ from .auto_renew import (
     transport_retry_delay,
 )
 from .config import YooKassaConfig
+from .payment_request import build_payment_request
 from .sdk_queries import YooKassaSdkQueryMixin
 
 if TYPE_CHECKING:
@@ -764,6 +763,7 @@ class YooKassaService(YooKassaSdkQueryMixin):
         receipt_vat_code: str | None = None,
         receipt_payment_mode: str | None = None,
         receipt_payment_subject: str | None = None,
+        payment_method_type: str | None = None,
     ) -> dict[str, Any] | None:
         if not self.configured:
             logger.error("YooKassa is not configured. Cannot create payment.")
@@ -776,6 +776,14 @@ class YooKassaService(YooKassaSdkQueryMixin):
             return configuration_failure("settings_unavailable")
 
         currency = normalize_payment_currency_code(currency)
+        if payment_method_id:
+            payment_method_type = None
+        if payment_method_type not in {None, "sbp", "bank_card"}:
+            return configuration_failure("unsupported_payment_method")
+        if payment_method_type == "sbp":
+            save_payment_method = False
+            if bind_only or not capture:
+                return configuration_failure("unsupported_payment_method_operation")
         if currency != "RUB":
             logger.error("YooKassa currency %s is not supported by this integration", currency)
             return configuration_failure("unsupported_currency")
@@ -802,21 +810,6 @@ class YooKassaService(YooKassaSdkQueryMixin):
                 capture = False
                 amount = max(amount, 1.00)
             invoice_amount = str(format_decimal_amount(amount))
-            builder = PaymentRequestBuilder()
-            builder.set_amount({"value": invoice_amount, "currency": currency.upper()})
-            builder.set_capture(capture)
-            if not payment_method_id:
-                builder.set_confirmation(
-                    {"type": ConfirmationType.REDIRECT, "return_url": self.return_url}
-                )
-            builder.set_description(description)
-            builder.set_metadata(metadata)
-            if save_payment_method:
-                builder.set_save_payment_method(True)
-            elif not payment_method_id:
-                builder.set_save_payment_method(False)
-            if payment_method_id:
-                builder.set_payment_method_id(payment_method_id)
 
             receipt_items_list: list[dict[str, Any]] = [
                 {
@@ -836,12 +829,21 @@ class YooKassaService(YooKassaSdkQueryMixin):
                 "items": receipt_items_list,
             }
 
-            builder.set_receipt(receipt_data_dict)
-
             idempotence_key = str(idempotence_key or uuid.uuid4()).strip()
             if not idempotence_key:
                 idempotence_key = str(uuid.uuid4())
-            payment_request = builder.build()
+            payment_request = build_payment_request(
+                amount=invoice_amount,
+                currency=currency.upper(),
+                capture=capture,
+                return_url=self.return_url,
+                description=description,
+                metadata=metadata,
+                receipt=receipt_data_dict,
+                save_payment_method=save_payment_method,
+                payment_method_id=payment_method_id,
+                payment_method_type=payment_method_type,
+            )
 
             logger.info(
                 "Creating YooKassa payment (Idempotence-Key: %s). Amount: %s %s. Metadata: %s. "

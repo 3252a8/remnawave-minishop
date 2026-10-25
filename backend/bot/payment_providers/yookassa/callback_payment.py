@@ -34,7 +34,7 @@ from .shared import _format_value, _parse_offer_payload
 logger = logging.getLogger(__name__)
 
 
-@router.callback_query(F.data.startswith("pay_yk:"))
+@router.callback_query(F.data.startswith(("pay_yk:", "pay_yk_sbp:", "pay_yk_bank_card:")))
 async def pay_yk_callback_handler(
     callback: types.CallbackQuery,
     settings: Settings,
@@ -52,7 +52,10 @@ async def pay_yk_callback_handler(
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
 
-    if not await _yookassa_available_to_callback_user(callback, settings, get_text):
+    method_type = {"pay_yk_sbp": "sbp", "pay_yk_bank_card": "bank_card"}.get(
+        str(callback.data or "").split(":", 1)[0]
+    )
+    if not await _yookassa_available_to_callback_user(callback, settings, get_text, method_type):
         return
 
     if not yookassa_service or not yookassa_service.configured:
@@ -84,6 +87,7 @@ async def pay_yk_callback_handler(
     currency_code_for_yk = default_payment_currency_code_for_settings(settings)
     autopay_enabled = bool(
         settings.yookassa_autopayments_active
+        and method_type != "sbp"
         and _sale_mode_base(sale_mode) == "subscription"
         and not settings.traffic_sale_mode
     )
@@ -146,7 +150,7 @@ async def pay_yk_callback_handler(
         subscription_service=yookassa_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
         settings=settings,
-        provider_spec=_provider_spec(),
+        provider_spec=_provider_spec(method_type),
     )
     if not quoted_parts:
         with contextlib.suppress(Exception):
@@ -173,6 +177,7 @@ async def pay_yk_callback_handler(
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=quoted_parts.entitlement_context_snapshot,
         checkout_promo=getattr(quoted_parts, "checkout_promo", None),
+        payment_method_type=method_type,
     )
     with contextlib.suppress(Exception):
         await callback.answer()
@@ -269,6 +274,7 @@ async def pay_yk_new_card_handler(
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=quoted_parts.entitlement_context_snapshot,
         checkout_promo=getattr(quoted_parts, "checkout_promo", None),
+        payment_method_type="bank_card" if yookassa_service.config.PAYMENT_METHODS else None,
     )
     with contextlib.suppress(Exception):
         await callback.answer()

@@ -31,10 +31,10 @@ from .success import HWID_DEVICE_SALE_BASES
 logger = logging.getLogger(__name__)
 
 
-def _provider_spec() -> PaymentProviderSpec:
-    from . import SPEC
+def _provider_spec(method_type: str | None = None) -> PaymentProviderSpec:
+    from . import CARD_SPEC, SBP_SPEC, SPEC
 
-    return SPEC
+    return {"sbp": SBP_SPEC, "bank_card": CARD_SPEC}.get(method_type or "", SPEC)
 
 
 async def _initiate_yk_payment(
@@ -58,6 +58,7 @@ async def _initiate_yk_payment(
     hwid_quote: dict[str, Any] | None = None,
     entitlement_context_snapshot: str | None = None,
     checkout_promo: CheckoutPromoResult | None = None,
+    payment_method_type: str | None = None,
 ) -> bool:
     """Create payment record and initiate YooKassa payment (new card or saved card)."""
     message = callback_message_or_none(callback)
@@ -150,6 +151,8 @@ async def _initiate_yk_payment(
         )
     if payment_method_id:
         yookassa_metadata["used_saved_payment_method_id"] = payment_method_id
+    if payment_method_type and not payment_method_id:
+        yookassa_metadata["checkout_method"] = payment_method_type
 
     receipt_email_for_yk = yookassa_service.config.DEFAULT_RECEIPT_EMAIL
 
@@ -161,6 +164,7 @@ async def _initiate_yk_payment(
         receipt_email=receipt_email_for_yk,
         save_payment_method=save_payment_method,
         payment_method_id=payment_method_id,
+        payment_method_type=payment_method_type,
     )
 
     if payment_response_yk and payment_response_yk.get("confirmation_url"):
@@ -348,8 +352,10 @@ async def _yookassa_available_to_callback_user(
     callback: types.CallbackQuery,
     settings: Settings,
     get_text: Callable[..., str],
+    method_type: str | None = None,
 ) -> bool:
-    if _provider_spec().is_available_to_user(
+    spec = _provider_spec(method_type)
+    if spec.is_available_to_user(
         settings,
         user_id=callback.from_user.id,
         require_configured=False,

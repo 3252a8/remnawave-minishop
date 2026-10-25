@@ -88,6 +88,30 @@ describe("settingsSections", () => {
     }
   });
 
+  it("keeps YooKassa configuration separate from each method's presentation", () => {
+    const payments = settingsManifest.find((section) => section.id === "payments");
+    const section: AdminSettingsSection = {
+      id: "payments",
+      title: "Payments",
+      fields: (payments?.fields || []).filter((item) =>
+        /^(PAYMENT_)?YOOKASSA_/.test(item.key)
+      ) as AdminSettingField[],
+    };
+    const [group] = groupSectionFields(section);
+    const groups = semanticFieldGroups(section, group);
+    expect(groups.map((item) => item.id)).toEqual([
+      "yookassa_common",
+      "yookassa_sbp",
+      "yookassa_bank_card",
+    ]);
+    expect(groups[0].fields.some((item) => item.key === "YOOKASSA_PAYMENT_METHODS")).toBe(true);
+    expect(groups[1].fields).toHaveLength(6);
+    expect(groups[2].fields).toHaveLength(6);
+    expect(resolveSettingsPath(["payments", "yookassa", "sbp"], [section])?.fieldGroup?.id).toBe(
+      "yookassa_sbp"
+    );
+  });
+
   it("groups subsection fields and attaches webhook metadata", () => {
     const section: AdminSettingsSection = {
       id: "payments",

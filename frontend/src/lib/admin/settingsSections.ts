@@ -136,6 +136,9 @@ const PAYMENT_SUBSECTION_ALIASES = new Map<string, [string, string]>([
   ["cispay-sbp-recurring", ["cispay", "subscription-sbp"]],
 ]);
 const SEMANTIC_FIELD_GROUP_ORDER: Record<string, number> = {
+  yookassa_common: 1,
+  yookassa_sbp: 2,
+  yookassa_bank_card: 3,
   platega_common: 1,
   platega_sbp: 2,
   platega_card: 3,
@@ -660,6 +663,23 @@ function semanticFieldGroup(
   group: SettingsSubsection,
   field: AdminSettingField
 ): Omit<SemanticFieldGroup, "fields"> | null {
+  if (section?.id === "payments" && group?.id === "YooKassa") {
+    if (field.key.startsWith("PAYMENT_YOOKASSA_SBP_")) {
+      return fieldGroupMeta("yookassa_sbp", "settings_group_yookassa_sbp", "SBP button");
+    }
+    if (field.key.startsWith("PAYMENT_YOOKASSA_BANK_CARD_")) {
+      return fieldGroupMeta(
+        "yookassa_bank_card",
+        "settings_group_yookassa_bank_card",
+        "Bank card button"
+      );
+    }
+    return fieldGroupMeta(
+      "yookassa_common",
+      "settings_group_yookassa_common",
+      "Common settings and method selection"
+    );
+  }
   if (section?.id === "payments" && group?.id === "Platega") {
     return plategaSemanticGroup(field);
   }

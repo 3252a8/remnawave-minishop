@@ -753,6 +753,7 @@ for (const width of [1440, 768, 390]) {
     for (const [provider, methods] of [
       ["Cryptomus", ["cryptomus_subscription"]],
       ["CisPay", ["cispay_subscription_card", "cispay_subscription_sbp"]],
+      ["YooKassa", ["yookassa_sbp", "yookassa_bank_card"]],
     ] as const) {
       const card = cards.filter({
         has: page.locator(`[data-settings-anchor="settings-subsection:payments:${provider}"]`),
@@ -769,7 +770,7 @@ for (const width of [1440, 768, 390]) {
           `[data-settings-anchor="settings-field-group:payments:${provider}:${method}"]`
         );
         await expect(group).toBeVisible();
-        await expect(group.locator(".admin-setting")).toHaveCount(2);
+        await expect(group.locator(".admin-setting")).toHaveCount(provider === "YooKassa" ? 6 : 2);
         await noOverflow(group);
         await group.scrollIntoViewIfNeeded();
         await group.screenshot({ path: testInfo.outputPath(`${method}-${width}.png`) });

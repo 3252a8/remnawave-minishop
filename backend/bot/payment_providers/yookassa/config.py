@@ -27,6 +27,24 @@ class YooKassaConfig(ProviderEnvConfig):
     PAYMENT_SUBJECT: str | None = None
     AUTOPAYMENTS_ENABLED: bool = Field(default=False)
     AUTOPAYMENTS_REQUIRE_CARD_BINDING: bool = Field(default=True)
+    PAYMENT_METHODS: str = ""
+
+    @field_validator("PAYMENT_METHODS", mode="before")
+    @classmethod
+    def _normalize_payment_methods(cls, value: Any) -> str:
+        methods = list(dict.fromkeys(str(value or "").lower().replace(" ", "").split(",")))
+        methods = [method for method in methods if method]
+        if any(method not in {"sbp", "bank_card", "other"} for method in methods):
+            raise ValueError("Expected sbp, bank_card or other")
+        return ",".join(methods)
+
+    @property
+    def checkout_methods(self) -> list[str]:
+        # DB overrides are assigned directly by the shared settings layer.
+        methods = [part.strip().lower() for part in str(self.PAYMENT_METHODS or "").split(",")]
+        return list(
+            dict.fromkeys(method for method in methods if method in {"sbp", "bank_card", "other"})
+        ) or ["other"]
 
     @field_validator("SHOP_ID", "SECRET_KEY", "RETURN_URL", "DEFAULT_RECEIPT_EMAIL", mode="before")
     @classmethod
@@ -77,3 +95,36 @@ class YooKassaPresentation(ProviderEnvConfig):
     TELEGRAM_LABEL_RU: str | None = None
     TELEGRAM_LABEL_EN: str | None = None
     TELEGRAM_EMOJI: str | None = None
+
+
+class YooKassaSbpPresentation(YooKassaPresentation):
+    model_config = SettingsConfigDict(env_prefix="PAYMENT_YOOKASSA_SBP_")
+
+
+class YooKassaCardPresentation(YooKassaPresentation):
+    model_config = SettingsConfigDict(env_prefix="PAYMENT_YOOKASSA_BANK_CARD_")
+
+
+def order_checkout_methods(methods: list[str]) -> list[str]:
+    """Expand the YooKassa slot using its configured order on every checkout surface."""
+    from ..registry import get_provider_bundle
+
+    bundle = get_provider_bundle("yookassa_service")
+    if (
+        not bundle
+        or not isinstance(bundle.config, YooKassaConfig)
+        or not bundle.config.PAYMENT_METHODS
+    ):
+        return methods
+    ids = {"other": "yookassa", "sbp": "yookassa_sbp", "bank_card": "yookassa_bank_card"}
+    selected = [ids[method] for method in bundle.config.checkout_methods]
+    result: list[str] = []
+    inserted = False
+    for method in methods:
+        if method in ids.values():
+            if not inserted:
+                result.extend(selected)
+                inserted = True
+        else:
+            result.append(method)
+    return result
