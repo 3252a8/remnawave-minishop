@@ -35,7 +35,7 @@ services:
 
   remnawave:
     logging: *minishop_logging
-    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.4.5}
+    image: remnawave/backend:${REMNAWAVE_DEV_VERSION:-3.4.7}
     container_name: remnawave-dev-panel
     hostname: remnawave
     restart: unless-stopped
