@@ -275,7 +275,9 @@ for (const width of [1440, 768, 390, 320]) {
         // A pause before movement must not dilute the velocity of a fresh flick.
         await page.mouse.down();
         await page.waitForTimeout(150);
-        await page.mouse.move(point.x + 72, point.y + 48, { steps: 4 });
+        // Cross the native drag threshold far enough to collect several pan
+        // samples; a 12px/four-step flick can leave less than 16 ms of movement.
+        await page.mouse.move(point.x + 108, point.y + 72, { steps: 8 });
         const flick = await readPan();
         await page.mouse.up();
         await expect.poll(async () => (await readPan()).x).toBeGreaterThan(flick.x + 3);
