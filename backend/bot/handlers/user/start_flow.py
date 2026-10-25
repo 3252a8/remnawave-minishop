@@ -13,6 +13,7 @@ from bot.infra import events
 from bot.infra.event_payloads import ReferralBonusGrantedPayload
 from bot.middlewares.i18n import JsonI18n
 from bot.services.behavior_events import BotStartedSource, emit_bot_started
+from bot.services.gift_links import GIFT_TOKEN_PATTERN
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
 from bot.services.referral_welcome_trial import referral_welcome_bonus_joins_trial
@@ -98,7 +99,7 @@ def _bot_started_source(
 @router.message(
     CommandStart(
         magic=F.args.regexp(
-            r"^(?!ref_|p_|promo_|admin_user_|ticket_|notifications$|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
+            r"^(?!gift_|ref_|p_|promo_|admin_user_|ticket_|notifications$|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
         ).as_("ad_param_match")
     )
 )
@@ -128,6 +129,18 @@ async def start_command_handler(
     telegram_user_id = user.id
     user_id: int | None = None
     start_param = _start_argument(message)
+    gift_requested = bool(start_param and start_param.startswith("gift_"))
+    gift_token = start_param[5:] if gift_requested and start_param else None
+    if gift_requested:
+        if message.chat.type != "private":
+            return
+        if not gift_token or not re.fullmatch(GIFT_TOKEN_PATTERN, gift_token):
+            await message.answer(_("wa_gift_not_found"))
+            return
+        await state.update_data(pending_gift_token=gift_token)
+        # Bearer links must not enter behavioral events or advertising attribution.
+        start_param = None
+        ad_param_match = None
     start_source = _bot_started_source(
         ref_match=ref_match,
         partner_match=partner_match,
@@ -255,7 +268,7 @@ async def start_command_handler(
     else:
         invite_check = await evaluate_registration_invite(
             session,
-            raw_ref_value,
+            f"gift_{gift_token}" if gift_token else raw_ref_value,
             settings=settings,
             current_user_id=user_id,
             source="telegram_start",
@@ -519,6 +532,19 @@ async def start_command_handler(
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
     ):
+        return
+
+    if gift_token:
+        from .gifts import show_gift_preview
+
+        await show_gift_preview(
+            message,
+            token=gift_token,
+            user=db_user,
+            settings=settings,
+            i18n_data=i18n_data,
+            session=session,
+        )
         return
 
     open_referral_page_for_existing_user = should_open_referral_from_start and is_existing_user

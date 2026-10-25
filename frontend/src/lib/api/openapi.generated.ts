@@ -6323,6 +6323,11 @@ export interface components {
       status: string;
       /** Tariff Title */
       tariff_title: string;
+      /**
+       * Telegram Link
+       * @default null
+       */
+      telegram_link: string | null;
       /** Total Amount */
       total_amount: number;
       /** User Balance Amount */
@@ -9215,6 +9220,11 @@ export interface components {
       status: string;
       /** Tariff Title */
       tariff_title: string;
+      /**
+       * Telegram Link
+       * @default null
+       */
+      telegram_link: string | null;
     };
     /** HiddenMenuButton */
     HiddenMenuButton: {

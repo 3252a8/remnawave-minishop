@@ -1252,7 +1252,7 @@ for (const [device, viewport] of [
   test(`shared list controls and gift creation remain consistent on ${device}`, async ({
     page,
     context,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const errors: string[] = [];
@@ -1315,6 +1315,10 @@ for (const [device, viewport] of [
     );
     await expect(rows.first()).toBeVisible();
     await alignedSearch(page);
+    await rows.first().locator(".details-toggle").click();
+    const details = page.locator(".admin-gift-dialog");
+    await expect(details.locator(".copy-link-field")).toHaveCount(0);
+    await details.locator(".dialog-head button").click();
     await expect(page.locator(".admin-list-toolbar-filters")).toBeVisible();
     await page.locator('.gifts-toolbar .admin-select-trigger[aria-label="Источник"]').click();
     await page.getByRole("option", { name: "От администратора", exact: true }).click();
@@ -1323,10 +1327,24 @@ for (const [device, viewport] of [
     await expect(provider).toContainText("От администратора");
     await expect(provider.locator(".admin-payment-provider-logo")).toHaveText("🎁");
     await rows.first().locator(".details-toggle").click();
-    const details = page.locator(".admin-gift-dialog");
     await expect(details.locator(".admin-payment-provider-logo")).toHaveText("🎁");
-    await copyFullLink(page, details.locator(".copy-link-field"));
+    const webLink = details.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Web App", exact: true }),
+    });
+    const telegramLink = details.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Telegram", exact: true }),
+    });
+    await expect(details.getByText("Ссылка для Web App", { exact: true })).toBeVisible();
+    await expect(details.getByText("Ссылка для Telegram", { exact: true })).toBeVisible();
+    await expect(telegramLink.locator("input")).toHaveValue(
+      `https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`
+    );
+    await copyFullLink(page, webLink);
+    await expect(telegramLink.getByRole("button")).toHaveText("Копировать");
+    await copyFullLink(page, telegramLink);
+    await expect(webLink.getByRole("button")).toHaveText("Копировать");
     await noOverflow(details.locator(".dialog-body-scroll > .scroll-area__viewport"), true);
+    await details.screenshot({ path: testInfo.outputPath(`gift-links-admin-${device}.png`) });
     await details.locator(".dialog-head button").click();
 
     await page.getByRole("button", { name: "Создать подарок", exact: true }).click();
@@ -1348,7 +1366,9 @@ for (const [device, viewport] of [
     await creation.locator('input[type="email"]').fill("friend@example.com");
     await noOverflow(creation.locator(".dialog-body-scroll > .scroll-area__viewport"), true);
     await creation.locator('button[type="submit"]').click();
-    await expect(details.locator(".copy-link-field")).toBeVisible();
+    await expect(details.locator(".copy-link-field")).toHaveCount(2);
+    await copyFullLink(page, webLink);
+    await copyFullLink(page, telegramLink);
     await expect(details).toContainText("0.00");
     await expect(details).toContainText("friend@example.com");
     await noOverflow(details.locator(".dialog-body-scroll > .scroll-area__viewport"), true);
@@ -1485,8 +1505,25 @@ for (const [device, viewport] of [
     await noOverflow(paymentDialog);
     await paymentDialog.getByRole("button", { name: "Закрыть", exact: true }).last().click();
     await page.goto("/demo/runtime/app/?mock=checkout-addons&path=/invite&theme_preview=dark");
-    await expect(page.locator(".gift-entry .copy-link-field").first()).toBeVisible();
-    await copyFullLink(page, page.locator(".gift-entry .copy-link-field").first());
+    const giftCard = page.locator(".gift-entry .gift-card").first();
+    const giftWebLink = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Web App", exact: true }),
+    });
+    const giftTelegramLink = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Telegram", exact: true }),
+    });
+    await expect(giftCard.getByText("Ссылка для Web App", { exact: true })).toBeVisible();
+    await expect(giftCard.getByText("Ссылка для Telegram", { exact: true })).toBeVisible();
+    await expect(giftTelegramLink.locator("input")).toHaveValue(
+      `https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`
+    );
+    await copyFullLink(page, giftWebLink);
+    await copyFullLink(page, giftTelegramLink);
+    await noOverflow(giftCard);
+    await expect(
+      page.locator(".gift-entry .gift-card").nth(1).locator(".copy-link-field")
+    ).toHaveCount(0);
+    await giftCard.screenshot({ path: testInfo.outputPath(`gift-links-webapp-${device}.png`) });
     const referralField = page.locator(".bonus-card .copy-link-field").first();
     await copyFullLink(page, referralField);
     await referralField.getByRole("button", { name: /QR/ }).click();

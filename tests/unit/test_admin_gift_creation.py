@@ -82,6 +82,7 @@ class AdminGiftCreationTests(IsolatedAsyncioTestCase):
         for name, replacement in (
             ("_require_admin_user_id", lambda _: 10),
             ("get_settings", lambda _: self.settings),
+            ("get_bot_username", lambda _: "example_bot"),
             ("get_session_factory", lambda _: lambda: self.session),
             ("_public_webapp_base_url", lambda *_: "https://shop.example.test/app"),
             ("_serialize_plans", lambda *_: [self.plan]),
@@ -105,6 +106,7 @@ class AdminGiftCreationTests(IsolatedAsyncioTestCase):
         result = json.loads(response.text)["gift"]
         self.assertEqual(result["total_amount"], 0)
         self.assertEqual(result["link"], "https://shop.example.test/?gift=" + "R" * 43)
+        self.assertEqual(result["telegram_link"], "https://t.me/example_bot?start=gift_" + "R" * 43)
         self.assertEqual(result["delivery_status"], "pending")
         self.assertEqual(result["devices"], 3)
         self.assertEqual(self.payment.funding_source, "admin_grant")
@@ -216,7 +218,9 @@ class AdminGiftCreationTests(IsolatedAsyncioTestCase):
                     self.gift.status = status
                     self.session.get.side_effect = [self.gift, self.payment]
                     response = await gift_creation.admin_gift_detail_route(self.request)
-                    self.assertEqual(bool(json.loads(response.text)["gift"]["link"]), has_link)
+                    result = json.loads(response.text)["gift"]
+                    self.assertEqual(bool(result["link"]), has_link)
+                    self.assertEqual(bool(result["telegram_link"]), has_link)
 
 
 class AdminGiftAuthorizationTests(IsolatedAsyncioTestCase):

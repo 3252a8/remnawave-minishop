@@ -27,6 +27,7 @@ DEFAULT_PAYMENT_CALLBACK_COOLDOWN_SECONDS = 20
 DEFAULT_TRIAL_CALLBACK_COOLDOWN_SECONDS = 30
 
 EXPENSIVE_CALLBACK_PREFIXES = (
+    "gift:claim:",
     "pay_",
     "trial_action:confirm_activate",
     "main_action:request_trial",

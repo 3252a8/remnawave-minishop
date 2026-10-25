@@ -10,7 +10,7 @@ from aiohttp import web
 from pydantic import ConfigDict, EmailStr, Field
 from sqlalchemy import select
 
-from bot.app.web.context import get_session_factory, get_settings
+from bot.app.web.context import get_bot_username, get_session_factory, get_settings
 from bot.app.web.http_contracts import HttpBodyModel
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import (
@@ -29,6 +29,7 @@ from bot.app.web.webapp.serializers_plans import _serialize_plans
 from bot.infra import events
 from bot.infra.event_payloads import PaymentSucceededPayload
 from bot.infra.payment_events import build_payment_succeeded_payload
+from bot.services.gift_links import gift_telegram_url
 from bot.services.gift_purchase import issue_paid_gift
 from bot.services.subscription_gifts import gift_url
 from bot.services.subscription_order_terms import freeze_subscription_terms
@@ -237,6 +238,7 @@ async def admin_gift_create_route(request: web.Request) -> web.Response:
         )
         if gift.status == "ready" and payment.status == "succeeded":
             result.link = gift_url(_public_webapp_base_url(settings, request), str(gift.token))
+            result.telegram_link = gift_telegram_url(get_bot_username(request), str(gift.token))
         event = PaymentSucceededPayload.model_validate(
             build_payment_succeeded_payload(
                 user_id=actor_id,
@@ -296,4 +298,5 @@ async def admin_gift_detail_route(request: web.Request) -> web.Response:
             and payment.status == "succeeded"
         ):
             result.link = gift_url(_public_webapp_base_url(settings, request), str(gift.token))
+            result.telegram_link = gift_telegram_url(get_bot_username(request), str(gift.token))
     return _ok({"gift": result.model_dump(mode="json")})

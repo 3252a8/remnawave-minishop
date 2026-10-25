@@ -3374,6 +3374,18 @@
             "title": "Tariff Title",
             "type": "string"
           },
+          "telegram_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Link"
+          },
           "total_amount": {
             "title": "Total Amount",
             "type": "number"
@@ -10160,6 +10172,18 @@
           "tariff_title": {
             "title": "Tariff Title",
             "type": "string"
+          },
+          "telegram_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Link"
           }
         },
         "required": [

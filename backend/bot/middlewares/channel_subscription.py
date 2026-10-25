@@ -32,7 +32,10 @@ class ChannelSubscriptionMiddleware(BaseMiddleware):
             return await handler(event, data)
         if event.message and event.message.text and event.message.text.startswith("/start"):
             return await handler(event, data)
-        if event.callback_query and event.callback_query.data == "channel_subscription:verify":
+        if event.callback_query and (
+            event.callback_query.data == "channel_subscription:verify"
+            or str(event.callback_query.data or "").startswith("gift:claim:")
+        ):
             return await handler(event, data)
         payload = data.get("i18n_data", {})
         if await ensure_required_channel_subscription(

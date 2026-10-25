@@ -51,16 +51,22 @@
         >{t("wa_gift_premium", { gb: gift.premium_limit_gb })}</span
       >{/if}
   </div>
-  {#if gift.link}
-    <CopyLinkField
-      class="gift-copy"
-      value={gift.link}
-      inputLabel={t("wa_copy_link_label")}
-      copyLabel={t("wa_copy")}
-      qrLabel={t("wa_gift_qr_show")}
-      onqr={() => (qrOpen = true)}
-      {oncopy}
-    />
+  {#if gift.link || gift.telegram_link}
+    {#each [{ value: gift.link, label: "wa_gift_link_webapp", qr: true }, { value: gift.telegram_link, label: "wa_gift_link_telegram", qr: false }] as link (link.label)}
+      {#if link.value}
+        <div class="gift-copy">
+          <p class="gift-link-label">{t(link.label)}</p>
+          <CopyLinkField
+            value={link.value}
+            inputLabel={t(link.label)}
+            copyLabel={t("wa_copy")}
+            qrLabel={link.qr ? t("wa_gift_qr_show") : ""}
+            onqr={() => (qrOpen = true)}
+            {oncopy}
+          />
+        </div>
+      {/if}
+    {/each}
     <p class="gift-hint">{t("wa_gift_link_private")}</p>
   {/if}
   {#if gift.activated_at}<p class="gift-hint">
@@ -146,9 +152,13 @@
     padding: 6px 10px;
     border-radius: var(--radius-inner);
   }
-  .gift-card :global(.gift-copy) {
+  .gift-copy {
     min-width: 0;
     margin-top: 12px;
+  }
+  .gift-link-label {
+    margin: 0 0 6px;
+    font-size: 12px;
   }
   .gift-hint {
     font-size: 12px;

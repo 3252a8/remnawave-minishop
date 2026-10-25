@@ -6,10 +6,16 @@ from datetime import datetime
 from aiohttp import web
 from pydantic import Field
 
-from bot.app.web.context import get_session_factory, get_settings, get_subscription_service
+from bot.app.web.context import (
+    get_bot_username,
+    get_session_factory,
+    get_settings,
+    get_subscription_service,
+)
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.services.checkout_addons import checkout_addon_grants
+from bot.services.gift_links import gift_telegram_url
 from bot.services.subscription_gifts import GiftError, activation_conflict, claim_gift, gift_url
 from bot.services.subscription_order_terms import read_subscription_terms
 from db.dal import gift_dal, payment_dal, subscription_dal, user_dal
@@ -65,6 +71,7 @@ class GiftView(HttpResponseModel):
     activated_at: datetime | None = None
     activation_end_at: datetime | None = None
     link: str | None = None
+    telegram_link: str | None = None
     owned: bool = False
     claimed_by_me: bool = False
     conflict: str = ""
@@ -85,6 +92,7 @@ class GiftView(HttpResponseModel):
         viewer_id: int,
         base_url: str,
         language: str = "ru",
+        bot_username: str | None = None,
     ) -> GiftView:
         terms = read_subscription_terms(payment)
         tariff = terms.tariff if terms else None
@@ -121,6 +129,9 @@ class GiftView(HttpResponseModel):
             activated_at=gift.activated_at,
             activation_end_at=gift.activation_end_at,
             link=gift_url(base_url, str(gift.token)) if owned and status == "ready" else None,
+            telegram_link=gift_telegram_url(bot_username, str(gift.token))
+            if owned and status == "ready"
+            else None,
             owned=owned,
             claimed_by_me=gift.recipient_id == viewer_id,
             bonus_days=int(gift.bonus_days or 0),
@@ -141,7 +152,12 @@ async def gifts_route(request: web.Request) -> web.Response:
         language = user.language_code if user else get_settings(request).DEFAULT_LANGUAGE
         gifts = [
             GiftView.from_orm_gift(
-                gift, payment, viewer_id=user_id, base_url=base, language=language
+                gift,
+                payment,
+                viewer_id=user_id,
+                base_url=base,
+                language=language,
+                bot_username=get_bot_username(request),
             ).model_dump(mode="json")
             for gift, payment in rows
         ]
@@ -168,6 +184,7 @@ async def gift_preview_route(request: web.Request) -> web.Response:
             payment,
             viewer_id=user_id,
             base_url=_public_webapp_base_url(get_settings(request), request),
+            bot_username=get_bot_username(request),
         )
         active = await subscription_dal.get_active_subscription_by_user_id(session, user_id)
         catalog = get_settings(request).tariffs_config

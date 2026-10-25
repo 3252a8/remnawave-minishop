@@ -40,7 +40,7 @@
   let status = $state("");
   let source = $state("");
   let createOpen = $state(false);
-  let copied = $state(false);
+  let copiedLink = $state<string | null>(null);
   let copyFailed = $state(false);
   let query = $state("");
   let appliedQuery = $state("");
@@ -104,7 +104,7 @@
   });
   async function openGift(gift: AdminGift) {
     selected = gift;
-    copied = false;
+    copiedLink = null;
     copyFailed = false;
     try {
       const result = unwrap(await api(buildAdminGiftPath(gift.gift_id)));
@@ -114,10 +114,11 @@
     }
   }
   async function copyLink(link: string) {
+    copiedLink = null;
+    copyFailed = false;
     try {
       await navigator.clipboard.writeText(link);
-      copied = true;
-      copyFailed = false;
+      copiedLink = link;
     } catch {
       copyFailed = true;
     }
@@ -125,7 +126,7 @@
   function created(gift: AdminGift) {
     createOpen = false;
     selected = gift;
-    copied = false;
+    copiedLink = null;
     copyFailed = false;
     page = 0;
     status = "";
@@ -217,7 +218,7 @@
     <AdminTable>
       <thead
         ><tr
-          >{#each columns as [key, label]}
+          >{#each columns as [key, label] (key)}
             <AdminSortableHeader
               label={at(label)}
               column={{ asc: `${key}_asc`, desc: `${key}_desc`, defaultDirection: "desc" }}
@@ -396,18 +397,23 @@
         <strong>{fmtMoney(gift.total_amount, gift.currency)}</strong>{@render badge(gift.status)}
       </div>
     </div>
-    {#if gift.link}
+    {#if gift.link || gift.telegram_link}
       <div class="gift-admin-link-block">
         <span class="gift-secondary">{at("gifts_link_hint")}</span>
-        <CopyLinkField
-          class="gift-admin-link"
-          variant="admin"
-          value={gift.link}
-          inputLabel={at("gifts_link")}
-          copyLabel={at(copied ? "gifts_copied" : "gifts_copy")}
-          {copied}
-          oncopy={copyLink}
-        />
+        {#each [{ value: gift.link, label: "gifts_link_webapp" }, { value: gift.telegram_link, label: "gifts_link_telegram" }] as link (link.label)}
+          {#if link.value}
+            <span class="gift-secondary">{at(link.label)}</span>
+            <CopyLinkField
+              class="gift-admin-link"
+              variant="admin"
+              value={link.value}
+              inputLabel={at(link.label)}
+              copyLabel={at(copiedLink === link.value ? "gifts_copied" : "gifts_copy")}
+              copied={copiedLink === link.value}
+              oncopy={copyLink}
+            />
+          {/if}
+        {/each}
         {#if copyFailed}<span role="alert" class="gift-secondary">{at("gifts_copy_failed")}</span
           >{/if}
       </div>

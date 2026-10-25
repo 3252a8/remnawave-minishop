@@ -19,6 +19,8 @@ const gift = (id: number, status = "ready"): GiftView => ({
   activated_at: status === "activated" ? "2026-09-05T13:00:00Z" : null,
   activation_end_at: null,
   link: status === "ready" ? `https://example.com/?gift=${"R".repeat(43)}` : null,
+  telegram_link:
+    status === "ready" ? `https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}` : null,
   owned: true,
   claimed_by_me: false,
   conflict: "",
@@ -43,6 +45,7 @@ function adminGiftRows(): AdminGift[] {
   return Array.from({ length: 57 }, (_, index) => ({
     ...gift(4101 - index, index % 2 ? "activated" : "ready"),
     link: null,
+    telegram_link: null,
     created_at: new Date(Date.UTC(2026, 8, 5) - index * 3600000).toISOString(),
     tariff_title: index % 3 ? "Premium" : "Standard",
     purchaser_id: 101 + index,
@@ -178,6 +181,10 @@ export function giftsDemoResponse(path: string, options: RequestInit, fullPath =
               row.provider === "admin_gift" && row.status === "ready"
                 ? row.link || `https://example.com/?gift=${"R".repeat(43)}`
                 : null,
+            telegram_link:
+              row.provider === "admin_gift" && row.status === "ready"
+                ? row.telegram_link || `https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`
+                : null,
           },
         }
       : { ok: false, error: "gift_unavailable" };
@@ -187,7 +194,7 @@ export function giftsDemoResponse(path: string, options: RequestInit, fullPath =
     const row = [...adminCreated, ...adminGiftRows()].find((item) => item.gift_id === giftId);
     if (!row || row.status !== "ready" || row.payment_status !== "succeeded")
       return { ok: false, error: "gift_revoke_unavailable" };
-    const revoked = { ...row, status: "revoked", link: null };
+    const revoked = { ...row, status: "revoked", link: null, telegram_link: null };
     const createdIndex = adminCreated.findIndex((item) => item.gift_id === giftId);
     if (createdIndex >= 0) adminCreated[createdIndex] = revoked;
     return { ok: true, gift: revoked };
@@ -317,6 +324,7 @@ export function giftsDemoResponse(path: string, options: RequestInit, fullPath =
         recipient_email: null,
         delivery_status: null,
         link: null,
+        telegram_link: null,
         claimed_by_me: token.startsWith("A") || claimed.has(token),
         conflict: token.startsWith("C")
           ? "gift_tariff_conflict"
