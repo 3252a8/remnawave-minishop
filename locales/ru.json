@@ -6336,6 +6336,9 @@
   "payment_provider_yookassa_bank_card_telegram_label": "YooKassa · Банковская карта",
   "admin_settings_field_yookassa_payment_methods_label": "Способы оплаты ЮKassa и порядок",
   "admin_settings_field_yookassa_payment_methods_description": "Список через запятую: sbp,bank_card,other. Пусто — одна кнопка ЮKassa. other — выбор на странице ЮKassa. СБП здесь используется для разовой оплаты без сохранения счёта.",
+  "wa_external_oauth_browser_hint": "Вход и привязка через Google, Яндекс и Discord доступны в обычном браузере. Для привязки откройте кабинет, отдельно войдите в тот же аккаунт и выберите провайдера в разделе «Безопасность». Затем обновите Mini App. Сессия Telegram в браузер не переносится.",
+  "wa_external_oauth_open_browser": "Открыть кабинет в браузере",
+  "wa_external_oauth_link_in_browser": "Привязка доступна в браузере",
   "admin_settings_group_yookassa_common": "Общие настройки и выбор способа",
   "admin_settings_group_yookassa_sbp": "Кнопка СБП",
   "admin_settings_group_yookassa_bank_card": "Кнопка банковской карты"

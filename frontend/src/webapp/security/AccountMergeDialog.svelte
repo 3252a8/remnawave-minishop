@@ -16,6 +16,8 @@
   import { confirmAccountMergeWithPasskey } from "$lib/webapp/passkeys.js";
   import type { Translate, VoidAction } from "$lib/webapp/types.js";
   import EmailOtpInput from "../auth/EmailOtpInput.svelte";
+  import ExternalOAuthBrowserHint from "../auth/ExternalOAuthBrowserHint.svelte";
+  import { externalOAuthNeedsBrowser } from "$lib/webapp/externalOAuthBrowser.js";
 
   type Props = {
     api: ApiClient["api"];
@@ -161,7 +163,7 @@
   }
 
   async function reauthenticate(provider: string): Promise<void> {
-    if (busy) return;
+    if (busy || externalOAuthNeedsBrowser(provider)) return;
     if (provider !== "passkey") {
       busy = true;
       window.location.assign(buildExternalOAuthStartUrl(provider, "merge", currentLang));
@@ -246,12 +248,15 @@
               <Button
                 class="wide"
                 variant="secondary"
-                disabled={busy}
+                disabled={busy || externalOAuthNeedsBrowser(provider)}
                 onclick={() => void reauthenticate(provider)}
               >
                 {t("wa_account_merge_reauth", { provider: authProviderName(provider, t) })}
               </Button>
             {/each}
+            {#if providers.some((provider) => externalOAuthNeedsBrowser(provider))}
+              <ExternalOAuthBrowserHint {t} security />
+            {/if}
           </div>
         {/if}
         {#if emailAvailable}

@@ -6336,6 +6336,9 @@
   "payment_provider_yookassa_bank_card_telegram_label": "YooKassa · Bank card",
   "admin_settings_field_yookassa_payment_methods_label": "YooKassa checkout methods and order",
   "admin_settings_field_yookassa_payment_methods_description": "Comma-separated sbp,bank_card,other. Empty keeps one YooKassa button; other opens its method selection page. SBP is a one-time payment without saving the account.",
+  "wa_external_oauth_browser_hint": "Google, Yandex and Discord sign-in and linking are available in a regular browser. To link an account, open the cabinet, sign in to the same account separately and choose the provider under Security. Then refresh the Mini App. Your Telegram session is not transferred to the browser.",
+  "wa_external_oauth_open_browser": "Open cabinet in browser",
+  "wa_external_oauth_link_in_browser": "Linking is available in a browser",
   "admin_settings_group_yookassa_common": "Common settings and method selection",
   "admin_settings_group_yookassa_sbp": "SBP button",
   "admin_settings_group_yookassa_bank_card": "Bank card button"
