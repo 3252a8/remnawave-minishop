@@ -40,7 +40,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@internationalized/date": "^3.12.4",
-    "@lucide/svelte": "^1.59.0",
+    "@lucide/svelte": "^1.61.0",
     "@neodrag/svelte": "^2.3.3",
     "@playwright/test": "^1.64.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
@@ -51,7 +51,7 @@
     "@tiptap/pm": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
     "@vincjo/datatables": "^2.8.1",
-    "bits-ui": "^2.19.5",
+    "bits-ui": "^2.20.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "esbuild": "^0.28.2",
@@ -71,7 +71,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
     "uplot": "^1.6.32",
-    "vite": "^8.3.4",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
   "dependencies": {
