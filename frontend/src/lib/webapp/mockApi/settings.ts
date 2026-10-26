@@ -22,6 +22,9 @@ function demoSettingsValuesByKey(): Map<string, DemoSettingsField> {
 function demoRuntimeSettingValue(key: string): unknown {
   const values: DemoRecord = {
     USER_BALANCE_ENABLED: Boolean(DEV_MOCK.data.settings.user_balance_enabled),
+    SUBSCRIPTION_DAYS_DEVICES_ENABLED: false,
+    SUBSCRIPTION_DAYS_TRAFFIC_ENABLED: false,
+    SUBSCRIPTION_DAYS_MIN_REMAINING: 1,
     USER_BALANCE_RECURRING_ENABLED: Boolean(currentDemoBalance().recurring_enabled),
     GIFTS_ENABLED: DEV_MOCK.config.giftsEnabled ?? true,
     WEBAPP_USER_THEME_MODE_ENABLED: DEV_MOCK.config.userThemeModeEnabled ?? true,

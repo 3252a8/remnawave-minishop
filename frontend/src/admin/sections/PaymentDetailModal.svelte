@@ -16,7 +16,12 @@
   import { Checkbox, Textarea } from "$components/ui/index.js";
   import type { AdminPayment } from "../../lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
-  import { paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
+  import {
+    paymentAmountDisplay,
+    paymentDescriptionDisplay,
+    paymentDiscountDisplay,
+    paymentPurchaseDisplay,
+  } from "$lib/admin/paymentTable.js";
   import { paymentStatusLabel } from "$lib/admin/format.js";
   import { isReversalReasonValid } from "$lib/admin/reversalReason.js";
   import { demoPartnerAttributionForPayment } from "$lib/webapp/mockApi/partnerProgram.js";
@@ -75,8 +80,11 @@
   const providerLabel = $derived(
     payment?.provider === "admin_gift"
       ? at("gifts_source_admin", {}, "From administrator")
-      : payment?.provider
+      : payment?.provider === "subscription_days"
+        ? at("payments_provider_subscription_days")
+        : payment?.provider
   );
+  const usesSubscriptionDays = $derived(payment?.provider === "subscription_days");
   const description = $derived(
     payment
       ? [
@@ -198,8 +206,8 @@
           )
         : await paymentsStore.reversePayment(
             reason,
-            restorePromoUsage,
-            refundToBalance,
+            usesSubscriptionDays ? false : restorePromoUsage,
+            usesSubscriptionDays ? false : refundToBalance,
             withoutReason
           );
     if (succeeded) cancelAction();
@@ -292,7 +300,7 @@
     },
     {
       label: at("amount", {}, "Amount"),
-      value: money(payment?.amount, payment?.currency),
+      value: payment ? paymentAmountDisplay(payment, fmtMoney, at) : "—",
     },
     { label: at("status", {}, "Status"), value: paymentStatusLabel(payment?.status, at) },
     {
@@ -362,7 +370,15 @@
   ] satisfies MetaRow[]);
 
   const purchaseRows = $derived([
-    { label: at("payment_detail_sale_mode", {}, "Sale type"), value: payment?.sale_mode },
+    {
+      label: at("payment_detail_sale_mode", {}, "Sale type"),
+      value:
+        usesSubscriptionDays && payment
+          ? paymentPurchaseDisplay(payment, at)
+              .map((item) => item.label)
+              .join(" · ") || paymentDescriptionDisplay(payment, at)
+          : payment?.sale_mode,
+    },
     { label: at("payment_detail_tariff_key", {}, "Tariff"), value: payment?.tariff_key },
     {
       label: at("payment_detail_duration_months", {}, "Period"),
@@ -412,7 +428,7 @@
             <WalletCards size={24} />
           </span>
           <div class="admin-payment-summary-meta">
-            <strong>{money(payment.amount, payment.currency)}</strong>
+            <strong>{paymentAmountDisplay(payment, fmtMoney, at)}</strong>
             <small>{paymentDescription(payment)}</small>
             <div class="admin-payment-summary-tags">
               <AdminBadge wrap variant={paymentStatusVariant(payment.status)}
@@ -447,7 +463,7 @@
           {at("payment_detail_user_section", {}, "User")}
         </div>
         <ul class="admin-meta-list admin-payment-meta-list">
-          {#each userRows as row}
+          {#each userRows as row (row.label)}
             <li>
               <span>{row.label}</span>
               <strong class:admin-meta-truncate={row.copy}>
@@ -529,7 +545,7 @@
               <h3>{at("payment_detail_payment_section", {}, "Payment")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
-              {#each paymentRows as row}
+              {#each paymentRows as row (row.label)}
                 <li>
                   <span>{row.label}</span>
                   <strong class:admin-meta-truncate={row.copy}>
@@ -566,7 +582,7 @@
               <h3>{at("payment_detail_provider_section", {}, "Provider")}</h3>
             </div>
             <ul class="admin-meta-list admin-payment-meta-list">
-              {#each providerRows as row}
+              {#each providerRows as row (row.label)}
                 <li>
                   <span>{row.label}</span>
                   {#if row.href}
@@ -613,7 +629,7 @@
             </div>
             <PaymentPurchasesCell {payment} {at} mode="detail" />
             <ul class="admin-meta-list admin-payment-meta-list">
-              {#each purchaseRows as row}
+              {#each purchaseRows as row (row.label)}
                 <li>
                   <span>{row.label}</span>
                   {#if row.promo}
@@ -674,6 +690,14 @@
                         )}
                   </p>
 
+                  {#if actionMode === "reverse" && usesSubscriptionDays}
+                    <p class="admin-payment-action-confirm">
+                      {at("payment_reverse_subscription_days", {
+                        days: payment.subscription_days_spent,
+                      })}
+                    </p>
+                  {/if}
+
                   {#if actionMode === "finalize" && payment.manual_finalize_warnings?.length}
                     <ul class="admin-payment-warning-list">
                       {#each payment.manual_finalize_warnings as warning (warning)}
@@ -716,7 +740,7 @@
                     </label>
                   {/if}
 
-                  {#if actionMode === "reverse" && payment.promo_code_id}
+                  {#if actionMode === "reverse" && payment.promo_code_id && !usesSubscriptionDays}
                     <label class="admin-payment-action-check">
                       <Checkbox
                         bind:checked={restorePromoUsage}
@@ -733,7 +757,9 @@
                     </label>
                   {/if}
 
-                  {#if actionMode === "reverse" && payment.sale_mode?.split("|").includes("gift")}
+                  {#if actionMode === "reverse" && payment.sale_mode
+                      ?.split("|")
+                      .includes("gift") && !usesSubscriptionDays}
                     <label class="admin-payment-action-check">
                       <Checkbox
                         bind:checked={refundToBalance}

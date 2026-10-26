@@ -12,7 +12,11 @@
   } from "$components/patterns/admin/index.js";
   import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
   import PaymentPurchasesCell from "../../admin/sections/PaymentPurchasesCell.svelte";
-  import { paymentDescriptionDisplay, paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
+  import {
+    paymentAmountDisplay,
+    paymentDescriptionDisplay,
+    paymentDiscountDisplay,
+  } from "$lib/admin/paymentTable.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import { buildPaymentHistoryPath, unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
   import {
@@ -201,7 +205,9 @@
                 <tr data-payment-history-id={item.payment_id}>
                   <td data-label={headers[0]} data-numeric><strong>#{item.payment_id}</strong></td>
                   <td data-label={headers[1]}><PaymentPurchasesCell payment={item} {at} /></td>
-                  <td data-label={headers[2]} data-numeric>{money(item.amount, item.currency)}</td>
+                  <td data-label={headers[2]} data-numeric
+                    >{paymentAmountDisplay(item, money, at)}</td
+                  >
                   <td data-label={headers[3]} data-numeric>{paymentDiscountDisplay(item, money)}</td
                   >
                   <td data-label={headers[4]}

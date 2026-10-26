@@ -1,21 +1,29 @@
 """Exact entitlement boundaries and purchase interleaving on disposable PostgreSQL."""
 
 import asyncio
+import json
 import os
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_snapshot import capture_subscription_snapshot
 from bot.services.panel_api_service import PanelApiService
 from bot.services.regular_topup_settlement import RegularTopupPeriod, settle_regular_topup
+from bot.services.subscription_days_purchase import purchase_with_days
+from bot.services.subscription_days_quotes import (
+    AddonSelection,
+    SubscriptionDaysError,
+    attach_days_quotes,
+)
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from db.dal import subscription_dal, tariff_dal, user_panel_squad_override_dal
@@ -26,6 +34,7 @@ from db.models import (
     Base,
     FlexibleTrafficLimit,
     HwidDevicePurchase,
+    Payment,
     Subscription,
     TrafficTopup,
     User,
@@ -73,6 +82,122 @@ def run_scenario(scenario: Callable[[Any], Awaitable[None]]) -> None:
             await admin.dispose()
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize("same_quote", [True, False])
+def test_day_purchases_serialize_without_double_debit(tmp_path: Path, same_quote: bool) -> None:
+    tariff_path = tmp_path / "tariffs.json"
+    tariff_path.write_text(
+        json.dumps(
+            {
+                "default_tariff": "standard",
+                "tariffs": [
+                    {
+                        "key": "standard",
+                        "names": {"en": "Standard"},
+                        "enabled": True,
+                        "billing_model": "period",
+                        "monthly_gb": 100,
+                        "prices_rub": {"1": 300},
+                        "enabled_periods": [1],
+                        "topup_packages": {"rub": [{"gb": 5, "price": 31}]},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        TARIFFS_CONFIG_PATH=str(tariff_path),
+        SUBSCRIPTION_DAYS_TRAFFIC_ENABLED=True,
+        WEBAPP_SESSION_SECRET="test-only-days-concurrency",
+    )
+    service = SubscriptionService(settings, AsyncMock(spec=PanelApiService))
+    service.sync_main_traffic_limit_to_panel = AsyncMock(return_value=True)
+
+    async def activate(session: Any, **kwargs: Any) -> dict[str, bool]:
+        sub = await session.get(Subscription, 1)
+        sub.topup_balance_bytes = int(sub.topup_balance_bytes or 0) + 5 * 1024**3
+        await tariff_dal.create_traffic_topup(
+            session,
+            subscription_id=1,
+            payment_id=kwargs["payment_db_id"],
+            purchased_bytes=5 * 1024**3,
+            kind="topup",
+        )
+        return {"ok": True}
+
+    service.activate_topup = AsyncMock(side_effect=activate)
+
+    async def scenario(factory: Any) -> None:
+        end = datetime.now(UTC) + timedelta(days=30)
+        async with factory() as session:
+            user = await session.get(User, 1)
+            user.panel_user_uuid = "panel-1"
+            sub = await session.get(Subscription, 1)
+            sub.is_active = True
+            sub.provider = "yookassa"
+            sub.tariff_key = "standard"
+            sub.end_date = end
+            sub.duration_days = 30
+            sub.effective_monthly_price_rub = 300
+            other = await session.get(Subscription, 2)
+            other.is_active = False
+            session.add(
+                Payment(
+                    user_id=1,
+                    provider="yookassa",
+                    amount=300,
+                    currency="RUB",
+                    status="succeeded",
+                    tariff_key="standard",
+                    sale_mode="subscription@standard",
+                    subscription_duration_days=30,
+                )
+            )
+            await session.commit()
+            plans: list[dict[str, Any]] = [
+                {"sale_mode": "topup", "tariff_key": "standard", "traffic_gb": 5, "currency": "RUB"}
+                for _ in range(2)
+            ]
+            await attach_days_quotes(session, service, sub, plans)
+        tokens = [plan["subscription_days"]["quote_token"] for plan in plans]
+
+        async def buy(token: str) -> int:
+            async with factory() as session:
+                payment = await purchase_with_days(
+                    session,
+                    service,
+                    user_id=1,
+                    selection=AddonSelection.parse("topup", "standard", 5),
+                    token=token,
+                    description="Traffic",
+                )
+                await session.commit()
+                return int(payment.payment_id)
+
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                buy(tokens[0]),
+                buy(tokens[0] if same_quote else tokens[1]),
+                return_exceptions=True,
+            ),
+            timeout=20,
+        )
+        if same_quote:
+            assert isinstance(results[0], int) and results[0] == results[1]
+        else:
+            assert sum(isinstance(result, int) for result in results) == 1
+            errors = [result for result in results if isinstance(result, SubscriptionDaysError)]
+            assert len(errors) == 1 and errors[0].code == "subscription_days_quote_stale"
+        async with factory() as session:
+            sub = await session.get(Subscription, 1)
+            assert sub.end_date == end - timedelta(days=4)
+            assert sub.topup_balance_bytes == 5 * 1024**3
+            assert await session.scalar(select(func.count()).select_from(Payment)) == 2
+            assert await session.scalar(select(func.count()).select_from(TrafficTopup)) == 1
+
+    run_scenario(scenario)
 
 
 def test_batch_matches_sql_for_overlapping_future_expired_and_empty_entitlements() -> None:

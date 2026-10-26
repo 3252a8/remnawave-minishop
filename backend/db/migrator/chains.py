@@ -37,6 +37,7 @@ from .chain_0105_provider_mandates import CHAIN_0105_PROVIDER_MANDATES
 from .chain_0106_support_connector import CHAIN_0106_SUPPORT_CONNECTOR
 from .chain_0107_cleaned_trial_history import CHAIN_0107_CLEANED_TRIAL_HISTORY
 from .chain_0108_telegram_observations import CHAIN_0108_TELEGRAM_OBSERVATIONS
+from .chain_0109_subscription_days_payments import CHAIN_0109_SUBSCRIPTION_DAYS_PAYMENTS
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -75,4 +76,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0106_SUPPORT_CONNECTOR,
     *CHAIN_0107_CLEANED_TRIAL_HISTORY,
     *CHAIN_0108_TELEGRAM_OBSERVATIONS,
+    *CHAIN_0109_SUBSCRIPTION_DAYS_PAYMENTS,
 ]

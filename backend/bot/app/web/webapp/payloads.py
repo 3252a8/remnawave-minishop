@@ -155,6 +155,7 @@ class WebAppPaymentCreatePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     method: str = ""
+    quote_token: Annotated[str, StringConstraints(max_length=4096)] | None = None
     gift: bool = False
     gift_recipient_email: EmailStr | None = None
     payer_email: EmailStr | None = None

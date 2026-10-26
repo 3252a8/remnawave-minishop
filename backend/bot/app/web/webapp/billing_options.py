@@ -19,6 +19,7 @@ from bot.app.web.webapp.payloads import (
 from bot.services.balance_recurring import active_balance_recurrence
 from bot.services.behavior_events import emit_plans_viewed
 from bot.services.device_topup_availability import resolve_device_topup_availability
+from bot.services.subscription_days_quotes import attach_days_quotes
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.tariff_change_quote import (
     build_tariff_change_quote_snapshot,
@@ -117,6 +118,7 @@ async def tariff_topup_options_route(request: web.Request) -> web.Response:
         )
         premium_access = await get_subscription_service(request).premium_access_for_tariff(tariff)
         all_plans = plans + premium_plans
+        await attach_days_quotes(session, get_subscription_service(request), sub, all_plans)
         await emit_plans_viewed(
             settings,
             user_id=user_id,
@@ -421,6 +423,8 @@ async def device_topup_options_route(request: web.Request) -> web.Response:
             if stars_quote and int(stars_quote.get("price") or 0) > 0:
                 plan["stars_price"] = int(stars_quote["price"])
             plans.append(plan)
+        if sub is not None:
+            await attach_days_quotes(session, subscription_service, sub, plans)
         await emit_plans_viewed(
             settings,
             user_id=user_id,

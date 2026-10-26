@@ -350,6 +350,8 @@ class Payment(Base):
     failure_notified_at = Column(DateTime(timezone=True), nullable=True, index=True)
     provider = Column(String, nullable=False, default="yookassa", index=True)
     funding_source = Column(String(48), nullable=False, default="external", index=True)
+    subscription_days_spent = Column(Integer, nullable=True)
+    subscription_days_snapshot = Column(Text, nullable=True)
     idempotence_key = Column(String, unique=True, nullable=True)
     amount = Column(Float, nullable=False)
     currency = Column(String, nullable=False)

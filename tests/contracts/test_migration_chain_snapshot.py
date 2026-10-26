@@ -125,6 +125,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0106_support_connector",
     "0107_cleaned_trial_history",
     "0108_telegram_observations",
+    "0109_subscription_days_payments",
 ]
 
 

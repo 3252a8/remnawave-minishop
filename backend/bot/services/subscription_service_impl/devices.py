@@ -580,6 +580,8 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         provider: str = "yookassa",
         tariff_key: str | None = None,
         renewal: bool = False,
+        *,
+        notify: bool = True,
     ) -> dict[str, Any] | None:
         try:
             purchased_devices = int(device_count)
@@ -779,15 +781,16 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         final_panel_short_uuid = confirmed_panel_user.get(
             "shortUuid", getattr(updated_sub, "panel_subscription_uuid", None)
         )
-        await self._send_payment_success_email(
-            db_user=db_user,
-            sale_mode="hwid_devices_renewal" if renewal else "hwid_devices",
-            months=purchased_devices,
-            traffic_gb=None,
-            payment_amount=payment_amount,
-            end_date=valid_until,
-            provider=provider,
-        )
+        if notify:
+            await self._send_payment_success_email(
+                db_user=db_user,
+                sale_mode="hwid_devices_renewal" if renewal else "hwid_devices",
+                months=purchased_devices,
+                traffic_gb=None,
+                payment_amount=payment_amount,
+                end_date=valid_until,
+                provider=provider,
+            )
         return {
             "subscription_id": updated_sub.subscription_id,
             "end_date": updated_sub.end_date,

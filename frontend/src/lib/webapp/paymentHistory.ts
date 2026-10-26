@@ -21,7 +21,12 @@ export function paymentHistoryStatus(
   const state = item.history_state;
   return {
     label: t(`wa_payment_history_state_${state}`),
-    hint: t(`wa_payment_history_hint_${state}`),
+    hint:
+      state === "refunded" && item.provider === "subscription_days" && item.subscription_days_spent
+        ? t("wa_payment_history_hint_subscription_days_refunded", {
+            days: item.subscription_days_spent,
+          })
+        : t(`wa_payment_history_hint_${state}`),
     variant:
       state === "completed"
         ? "success"

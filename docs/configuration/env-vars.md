@@ -503,6 +503,9 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | --- | --- |
 | `PAYMENT_METHODS_ORDER` | Порядок способов оплаты в выпадающем списке или отдельных кнопках. Для Platega доступны `platega_sbp`, `platega_card`, `platega_crypto`, `platega_international`, `platega_all_methods`, `platega_subscription`; legacy-значение `platega` разворачивается во все варианты. Для RollyPay: `rollypay`, `rollypay_sbp`, `rollypay_card`, `rollypay_international`, `rollypay_crypto`, `rollypay_subscription`. |
 | `PAYMENT_METHODS_DISPLAY_MODE` | Представление способов оплаты в Mini App: компактный `dropdown` (по умолчанию) или отдельные `buttons`. В админке: **Платежи → Оформление оплаты**. |
+| `SUBSCRIPTION_DAYS_DEVICES_ENABLED` | Докупка устройств за дни оплаченной подписки. По умолчанию `False`; в админке: **Платежи → Оплата днями подписки**. |
+| `SUBSCRIPTION_DAYS_TRAFFIC_ENABLED` | Докупка обычного и премиум-трафика за дни оплаченной подписки. По умолчанию `False`. |
+| `SUBSCRIPTION_DAYS_MIN_REMAINING` | Минимальный остаток срока после докупки: от 1 до 3650 дней, по умолчанию `1`. См. [правила оплаты днями](../features/payments.md#оплата-докупок-днями-подписки). |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |

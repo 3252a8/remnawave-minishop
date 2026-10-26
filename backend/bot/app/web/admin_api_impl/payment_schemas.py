@@ -58,6 +58,7 @@ class PaymentOut(HttpResponseModel):
     traffic_premium_gb: float | None = None
     provider: str | None = None
     funding_source: str = "external"
+    subscription_days_spent: int | None = None
     provider_payment_id: str | None = None
     provider_payment_url: str | None = None
     amount: float
@@ -105,6 +106,7 @@ class PaymentOut(HttpResponseModel):
             traffic_premium_gb=premium_gb,
             provider=payment.provider,
             funding_source=str(getattr(payment, "funding_source", "external") or "external"),
+            subscription_days_spent=getattr(payment, "subscription_days_spent", None),
             provider_payment_id=payment.provider_payment_id,
             provider_payment_url=getattr(payment, "provider_payment_url", None),
             amount=float(payment.amount),

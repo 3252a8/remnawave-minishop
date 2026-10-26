@@ -1,9 +1,10 @@
 <script lang="ts">
   import { billingDurationDays } from "$lib/webapp/subscriptionPeriods.js";
+  import { unitPluralBucket } from "$lib/webapp/plurals.js";
   import { createCheckoutPaymentFallback } from "$lib/webapp/checkoutPaymentFallback.svelte.js";
   import type { PartnerBalancePaymentOptions } from "$lib/webapp/billingActions.js";
   import CheckoutPaymentFallback from "./payment-dialogs/CheckoutPaymentFallback.svelte";
-  import { ArrowRight, CheckCircle2, LockKeyhole } from "$components/ui/icons.js";
+  import { ArrowRight, CheckCircle2 } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
   import {
@@ -27,7 +28,8 @@
     EmptyCard,
     PaymentMethodPicker,
   } from "$components/patterns/webapp/index.js";
-  import CheckoutPromoRow from "./CheckoutPromoRow.svelte";
+  import TopupPaymentControls from "./payment-dialogs/TopupPaymentControls.svelte";
+  import { withSubscriptionDaysMethod } from "$lib/webapp/subscriptionDays.js";
   import PartnerBalanceDiscount from "./payment-dialogs/PartnerBalanceDiscount.svelte";
   import TariffLimitFacts from "$components/patterns/webapp/TariffLimitFacts.svelte";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
@@ -50,6 +52,7 @@
 
   let {
     api,
+    currentLang = "ru",
     applyTariffChange = () => {},
     changeConfirmOpen = $bindable(false),
     changeModalOpen = $bindable(false),
@@ -94,6 +97,7 @@
     t = (key) => key,
   }: {
     api: ApiClient["api"];
+    currentLang?: string;
     applyTariffChange?: BalancePaymentAction;
     changeConfirmOpen?: boolean;
     changeModalOpen?: boolean;
@@ -213,6 +217,8 @@
     return next;
   }
   function checkoutPromoPriceParts(plan: CheckoutPlan | null) {
+    if ((topupModalOpen && topupDaysSelected) || (deviceTopupModalOpen && deviceDaysSelected))
+      return null;
     if (!checkoutPromoAffectsPlan(plan)) return null;
     return {
       base: priceLabel(plan),
@@ -232,6 +238,8 @@
   let changeBalanceSource = $state<"user" | "partner" | null>(null);
   let topupBalanceSource = $state<"user" | "partner" | null>(null);
   let deviceBalanceSource = $state<"user" | "partner" | null>(null);
+  let deviceDaysSelected = $state(false);
+  let topupDaysSelected = $state(false);
   const changePaymentMethods = $derived(
     methodsForPlan(methods, selectedChangeAction, changeBalanceSource)
   );
@@ -243,12 +251,6 @@
   );
   const changePaymentMethodSelected = $derived(
     methodSelectable(changePaymentMethods, selectedMethod)
-  );
-  const topupPaymentMethodSelected = $derived(
-    methodSelectable(topupPaymentMethods, selectedMethod)
-  );
-  const devicePaymentMethodSelected = $derived(
-    methodSelectable(devicePaymentMethods, selectedMethod)
   );
 
   $effect(() => {
@@ -351,9 +353,8 @@
   }
 
   function deviceTopupPlanTitle(plan: PlanView) {
-    return t("wa_hwid_devices_package", {
-      count: Number(plan?.device_count || plan?.months || 0),
-    });
+    const count = Number(plan?.device_count || plan?.months || 0);
+    return t(`wa_hwid_devices_package_${unitPluralBucket(count, currentLang)}`, { count });
   }
 
   function deviceTopupPlanBonus(plan: PlanView) {
@@ -363,6 +364,7 @@
   }
 
   function deviceTopupPlanHint(plan: PlanView) {
+    if (deviceDaysSelected) return t("wa_subscription_days_devices_package_hint");
     return plan?.valid_until_text
       ? t("wa_hwid_devices_active_until", { date: plan.valid_until_text })
       : plan?.subtitle || deviceTopupOptions?.tariff_name || "";
@@ -399,9 +401,16 @@
     return t("wa_topup_traffic");
   }
 
-  function checkoutPromoBlock(plan: unknown | null) {
-    return Boolean(plan || checkoutPromoAppliedCode || checkoutPromoStatus);
-  }
+  const topupPromo = $derived({
+    visible: true,
+    input: checkoutPromoInput,
+    code: checkoutPromoAppliedCode,
+    isError: checkoutPromoIsError,
+    status: checkoutPromoStatus,
+    apply: applyCheckoutPromo,
+    clear: clearCheckoutPromo,
+    change: setCheckoutPromoInput,
+  });
 
   let changePartnerBalanceDiscount = $state(0);
   let topupPartnerBalanceDiscount = $state(0);
@@ -534,7 +543,7 @@
         <div class="payment-divider" aria-hidden="true"></div>
         <p class="section-kicker">{t("wa_tariff_change_strategy_title")}</p>
         <div class="option-list">
-          {#each selectedChangeTarget.actions as action}
+          {#each selectedChangeTarget.actions as action (actionKey(action))}
             <button
               class:active={actionKey(selectedChangeAction) === actionKey(action)}
               class="option-row change-action-row"
@@ -604,7 +613,7 @@
 >
   <div class="payment-dialog-body">
     <Card class="confirm-summary-card">
-      {#each tariffChangeSummary() as row}
+      {#each tariffChangeSummary() as row (row)}
         <p>{row}</p>
       {/each}
     </Card>
@@ -673,12 +682,13 @@
       <DialogOptionsSkeleton label={t("wa_tariff_options_loading")} rows={3} showNote />
     {:else if topupOptions?.plans?.length}
       <div class="option-list">
-        {#each topupOptions.plans as plan}
+        {#each topupOptions.plans as plan (planKey(plan))}
           {@const promoPrice = checkoutPromoPriceParts(plan)}
           <button
             class:active={planKey(selectedTopupPlan) === planKey(plan)}
             class="option-row plan-row"
             type="button"
+            disabled={payBusy}
             onclick={() => (selectedTopupPlan = plan)}
           >
             <span class="option-row-main">
@@ -706,69 +716,40 @@
       {@const carryoverNotes = topupCarryoverNotes()}
       {#if carryoverNotes.length}
         <div class="topup-carryover-note">
-          {#each carryoverNotes as note}
+          {#each carryoverNotes as note (note)}
             <p>{note}</p>
           {/each}
         </div>
       {/if}
-      <PaymentMethodPicker
-        methods={topupPaymentMethods}
-        {selectedMethod}
-        mode={paymentMethodsDisplayMode}
-        {t}
-        onSelect={(id) => (selectedMethod = id)}
-      />
-      {@render paymentFailure(topupPaymentMethods)}
-      {#if checkoutPromoBlock(selectedTopupPlan)}
-        <CheckoutPromoRow
-          inputId="webapp-topup-checkout-code"
-          inputName="webapp-topup-checkout-code"
-          value={checkoutPromoInput}
-          appliedCode={checkoutPromoAppliedCode}
-          isError={checkoutPromoIsError}
-          status={checkoutPromoStatus}
-          onApply={applyCheckoutPromo}
-          onClear={clearCheckoutPromo}
-          onValueChange={setCheckoutPromoInput}
-          {t}
-        />
-      {/if}
-      <PartnerBalanceDiscount
+      <TopupPaymentControls
         {api}
         open={topupModalOpen}
-        amount={checkoutAmount(selectedTopupPlan)}
-        currency={String(selectedTopupPlan?.currency || "")}
-        eligible={partnerBalanceEligible(selectedTopupPlan)}
-        minimumExternalAmount={selectedMethodMinimum()}
-        bind:source={topupBalanceSource}
-        bind:discount={topupPartnerBalanceDiscount}
+        plan={selectedTopupPlan}
+        methods={withSubscriptionDaysMethod(topupPaymentMethods, selectedTopupPlan, t)}
+        bind:selectedMethod
+        {currentLang}
         {t}
+        devices={false}
+        busy={payBusy}
+        displayMode={paymentMethodsDisplayMode}
+        createPayment={createTopupPayment}
+        failedMethods={paymentFallback.failedMethods}
+        onProviderUnavailable={paymentFallback.onUnavailable()}
+        priceLabel={selectedTopupPlan ? checkoutPlanPriceLabel(selectedTopupPlan) : ""}
+        priceParts={partnerCheckoutPriceParts(
+          selectedTopupPlan,
+          Boolean(topupBalanceSource),
+          topupPartnerBalanceDiscount
+        )}
+        promo={topupPromo}
+        partnerAmount={checkoutAmount(selectedTopupPlan)}
+        partnerCurrency={String(selectedTopupPlan?.currency || "")}
+        partnerEligible={partnerBalanceEligible(selectedTopupPlan)}
+        partnerMinimum={selectedMethodMinimum()}
+        bind:balanceSource={topupBalanceSource}
+        bind:partnerDiscount={topupPartnerBalanceDiscount}
+        bind:daysSelected={topupDaysSelected}
       />
-      <Button
-        class="wide bottom-action payment-submit-button"
-        onclick={() =>
-          createTopupPayment({
-            balanceSource: topupBalanceSource,
-            onProviderUnavailable: paymentFallback.onUnavailable(),
-          })}
-        disabled={!selectedTopupPlan || !topupPaymentMethodSelected || payBusy}
-      >
-        {t("wa_buy_traffic")}
-        {#if partnerCheckoutPriceParts(selectedTopupPlan, Boolean(topupBalanceSource), topupPartnerBalanceDiscount)}
-          {@const topupBalancePrice = partnerCheckoutPriceParts(
-            selectedTopupPlan,
-            Boolean(topupBalanceSource),
-            topupPartnerBalanceDiscount
-          )}
-          <span class="promo-price-pair">
-            <s>{topupBalancePrice?.base}</s>
-            <b>{topupBalancePrice?.discounted}</b>
-          </span>
-        {:else}
-          {selectedTopupPlan ? checkoutPlanPriceLabel(selectedTopupPlan) : ""}
-        {/if}
-        <LockKeyhole size={17} />
-      </Button>
     {:else}
       <EmptyCard>{t("wa_no_topup_options")}</EmptyCard>
     {/if}
@@ -798,12 +779,13 @@
         </div>
       {/if}
       <div class="option-list">
-        {#each deviceTopupOptions.plans as plan}
+        {#each deviceTopupOptions.plans as plan (planKey(plan))}
           {@const promoPrice = checkoutPromoPriceParts(plan)}
           <button
             class:active={planKey(selectedDeviceTopupPlan) === planKey(plan)}
             class="option-row plan-row"
             type="button"
+            disabled={payBusy}
             onclick={() => (selectedDeviceTopupPlan = plan)}
           >
             <span class="option-row-main">
@@ -829,64 +811,35 @@
           </button>
         {/each}
       </div>
-      <PaymentMethodPicker
-        methods={devicePaymentMethods}
-        {selectedMethod}
-        mode={paymentMethodsDisplayMode}
-        {t}
-        onSelect={(id) => (selectedMethod = id)}
-      />
-      {@render paymentFailure(devicePaymentMethods)}
-      {#if checkoutPromoBlock(selectedDeviceTopupPlan)}
-        <CheckoutPromoRow
-          inputId="webapp-device-topup-checkout-code"
-          inputName="webapp-device-topup-checkout-code"
-          value={checkoutPromoInput}
-          appliedCode={checkoutPromoAppliedCode}
-          isError={checkoutPromoIsError}
-          status={checkoutPromoStatus}
-          onApply={applyCheckoutPromo}
-          onClear={clearCheckoutPromo}
-          onValueChange={setCheckoutPromoInput}
-          {t}
-        />
-      {/if}
-      <PartnerBalanceDiscount
+      <TopupPaymentControls
         {api}
         open={deviceTopupModalOpen}
-        amount={checkoutAmount(selectedDeviceTopupPlan)}
-        currency={String(selectedDeviceTopupPlan?.currency || "")}
-        eligible={partnerBalanceEligible(selectedDeviceTopupPlan)}
-        minimumExternalAmount={selectedMethodMinimum()}
-        bind:source={deviceBalanceSource}
-        bind:discount={devicePartnerBalanceDiscount}
+        plan={selectedDeviceTopupPlan}
+        methods={withSubscriptionDaysMethod(devicePaymentMethods, selectedDeviceTopupPlan, t)}
+        bind:selectedMethod
+        {currentLang}
         {t}
+        devices={true}
+        busy={payBusy}
+        displayMode={paymentMethodsDisplayMode}
+        createPayment={createDeviceTopupPayment}
+        failedMethods={paymentFallback.failedMethods}
+        onProviderUnavailable={paymentFallback.onUnavailable()}
+        priceLabel={selectedDeviceTopupPlan ? checkoutPlanPriceLabel(selectedDeviceTopupPlan) : ""}
+        priceParts={partnerCheckoutPriceParts(
+          selectedDeviceTopupPlan,
+          Boolean(deviceBalanceSource),
+          devicePartnerBalanceDiscount
+        )}
+        promo={topupPromo}
+        partnerAmount={checkoutAmount(selectedDeviceTopupPlan)}
+        partnerCurrency={String(selectedDeviceTopupPlan?.currency || "")}
+        partnerEligible={partnerBalanceEligible(selectedDeviceTopupPlan)}
+        partnerMinimum={selectedMethodMinimum()}
+        bind:balanceSource={deviceBalanceSource}
+        bind:partnerDiscount={devicePartnerBalanceDiscount}
+        bind:daysSelected={deviceDaysSelected}
       />
-      <Button
-        class="wide bottom-action payment-submit-button"
-        onclick={() =>
-          createDeviceTopupPayment({
-            balanceSource: deviceBalanceSource,
-            onProviderUnavailable: paymentFallback.onUnavailable(),
-          })}
-        disabled={!selectedDeviceTopupPlan || !devicePaymentMethodSelected || payBusy}
-      >
-        {t("wa_pay")}
-        {#if partnerCheckoutPriceParts(selectedDeviceTopupPlan, Boolean(deviceBalanceSource), devicePartnerBalanceDiscount)}
-          {@const deviceBalancePrice = partnerCheckoutPriceParts(
-            selectedDeviceTopupPlan,
-            Boolean(deviceBalanceSource),
-            devicePartnerBalanceDiscount
-          )}
-          <span class="promo-price-pair">
-            <s>{deviceBalancePrice?.base}</s>
-            <b>{deviceBalancePrice?.discounted}</b>
-          </span>
-        {:else}
-          {selectedDeviceTopupPlan ? checkoutPlanPriceLabel(selectedDeviceTopupPlan) : ""}
-        {/if}
-        <LockKeyhole size={17} />
-      </Button>
     {:else}
       <EmptyCard>{t("wa_no_hwid_device_options")}</EmptyCard>
     {/if}

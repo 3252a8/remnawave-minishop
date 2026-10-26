@@ -48,6 +48,8 @@
 
   function disabledTitle(method: PaymentMethod): string {
     if (!method.disabled) return "";
+    if (typeof method.disabled_message === "string" && method.disabled_message)
+      return method.disabled_message;
     if (method.disabled_reason === TELEGRAM_STARS_MINI_APP_REQUIRED) {
       return t(
         "wa_payment_stars_telegram_required",
@@ -163,7 +165,7 @@
                     {/snippet}
                   </Tooltip.Trigger>
                   <Tooltip.Portal>
-                    <Tooltip.Content class="payment-method-tooltip" side="top">
+                    <Tooltip.Content class="payment-method-tooltip" role="tooltip" side="top">
                       {disabledMessage}
                     </Tooltip.Content>
                   </Tooltip.Portal>

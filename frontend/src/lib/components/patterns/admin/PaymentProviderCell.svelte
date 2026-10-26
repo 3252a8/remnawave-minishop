@@ -13,7 +13,9 @@
   const providerLabel = $derived(
     provider === "admin_gift"
       ? at("gifts_source_admin", {}, "From administrator")
-      : providerDisplay.label
+      : provider === "subscription_days"
+        ? at("payments_provider_subscription_days", {}, "Subscription days")
+        : providerDisplay.label
   );
   const logoUrl = $derived(providerDisplay.logoUrl);
   let logoFailed = $state(false);
@@ -24,7 +26,11 @@
   });
 </script>
 
-<span class="admin-payment-provider" title={providerLabel}>
+<span
+  class="admin-payment-provider"
+  class:admin-payment-provider-wrap={provider === "subscription_days"}
+  title={providerLabel}
+>
   <span class="admin-payment-provider-logo" aria-hidden="true">
     {#if logoUrl && !logoFailed}
       <img
@@ -74,5 +80,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .admin-payment-provider-wrap {
+    gap: 6px;
+  }
+
+  .admin-payment-provider-wrap .admin-payment-provider-logo {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+    font-size: 18px;
+  }
+
+  .admin-payment-provider-wrap .admin-payment-provider-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    line-height: 1.25;
   }
 </style>

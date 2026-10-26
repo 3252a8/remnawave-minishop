@@ -12,6 +12,7 @@ import { issueReviewDemoResponse } from "./mockApi/issueReview";
 import { paymentHistoryDemoResponse } from "./mockApi/paymentHistory";
 import { trialCaptchaDemoResponse } from "./mockApi/trialCaptcha";
 import { paymentFallbackDemoResponse } from "./mockApi/paymentFallback.js";
+import { subscriptionDaysDemoResponse } from "./mockApi/subscriptionDays.js";
 
 export async function mockApi(
   path: string,
@@ -25,6 +26,8 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const subscriptionDays = subscriptionDaysDemoResponse(path, options);
+  if (subscriptionDays !== undefined) return subscriptionDays;
   const paymentFallback = paymentFallbackDemoResponse(cleanPath, options);
   if (paymentFallback !== undefined) return paymentFallback;
   const trialCaptcha = trialCaptchaDemoResponse(cleanPath, options);

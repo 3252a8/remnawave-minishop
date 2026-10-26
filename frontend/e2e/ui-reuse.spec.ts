@@ -1,6 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { Core } from "cytoscape";
 
+type RelationshipViewport = { pan: { x: number; y: number }; zoom: number };
+type RelationshipCanvas = HTMLDivElement & {
+  _cyreg: { cy: Core };
+  testReleaseViewport?: RelationshipViewport;
+};
+
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
@@ -228,6 +234,24 @@ for (const width of [1440, 768, 390, 320]) {
           })
         )
         .toBe(false);
+      // Read the final drag position from the release event. A browser read
+      // between move and up can turn a flick into a held release under load.
+      await graph.locator(".relationships-canvas").evaluate((element) => {
+        const canvas = element as RelationshipCanvas;
+        const cy = canvas._cyreg.cy;
+        cy.on("tapstart", () => {
+          canvas.testReleaseViewport = undefined;
+        });
+        cy.on("tapend", () => {
+          canvas.testReleaseViewport = { pan: { ...cy.pan() }, zoom: cy.zoom() };
+        });
+      });
+      const readReleasedViewport = () =>
+        graph.locator(".relationships-canvas").evaluate((element) => {
+          const release = (element as RelationshipCanvas).testReleaseViewport;
+          if (!release) throw new Error("The graph did not emit tapend for the gesture");
+          return release;
+        });
       await page.mouse.move(point.x, point.y);
       const panBefore = await graph
         .locator(".relationships-canvas")
@@ -236,14 +260,10 @@ for (const width of [1440, 768, 390, 320]) {
         );
       await page.mouse.down();
       await page.mouse.move(point.x + 36, point.y + 24, { steps: 8 });
-      const panAfter = await graph
-        .locator(".relationships-canvas")
-        .evaluate((element) =>
-          (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan()
-        );
+      await page.mouse.up();
+      const panAfter = (await readReleasedViewport()).pan;
       expect(panAfter.x - panBefore.x).toBeCloseTo(36 * 1.5, 0);
       expect(panAfter.y - panBefore.y).toBeCloseTo(24 * 1.5, 0);
-      await page.mouse.up();
       const readPan = () =>
         graph.locator(".relationships-canvas").evaluate((element) => ({
           ...(element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan(),
@@ -278,8 +298,8 @@ for (const width of [1440, 768, 390, 320]) {
         // Cross the native drag threshold far enough to collect several pan
         // samples; a 12px/four-step flick can leave less than 16 ms of movement.
         await page.mouse.move(point.x + 108, point.y + 72, { steps: 8 });
-        const flick = await readPan();
         await page.mouse.up();
+        const flick = (await readReleasedViewport()).pan;
         await expect.poll(async () => (await readPan()).x).toBeGreaterThan(flick.x + 3);
         await page.mouse.down();
         await page.mouse.up();
@@ -325,14 +345,11 @@ for (const width of [1440, 768, 390, 320]) {
               touchPoints: [{ x: touch.x + 20 + step * 5, y: touch.y + 10 + step * 2.5, id: 1 }],
             });
           }
-          const touchAfter = await canvas.evaluate((element) => {
-            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
-            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
-          });
+          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          const touchAfter = await readReleasedViewport();
           expect(touchAfter.pan.x - touchBefore.pan.x).toBeCloseTo(40 * 1.5, 0);
           expect(touchAfter.pan.y - touchBefore.pan.y).toBeCloseTo(20 * 1.5, 0);
           expect(touchAfter.zoom).toBe(touchBefore.zoom);
-          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
           await expect.poll(async () => (await readPan()).x).toBeGreaterThan(touchAfter.pan.x + 2);
           // Two fingers retain native 1:1 translation and the exact pinch ratio.
           const start = [

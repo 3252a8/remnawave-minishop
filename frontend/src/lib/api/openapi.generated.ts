@@ -10160,6 +10160,11 @@ export interface components {
        */
       status: string | null;
       /**
+       * Subscription Days Spent
+       * @default null
+       */
+      subscription_days_spent: number | null;
+      /**
        * Subscription Duration Days
        * @default null
        */
@@ -10291,6 +10296,11 @@ export interface components {
        */
       status: string | null;
       /**
+       * Subscription Days Spent
+       * @default null
+       */
+      subscription_days_spent: number | null;
+      /**
        * Subscription Duration Days
        * @default null
        */
@@ -10399,6 +10409,11 @@ export interface components {
        * @default null
        */
       status: string | null;
+      /**
+       * Subscription Days Spent
+       * @default null
+       */
+      subscription_days_spent: number | null;
       /**
        * Subscription Duration Days
        * @default null
@@ -12610,6 +12625,11 @@ export interface components {
        */
       promo_code: string | null;
       /**
+       * Quote Token
+       * @default null
+       */
+      quote_token: string | null;
+      /**
        * Renew Hwid Devices
        * @default null
        */
@@ -12724,6 +12744,11 @@ export interface components {
       payer_phone: string | null;
       /** Promo Code */
       promo_code: string;
+      /**
+       * Quote Token
+       * @default null
+       */
+      quote_token: string | null;
       /**
        * Renew Hwid Devices
        * @default null
@@ -12850,6 +12875,11 @@ export interface components {
        * @default null
        */
       promo_code: string | null;
+      /**
+       * Quote Token
+       * @default null
+       */
+      quote_token: string | null;
       /**
        * Renew Hwid Devices
        * @default null
@@ -15433,6 +15463,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20196,6 +20237,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20605,6 +20657,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20824,6 +20887,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20963,6 +21037,17 @@ export interface operations {
                 sale_mode?: string;
                 squad_uuids?: string[];
                 stars_price?: number;
+                subscription_days?: {
+                  currency: string;
+                  current_expires_at: string | null;
+                  days_to_charge: number | null;
+                  disabled_reason: string | null;
+                  eligible: boolean;
+                  minimum_remaining_days: number;
+                  next_expires_at: string | null;
+                  price_amount: number | null;
+                  quote_token: string | null;
+                };
                 subtitle?: string;
                 tariff_key?: string;
                 tariff_name?: string;
@@ -22403,6 +22488,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;

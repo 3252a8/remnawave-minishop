@@ -33,6 +33,18 @@ type PaymentDiscountRow = {
 
 type MoneyFormatter = (value: number, currency?: string | null) => string;
 
+export function paymentAmountDisplay(
+  payment: { amount?: number; currency?: string | null; subscription_days_spent?: number | null },
+  fmtMoney: MoneyFormatter,
+  at: TranslateFn
+): string {
+  const amount = payment.amount == null ? "—" : fmtMoney(payment.amount, payment.currency);
+  const days = Number(payment.subscription_days_spent || 0);
+  return Number.isInteger(days) && days > 0
+    ? `${amount} · ${at("payments_subscription_days_spent", { days }, `${days} days`)}`
+    : amount;
+}
+
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
 const PAYMENT_PROVIDER_LOGO_FILES: Record<string, string> = {
@@ -92,6 +104,9 @@ export function paymentProviderDisplay(
   }
   if (providerKey === "partner_balance") {
     return { label: "balance", logoUrl: "", fallbackEmoji: "💸" };
+  }
+  if (providerKey === "subscription_days") {
+    return { label: rawLabel, logoUrl: "", fallbackEmoji: "📅" };
   }
   return {
     label: rawLabel || "—",

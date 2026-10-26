@@ -205,6 +205,9 @@ class Settings(
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
     USER_BALANCE_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_DAYS_DEVICES_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_DAYS_TRAFFIC_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_DAYS_MIN_REMAINING: int = Field(default=1, ge=1, le=3650)
     USER_BALANCE_RECURRING_ENABLED: bool = Field(default=False)
     USER_BALANCE_CURRENCY: str = Field(
         default="",

@@ -118,6 +118,10 @@ async def create_payment_route(request: web.Request) -> web.Response:
         await _parse_model_payload(request, WebAppPaymentCreatePayload)
     )
     method = str(payment_payload.method or "").strip().lower()
+    if method == "subscription_days":
+        from .billing_subscription_days import create_subscription_days_payment
+
+        return await create_subscription_days_payment(request, user_id, payment_payload)
     settings: Settings = get_settings(request)
     subscription_service: SubscriptionService = get_subscription_service(request)
     cached = _get_cached_webapp_settings(request)

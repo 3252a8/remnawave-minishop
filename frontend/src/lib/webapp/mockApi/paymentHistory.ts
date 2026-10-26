@@ -13,7 +13,12 @@ function textOrNull(value: unknown): string | null {
 /** Reuse the current account's payments without leaking administrator-only fields. */
 export function demoPaymentHistoryItems(userId: number): PaymentHistoryItem[] {
   return (DATASET.adminPayments || [])
-    .filter((payment) => Number(payment.user_id) === userId && payment.status === "succeeded")
+    .filter(
+      (payment) =>
+        Number(payment.user_id) === userId &&
+        (payment.status === "succeeded" ||
+          (payment.provider === "subscription_days" && payment.status === "refunded"))
+    )
     .sort(
       (a, b) =>
         String(b.created_at).localeCompare(String(a.created_at)) ||
@@ -36,13 +41,18 @@ export function demoPaymentHistoryItems(userId: number): PaymentHistoryItem[] {
         "refunded",
         "failed",
       ];
-      const historyState = historyStates[index] || "completed";
+      const daysPayment = payment.provider === "subscription_days";
+      const historyState = daysPayment
+        ? payment.status === "refunded"
+          ? "refunded"
+          : "completed"
+        : historyStates[index] || "completed";
       const item: PaymentHistoryItem = {
         payment_id: Number(payment.payment_id),
         provider: textOrNull(payment.provider),
         amount: Number(payment.amount),
         currency: textOrNull(payment.currency),
-        status: statuses[index] || "succeeded",
+        status: daysPayment ? String(payment.status) : statuses[index] || "succeeded",
         history_state: historyState,
         checkout_url:
           historyState === "awaiting_payment"
@@ -68,8 +78,13 @@ export function demoPaymentHistoryItems(userId: number): PaymentHistoryItem[] {
               ]
             : [],
         funding_source: String(payment.funding_source || "external"),
+        subscription_days_spent: numberOrNull(payment.subscription_days_spent),
       };
-      if (index === 6) {
+      if (daysPayment) {
+        item.purchases = (payment.purchases || []) as PaymentHistoryItem["purchases"];
+        item.checkout_discount_amount = 0;
+      }
+      if (index === 6 && !daysPayment) {
         item.sale_mode = "balance_topup";
         item.description = "Balance top-up";
         item.traffic_regular_gb = null;

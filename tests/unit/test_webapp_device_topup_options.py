@@ -49,11 +49,14 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         )
         settings = SimpleNamespace(
             MY_DEVICES_SECTION_ENABLED=True,
+            SUBSCRIPTION_DAYS_DEVICES_ENABLED=False,
+            SUBSCRIPTION_DAYS_TRAFFIC_ENABLED=False,
             tariffs_config=SimpleNamespace(require=lambda key: tariff),
             DEFAULT_LANGUAGE="en",
             DEFAULT_CURRENCY_SYMBOL="RUB",
         )
         subscription_service = SimpleNamespace(
+            settings=settings,
             get_active_subscription_details=AsyncMock(
                 return_value={
                     "max_devices": 4,
@@ -134,6 +137,8 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
         )
         settings = SimpleNamespace(
             MY_DEVICES_SECTION_ENABLED=True,
+            SUBSCRIPTION_DAYS_DEVICES_ENABLED=False,
+            SUBSCRIPTION_DAYS_TRAFFIC_ENABLED=False,
             tariffs_config=SimpleNamespace(require=lambda key: tariff),
             DEFAULT_LANGUAGE="en",
             DEFAULT_CURRENCY_SYMBOL="RUB",
@@ -155,6 +160,7 @@ class WebAppDeviceTopupOptionsTests(IsolatedAsyncioTestCase):
             }
 
         subscription_service = SimpleNamespace(
+            settings=settings,
             get_active_subscription_details=AsyncMock(
                 return_value={
                     "max_devices": 3,
