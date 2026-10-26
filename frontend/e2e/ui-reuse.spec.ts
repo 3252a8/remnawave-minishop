@@ -571,7 +571,7 @@ for (const width of [1440, 768, 390, 320]) {
         };
       });
       expect(initial.referrals).not.toBe(initial.partners);
-      const filter = graph.getByRole("button", { name: /Связи|Connections/, exact: true });
+      const filter = graph.getByRole("combobox", { name: /Связи|Connections/, exact: true });
       await filter.click();
       await expect(page.getByRole("listbox")).toBeVisible();
       expect(
@@ -745,7 +745,7 @@ test("relationship graph omits isolated users and recovers from worker failures"
   );
   await expect(graph.locator(".admin-empty")).toContainText(/связей пока нет|connections yet/);
   await expect(graph.locator(".relationships-stage")).toBeHidden();
-  const filter = graph.getByRole("button", { name: /Связи|Connections/, exact: true });
+  const filter = graph.getByRole("combobox", { name: /Связи|Connections/, exact: true });
   await filter.click();
   await page.getByRole("option", { name: /Партнёры|Partners/, exact: true }).click();
   await expect(filter).toBeEnabled();

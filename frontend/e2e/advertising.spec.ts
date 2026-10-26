@@ -23,7 +23,7 @@ for (const width of [1440, 1024, 390]) {
     await page.getByRole("tab", { name: "Несопоставленные контакты", exact: true }).click();
     await expect(page.locator(".ad-unassigned")).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Кампания для сопоставления UTM", exact: true })
+      page.getByRole("combobox", { name: "Кампания для сопоставления UTM", exact: true })
     ).toBeVisible();
     await page.getByRole("tab", { name: "Кампании", exact: true }).click();
     const dateTrigger = page.getByRole("button", { name: "Кампании созданы с (UTC)", exact: true });
@@ -119,7 +119,7 @@ test("CSV preview can be confirmed and reverted without changing contacts", asyn
     ["Начало интервала / время события", "date"],
     ["ID объявления", "ad"],
   ]) {
-    await workspace.getByRole("button", { name: label, exact: true }).click();
+    await workspace.getByRole("combobox", { name: label, exact: true }).click();
     await page.getByRole("option", { name: column, exact: true }).click();
     await expect(page.getByRole("option")).toHaveCount(0);
   }

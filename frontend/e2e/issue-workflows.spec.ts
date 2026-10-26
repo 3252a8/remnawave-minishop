@@ -675,15 +675,15 @@ for (const [device, viewport] of devices) {
       await expect(row.locator(".message-button-target")).toHaveText(
         new RegExp(ru.admin_demo_plugin_page)
       );
-      await row.getByRole("button", { name: ru.admin_broadcast_button_section_select }).click();
+      await row.getByRole("combobox", { name: ru.admin_broadcast_button_section_select }).click();
       await page
         .getByRole("option", { name: ru.admin_broadcast_button_section_install, exact: true })
         .click();
-      const platform = row.getByRole("button", {
+      const platform = row.getByRole("combobox", {
         name: ru.admin_install_target_platform,
         exact: true,
       });
-      const app = row.getByRole("button", { name: ru.admin_install_target_app, exact: true });
+      const app = row.getByRole("combobox", { name: ru.admin_install_target_app, exact: true });
       await expect(app).toBeDisabled();
       await platform.click();
       await page.getByRole("option", { name: "iOS", exact: true }).click();
@@ -713,21 +713,21 @@ for (const [device, viewport] of devices) {
     const menu = page.locator(".menu-buttons-editor");
     await menu.getByRole("button", { name: ru.admin_menu_buttons_add }).click();
     const row = menu.locator(".menu-buttons-row").last();
-    await row.getByRole("button", { name: ru.admin_menu_buttons_target_type }).click();
+    await row.getByRole("combobox", { name: ru.admin_menu_buttons_target_type }).click();
     await page.getByRole("option", { name: ru.admin_menu_buttons_kind_webapp }).click();
-    await row.getByRole("button", { name: ru.admin_menu_buttons_webapp_section }).click();
+    await row.getByRole("combobox", { name: ru.admin_menu_buttons_webapp_section }).click();
     await expect(page.getByRole("option", { name: ru.admin_demo_plugin_page })).toBeVisible();
     await snapshot(page, `plugin-menu-${device}`);
     await page.getByRole("option", { name: ru.admin_demo_plugin_page }).click();
-    await row.getByRole("button", { name: ru.admin_menu_buttons_webapp_section }).click();
+    await row.getByRole("combobox", { name: ru.admin_menu_buttons_webapp_section }).click();
     await page
       .getByRole("option", { name: ru.admin_menu_buttons_section_install, exact: true })
       .click();
-    const platform = row.getByRole("button", {
+    const platform = row.getByRole("combobox", {
       name: ru.admin_install_target_platform,
       exact: true,
     });
-    const app = row.getByRole("button", { name: ru.admin_install_target_app, exact: true });
+    const app = row.getByRole("combobox", { name: ru.admin_install_target_app, exact: true });
     await platform.click();
     await page.getByRole("option", { name: "iOS", exact: true }).click();
     await app.click();

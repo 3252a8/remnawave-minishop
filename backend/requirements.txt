@@ -29,7 +29,7 @@ attrs==26.1.0
     # via aiohttp
 cbor2==6.1.5
     # via webauthn
-certifi==2026.10.19
+certifi==2026.10.23
     # via
     #   -r backend/requirements.in
     #   aiogram
@@ -75,7 +75,7 @@ idna==3.20
     #   yarl
 magic-filter==1.0.12
     # via aiogram
-multidict==7.1.0
+multidict==7.2.1
     # via
     #   aiohttp
     #   yarl
@@ -97,7 +97,7 @@ pyasn1==0.6.4
     #   webauthn
 pyasn1-modules==0.4.2
     # via webauthn
-pycparser==3.11
+pycparser==3.12
     # via cffi
 pydantic==2.13.5
     # via
@@ -106,7 +106,7 @@ pydantic==2.13.5
     #   pydantic-settings
 pydantic-core==2.46.5
     # via pydantic
-pydantic-settings==2.16.0
+pydantic-settings==2.16.1
     # via -r backend/requirements.in
 pyjwt[crypto]==2.15.1
     # via

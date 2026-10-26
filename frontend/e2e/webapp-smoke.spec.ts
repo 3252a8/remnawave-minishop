@@ -2058,7 +2058,7 @@ test("broadcast promo picker fills its mobile editor row", async ({ page }) => {
 
   await page.getByRole("button", { name: "Добавить кнопку", exact: true }).click();
   const row = page.locator(".admin-row-editor-broadcast").first();
-  await row.getByRole("button", { name: "Кнопки", exact: true }).click();
+  await row.getByRole("combobox", { name: "Кнопки", exact: true }).click();
   await page.getByRole("option", { name: "Промокод — в боте", exact: true }).click();
 
   const kindSelect = row.locator(".admin-select-trigger");
@@ -2106,10 +2106,10 @@ test("message button editor offers the partner program screen", async ({ page })
 
   await page.getByRole("button", { name: "Добавить кнопку", exact: true }).click();
   const row = page.locator(".admin-row-editor-broadcast").first();
-  await row.getByRole("button", { name: "Кнопки", exact: true }).click();
+  await row.getByRole("combobox", { name: "Кнопки", exact: true }).click();
   await page.getByRole("option", { name: "Экран веб-приложения", exact: true }).click();
 
-  const sectionSelect = row.getByRole("button", { name: "Выберите экран", exact: true });
+  const sectionSelect = row.getByRole("combobox", { name: "Выберите экран", exact: true });
   await sectionSelect.click();
   await page.getByRole("option", { name: "Партнёрская программа", exact: true }).click();
 
