@@ -268,6 +268,29 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(squads, stale_squads)
         service._get_internal_squads_uncached.assert_awaited_once()
 
+    async def test_get_internal_squads_fresh_bypasses_cache(self):
+        service = self._make_service()
+        cached_squads = [{"uuid": "squad-1", "name": "Squad 1"}]
+        current_squads = [{"uuid": "squad-2", "name": "Squad 2"}]
+        service._squads_cache._data["list"] = (time.monotonic() + 300, cached_squads)
+        service._get_internal_squads_uncached = AsyncMock(return_value=current_squads)
+
+        self.assertEqual(await service.get_internal_squads(), cached_squads)
+        self.assertEqual(await service.get_internal_squads(fresh=True), current_squads)
+        self.assertEqual(await service.get_internal_squads(), current_squads)
+        service._get_internal_squads_uncached.assert_awaited_once()
+
+    async def test_get_internal_squads_fresh_does_not_fall_back_to_stale_cache(self):
+        service = self._make_service()
+        service._squads_cache._data["list"] = (
+            time.monotonic() - 1,
+            [{"uuid": "squad-1", "name": "Squad 1"}],
+        )
+        service._get_internal_squads_uncached = AsyncMock(return_value=None)
+
+        self.assertIsNone(await service.get_internal_squads(fresh=True))
+        service._get_internal_squads_uncached.assert_awaited_once()
+
     async def test_update_user_details_does_not_log_full_response_by_default(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})

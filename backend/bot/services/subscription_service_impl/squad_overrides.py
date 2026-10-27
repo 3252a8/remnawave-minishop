@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
@@ -14,6 +15,10 @@ from db.models import Subscription, UserPanelSquadOverride
 from ._typing import SubscriptionServiceMixinContract
 
 logger = logging.getLogger(__name__)
+
+# How long a squad that a fresh panel fetch reported as deleted is trusted as deleted
+# without fetching again. Bounds panel calls when many users still reference it.
+_DELETED_SQUAD_MEMO_SECONDS = 300.0
 
 _INTERNAL_SQUAD_KEYS = (
     "activeInternalSquads",
@@ -118,6 +123,10 @@ def detect_panel_manual_internal_squads(
         return []
     managed = set(_dedupe_squad_uuids(managed_internal_squads))
     return [uuid for uuid in _dedupe_squad_uuids(panel_internal_squads) if uuid not in managed]
+
+
+def _panel_squad_uuid_set(squads: Iterable[object]) -> set[str]:
+    return {uuid.lower() for uuid in map(_uuid_from_squad_item, squads) if uuid}
 
 
 def _iso_or_none(value: object) -> str | None:
@@ -259,6 +268,77 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
             squad_uuids=_dedupe_squad_uuids(managed_internal_squads),
         )
 
+    async def _known_panel_internal_squad_uuids(self, *, fresh: bool = False) -> set[str] | None:
+        try:
+            squads = await self.panel_service.get_internal_squads(fresh=fresh)
+        except Exception as exc:
+            logger.warning("Unable to list panel internal squads (fresh=%s): %r", fresh, exc)
+            return None
+        if squads is None:
+            return None
+        return _panel_squad_uuid_set(squads)
+
+    def _confirmed_deleted_panel_squads(self) -> dict[str, float]:
+        memo: dict[str, float] = getattr(self, "_deleted_panel_squads", None) or {}
+        cutoff = time.monotonic() - _DELETED_SQUAD_MEMO_SECONDS
+        memo = {squad_uuid: seen_at for squad_uuid, seen_at in memo.items() if seen_at >= cutoff}
+        self._deleted_panel_squads = memo
+        return memo
+
+    async def _drop_deleted_manual_internal_squads(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: int,
+        panel_user_uuid: str,
+        squad_uuids: list[str],
+        keep_squad_uuids: Iterable[str],
+        source: str,
+    ) -> list[str]:
+        """Skip manual squads that no longer exist in the panel.
+
+        The panel rejects a user update that names a deleted squad, so one stale manual
+        squad would fail every renewal and squad sync of that user. A squad is dropped
+        only after a fresh, successful panel fetch confirmed it is gone. Squads in
+        ``keep_squad_uuids`` (just added by an admin) are left alone so that a bad
+        addition still fails at the panel instead of disappearing silently.
+        """
+        keep = {squad_uuid.lower() for squad_uuid in keep_squad_uuids}
+        candidates = {squad_uuid.lower() for squad_uuid in squad_uuids} - keep
+        if not candidates:
+            return squad_uuids
+        known = await self._known_panel_internal_squad_uuids()
+        if known is None:
+            return squad_uuids
+        missing = candidates - known
+        if not missing:
+            return squad_uuids
+        confirmed = self._confirmed_deleted_panel_squads()
+        if not missing.issubset(confirmed):
+            fresh = await self._known_panel_internal_squad_uuids(fresh=True)
+            if not fresh:
+                return squad_uuids
+            missing -= fresh
+            now = time.monotonic()
+            for squad_uuid in missing:
+                confirmed[squad_uuid] = now
+        dropped = [squad_uuid for squad_uuid in squad_uuids if squad_uuid.lower() in missing]
+        for squad_uuid in dropped:
+            await override_dal.deactivate_internal_override(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                squad_uuid=squad_uuid,
+            )
+            logger.warning(
+                "Dropped manual panel squad %s for user %s (%s): "
+                "the squad no longer exists in the panel.",
+                squad_uuid,
+                user_id,
+                source,
+            )
+        return [squad_uuid for squad_uuid in squad_uuids if squad_uuid not in dropped]
+
     async def build_effective_panel_squad_fields(
         self,
         session: AsyncSession,
@@ -272,6 +352,7 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
         fetch_panel_snapshot: bool = True,
         external_default_uuid: str | None = None,
         include_internal_squads: bool = True,
+        keep_manual_internal_squads: Iterable[str] = (),
         source: str = "subscription",
     ) -> dict[str, Any]:
         persist_overrides = _can_persist_overrides(session)
@@ -301,6 +382,14 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
                 session,
                 user_id=user_id,
                 panel_user_uuid=panel_user_uuid,
+            )
+            manual_internal = await self._drop_deleted_manual_internal_squads(
+                session,
+                user_id=user_id,
+                panel_user_uuid=panel_user_uuid,
+                squad_uuids=manual_internal,
+                keep_squad_uuids=keep_manual_internal_squads,
+                source=source,
             )
         effective_internal = _dedupe_squad_uuids(
             [*_dedupe_squad_uuids(managed_internal_squads), *manual_internal]

@@ -496,12 +496,21 @@ class PanelApiResourcesMixin:
             return
         await self._devices_cache.invalidate_remote(f"user:{user_uuid}")
 
-    async def get_internal_squads(self) -> list[dict[str, Any]] | None:
+    async def get_internal_squads(self, *, fresh: bool = False) -> list[dict[str, Any]] | None:
+        """Return the panel's internal squads.
+
+        ``fresh=True`` drops the cached list and reports a failed fetch as ``None``
+        instead of falling back to stale data, for callers that act on absence.
+        """
+        if fresh:
+            await self._squads_cache.invalidate_remote("list")
         squads = _json_dict_list(
             await self._squads_cache.get_or_load("list", self._get_internal_squads_uncached)
         )
         if squads is not None:
             return squads
+        if fresh:
+            return None
         stale_squads = _json_dict_list(self._squads_cache.get_stale("list"))
         if stale_squads is not None:
             logger.warning("Using stale internal squads cache after panel fetch failed.")
