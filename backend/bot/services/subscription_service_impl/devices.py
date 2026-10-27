@@ -74,7 +74,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
         )
         base_hwid_limit = resolve_hwid_base_limit(
             sub.hwid_device_limit,
-            self._base_hwid_limit_for_tariff(tariff),
+            self._base_hwid_limit_for_subscription(sub, tariff),
             is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         if sub.hwid_device_limit != base_hwid_limit:
@@ -441,7 +441,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
             return None
         base_hwid_limit = resolve_hwid_base_limit(
             sub.hwid_device_limit,
-            self._base_hwid_limit_for_tariff(tariff),
+            self._base_hwid_limit_for_subscription(sub, tariff),
             is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         if base_hwid_limit in (None, 0):
@@ -630,7 +630,7 @@ class HwidDeviceMixin(SubscriptionServiceMixinContract):
 
         base_hwid_limit = resolve_hwid_base_limit(
             sub.hwid_device_limit,
-            self._base_hwid_limit_for_tariff(tariff),
+            self._base_hwid_limit_for_subscription(sub, tariff),
             is_override=bool(getattr(sub, "hwid_device_limit_is_override", False)),
         )
         if base_hwid_limit in (None, 0):

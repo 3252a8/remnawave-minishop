@@ -276,7 +276,7 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
                 )
             base_hwid_limit_for_payload = resolve_hwid_base_limit(
                 local_active_sub.hwid_device_limit,
-                self._base_hwid_limit_for_tariff(tariff),
+                self._base_hwid_limit_for_subscription(local_active_sub, tariff),
                 is_override=bool(getattr(local_active_sub, "hwid_device_limit_is_override", False)),
             )
             expected_hwid_limit = self._effective_hwid_limit(
