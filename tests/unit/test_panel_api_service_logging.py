@@ -268,6 +268,49 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(squads, stale_squads)
         service._get_internal_squads_uncached.assert_awaited_once()
 
+    async def test_get_internal_squads_fresh_bypasses_cache(self):
+        service = self._make_service()
+        cached_squads = [{"uuid": "squad-1", "name": "Squad 1"}]
+        current_squads = [{"uuid": "squad-2", "name": "Squad 2"}]
+        service._squads_cache._data["list"] = (time.monotonic() + 300, cached_squads)
+        service._get_internal_squads_uncached = AsyncMock(return_value=current_squads)
+
+        self.assertEqual(await service.get_internal_squads(), cached_squads)
+        self.assertEqual(await service.get_internal_squads(fresh=True), current_squads)
+        self.assertEqual(await service.get_internal_squads(), current_squads)
+        self.assertEqual(service._get_internal_squads_uncached.await_count, 2)
+
+    async def test_get_internal_squads_fresh_does_not_fall_back_to_stale_cache(self):
+        service = self._make_service()
+        service._squads_cache._data["list"] = (
+            time.monotonic() - 1,
+            [{"uuid": "squad-1", "name": "Squad 1"}],
+        )
+        service._get_internal_squads_uncached = AsyncMock(return_value=None)
+
+        self.assertIsNone(await service.get_internal_squads(fresh=True))
+        service._get_internal_squads_uncached.assert_awaited_once()
+
+    async def test_get_internal_squads_fresh_bypasses_redis_after_failed_invalidation(self):
+        stale_squads = [{"uuid": "squad-1", "name": "Squad 1"}]
+        for panel_result in ([{"uuid": "squad-2", "name": "Squad 2"}], None):
+            with self.subTest(panel_result=panel_result):
+                service = self._make_service()
+                service._get_internal_squads_uncached = AsyncMock(return_value=panel_result)
+                with (
+                    patch(
+                        "bot.infra.redis.cache_delete",
+                        AsyncMock(side_effect=ConnectionError("Redis unavailable")),
+                    ),
+                    patch(
+                        "bot.infra.redis.cache_get_json", AsyncMock(return_value=stale_squads)
+                    ) as cached_read,
+                ):
+                    self.assertEqual(await service.get_internal_squads(fresh=True), panel_result)
+
+                service._get_internal_squads_uncached.assert_awaited_once()
+                cached_read.assert_not_awaited()
+
     async def test_update_user_details_does_not_log_full_response_by_default(self):
         service = self._make_service()
         service._request = AsyncMock(return_value={"response": {"uuid": "user-uuid"}})
