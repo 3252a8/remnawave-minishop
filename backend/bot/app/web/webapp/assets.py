@@ -143,6 +143,7 @@ from .constants import (
 )
 from .csrf_origin import browser_origin_allowed, browser_origin_present
 from .html_payload import image_preload_markup, json_script_payload
+from .maintenance import request_maintenance_mode_enabled
 from .response_helpers import json_response
 
 _TEXT_FILE_CACHE: dict[tuple[str, bool], tuple[int, int, str]] = {}
@@ -599,9 +600,11 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
 
 
 async def bootstrap_route(request: web.Request) -> web.Response:
+    payload = {"ok": True, **_build_webapp_bootstrap_payload(request)}
+    payload["config"]["maintenanceModeEnabled"] = await request_maintenance_mode_enabled(request)
     return _cached_json_response(
         request,
-        {"ok": True, **_build_webapp_bootstrap_payload(request)},
+        payload,
         cache_control="private, no-cache",
         cache_namespace="webapp-bootstrap",
     )
@@ -707,6 +710,7 @@ async def index_route(request: web.Request) -> web.Response:
     initial_theme = _initial_theme_for_request(request, themes_catalog)
     bootstrap = _build_webapp_bootstrap_payload(request)
     config = bootstrap["config"]
+    config["maintenanceModeEnabled"] = await request_maintenance_mode_enabled(request)
     html = _strip_marked_block(html, DEV_MOCK_START_MARKER, DEV_MOCK_END_MARKER)
     css_asset_name = _resolve_webapp_css_asset_name()
     js_asset_name = _resolve_webapp_js_asset_name()

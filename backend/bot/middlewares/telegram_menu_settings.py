@@ -9,6 +9,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
 from sqlalchemy.orm import sessionmaker
 
+from bot.services.panel_maintenance import PANEL_MAINTENANCE_SETTING_KEYS
 from bot.services.settings_override_service import refresh_overrides_from_db
 from config.settings import Settings
 from config.telegram_menu import TELEGRAM_MENU_SETTING_KEYS
@@ -28,6 +29,6 @@ class TelegramMenuSettingsMiddleware(BaseMiddleware):
         await refresh_overrides_from_db(
             self.settings,
             self.session_factory,
-            keys={*TELEGRAM_MENU_SETTING_KEYS, "MAINTENANCE_MODE_ENABLED"},
+            keys={*TELEGRAM_MENU_SETTING_KEYS, *PANEL_MAINTENANCE_SETTING_KEYS},
         )
         return await handler(event, data)

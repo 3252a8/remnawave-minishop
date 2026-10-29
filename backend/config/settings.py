@@ -84,6 +84,8 @@ class Settings(
     REDIS_URL: str | None = Field(default=None)
     ADVERTISING_ENABLED: bool = Field(default=True)
     MAINTENANCE_MODE_ENABLED: bool = Field(default=False)
+    MAINTENANCE_MODE_AUTO_ENABLED: bool = Field(default=False)
+    MAINTENANCE_MODE_AUTO_DELAY_SECONDS: int = Field(default=60, ge=0, le=86400)
     REDIS_KEY_PREFIX: str = Field(default="remnawave-tg-shop")
     WEBAPP_ME_CACHE_TTL_SECONDS: int = Field(default=15)
     WEBAPP_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)

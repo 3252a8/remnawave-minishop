@@ -8,6 +8,7 @@ from aiohttp.typedefs import Handler
 from bot.app.web.context import get_session_factory, get_settings
 from bot.app.web.session import extract_authenticated_user_id
 from bot.services.account_roles import is_admin
+from bot.services.panel_maintenance import maintenance_mode_enabled
 from db.dal import user_dal
 
 from .response_helpers import json_response
@@ -29,6 +30,13 @@ _PUBLIC_PREFIXES = (
 _EXISTING_PAYMENT = re.compile(r"/api/payments/[0-9]+(?:/cancel)?")
 
 
+async def request_maintenance_mode_enabled(request: web.Request) -> bool:
+    settings = get_settings(request)
+    if settings.MAINTENANCE_MODE_ENABLED or not settings.MAINTENANCE_MODE_AUTO_ENABLED:
+        return bool(settings.MAINTENANCE_MODE_ENABLED)
+    return await maintenance_mode_enabled(settings, get_session_factory(request))
+
+
 @web.middleware
 async def maintenance_middleware(request: web.Request, handler: Handler) -> web.StreamResponse:
     path = request.path
@@ -36,8 +44,8 @@ async def maintenance_middleware(request: web.Request, handler: Handler) -> web.
         not path.startswith("/api/")
         or path in _PUBLIC_PATHS
         or path.startswith(_PUBLIC_PREFIXES)
-        or not get_settings(request).MAINTENANCE_MODE_ENABLED
         or (request.method in {"GET", "POST"} and _EXISTING_PAYMENT.fullmatch(path))
+        or not await request_maintenance_mode_enabled(request)
     ):
         return await handler(request)
 

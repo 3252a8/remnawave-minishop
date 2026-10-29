@@ -1,4 +1,5 @@
 import json
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.middlewares.maintenance import MaintenanceMiddleware
 from bot.middlewares.telegram_menu_settings import TelegramMenuSettingsMiddleware
 from bot.middlewares.update_antiflood import UpdateAntiFloodMiddleware
+from bot.services.panel_maintenance import PanelMaintenanceState, panel_maintenance_identity
 from bot.services.settings_override_service import apply_overrides
 from config.settings import Settings
 from tests.support.settings_stub import settings_stub
@@ -166,14 +168,41 @@ class TelegramMaintenanceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.middleware(self.handler, _update(), {}), "handled")
         cast(MagicMock, self.factory).assert_not_called()
 
-    async def test_payment_and_checkout_lifecycle_updates_are_not_dropped(self):
-        for event in (
-            _update(payment="successful"),
-            _update(payment="refunded"),
-            _update("checkout"),
+    async def test_automatic_mode_blocks_without_changing_the_manual_switch(self):
+        self.settings.MAINTENANCE_MODE_ENABLED = False
+        self.settings.MAINTENANCE_MODE_AUTO_ENABLED = True
+        self.settings.PANEL_WRITE_MODE = "live"
+        state = PanelMaintenanceState(
+            panel_id=panel_maintenance_identity(self.settings),
+            checked_at=time.time(),
+            unavailable_since=time.time() - 120,
+            active=True,
+        )
+        with (
+            patch(
+                "db.dal.app_settings_dal.get_override_value",
+                AsyncMock(return_value=(True, state.model_dump(mode="json"))),
+            ),
+            patch(
+                "bot.middlewares.maintenance.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
         ):
-            self.assertEqual(await self.middleware(self.handler, event, {}), "handled")
-        self.assertEqual(self.handler.await_count, 3)
+            await self.middleware(self.handler, _update(), {})
+        self.handler.assert_not_awaited()
+        self.assertFalse(self.settings.MAINTENANCE_MODE_ENABLED)
+
+    async def test_payment_and_checkout_lifecycle_updates_are_not_dropped(self):
+        for automatic in (False, True):
+            self.settings.MAINTENANCE_MODE_AUTO_ENABLED = automatic
+            self.settings.MAINTENANCE_MODE_ENABLED = not automatic
+            for event in (
+                _update(payment="successful"),
+                _update(payment="refunded"),
+                _update("checkout"),
+            ):
+                self.assertEqual(await self.middleware(self.handler, event, {}), "handled")
+        self.assertEqual(self.handler.await_count, 6)
         cast(MagicMock, self.factory).assert_not_called()
 
     async def test_worker_refresh_includes_mode_before_maintenance_gate(self):
@@ -202,6 +231,8 @@ class TelegramMaintenanceTests(unittest.IsolatedAsyncioTestCase):
                 self.handler, _update(), {}
             )
         self.assertIn("MAINTENANCE_MODE_ENABLED", refresh.await_args.kwargs["keys"])
+        self.assertIn("MAINTENANCE_MODE_AUTO_ENABLED", refresh.await_args.kwargs["keys"])
+        self.assertIn("MAINTENANCE_MODE_AUTO_DELAY_SECONDS", refresh.await_args.kwargs["keys"])
 
 
 class WebappMaintenanceTests(unittest.IsolatedAsyncioTestCase):
@@ -285,8 +316,68 @@ class WebappMaintenanceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status, 200)
         self.handler.assert_awaited_once()
 
+    async def test_automatic_state_blocks_user_actions_and_reaches_bootstrap(self):
+        from bot.app.web.webapp.assets import bootstrap_route
+
+        self.settings.MAINTENANCE_MODE_ENABLED = False
+        self.settings.MAINTENANCE_MODE_AUTO_ENABLED = True
+        self.settings.PANEL_WRITE_MODE = "live"
+        factory, _session = _session_factory()
+        state = PanelMaintenanceState(
+            panel_id=panel_maintenance_identity(self.settings),
+            checked_at=time.time(),
+            unavailable_since=time.time() - 120,
+            active=True,
+        )
+        with (
+            patch(
+                "db.dal.app_settings_dal.get_override_value",
+                AsyncMock(return_value=(True, state.model_dump(mode="json"))),
+            ),
+            patch("bot.app.web.webapp.maintenance.get_session_factory", return_value=factory),
+            patch(
+                "bot.app.web.webapp.maintenance.extract_authenticated_user_id", return_value=None
+            ),
+            patch(
+                "bot.app.web.webapp.assets._build_webapp_bootstrap_payload",
+                return_value={"config": {"maintenanceModeEnabled": False}},
+            ),
+        ):
+            response = await maintenance_middleware(self.request(), self.handler)
+            bootstrap = await bootstrap_route(self.request("/api/bootstrap"))
+        self.assertEqual(response.status, 503)
+        self.handler.assert_not_awaited()
+        self.assertEqual(bootstrap.status, 200)
+        self.assertTrue(json.loads(bootstrap.text or "")["config"]["maintenanceModeEnabled"])
+        self.assertFalse(self.settings.MAINTENANCE_MODE_ENABLED)
+
 
 class MaintenanceSettingsTests(unittest.TestCase):
+    def test_automatic_settings_default_off_and_validate_the_delay(self):
+        self.assertFalse(Settings.model_fields["MAINTENANCE_MODE_AUTO_ENABLED"].default)
+        self.assertEqual(Settings.model_fields["MAINTENANCE_MODE_AUTO_DELAY_SECONDS"].default, 60)
+        field = get_field_by_key("MAINTENANCE_MODE_AUTO_DELAY_SECONDS")
+        assert field is not None
+        self.assertEqual((field.type, field.section), ("int", "general"))
+        self.assertEqual(coerce_value(field, 0), 0)
+        with self.assertRaises(ValueError):
+            coerce_value(field, -1)
+        with self.assertRaises(ValueError):
+            coerce_value(field, 86401)
+        settings = settings_stub()
+        self.assertEqual(
+            apply_overrides(
+                settings,
+                {
+                    "MAINTENANCE_MODE_AUTO_ENABLED": True,
+                    "MAINTENANCE_MODE_AUTO_DELAY_SECONDS": 120,
+                },
+            ),
+            2,
+        )
+        self.assertTrue(settings.MAINTENANCE_MODE_AUTO_ENABLED)
+        self.assertEqual(settings.MAINTENANCE_MODE_AUTO_DELAY_SECONDS, 120)
+
     def test_setting_defaults_off_and_supports_runtime_override(self):
         self.assertFalse(Settings.model_fields["MAINTENANCE_MODE_ENABLED"].default)
         field = get_field_by_key("MAINTENANCE_MODE_ENABLED")

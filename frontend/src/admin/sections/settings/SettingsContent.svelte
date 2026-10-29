@@ -684,6 +684,7 @@
           <Input
             class="input"
             type="number"
+            aria-label={fieldLabelText(field)}
             step={field.type === "float" ? "0.1" : "1"}
             min={field.min ?? undefined}
             max={field.max ?? undefined}

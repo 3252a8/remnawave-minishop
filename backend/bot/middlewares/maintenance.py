@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.account_roles import is_admin
+from bot.services.panel_maintenance import maintenance_mode_enabled
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -31,7 +32,10 @@ class MaintenanceMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        if not self.settings.MAINTENANCE_MODE_ENABLED:
+        if (
+            not self.settings.MAINTENANCE_MODE_ENABLED
+            and not self.settings.MAINTENANCE_MODE_AUTO_ENABLED
+        ):
             return await handler(event, data)
 
         update = cast(Update, event)
@@ -43,6 +47,8 @@ class MaintenanceMiddleware(BaseMiddleware):
         if message and (message.successful_payment or message.refunded_payment):
             return await handler(event, data)
         if not message and not callback and not inline:
+            return await handler(event, data)
+        if not await maintenance_mode_enabled(self.settings, self.session_factory):
             return await handler(event, data)
         chat = (
             message.chat
