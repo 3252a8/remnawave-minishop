@@ -18844,6 +18844,11 @@
             "title": "Faviconusecustom",
             "type": "boolean"
           },
+          "inviteLinkPrefix": {
+            "default": "discount",
+            "title": "Invitelinkprefix",
+            "type": "string"
+          },
           "language": {
             "title": "Language",
             "type": "string"

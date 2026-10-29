@@ -498,8 +498,8 @@ def test_partner_web_link_uses_mini_app_url() -> None:
         bot_username="@mini_shop_bot",
     )
 
-    assert links["telegram"] == "https://t.me/mini_shop_bot?start=p_code"
-    assert links["web"] == ("https://subdomain.website.com/app?lang=ru&partner=code#partner")
+    assert links["telegram"] == "https://t.me/mini_shop_bot?start=discount_p_code"
+    assert links["web"] == ("https://subdomain.website.com/app?lang=ru&discount=p_code#partner")
 
 
 def test_partner_web_link_is_unavailable_without_mini_app_url() -> None:

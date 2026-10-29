@@ -31,6 +31,7 @@ from bot.utils.install_links import (
     append_install_share_link_text,
     ensure_user_install_guide_links,
 )
+from bot.utils.invite_links import decode_invitation_payload, invitation_link_prefix
 from bot.utils.mini_app_url import subscription_mini_app_checkout_code_url
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
 from config.settings import Settings
@@ -129,6 +130,11 @@ async def start_command_handler(
     telegram_user_id = user.id
     user_id: int | None = None
     start_param = _start_argument(message)
+    decoded_invite = decode_invitation_payload(start_param, invitation_link_prefix(settings))
+    if decoded_invite != (start_param or ""):
+        ref_match = re.fullmatch(r"ref_([A-Za-z0-9_-]{1,64})", decoded_invite)
+        partner_match = re.fullmatch(r"p_([A-Za-z0-9_-]{8,64})", decoded_invite)
+        ad_param_match = None
     gift_requested = bool(start_param and start_param.startswith("gift_"))
     gift_token = start_param[5:] if gift_requested and start_param else None
     if gift_requested:

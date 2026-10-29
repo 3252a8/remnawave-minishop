@@ -26,6 +26,7 @@ from bot.middlewares.i18n import (
     normalize_locale_language_code,
 )
 from bot.services.legal_document_links import legal_document_links
+from bot.utils.invite_links import invitation_link_prefix
 from config.settings import Settings
 from config.webapp_themes_config import (
     public_themes_catalog_payload,
@@ -584,6 +585,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "recommendedAuthProviders": cached["recommended_auth_providers"],
             "wideAuthProviders": cached["wide_auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],
+            "inviteLinkPrefix": invitation_link_prefix(settings),
             "checkoutPlans": _serialize_plans(
                 settings,
                 initial_language,

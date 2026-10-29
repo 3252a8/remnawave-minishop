@@ -223,20 +223,20 @@ class RenderTest(unittest.TestCase):
         self.assertEqual(self.render("{referral_code}", ctx), "abc123")
         self.assertEqual(
             self.render("{referral_bot_link}", ctx),
-            "https://t.me/demo_bot?start=ref_uabc123",
+            "https://t.me/demo_bot?start=discount_r_abc123",
         )
         self.assertEqual(
             self.render("{referral_webapp_link}", ctx),
-            "https://app.example.test/?ref=uabc123",
+            "https://app.example.test/?discount=r_abc123",
         )
         self.assertEqual(self.render("{partner_code}", ctx), "partner123")
         self.assertEqual(
             self.render("{partner_bot_link}", ctx),
-            "https://t.me/demo_bot?start=p_partner123",
+            "https://t.me/demo_bot?start=discount_p_partner123",
         )
         self.assertEqual(
             self.render("{partner_webapp_link}", ctx),
-            "https://app.example.test/?partner=partner123",
+            "https://app.example.test/?discount=p_partner123",
         )
         self.assertEqual(self.render("{partner_status}", ctx), "Active")
         self.assertEqual(self.render("{partner_commission_rate}", ctx), "32.50%")

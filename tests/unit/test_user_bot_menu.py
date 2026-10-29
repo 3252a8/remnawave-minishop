@@ -724,7 +724,7 @@ class UserBotMenuTests(unittest.TestCase):
 
         self.assertEqual(
             link,
-            "https://app.example.com/invite?utm=channel&ref=uAbC123xYz",
+            "https://app.example.com/invite?utm=channel&discount=r_AbC123xYz",
         )
         self.assertEqual(subscription_webapp._normalize_referral_param("uAbC123xYz"), "ABC123XYZ")
         self.assertEqual(

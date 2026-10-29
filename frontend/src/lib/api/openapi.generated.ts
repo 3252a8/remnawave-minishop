@@ -13027,6 +13027,11 @@ export interface components {
       faviconUrl: string;
       /** Faviconusecustom */
       faviconUseCustom: boolean;
+      /**
+       * Invitelinkprefix
+       * @default discount
+       */
+      inviteLinkPrefix: string;
       /** Language */
       language: string;
       /** Languages */

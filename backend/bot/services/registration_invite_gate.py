@@ -7,6 +7,7 @@ from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.utils.invite_links import decode_invitation_payload, invitation_link_prefix
 from config.settings import Settings
 from db.dal import gift_dal, partner_dal, payment_dal, user_dal
 from db.models import User
@@ -242,7 +243,7 @@ async def _lookup_referrer(
     current_user_id: int | None,
     source: ReferralLookupSource,
 ) -> _ReferralLookupResult:
-    value = str(raw_referral_param or "").strip()
+    value = decode_invitation_payload(raw_referral_param, invitation_link_prefix(settings))
     if not value:
         return _ReferralLookupResult(RegistrationInviteStatus.MISSING)
     if value.startswith("gift_"):
@@ -360,7 +361,7 @@ async def evaluate_registration_invite(
     current_user_id: int | None,
     source: ReferralLookupSource = "webapp",
 ) -> RegistrationInviteCheck:
-    raw_value = str(raw_referral_param or "").strip()
+    raw_value = decode_invitation_payload(raw_referral_param, invitation_link_prefix(settings))
     if raw_value == "ambiguous_invite":
         return RegistrationInviteCheck(
             enabled=True,
@@ -417,7 +418,7 @@ async def evaluate_registration_invite(
         )
     lookup = await _lookup_referrer(
         session,
-        raw_referral_param,
+        raw_value,
         settings=settings,
         current_user_id=current_user_id,
         source=source,

@@ -789,7 +789,7 @@ class GenerateReferralLinkTests(unittest.IsolatedAsyncioTestCase):
                 bot_username="my_bot",
                 inviter_user_id=1,
             )
-        self.assertEqual(link, "https://t.me/my_bot?start=ref_uabc123")
+        self.assertEqual(link, "https://t.me/my_bot?start=discount_r_abc123")
 
     async def test_returns_none_when_user_missing(self):
         settings = _make_settings()

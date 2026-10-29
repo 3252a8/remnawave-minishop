@@ -4,10 +4,45 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
 from bot.handlers.user.start import start_command_handler
+from bot.services.registration_invite_gate import RegistrationInviteCheck, RegistrationInviteStatus
 from config.settings_models import ReferralSettings
 
 
 class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
+    async def test_configured_invitation_reaches_gate_without_advertising_attribution(self):
+        for payload, expected in (
+            ("join_r_ABC123XYZ", "uABC123XYZ"),
+            ("join_p_PARTNER123", "p_PARTNER123"),
+        ):
+            with self.subTest(payload=payload):
+                message = self._message()
+                message.text = f"/start {payload}"
+                gate = AsyncMock(
+                    return_value=RegistrationInviteCheck(
+                        enabled=True, status=RegistrationInviteStatus.INVALID
+                    )
+                )
+                with (
+                    patch(
+                        "bot.handlers.user.start_flow.user_dal.get_user_by_telegram_id",
+                        AsyncMock(return_value=None),
+                    ),
+                    patch("bot.handlers.user.start_flow.evaluate_registration_invite", gate),
+                ):
+                    await start_command_handler(
+                        message=message,
+                        state=SimpleNamespace(clear=AsyncMock()),
+                        settings=self._settings(INVITE_LINK_PREFIX="join"),
+                        i18n_data={},
+                        subscription_service=SimpleNamespace(),
+                        referral_service=AsyncMock(),
+                        session=AsyncMock(),
+                        ad_param_match=Mock(),
+                    )
+                self.assertEqual(gate.await_args.args[1], expected)
+                self.capture.assert_not_awaited()
+                message.answer.assert_awaited_once_with("registration_invite_required")
+
     async def asyncSetUp(self):
         self.capture = AsyncMock(return_value=None)
         guard = patch("bot.services.advertising.capture.capture_contact", self.capture)

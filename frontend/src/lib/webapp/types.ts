@@ -109,6 +109,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   primaryColor: "#00fe7a",
   privacyPolicyUrl: "",
   registrationInviteOnlyEnabled: false,
+  inviteLinkPrefix: "discount",
   serverStatusInternal: false,
   serverStatusShowOnHome: false,
   serverStatusUrl: "",

@@ -1,6 +1,6 @@
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from bot.utils.referral_links import build_webapp_referral_link
 from config.settings import Settings
 from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
 
@@ -121,18 +121,6 @@ def _serialize_referral_bonus_details(settings: Settings, lang: str) -> list[dic
 def _build_webapp_referral_link(
     base_url: str | None,
     referral_code: str | None,
+    prefix: str = "discount",
 ) -> str | None:
-    if not base_url or not referral_code:
-        return None
-    parts = urlsplit(base_url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-    query["ref"] = f"u{referral_code}"
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            parts.path or "/",
-            urlencode(query),
-            parts.fragment,
-        )
-    )
+    return build_webapp_referral_link(base_url, referral_code, prefix)

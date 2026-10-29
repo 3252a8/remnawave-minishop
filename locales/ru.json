@@ -1,4 +1,6 @@
 {
+  "admin_settings_field_invite_link_prefix_label": "Префикс ссылок приглашения",
+  "admin_settings_field_invite_link_prefix_description": "Общий параметр Web App и префикс Telegram для обеих программ. По умолчанию discount; 1–16 строчных латинских букв и цифр, первый символ — буква. Пустое значение возвращает прежние форматы. Старые ref и partner продолжают работать.",
   "payment_provider_unavailable_alternative": "Этот способ оплаты временно недоступен. Попробуйте другой способ — параметры покупки сохранятся.",
   "payment_provider_unavailable_retry": "Этот способ оплаты временно недоступен. Других доступных способов сейчас нет. Попробуйте ещё раз позже.",
   "payment_try_alternative": "Попробовать {method}",

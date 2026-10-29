@@ -5,6 +5,7 @@ import {
   authProviderName,
   buildExternalOAuthStartUrl,
   buildTelegramOAuthStartUrl,
+  clearAuthQuery,
   emailError,
   orderAuthProviders,
   readReferralParam,
@@ -73,6 +74,44 @@ afterEach(() => {
 });
 
 describe("auth referral helpers", () => {
+  it.each([
+    ["?discount=r_ABC123XYZ", "ref_uABC123XYZ"],
+    ["?discount=p_PARTNER123", "p_PARTNER123"],
+    ["?startapp=discount_r_ABC123XYZ", "ref_uABC123XYZ"],
+    ["?tgWebAppStartParam=discount_p_PARTNER123", "p_PARTNER123"],
+  ])("carries a new invitation through storage and OAuth: %s", (search, expected) => {
+    const { storage } = installBrowser(search);
+    expect(readReferralParam()).toBe(expected);
+    expect(storage.get(REFERRAL_STORAGE_KEY)).toBe(expected);
+    expect(new URL(buildTelegramOAuthStartUrl()).searchParams.get("referral_code")).toBe(expected);
+    expect(buildExternalOAuthStartUrl("google", "login", "en")).toContain(`ref=${expected}`);
+    window.location.search = "";
+    expect(readReferralParam()).toBe(expected);
+  });
+
+  it("uses the configured parameter and clears it after authentication", () => {
+    installBrowser("?join=p_PARTNER123&lang=ru");
+    vi.stubGlobal("document", {
+      title: "Shop",
+      getElementById: () => ({ textContent: JSON.stringify({ inviteLinkPrefix: "join" }) }),
+    });
+    expect(readReferralParam()).toBe("p_PARTNER123");
+    expect(readReferralParam({ initDataUnsafe: { start_param: "join_r_ABC123XYZ" } })).toBe(
+      "ref_uABC123XYZ"
+    );
+    clearAuthQuery();
+    expect(window.history.replaceState).toHaveBeenCalledWith({}, "Shop", "/?lang=ru");
+  });
+
+  it.each([
+    "?discount=p_PARTNER123&ref=FRIEND",
+    "?discount=r_ABC123XYZ&partner=PARTNER123",
+    "?discount=r_ABC123XYZ&discount=p_PARTNER123",
+  ])("rejects conflicting invitation programs: %s", (search) => {
+    installBrowser(search);
+    expect(readReferralParam()).toBe("ambiguous_invite");
+  });
+
   it("carries a gift through registration and OAuth without replacing referral storage", () => {
     const token = "G".repeat(43);
     const { storage } = installBrowser(`?gift=${token}&ref=FRIEND`);

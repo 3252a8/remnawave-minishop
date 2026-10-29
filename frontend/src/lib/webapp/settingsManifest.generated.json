@@ -16558,6 +16558,25 @@
         "updated_at": null
       },
       {
+        "key": "INVITE_LINK_PREFIX",
+        "type": "string",
+        "section": "pricing",
+        "section_order": 11,
+        "subsection": "referral",
+        "label": "Invitation link prefix",
+        "description": "Shared Web App parameter and Telegram prefix for both invitation programs. Use 1–16 lowercase Latin letters/digits, starting with a letter. Leave blank to generate the legacy formats. Existing ref/partner links remain valid.",
+        "i18n_label_key": "admin_settings_field_invite_link_prefix_label",
+        "i18n_description_key": "admin_settings_field_invite_link_prefix_description",
+        "i18n_subsection_key": "admin_settings_subsection_referral",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "PARTNER_PROGRAM_ENABLED",
         "type": "bool",
         "section": "pricing",

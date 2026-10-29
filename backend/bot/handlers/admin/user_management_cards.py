@@ -415,19 +415,11 @@ async def format_user_card(
             try:
                 code = await user_dal.ensure_referral_code(session, user)
                 if code:
-                    from urllib.parse import parse_qsl, urlsplit, urlunsplit
+                    from bot.utils.invite_links import invitation_link_prefix
+                    from bot.utils.referral_links import build_webapp_referral_link
 
-                    parts = urlsplit(webapp_base)
-                    query = dict(parse_qsl(parts.query, keep_blank_values=True))
-                    query["ref"] = f"u{code}"
-                    webapp_ref_link = urlunsplit(
-                        (
-                            parts.scheme,
-                            parts.netloc,
-                            parts.path,
-                            "&".join(f"{k}={v}" for k, v in query.items()),
-                            parts.fragment,
-                        )
+                    webapp_ref_link = build_webapp_referral_link(
+                        webapp_base, code, invitation_link_prefix(settings)
                     )
                     link_lines.append(f"{_('admin_user_ref_webapp_link_label')} {webapp_ref_link}")
             except Exception as exc_web_ref:

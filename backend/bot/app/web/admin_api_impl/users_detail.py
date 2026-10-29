@@ -26,6 +26,7 @@ from bot.services.panel_activity import (
 from bot.services.referral_service import ReferralService
 from bot.services.user_balance_service import UserBalanceService
 from bot.utils.install_links import ensure_user_install_guide_share_url
+from bot.utils.invite_links import invitation_link_prefix
 from bot.utils.traffic_reset import panel_traffic_limit_strategy
 from config.settings import Settings
 from db.dal import (
@@ -311,6 +312,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     referral_webapp_link = _build_admin_webapp_referral_link(
         settings.SUBSCRIPTION_MINI_APP_URL,
         referral_code,
+        invitation_link_prefix(settings),
     )
 
     # Subscription page URL — the raw panel `subscriptionUrl` that the user

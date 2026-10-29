@@ -82,6 +82,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
     wide_auth_providers: list[str] = Field(alias="wideAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
+    invite_link_prefix: str = Field(default="discount", alias="inviteLinkPrefix")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
     app_repository_url: str = Field(alias="appRepositoryUrl")

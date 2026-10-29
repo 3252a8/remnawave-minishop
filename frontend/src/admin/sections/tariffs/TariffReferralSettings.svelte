@@ -2,10 +2,16 @@
   import { getSettingsStore, getTariffsStore } from "$lib/admin/context";
   import { Input } from "$components/ui/index.js";
   import { ChevronRight, X } from "$components/ui/icons.js";
-  import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
+  import {
+    AdminBadge,
+    AdminButton,
+    AdminField,
+    AdminSelect,
+  } from "$components/patterns/admin/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import {
     REFERRAL_LINK_KEYS,
+    REFERRAL_LINK_SETTINGS_KEYS,
     REFERRAL_RULE_KEYS,
     REFERRAL_SETTING_KEYS,
     REFERRAL_WELCOME_KEYS,
@@ -220,7 +226,7 @@
 
       <section
         class="admin-settings-field-group"
-        class:is-dirty={dirtyCount(REFERRAL_LINK_KEYS, settingsDirty)}
+        class:is-dirty={dirtyCount(REFERRAL_LINK_SETTINGS_KEYS, settingsDirty)}
       >
         <header class="admin-settings-field-group-head">
           <div class="admin-settings-field-group-head-copy">
@@ -233,17 +239,60 @@
               )}
             </small>
           </div>
-          {#if dirtyCount(REFERRAL_LINK_KEYS, settingsDirty)}
+          {#if dirtyCount(REFERRAL_LINK_SETTINGS_KEYS, settingsDirty)}
             <AdminBadge variant="warning">
               {at(
                 "settings_dirty_count",
-                { count: dirtyCount(REFERRAL_LINK_KEYS, settingsDirty) },
+                { count: dirtyCount(REFERRAL_LINK_SETTINGS_KEYS, settingsDirty) },
                 "Changes: {count}"
               )}
             </AdminBadge>
           {/if}
         </header>
         <div class="admin-settings-field-group-body">
+          <div
+            class="admin-setting admin-trial-setting-row"
+            class:is-dirty={isSettingDirty("INVITE_LINK_PREFIX", settingsDirty)}
+            class:is-search-highlighted={highlightedSettingKey === "INVITE_LINK_PREFIX"}
+            data-settings-anchor={settingsFieldAnchorKey("INVITE_LINK_PREFIX")}
+            tabindex="-1"
+          >
+            <div class="admin-setting-meta">
+              <strong
+                >{at(
+                  "settings_field_invite_link_prefix_label",
+                  {},
+                  "Invitation link prefix"
+                )}</strong
+              >
+              <code>INVITE_LINK_PREFIX</code>
+            </div>
+            <div class="admin-setting-control">
+              <AdminField hint={at("settings_field_invite_link_prefix_description", {}, "")}>
+                <Input
+                  aria-label={at(
+                    "settings_field_invite_link_prefix_label",
+                    {},
+                    "Invitation link prefix"
+                  )}
+                  value={inputValueForKey("INVITE_LINK_PREFIX")}
+                  maxlength={16}
+                  placeholder="discount"
+                  oninput={settingInputHandler("INVITE_LINK_PREFIX")}
+                />
+              </AdminField>
+              {#if isSettingDirty("INVITE_LINK_PREFIX", settingsDirty)}
+                <AdminButton
+                  size="sm"
+                  variant="ghost"
+                  onclick={() => resetSetting("INVITE_LINK_PREFIX")}
+                >
+                  <X size={12} />
+                  {at("reset", {}, "Reset")}
+                </AdminButton>
+              {/if}
+            </div>
+          </div>
           <div
             class="admin-setting admin-trial-setting-row"
             class:is-dirty={isSettingDirty("REFERRAL_WEBAPP_LINK_ENABLED", settingsDirty)}

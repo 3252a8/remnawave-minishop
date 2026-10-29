@@ -16,6 +16,7 @@ from bot.infra.event_payloads import (
 )
 from bot.services.partner_common import PartnerError, as_utc, compact_json, safe_user_label
 from bot.services.registration_invite_gate import referral_program_enabled
+from bot.utils.invite_links import invitation_link_prefix
 from bot.utils.partner_links import build_partner_bot_link, build_partner_webapp_link
 from config.settings import Settings
 from db.dal import partner_dal, partner_reporting_dal, user_dal
@@ -494,12 +495,14 @@ class PartnerProgramService:
     def links(self, profile: PartnerProfile, *, bot_username: str = "") -> dict[str, Any]:
         code = str(profile.partner_code)
         telegram = (
-            build_partner_bot_link(bot_username, code)
+            build_partner_bot_link(bot_username, code, invitation_link_prefix(self.settings))
             if self.config.telegram_link_enabled
             else None
         )
         web_link = (
-            build_partner_webapp_link(self.settings.SUBSCRIPTION_MINI_APP_URL, code)
+            build_partner_webapp_link(
+                self.settings.SUBSCRIPTION_MINI_APP_URL, code, invitation_link_prefix(self.settings)
+            )
             if self.config.webapp_link_enabled
             else None
         )

@@ -11,6 +11,25 @@ const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
 for (const width of [1440, 390]) {
+  test(`invitation link prefix can be edited and saved at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(adminUrl("settings/referral"));
+    const field = page.locator('[data-settings-anchor="settings-field:INVITE_LINK_PREFIX"]');
+    const input = field.getByRole("textbox", { name: "Префикс ссылок приглашения" });
+    await expect(input).toBeVisible();
+    await input.fill("join");
+    await expect(input).toHaveValue("join");
+    await noOverflow(field);
+    await field.screenshot({ path: testInfo.outputPath(`invitation-link-prefix-${width}.png`) });
+    await page.locator("header").getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(
+      page.locator("header").getByRole("button", { name: "Сохранить", exact: true })
+    ).toBeHidden();
+    await expect(input).toHaveValue("join");
+  });
+
   test(`required channel diagnostics follow saved settings at ${width}px`, async ({
     page,
   }, testInfo) => {

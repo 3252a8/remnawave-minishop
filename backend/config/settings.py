@@ -12,6 +12,7 @@ from config.settings_defaults import (
     DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
     DEFAULT_TRUSTED_PROXIES,
 )
+from config.settings_invites import InvitationSettings
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
 from config.settings_models import (
     BalanceSettings,
@@ -35,6 +36,7 @@ class Settings(
     SettingsComputedMixin,
     SettingsValidationMixin,
     AuthenticationSettings,
+    InvitationSettings,
     TrialSettings,
     TelegramTransportSettings,
 ):
