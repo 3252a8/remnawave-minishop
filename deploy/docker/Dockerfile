@@ -72,9 +72,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Reuse the publication nonce so Ubuntu security upgrades cannot stay cached
+# across published build attempts, just like the Alpine package refresh below.
+ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
+
 # A 502 from an Ubuntu mirror fails the image build outright, so index refreshes
 # retry instead of taking the release down with them.
 RUN set -eux; \
+    : "$REMNAWAVE_MINISHOP_APK_REFRESH"; \
     printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
       > /etc/apt/apt.conf.d/99-minishop-retries; \
     apt_update_with_retries() { \
@@ -93,6 +98,8 @@ RUN set -eux; \
       gnupg \
       python3.12 \
       python3.12-venv; \
+    # CVE-2026-111497: require the fixed Noble Brotli decoder used by curl.
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libbrotli1)" ge '1.1.0-2ubuntu0.1'; \
     . /etc/os-release; \
     install -d /usr/share/postgresql-common/pgdg; \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
