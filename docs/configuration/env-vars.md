@@ -774,9 +774,9 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `WATA_RETURN_URL` | URL успешного возврата. |
 | `WATA_FAILED_URL` | URL неуспешного возврата. |
 | `WATA_LINK_TTL_MINUTES` | TTL платежной ссылки в минутах (по умолчанию 15, минимум 15, максимум 43200). |
-| `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature`. |
+| `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять RSA-подпись `X-Signature`; включено по умолчанию. Не отключайте при пустом списке IP. |
 | `WATA_PUBLIC_KEY` | Закешированный публичный ключ; если пусто, загружается из API. |
-| `WATA_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+| `WATA_TRUSTED_IPS` | Дополнительный список разрешённых IP webhook-источников. По умолчанию пуст: IP-фильтрация отключена, подлинность проверяется по `X-Signature`. |
 | `WATA_SUBSCRIPTION_ENABLED` | Включить отдельный способ оплаты с расписанием на стороне Wata. На терминале должны быть подключены подписки. |
 | `WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED` | Показывать рекуррентный способ Wata только администраторам. |
 | `WATA_SUBSCRIPTION_MAX_PERIODS` | Максимальное число периодов новой подписки Wata (по умолчанию `120`). |
