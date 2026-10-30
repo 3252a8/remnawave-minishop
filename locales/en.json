@@ -1,4 +1,8 @@
 {
+  "bot_text_support_hint": "This bot manages your subscription.",
+  "bot_text_support_link_hint": "If you need help, use the <a href=\"{support_url}\">support link</a>.",
+  "bot_text_mini_app_hint": "You can also open the Mini App using the button below.",
+  "bot_text_start_hint": "Send /start to open the bot menu.",
   "admin_settings_field_invite_link_prefix_label": "Invitation link prefix",
   "admin_settings_field_invite_link_prefix_description": "Shared Web App parameter and Telegram prefix for both invitation programs. Default: discount. Use 1–16 lowercase Latin letters/digits, starting with a letter. Leave blank for legacy formats. Existing ref and partner links remain valid.",
   "payment_provider_unavailable_alternative": "This payment method is temporarily unavailable. Try another method — your purchase settings will be kept.",

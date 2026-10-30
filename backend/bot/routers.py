@@ -5,6 +5,7 @@ from bot.handlers import inline_mode
 from bot.handlers.admin import admin_router_aggregate
 from bot.handlers.telegram_membership import build_telegram_membership_router
 from bot.handlers.user import user_router_aggregate
+from bot.handlers.user.support_hint import build_support_hint_router
 from bot.plugins import PluginContext, setup_bot_plugins
 from config.settings import Settings
 
@@ -36,5 +37,7 @@ def build_root_router(
     # Plugin routers run after the core ones; admin_root keeps the admin filter.
     if plugin_context is not None:
         setup_bot_plugins(plugin_context, user_root=root, admin_root=admin_main_router)
+
+    root.include_router(build_support_hint_router())
 
     return root
