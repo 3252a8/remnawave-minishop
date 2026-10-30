@@ -10,6 +10,28 @@ from pydantic import ConfigDict, Field
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.services.support_message_body import normalize_body_format
 from bot.services.support_message_buttons import support_buttons_payload
+from db.models import Payment
+from db.payment_history import PaymentHistoryState, payment_history_state
+
+
+class SupportPaymentOut(HttpResponseModel):
+    payment_id: int
+    amount: float
+    currency: str | None = None
+    provider: str | None = None
+    created_at: datetime | None = None
+    history_state: PaymentHistoryState
+
+    @classmethod
+    def from_orm_payment(cls, payment: Payment) -> SupportPaymentOut:
+        return cls(
+            payment_id=int(payment.payment_id),
+            amount=float(payment.amount),
+            currency=payment.currency,
+            provider=payment.provider,
+            created_at=payment.created_at,
+            history_state=payment_history_state(payment),
+        )
 
 
 class SupportTypingIn(HttpBodyModel):

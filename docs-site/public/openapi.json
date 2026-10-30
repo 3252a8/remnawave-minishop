@@ -8943,6 +8943,20 @@
             "title": "Category",
             "type": "string"
           },
+          "payment_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Id"
+          },
           "priority": {
             "default": "normal",
             "enum": [
@@ -15238,6 +15252,75 @@
           "is_internal_note"
         ],
         "title": "SupportMessageOut",
+        "type": "object"
+      },
+      "SupportPaymentOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currency"
+          },
+          "history_state": {
+            "enum": [
+              "awaiting_payment",
+              "processing",
+              "crediting",
+              "review",
+              "completed",
+              "refunded",
+              "failed"
+            ],
+            "title": "History State",
+            "type": "string"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "payment_id",
+          "amount",
+          "history_state"
+        ],
+        "title": "SupportPaymentOut",
         "type": "object"
       },
       "SupportTicketOut": {
@@ -39452,6 +39535,56 @@
           }
         ],
         "summary": "Support Message Image",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/support/payment-options": {
+      "get": {
+        "operationId": "get_support_payment_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "$ref": "#/components/schemas/SupportPaymentOut"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "recent_days": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "items",
+                    "recent_days"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Support Payment Options",
         "tags": [
           "support"
         ]

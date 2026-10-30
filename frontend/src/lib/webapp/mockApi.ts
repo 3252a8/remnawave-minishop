@@ -9,7 +9,8 @@ import { advertisingDemoResponse } from "./mockApi/advertisingDemo";
 import { telegramMenuDemoResponse } from "./mockApi/telegramMenuDemo";
 import { accountMergeDemoResponse } from "./mockApi/accountMerge";
 import { issueReviewDemoResponse } from "./mockApi/issueReview";
-import { paymentHistoryDemoResponse } from "./mockApi/paymentHistory";
+import { demoPaymentHistoryItems, paymentHistoryDemoResponse } from "./mockApi/paymentHistory";
+import { DATASET } from "./mockApi/dataset";
 import { trialCaptchaDemoResponse } from "./mockApi/trialCaptcha";
 import { paymentFallbackDemoResponse } from "./mockApi/paymentFallback.js";
 import { subscriptionDaysDemoResponse } from "./mockApi/subscriptionDays.js";
@@ -26,6 +27,28 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  if (cleanPath === "/support/payment-options") {
+    const scenario = new URLSearchParams(window.location.search).get("mock");
+    if (scenario === "support-payments-error") return { ok: false, error: "unavailable" };
+    return {
+      ok: true,
+      recent_days: 7,
+      items: (scenario === "support-payments-empty"
+        ? []
+        : demoPaymentHistoryItems(Number(DATASET.currentUser?.user_id))
+      )
+        .filter((item) => !["completed", "refunded"].includes(item.history_state))
+        .slice(0, 100)
+        .map(({ payment_id, amount, currency, provider, created_at, history_state }) => ({
+          payment_id,
+          amount,
+          currency,
+          provider,
+          created_at,
+          history_state,
+        })),
+    };
+  }
   const subscriptionDays = subscriptionDaysDemoResponse(path, options);
   if (subscriptionDays !== undefined) return subscriptionDays;
   const paymentFallback = paymentFallbackDemoResponse(cleanPath, options);

@@ -1,4 +1,12 @@
 {
+  "wa_support_payment_optional": "Платёж (необязательно)",
+  "wa_support_payment_none": "Без платежа",
+  "wa_support_payment_hint": "Можно прикрепить проблемный платёж за последние 7 дней или отправить обращение без него.",
+  "wa_support_payments_empty": "За последние 7 дней подходящих платежей нет. Можно отправить обращение без платежа.",
+  "wa_support_payments_failed": "Не удалось загрузить платежи. Можно отправить обращение без платежа.",
+  "wa_support_payments_retry": "Повторить загрузку",
+  "wa_support_payment_unavailable": "Этот платёж больше нельзя прикрепить. Выберите другой или отправьте обращение без платежа.",
+  "support_attached_payment": "<b>Прикреплённый платёж №{payment_id}</b>\nСумма: {amount} {currency}\nПровайдер: {provider}\nСоздан: {created_at}\nСостояние при отправке: {status}",
   "bot_text_support_hint": "Это бот управления подпиской.",
   "bot_text_support_link_hint": "Если вам нужна помощь, воспользуйтесь <a href=\"{support_url}\">ссылкой поддержки</a>.",
   "bot_text_mini_app_hint": "Также можно открыть Mini App по кнопке под сообщением.",

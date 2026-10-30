@@ -1,4 +1,5 @@
 import type { TicketMessageButtonLike } from "$components/patterns/webapp/types";
+import type { components } from "$lib/api/openapi.generated";
 
 import { withRoutePrefix } from "../routes.js";
 import type {
@@ -57,6 +58,7 @@ type CountsRecord = {
   total: number;
 };
 type SupportListResult = SupportTicketsResponse | { ok: false; error: "maintenance_mode" };
+export type SupportPayment = components["schemas"]["SupportPaymentOut"];
 export type SupportState = {
   tickets: TicketRecord[];
   openedTicketId: number | null;
@@ -77,6 +79,7 @@ export type SupportState = {
   polling: boolean;
 };
 export type SupportStore = SupportState & {
+  loadPaymentOptions(): Promise<SupportPayment[]>;
   loadImage(url: string): Promise<Blob>;
   loadCustomEmojiMedia(ticketId: string | number, id: string, signal: AbortSignal): Promise<Blob>;
   loadList(options?: LoadListOptions): Promise<SupportListResult>;
@@ -152,6 +155,7 @@ function supportErrorMessage(error: unknown, t: Translate, fallbackKey: string):
     support_image_rate_limited: "wa_support_image_rate_limited",
     support_message_rate_limited: "wa_support_message_rate_limited",
     ticket_rate_limited: "wa_support_ticket_rate_limited",
+    support_payment_unavailable: "wa_support_payment_unavailable",
     unsupported_image: "wa_message_image_invalid_type",
   };
   return keys[code]
@@ -204,6 +208,7 @@ export function createSupportStore({
     loadList,
     hydrateUnread,
     createTicket,
+    loadPaymentOptions,
     openTicket,
     closeTicketView,
     sendReply,
@@ -426,6 +431,10 @@ export function createSupportStore({
       }
       return res;
     }
+  }
+
+  async function loadPaymentOptions(): Promise<SupportPayment[]> {
+    return unwrap(await api("/support/payment-options")).items;
   }
 
   async function createTicket(

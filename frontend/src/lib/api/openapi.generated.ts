@@ -4402,6 +4402,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/support/payment-options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Payment Options */
+    get: operations["get_support_payment_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/support/tickets": {
     parameters: {
       query?: never;
@@ -8692,6 +8709,11 @@ export interface components {
        */
       category: "billing" | "technical" | "account" | "other";
       /**
+       * Payment Id
+       * @default null
+       */
+      payment_id: number | null;
+      /**
        * Priority
        * @default normal
        * @enum {string}
@@ -11397,6 +11419,40 @@ export interface components {
       read_by_user_at: string | null;
       /** Ticket Id */
       ticket_id: number;
+    };
+    /** SupportPaymentOut */
+    SupportPaymentOut: {
+      /** Amount */
+      amount: number;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * History State
+       * @enum {string}
+       */
+      history_state:
+        | "awaiting_payment"
+        | "processing"
+        | "crediting"
+        | "review"
+        | "completed"
+        | "refunded"
+        | "failed";
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
     };
     /** SupportTicketOut */
     SupportTicketOut: {
@@ -22052,6 +22108,31 @@ export interface operations {
         };
         content: {
           "image/webp": string;
+        };
+      };
+    };
+  };
+  get_support_payment_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["SupportPaymentOut"][];
+            /** @constant */
+            ok: true;
+            recent_days: number;
+          };
         };
       };
     };

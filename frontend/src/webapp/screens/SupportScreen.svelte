@@ -9,6 +9,8 @@
   import { webappRichTextLabels } from "$lib/webapp/richTextLabels.js";
   import { TicketCard } from "$components/patterns/webapp/index.js";
   import TicketComposer from "$components/patterns/webapp/TicketComposer.svelte";
+  import SupportTicketFields from "$components/patterns/webapp/SupportTicketFields.svelte";
+  import type { PostPayload } from "$lib/webapp/publicApi";
   import { Tabs } from "$components/ui/primitives.js";
   import {
     clearSupportDraft,
@@ -28,6 +30,8 @@
   type Translate = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type TicketRecord = Record<string, unknown> & { ticket_id?: number };
   type DraftPayload = {
+    category: NonNullable<PostPayload<"/api/support/tickets">["category"]>;
+    paymentId: string;
     body: string;
     maxSubjectLength: number;
     open: boolean;
@@ -53,6 +57,8 @@
   const CARD_STAGGER_MS = 42;
   const MAX_STAGGER_STEPS = 6;
   let subject = $state("");
+  let category = $state<DraftPayload["category"]>("other");
+  let paymentId = $state("");
   let body = $state("");
   let image = $state<File | null>(null);
   let createOpen = $state(false);
@@ -151,6 +157,8 @@
     if (!draftScope || draftScope !== loadedCreateDraftScope) return;
     persistCreateDraft(draftScope, {
       subject,
+      category,
+      paymentId,
       body,
       open: createOpen,
       maxSubjectLength,
@@ -224,7 +232,8 @@
         subject,
         body,
         body_format: "html",
-        category: "other",
+        category,
+        payment_id: category === "billing" && paymentId ? Number(paymentId) : null,
         priority: "normal",
       },
       image
@@ -232,6 +241,8 @@
     if (ticket) {
       clearSupportDraft("new", currentDraftScope);
       subject = "";
+      category = "other";
+      paymentId = "";
       body = "";
       image = null;
       createOpen = false;
@@ -245,6 +256,10 @@
   function loadCreateDraft(scope: string) {
     const draft = readSupportDraft("new", scope);
     subject = typeof draft?.subject === "string" ? draft.subject.slice(0, maxSubjectLength) : "";
+    category = ["billing", "technical", "account"].includes(String(draft?.category))
+      ? (draft?.category as DraftPayload["category"])
+      : "other";
+    paymentId = typeof draft?.paymentId === "string" ? draft.paymentId : "";
     body = typeof draft?.body === "string" ? draft.body.slice(0, DRAFT_BODY_STORAGE_CAP) : "";
     loadedCreateDraftScope = scope;
   }
@@ -261,6 +276,8 @@
 
     writeSupportDraft("new", scope, "new", {
       subject: draftSubject,
+      category: draft.category,
+      paymentId: draft.paymentId,
       body: draftBody,
       open: draft.open || Boolean(draftSubject.trim() || draftBody.trim()),
     });
@@ -313,15 +330,24 @@
     {#if createOpen}
       <div class="support-create-panel">
         <div class="support-create-panel-inner">
-          <label class="support-field">
-            <span>{t("wa_support_subject")}</span>
-            <Input
-              class="input"
-              bind:value={subject}
-              maxlength={maxSubjectLength}
-              placeholder={t("wa_support_subject_placeholder")}
+          <div class="support-create-details">
+            <label class="support-field">
+              <span>{t("wa_support_subject")}</span>
+              <Input
+                class="input"
+                bind:value={subject}
+                maxlength={maxSubjectLength}
+                placeholder={t("wa_support_subject_placeholder")}
+              />
+            </label>
+            <SupportTicketFields
+              bind:category
+              bind:paymentId
+              disabled={creating}
+              {t}
+              loadPayments={supportStore.loadPaymentOptions}
             />
-          </label>
+          </div>
 
           <div class="support-field support-create-message-field">
             <span>{t("wa_support_message")}</span>
@@ -460,6 +486,14 @@
   .support-create-message-field {
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .support-create-details {
+    display: grid;
+    gap: 14px;
+    min-height: 0;
+    max-height: 40dvh;
+    overflow-y: auto;
   }
 
   @media (min-width: 1024px) {

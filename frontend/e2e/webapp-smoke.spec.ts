@@ -556,7 +556,9 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect(page.locator(".support-list-card")).toBeHidden();
   await expect(createScreen.getByRole("toolbar")).toBeHidden();
   await expect(createScreen.locator("details")).toHaveCount(0);
-  await expect(createScreen.getByRole("combobox")).toHaveCount(0);
+  await expect(createScreen.getByRole("combobox", { name: "Категория", exact: true })).toHaveCount(
+    1
+  );
   await page.setViewportSize(MOBILE_VIEWPORT);
   await expect(createScreen.locator(".ticket-composer-send")).toBeInViewport();
   await expect

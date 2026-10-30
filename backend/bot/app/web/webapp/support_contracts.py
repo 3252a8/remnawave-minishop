@@ -13,6 +13,7 @@ from bot.app.web.support_schemas import (
     SupportCountsOut,
     SupportMessageButtonOut,
     SupportMessageOut,
+    SupportPaymentOut,
     SupportTicketOut,
     SupportTypingIn,
 )
@@ -21,6 +22,15 @@ from .contract_schemas import user_contract
 from .payloads import CreateTicketPayload, TicketReplyPayload
 
 SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
+    "support_payment_options_route": user_contract(
+        response_schema=ok_envelope_with(
+            {
+                "items": {"type": "array", "items": schema_ref(SupportPaymentOut)},
+                "recent_days": INTEGER_SCHEMA,
+            }
+        ),
+        models=(SupportPaymentOut,),
+    ),
     "support_tickets_route": user_contract(
         response_schema=ok_envelope_with(
             {

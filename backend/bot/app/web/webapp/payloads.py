@@ -254,6 +254,7 @@ class CreateTicketPayload(BaseModel):
     priority: Literal["normal", "high"] = "normal"
     body: TicketBodyString
     body_format: TicketBodyFormat = "text"
+    payment_id: int | None = Field(default=None, gt=0, le=2_147_483_647)
 
     @field_validator("subject")
     @classmethod
