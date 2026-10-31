@@ -6,6 +6,7 @@ stages:
 variables:
   # The Dockerfile derives the application version from the repository history.
   GIT_DEPTH: "0"
+  GET_SOURCES_ATTEMPTS: "3"
   DOCKER_HOST: tcp://docker:2376
   DOCKER_TLS_CERTDIR: "/certs"
   DOCKER_TLS_VERIFY: "1"
@@ -23,7 +24,10 @@ build-docs:
     CF_PAGES_BRANCH: $CI_COMMIT_BRANCH
     PYTHON: python3
   before_script:
-    - apt-get update && apt-get install --yes --no-install-recommends python3 python3-pil ca-certificates
+    - |
+      set -eu
+      apt-get -o Acquire::Retries=5 update --error-on=any
+      apt-get -o Acquire::Retries=5 install --yes --no-install-recommends python3 python3-pil ca-certificates
     - python3 -c "import sys; from PIL import Image; assert sys.version_info >= (3, 12)"
   script:
     - npm --prefix docs-site ci --no-audit --no-fund
@@ -46,7 +50,10 @@ publish-docs:
   environment:
     name: documentation/$CI_COMMIT_BRANCH
   before_script:
-    - apt-get update && apt-get install --yes --no-install-recommends python3 git ca-certificates
+    - |
+      set -eu
+      apt-get -o Acquire::Retries=5 update --error-on=any
+      apt-get -o Acquire::Retries=5 install --yes --no-install-recommends python3 git ca-certificates
     - test -n "$CLOUDFLARE_API_TOKEN" || (echo "CLOUDFLARE_API_TOKEN is required for the documentation environment" >&2; exit 1)
     - test -n "$CLOUDFLARE_ACCOUNT_ID" || (echo "CLOUDFLARE_ACCOUNT_ID is required" >&2; exit 1)
     - npm install --prefix /tmp/pages-cli --no-save --package-lock=false --no-audit --no-fund wrangler@4.151.2
