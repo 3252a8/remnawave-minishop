@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -133,21 +134,33 @@ def test_published_deployment_requires_api_confirmation_of_exact_upload(change):
 
 @pytest.mark.parametrize("branch", ["dev", "main"])
 @pytest.mark.parametrize("bad_alias", [False, True])
+@pytest.mark.parametrize(
+    "upload_failure", [None, "Failed to upload files. Error: {})", "fetch failed"]
+)
 def test_success_requires_uploaded_build_and_current_production_alias(
-    monkeypatch, tmp_path, branch, bad_alias
+    monkeypatch, tmp_path, branch, bad_alias, upload_failure
 ):
     dist = tmp_path / "dist"
     build(dist, branch)
     project = docs.PROJECTS[branch]
-    verified, now, configured = [], [0], []
+    verified, now, configured, commands = [], [0], [], []
     monkeypatch.setattr(docs, "assert_source_head", lambda *args: None)
     monkeypatch.setattr(docs.shutil, "which", lambda name: "/tools/wrangler")
     monkeypatch.setattr(docs, "configure_project", lambda *args: configured.append(args))
+    monkeypatch.setattr(docs.time, "sleep", lambda seconds: None)
 
     def command(args, *, cwd, env, check):
+        commands.append(args)
         assert args[3] == str(dist.resolve())
         assert args[args.index("--project-name") + 1] == project
         assert args[args.index("--commit-hash") + 1] == SHA
+        if upload_failure and len(commands) == 1:
+            Path(env["WRANGLER_OUTPUT_FILE_PATH"]).write_text(
+                json.dumps({"type": "command-failed", "message": upload_failure}), encoding="utf-8"
+            )
+            raise subprocess.CalledProcessError(1, args)
+        assert ("--skip-caching" in args) == bool(upload_failure)
+        assert not Path(env["WRANGLER_OUTPUT_FILE_PATH"]).exists()
         Path(env["WRANGLER_OUTPUT_FILE_PATH"]).write_text(
             json.dumps(
                 {
@@ -191,6 +204,62 @@ def test_success_requires_uploaded_build_and_current_production_alias(
         )
         assert len(verified) == 6
         assert configured == [(project, branch)]
+    assert len(commands) == (2 if upload_failure else 1)
+
+
+@pytest.mark.parametrize(
+    "message,attempts",
+    [("Failed to upload files. Error: {})", 2), ("fetch failed", 2), ("Authentication error", 1)],
+)
+def test_upload_retries_are_bounded_and_do_not_hide_other_failures(
+    monkeypatch, tmp_path, message, attempts
+):
+    dist = tmp_path / "dist"
+    build(dist)
+    commands = []
+    monkeypatch.setattr(docs, "assert_source_head", lambda *args: None)
+    monkeypatch.setattr(docs.shutil, "which", lambda name: "/tools/wrangler")
+    monkeypatch.setattr(docs, "configure_project", lambda *args: None)
+    monkeypatch.setattr(docs.time, "sleep", lambda seconds: None)
+
+    def command(args, *, cwd, env, check):
+        commands.append(args)
+        Path(env["WRANGLER_OUTPUT_FILE_PATH"]).write_text(
+            json.dumps({"type": "command-failed", "message": message}), encoding="utf-8"
+        )
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(docs.subprocess, "run", command)
+    with pytest.raises(subprocess.CalledProcessError):
+        docs.publish(dist, SHA, "dev", tmp_path / "deployment.ndjson")
+    assert len(commands) == attempts
+
+
+def test_branch_move_after_failed_upload_prevents_retry(monkeypatch, tmp_path):
+    dist = tmp_path / "dist"
+    build(dist)
+    checks, commands = [], []
+
+    def check_head(*args):
+        checks.append(args)
+        if len(checks) > 1:
+            raise ValueError("branch moved")
+
+    def command(args, *, cwd, env, check):
+        commands.append(args)
+        Path(env["WRANGLER_OUTPUT_FILE_PATH"]).write_text(
+            json.dumps({"type": "command-failed", "message": "fetch failed"}), encoding="utf-8"
+        )
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(docs, "assert_source_head", check_head)
+    monkeypatch.setattr(docs.shutil, "which", lambda name: "/tools/wrangler")
+    monkeypatch.setattr(docs, "configure_project", lambda *args: None)
+    monkeypatch.setattr(docs.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(docs.subprocess, "run", command)
+    with pytest.raises(ValueError, match="branch moved"):
+        docs.publish(dist, SHA, "dev", tmp_path / "deployment.ndjson")
+    assert len(commands) == 1
 
 
 def test_stale_pipeline_cannot_upload_or_reconfigure_pages(monkeypatch, tmp_path):
