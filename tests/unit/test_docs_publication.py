@@ -1,7 +1,9 @@
 import importlib.util
 import json
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import pytest
@@ -16,6 +18,67 @@ _spec.loader.exec_module(docs)
 
 SHA = "a" * 40
 IDENTIFIER = "12345678-1234-1234-1234-123456789abc"
+
+
+@pytest.mark.parametrize(
+    "method,payload,failures,attempts",
+    [
+        (None, None, 0, 1),
+        ("GET", None, 2, 3),
+        ("GET", None, 3, 3),
+        ("PATCH", {"source": {}}, 1, 1),
+        (None, {"source": {}}, 1, 1),
+    ],
+)
+def test_network_retries_are_bounded_and_only_repeat_reads(
+    monkeypatch, method, payload, failures, attempts
+):
+    calls, sleeps = [], []
+
+    def open_request(request, timeout):
+        calls.append(request.get_method())
+        assert timeout == 30
+        if len(calls) <= failures:
+            raise docs.urllib.error.URLError(TimeoutError("TLS handshake timed out"))
+        return nullcontext(SimpleNamespace(status=200, read=lambda limit: b"verified"))
+
+    monkeypatch.setattr(
+        docs.urllib.request, "build_opener", lambda *args: SimpleNamespace(open=open_request)
+    )
+    monkeypatch.setattr(docs.time, "sleep", sleeps.append)
+    if failures >= attempts:
+        with pytest.raises(docs.urllib.error.URLError):
+            docs.request_bytes(
+                "https://api.cloudflare.com/client/v4/", method=method, payload=payload
+            )
+    else:
+        assert (
+            docs.request_bytes(
+                "https://api.cloudflare.com/client/v4/", method=method, payload=payload
+            )
+            == b"verified"
+        )
+    assert len(calls) == attempts
+    assert len(sleeps) == attempts - 1
+
+
+@pytest.mark.parametrize("status", [302, 401, 403])
+def test_http_failures_are_not_retried(monkeypatch, status):
+    calls = []
+
+    def open_request(request, timeout):
+        calls.append(request.full_url)
+        raise docs.urllib.error.HTTPError(request.full_url, status, "rejected", {}, None)
+
+    monkeypatch.setattr(
+        docs.urllib.request, "build_opener", lambda *args: SimpleNamespace(open=open_request)
+    )
+    monkeypatch.setattr(
+        docs.time, "sleep", lambda seconds: pytest.fail("must not retry HTTP failures")
+    )
+    with pytest.raises(docs.urllib.error.HTTPError):
+        docs.request_bytes("https://api.cloudflare.com/client/v4/")
+    assert len(calls) == 1
 
 
 def build(directory, branch="dev"):

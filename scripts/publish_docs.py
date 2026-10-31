@@ -69,11 +69,23 @@ def request_bytes(
         data = json.dumps(payload).encode()
         request_headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
-    with urllib.request.build_opener(NoRedirect()).open(request, timeout=30) as response:
-        content = response.read(8 * 1024 * 1024 + 1)
-        if response.status not in {200, 201} or len(content) > 8 * 1024 * 1024:
-            raise ValueError(f"Unexpected deployment response from {url}")
-        return bytes(content)
+    opener = urllib.request.build_opener(NoRedirect())
+    retries = 0
+    while True:
+        try:
+            with opener.open(request, timeout=30) as response:
+                content = response.read(8 * 1024 * 1024 + 1)
+                if response.status not in {200, 201} or len(content) > 8 * 1024 * 1024:
+                    raise ValueError(f"Unexpected deployment response from {url}")
+                return bytes(content)
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            if request.get_method() != "GET" or data is not None or retries == 2:
+                raise
+            retries += 1
+            print(f"Retrying documentation GET after network failure ({retries}/2)", flush=True)
+            time.sleep(2**retries)
 
 
 def assert_source_head(sha: str, branch: str) -> None:
