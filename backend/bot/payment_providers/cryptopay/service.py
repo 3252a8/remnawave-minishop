@@ -14,6 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
 from bot.services.subscription_order_terms import freeze_subscription_terms
+from bot.services.telegram_account import require_telegram_account_id
 from config.subscription_periods import fixed_day_metadata
 
 if TYPE_CHECKING:
@@ -612,9 +613,10 @@ async def pay_crypto_callback_handler(
         await notify_callback_parse_error(callback, translator)
         return
 
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     if not SPEC.is_available_to_user(
         settings,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         require_configured=False,
     ):
         await notify_service_unavailable(callback, translator)
@@ -630,7 +632,7 @@ async def pay_crypto_callback_handler(
         return
     parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         parts=parts,
         subscription_service=cryptopay_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
@@ -644,7 +646,7 @@ async def pay_crypto_callback_handler(
     payment_description = describe_payment(translator, parts)
     invoice_url = await cryptopay_service.create_invoice(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         months=parts.months,
         amount=parts.price,
         description=payment_description,

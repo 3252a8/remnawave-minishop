@@ -12,6 +12,7 @@ from bot.payment_providers.base import ProviderConfigBundle, WebAppPaymentContex
 from bot.payment_providers.yookassa import CARD_SPEC, SBP_SPEC, SPEC, callback_payment, payments
 from bot.payment_providers.yookassa.config import YooKassaConfig, order_checkout_methods
 from bot.payment_providers.yookassa.service import YooKassaService
+from bot.services import telegram_account
 
 
 def _service():
@@ -167,6 +168,11 @@ def test_telegram_selection_keeps_sbp_out_of_saved_card_flow(method) -> None:
     initiate = AsyncMock(return_value=True)
     saved = AsyncMock(return_value=[])
     with (
+        patch.object(
+            telegram_account.user_dal,
+            "get_user_by_telegram_id",
+            AsyncMock(return_value=SimpleNamespace(user_id=456)),
+        ),
         patch.object(callback_payment, "callback_message_or_none", return_value=AsyncMock()),
         patch.object(
             callback_payment, "_yookassa_available_to_callback_user", AsyncMock(return_value=True)
@@ -196,6 +202,8 @@ def test_telegram_selection_keeps_sbp_out_of_saved_card_flow(method) -> None:
     assert available.await_args is not None
     assert initiate.await_args is not None
     assert available.await_args.args[3] == method
+    assert available.await_args.kwargs["user_id"] == 456
+    assert initiate.await_args.kwargs["user_id"] == 456
     assert initiate.await_args.kwargs["payment_method_type"] == method
     assert initiate.await_args.kwargs["save_payment_method"] is (method == "bank_card")
     assert saved.await_count == (1 if method == "bank_card" else 0)

@@ -353,11 +353,13 @@ async def _yookassa_available_to_callback_user(
     settings: Settings,
     get_text: Callable[..., str],
     method_type: str | None = None,
+    *,
+    user_id: int,
 ) -> bool:
     spec = _provider_spec(method_type)
     if spec.is_available_to_user(
         settings,
-        user_id=callback.from_user.id,
+        user_id=user_id,
         require_configured=False,
     ):
         return True

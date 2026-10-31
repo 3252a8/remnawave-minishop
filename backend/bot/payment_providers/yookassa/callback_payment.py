@@ -12,6 +12,7 @@ from bot.keyboards.inline.user_keyboards import (
     payment_methods_back_callback,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from config.tariffs_config import (
@@ -55,7 +56,10 @@ async def pay_yk_callback_handler(
     method_type = {"pay_yk_sbp": "sbp", "pay_yk_bank_card": "bank_card"}.get(
         str(callback.data or "").split(":", 1)[0]
     )
-    if not await _yookassa_available_to_callback_user(callback, settings, get_text, method_type):
+    user_id = await require_telegram_account_id(session, callback.from_user.id)
+    if not await _yookassa_available_to_callback_user(
+        callback, settings, get_text, method_type, user_id=user_id
+    ):
         return
 
     if not yookassa_service or not yookassa_service.configured:
@@ -83,7 +87,6 @@ async def pay_yk_callback_handler(
 
     months, price_rub, sale_mode = parsed
     hwid_quote = None
-    user_id = callback.from_user.id
     currency_code_for_yk = default_payment_currency_code_for_settings(settings)
     autopay_enabled = bool(
         settings.yookassa_autopayments_active
@@ -145,7 +148,7 @@ async def pay_yk_callback_handler(
 
     quoted_parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=user_id,
         parts=PaymentCallbackParts(months=months, price=price_rub, sale_mode=sale_mode),
         subscription_service=yookassa_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
@@ -201,7 +204,10 @@ async def pay_yk_new_card_handler(
             await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
 
-    if not await _yookassa_available_to_callback_user(callback, settings, get_text):
+    user_id = await require_telegram_account_id(session, callback.from_user.id)
+    if not await _yookassa_available_to_callback_user(
+        callback, settings, get_text, user_id=user_id
+    ):
         return
 
     if not yookassa_service or not yookassa_service.configured:
@@ -232,7 +238,7 @@ async def pay_yk_new_card_handler(
     hwid_quote = None
     quoted_parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=user_id,
         parts=PaymentCallbackParts(months=months, price=price_rub, sale_mode=sale_mode),
         subscription_service=yookassa_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
@@ -245,7 +251,6 @@ async def pay_yk_new_card_handler(
         return
     months = quoted_parts.months
     price_rub = quoted_parts.price
-    user_id = callback.from_user.id
     currency_code_for_yk = default_payment_currency_code_for_settings(settings)
     autopay_enabled = bool(
         settings.yookassa_autopayments_active

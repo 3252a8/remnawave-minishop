@@ -26,6 +26,7 @@ from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.subscription_order_terms import freeze_subscription_terms
+from bot.services.telegram_account import require_telegram_account_id
 from config.settings import Settings
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -212,9 +213,10 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         await notify_callback_parse_error(callback, translator)
         return
 
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     if not descriptor.spec.is_available_to_user(
         settings,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         require_configured=False,
     ):
         await notify_service_unavailable(callback, translator)
@@ -234,7 +236,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         return
     parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         parts=parts,
         subscription_service=service.subscription_service,
         currency=default_currency_key_for_settings(settings),
@@ -249,7 +251,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
     if descriptor.callback_payment_allowed is not None and not descriptor.callback_payment_allowed(
         service,
         settings,
-        callback.from_user.id,
+        account_user_id,
         parts.price,
         currency_code,
     ):
@@ -263,7 +265,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
     entitlement_context_snapshot = parts.entitlement_context_snapshot
     payment_description = describe_payment(translator, parts)
     record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         amount=parts.price,
         currency=currency_code,
         status=descriptor.pending_status,
@@ -291,7 +293,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         )
         reusable_payment = await payment_dal.find_recent_pending_provider_payment(
             session,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             provider=descriptor.provider_key,
             pending_status=descriptor.pending_status,
             amount=parts.price,
@@ -335,7 +337,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         logger.exception(
             "%s: failed to create payment record for user %s.",
             descriptor.display_name,
-            callback.from_user.id,
+            account_user_id,
         )
         await notify_payment_record_failure(callback, translator)
         return
@@ -345,7 +347,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
 
     create_request = CreatePaymentRequest(
         payment=payment_record,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         amount=parts.price,
         currency=currency_code,
         description=payment_description,

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services.subscription_order_terms import freeze_subscription_terms
+from bot.services.telegram_account import require_telegram_account_id
 from config.settings import Settings
 from config.subscription_periods import fixed_day_metadata
 from config.tariffs_config import (
@@ -55,11 +56,12 @@ async def pay_stripe_callback_handler(
     if not i18n or not callback.message:
         await notify_callback_parse_error(callback, translator)
         return
-    from .stripe import SPEC
+    from . import SPEC
 
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     if not SPEC.is_available_to_user(
         settings,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         require_configured=False,
     ):
         await notify_service_unavailable(callback, translator)
@@ -74,7 +76,7 @@ async def pay_stripe_callback_handler(
         return
     parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         parts=parts,
         subscription_service=stripe_service.subscription_service,
         currency=default_currency_key_for_settings(settings),
@@ -87,6 +89,7 @@ async def pay_stripe_callback_handler(
 
     currency_code = default_payment_currency_code_for_settings(settings)
     payment_description = describe_payment(translator, parts)
+    checkout_promo = getattr(parts, "checkout_promo", None)
     reuse_amounts = payment_record_amounts(
         months=parts.months,
         sale_mode=parts.sale_mode,
@@ -94,7 +97,7 @@ async def pay_stripe_callback_handler(
     )
     reusable_payment = await payment_dal.find_recent_pending_provider_payment(
         session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         provider="stripe",
         pending_status="pending_stripe",
         amount=parts.price,
@@ -105,7 +108,8 @@ async def pay_stripe_callback_handler(
         purchased_hwid_devices=reuse_amounts.purchased_hwid_devices,
         tariff_key=reuse_amounts.tariff_key,
         entitlement_context_snapshot=parts.entitlement_context_snapshot,
-        checkout_promo=getattr(parts, "checkout_promo", None),
+        promo_code_id=checkout_promo.promo_code_id if checkout_promo else None,
+        promo_effect_summary=checkout_promo.effect_summary if checkout_promo else None,
     )
     if reusable_payment is not None:
         reusable_url = await stripe_service.try_reuse_pending_payment(reusable_payment)
@@ -123,7 +127,7 @@ async def pay_stripe_callback_handler(
             return
 
     record_payload = build_payment_record_payload(
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         amount=parts.price,
         currency=currency_code,
         status="pending_stripe",
@@ -134,6 +138,7 @@ async def pay_stripe_callback_handler(
         sale_mode=parts.sale_mode,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=parts.entitlement_context_snapshot,
+        checkout_promo=checkout_promo,
     )
     try:
         payment_record = await payment_dal.create_payment_record(session, record_payload)
@@ -142,7 +147,7 @@ async def pay_stripe_callback_handler(
         await session.rollback()
         logger.exception(
             "Stripe: failed to create payment record for user %s.",
-            callback.from_user.id,
+            account_user_id,
         )
         await notify_payment_record_failure(callback, translator)
         return

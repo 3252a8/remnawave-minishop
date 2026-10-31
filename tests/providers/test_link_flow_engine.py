@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from aiohttp import web
@@ -25,6 +25,7 @@ from bot.payment_providers.shared.link_flow import (
     run_reuse_webapp_payment,
     run_webapp_payment,
 )
+from bot.services import telegram_account
 
 
 class _FakeService:
@@ -60,10 +61,17 @@ def _descriptor(**overrides):
 
 def _patch_common(monkeypatch):
     """Patch the shared collaborators the engine calls on its own namespace."""
+    monkeypatch.setattr(
+        telegram_account.user_dal,
+        "get_user_by_telegram_id",
+        AsyncMock(return_value=SimpleNamespace(user_id=456)),
+    )
     monkeypatch.setattr(link_flow, "default_currency_key_for_settings", lambda s: "RUB")
     monkeypatch.setattr(link_flow, "default_payment_currency_code_for_settings", lambda s: "RUB")
     monkeypatch.setattr(link_flow, "describe_payment", lambda *a, **k: "desc")
-    monkeypatch.setattr(link_flow, "build_payment_record_payload", lambda **k: {"payload": True})
+    monkeypatch.setattr(
+        link_flow, "build_payment_record_payload", Mock(return_value={"payload": True})
+    )
     monkeypatch.setattr(
         link_flow,
         "payment_record_amounts",
@@ -81,6 +89,7 @@ def _patch_common(monkeypatch):
 
     async def _quote(**kwargs):
         assert kwargs["settings"] is not None
+        assert kwargs["user_id"] == 456
         return parts, None
 
     monkeypatch.setattr(link_flow, "quote_hwid_callback_parts", _quote)
@@ -133,7 +142,12 @@ def test_callback_create_path_calls_create_and_renders(monkeypatch):
     called_service, req = desc.create.await_args.args
     assert called_service is service
     assert isinstance(req, CreatePaymentRequest)
-    assert req.payment is payment and req.user_id == 123 and req.amount == 100.0
+    assert req.payment is payment and req.user_id == 456 and req.amount == 100.0
+    assert link_flow.build_payment_record_payload.call_args.kwargs["user_id"] == 456
+    assert fake_dal.find_recent_pending_provider_payment.await_args.kwargs["user_id"] == 456
+    telegram_account.user_dal.get_user_by_telegram_id.assert_awaited_once_with(
+        fake_dal.create_payment_record.await_args.args[0], 123
+    )
     assert req.months == 1 and req.sale_mode == "subscription"
     # the link was rendered with the descriptor's extracted url/id
     link_flow.render_link_or_fail.assert_awaited_once()
@@ -164,6 +178,29 @@ def test_callback_reuse_hit_short_circuits(monkeypatch):
     link_flow.render_payment_link.assert_awaited_once()
     # no new record created, no create() call on a reuse hit
     fake_dal.create_payment_record.assert_not_awaited()
+    desc.create.assert_not_awaited()
+
+
+def test_callback_without_linked_account_does_not_fall_back_to_internal_id(monkeypatch):
+    _patch_common(monkeypatch)
+    telegram_account.user_dal.get_user_by_telegram_id.return_value = None
+    create_record = AsyncMock()
+    monkeypatch.setattr(link_flow.payment_dal, "create_payment_record", create_record)
+    desc = _descriptor()
+
+    with pytest.raises(telegram_account.TelegramAccountRequiredError):
+        asyncio.run(
+            run_callback_payment(
+                desc,
+                _callback(),
+                _settings(),
+                {"i18n_instance": object()},
+                _FakeService(),
+                _session(),
+            )
+        )
+
+    create_record.assert_not_awaited()
     desc.create.assert_not_awaited()
 
 

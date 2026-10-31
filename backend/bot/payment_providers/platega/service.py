@@ -412,7 +412,6 @@ def _context_for_variant(
     ) -> dict[str, Any]:
         return {
             "platega_variant": variant,
-            "user_id": callback.from_user.id,
             "sale_mode": parts.sale_mode,
             "source": "callback",
         }
@@ -424,7 +423,6 @@ def _webapp_context_for_variant(variant: str) -> Any:
     def _webapp_context(ctx: WebAppPaymentContext) -> dict[str, Any]:
         return {
             "platega_variant": variant,
-            "user_id": ctx.user_id,
             "sale_mode": ctx.sale_mode,
             "source": "webapp",
             "traffic_gb": ctx.traffic_gb,
@@ -506,7 +504,7 @@ async def _reuse_payment_with_context(
         return await service.try_reuse_pending_subscription(payment)
     return await service.try_reuse_pending_transaction(
         payment,
-        user_id=int(context["user_id"]),
+        user_id=int(payment.user_id),
         sale_mode=str(context["sale_mode"]),
         variant=variant,
     )
