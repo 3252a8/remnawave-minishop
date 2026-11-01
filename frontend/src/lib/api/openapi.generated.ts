@@ -7836,6 +7836,11 @@ export interface components {
     };
     /** AdminTariffsOut */
     AdminTariffsOut: {
+      /**
+       * Bot Username
+       * @default
+       */
+      bot_username: string;
       catalog: components["schemas"]["AdminTariffsCatalogOut"];
       /** Exists */
       exists: boolean;

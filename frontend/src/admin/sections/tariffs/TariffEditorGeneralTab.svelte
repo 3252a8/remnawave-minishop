@@ -8,9 +8,10 @@
     AdminSettingCard,
     AdminSettingsGroup,
   } from "$components/patterns/admin/index.js";
-  import { Copy, X } from "$components/ui/icons.js";
+  import { X } from "$components/ui/icons.js";
+  import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import { generateTariffAccessCode, normalizeUuidList } from "$lib/admin/tariffDraft";
-  import { buildCheckoutUrl } from "$lib/webapp/deeplinks.js";
+  import { buildCheckoutMiniAppUrl, buildCheckoutUrl } from "$lib/webapp/deeplinks.js";
   import type { PanelSquad, TariffDraft, TariffsCatalog } from "$lib/admin/stores/tariffsStore";
   import {
     addDraftSquad,
@@ -51,6 +52,15 @@
       routePrefix,
     });
   });
+  const checkoutMiniAppLink = $derived(
+    !tariffDraft.enabled && !tariffAccessCode
+      ? ""
+      : buildCheckoutMiniAppUrl({
+          accessCode: tariffDraft.enabled ? "" : tariffAccessCode,
+          botUsername: tariffsState.botUsername,
+          plan: String(tariffDraft.key || ""),
+        })
+  );
   const legacyKeysText = $derived(
     Array.isArray(tariffDraft.legacyKeys)
       ? tariffDraft.legacyKeys.join(", ")
@@ -152,37 +162,24 @@
           : "Hidden tariffs use a private hex link that can be revoked or regenerated."
       )}
     >
-      <div class="tariff-checkout-link-control">
-        <Input
-          class="input"
-          type="text"
-          readonly
-          value={checkoutLink}
-          placeholder={at(
-            tariffDraft.enabled
-              ? "tariff_checkout_link_placeholder"
-              : "tariff_private_checkout_link_placeholder",
-            {},
-            tariffDraft.enabled
-              ? "Enter a tariff key to create the link"
-              : "Enable private link access below"
-          )}
-          aria-label={at("tariff_checkout_link_title", {}, "Tariff checkout link")}
-        />
-        <AdminButton
-          size="icon"
-          variant="icon"
-          title={at("tariff_checkout_link_copy", {}, "Copy checkout link")}
-          aria-label={at("tariff_checkout_link_copy", {}, "Copy checkout link")}
-          disabled={!checkoutLink}
-          onclick={() =>
-            tariffsStore.copyToClipboard(
-              checkoutLink,
-              at("tariff_checkout_link_copied", {}, "Checkout link copied")
-            )}
-        >
-          <Copy size={14} />
-        </AdminButton>
+      <div class="tariff-setting-control-stack">
+        {#each [{ value: checkoutLink, label: "tariff_checkout_link_browser", fallback: "Browser" }, { value: checkoutMiniAppLink, label: "tariff_checkout_link_miniapp", fallback: "Telegram Mini App" }] as link (link.label)}
+          <div class="tariff-setting-control-stack">
+            <span class="admin-muted">{at(link.label, {}, link.fallback)}</span>
+            <CopyLinkField
+              variant="admin"
+              value={link.value}
+              inputLabel={at(link.label, {}, link.fallback)}
+              copyLabel={at("tariff_checkout_link_copy", {}, "Copy")}
+              unavailableLabel={at("tariff_checkout_link_unavailable", {}, "Link unavailable")}
+              oncopy={(value) =>
+                tariffsStore.copyToClipboard(
+                  value,
+                  at("tariff_checkout_link_copied", {}, "Checkout link copied")
+                )}
+            />
+          </div>
+        {/each}
       </div>
     </AdminSettingCard>
 
@@ -357,7 +354,7 @@
           onValueChange={addBaseSquad}
         />
         <div class="admin-chip-list">
-          {#each normalizeUuidList(tariffDraft.squadUuids) as uuid}
+          {#each normalizeUuidList(tariffDraft.squadUuids) as uuid (uuid)}
             <button
               type="button"
               class="admin-chip"
@@ -376,15 +373,6 @@
 <style>
   .tariff-setting-control-stack {
     display: grid;
-    gap: 8px;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .tariff-checkout-link-control {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     gap: 8px;
     width: 100%;
     min-width: 0;

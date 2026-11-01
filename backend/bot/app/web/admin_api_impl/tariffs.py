@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from bot.app.web.context import (
+    get_bot_username,
     get_session_factory,
     get_settings,
 )
@@ -100,7 +101,11 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
         logger.warning("Invalid tariffs config requested from admin UI: %s", exc)
         return _error(400, "invalid_tariffs_config", str(exc))
 
-    return _ok(_tariffs_response_payload(settings, request.app, path=path, config=config))
+    return _ok(
+        _tariffs_response_payload(
+            settings, request.app, path=path, config=config, bot_username=get_bot_username(request)
+        )
+    )
 
 
 async def admin_tariffs_save_route(request: web.Request) -> web.Response:
@@ -162,7 +167,11 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
 
     await refresh_webapp_runtime_after_settings_change(request, updates={}, deletes=[])
 
-    return _ok(_tariffs_response_payload(settings, request.app, path=path, config=config))
+    return _ok(
+        _tariffs_response_payload(
+            settings, request.app, path=path, config=config, bot_username=get_bot_username(request)
+        )
+    )
 
 
 async def admin_tariff_reconciliation_get_route(request: web.Request) -> web.Response:
@@ -258,6 +267,7 @@ def _tariffs_response_payload(
     *,
     path: Path,
     config: TariffsConfig | None,
+    bot_username: str = "",
 ) -> dict[str, object]:
     catalog = (
         AdminTariffsCatalogOut.from_config(config)
@@ -270,6 +280,7 @@ def _tariffs_response_payload(
         catalog=catalog,
         provider_currency_support=_provider_currency_support_payload(settings, app),
         user_hwid_device_limit=settings.USER_HWID_DEVICE_LIMIT,
+        bot_username=bot_username,
     ).to_legacy_payload()
 
 

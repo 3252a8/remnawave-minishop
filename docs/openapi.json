@@ -7092,6 +7092,11 @@
       },
       "AdminTariffsOut": {
         "properties": {
+          "bot_username": {
+            "default": "",
+            "title": "Bot Username",
+            "type": "string"
+          },
           "catalog": {
             "$ref": "#/components/schemas/AdminTariffsCatalogOut"
           },

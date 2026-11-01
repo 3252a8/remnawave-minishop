@@ -13,6 +13,7 @@ describe("Mini App start routes", () => {
     ],
     ["ticket_7", "/support/7"],
     ["plan_standard__months_3__traffic_200", "/checkout"],
+    [`checkout_${"ab".repeat(16)}`, "/checkout"],
     ["plans", "/plans"],
     ["invite", "/invite"],
     ["partner", "/partner"],

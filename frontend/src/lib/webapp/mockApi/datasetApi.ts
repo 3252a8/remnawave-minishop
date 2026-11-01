@@ -734,6 +734,7 @@ export function demoApiResponse(
     return {
       ok: true,
       path: "data/tariffs.json",
+      bot_username: "preview_bot",
       catalog: clone(demoTariffs()),
       provider_currency_support: demoProviderCurrencySupport(),
     };

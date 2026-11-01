@@ -277,6 +277,7 @@ def test_admin_tariffs_response_model_preserves_nested_legacy_payload_shape():
     payload = AdminTariffsOut(
         exists=False,
         path="data/tariffs.json",
+        bot_username="shop_bot",
         catalog=AdminTariffsCatalogOut.empty(),
         provider_currency_support=[],
     ).to_legacy_payload()
@@ -285,6 +286,7 @@ def test_admin_tariffs_response_model_preserves_nested_legacy_payload_shape():
         "exists": False,
         "path": "data/tariffs.json",
         "user_hwid_device_limit": None,
+        "bot_username": "shop_bot",
         "catalog": {
             "schema_version": 2,
             "period_unit": "day",

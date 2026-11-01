@@ -133,6 +133,15 @@ function checkoutHashParams(hash: string): { checkout: boolean; params: URLSearc
 
 function parseCheckoutStartParam(value: string | null): CheckoutDeeplink | null {
   const raw = String(value || "").trim();
+  const privateCheckout = raw.match(/^checkout_([a-f0-9]{32})$/i);
+  if (privateCheckout) {
+    return {
+      accessCode: privateCheckout[1].toLowerCase(),
+      plan: "",
+      months: null,
+      addons: { deviceTotal: null, regularLimitGb: null, premiumLimitGb: null },
+    };
+  }
   if (!/^plan_/i.test(raw)) return null;
   const [planPart, ...optionParts] = raw.slice("plan_".length).split("__");
   const plan = planPart.trim();
@@ -242,6 +251,30 @@ export function readCheckoutDeeplink(): CheckoutDeeplink | null {
     search: window.location.search,
     telegramStartParam: telegramStartParam(),
   });
+}
+
+export function buildCheckoutMiniAppUrl({
+  accessCode = "",
+  botUsername,
+  plan = "",
+}: {
+  accessCode?: string;
+  botUsername: string;
+  plan?: string;
+}): string {
+  const username = String(botUsername || "")
+    .trim()
+    .replace(/^@/, "");
+  const code = String(accessCode || "")
+    .trim()
+    .toLowerCase();
+  const key = String(plan || "").trim();
+  if (!/^[a-z0-9_]+$/i.test(username)) return "";
+  if (code && !/^[a-f0-9]{32}$/.test(code)) return "";
+  const payload = code ? `checkout_${code}` : `plan_${key}`;
+  if (!code && (!key || key.includes("__"))) return "";
+  if (!/^[a-z0-9_-]{1,512}$/i.test(payload)) return "";
+  return `https://t.me/${username}?startapp=${payload}`;
 }
 
 export function stripCheckoutDeeplinkFromUrl(): void {
