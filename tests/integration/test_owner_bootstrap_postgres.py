@@ -12,7 +12,8 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.services.account_roles import bootstrap_configured_owner, bootstrap_owner
-from db.auth_models import AccountRole, AccountRoleEvent, UserEmailAddress
+from db.auth_models import AccountAlias, AccountRole, AccountRoleEvent, UserEmailAddress
+from db.dal.user_delete_dal import delete_user_and_relations
 from db.models import Base, User
 
 DATABASE_URL = os.environ.get("CORE_PERFORMANCE_TEST_DATABASE_URL", "")
@@ -163,5 +164,54 @@ def test_manually_assigned_owner_prevents_configured_accounts_from_becoming_owne
                 )
         async with factory() as session:
             assert (await session.execute(select(AccountRole.user_id))).scalars().all() == [4]
+
+    run_scenario(scenario)
+
+
+@pytest.mark.parametrize("revoked", [False, True])
+def test_delete_account_cleans_roles_aliases_and_retains_other_accounts_history(
+    revoked: bool,
+) -> None:
+    async def scenario(factory: Any) -> None:
+        async with factory() as session:
+            session.add_all(
+                [
+                    AccountRole(
+                        user_id=1,
+                        role="admin",
+                        granted_by=2,
+                        revoked_at=datetime.now(UTC) if revoked else None,
+                    ),
+                    AccountRole(user_id=2, role="admin", granted_by=1, revoked_by=1),
+                    AccountRoleEvent(
+                        user_id=1, role="admin", action="grant", actor_user_id=2, source="manual"
+                    ),
+                    AccountRoleEvent(
+                        user_id=2, role="admin", action="grant", actor_user_id=1, source="manual"
+                    ),
+                    AccountAlias(old_user_id=99, new_user_id=1, reason="telegram_link"),
+                    AccountAlias(old_user_id=100, new_user_id=2, reason="telegram_link"),
+                ]
+            )
+            await session.commit()
+        async with factory() as session:
+            assert await delete_user_and_relations(session, 1)
+            await session.commit()
+        async with factory() as session:
+            assert await session.get(User, 1) is None
+            assert await session.get(User, 2) is not None
+            roles = (await session.execute(select(AccountRole))).scalars().all()
+            assert len(roles) == 1
+            assert roles[0].user_id == 2
+            assert roles[0].granted_by is None
+            assert roles[0].revoked_by is None
+            events = (await session.execute(select(AccountRoleEvent))).scalars().all()
+            assert len(events) == 1
+            assert events[0].user_id == 2
+            assert events[0].actor_user_id is None
+            assert events[0].action == "grant"
+            aliases = (await session.execute(select(AccountAlias))).scalars().all()
+            assert [(alias.old_user_id, alias.new_user_id) for alias in aliases] == [(100, 2)]
+            assert not await delete_user_and_relations(session, 1)
 
     run_scenario(scenario)

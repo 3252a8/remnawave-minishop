@@ -26,6 +26,11 @@ class FakeSession:
 
 
 class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        policy = patch.object(users_actions, "can_ban_account", AsyncMock(return_value=True))
+        self.can_delete = policy.start()
+        self.addCleanup(policy.stop)
+
     def _request(self, session: FakeSession, app_overrides=None):
         app = {
             "settings": SimpleNamespace(),
@@ -93,6 +98,29 @@ class AdminUserDeleteRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("panel-main,panel-sub", log_payload["content"])
         self.assertTrue(session.committed)
         self.assertFalse(session.rolled_back)
+
+    async def test_protected_account_is_rejected_before_panel_or_database_deletion(self):
+        session = FakeSession()
+        request = self._request(session)
+        user = SimpleNamespace(user_id=42, panel_user_uuid="panel-main")
+        self.can_delete.return_value = False
+        with (
+            patch.object(users_actions, "_require_admin_user_id", return_value=100),
+            patch.object(admin_users.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+            patch.object(
+                admin_users.user_dal, "get_panel_user_uuids_for_user", AsyncMock()
+            ) as collect_uuids,
+            patch.object(admin_users.user_dal, "delete_user_and_relations", AsyncMock()) as delete,
+        ):
+            response = await admin_users.admin_user_delete_route(request)
+
+        self.assertEqual(response.status, 403)
+        self.assertEqual(json.loads(response.text)["error"], "forbidden")
+        self.can_delete.assert_awaited_once_with(session, 100, 42)
+        collect_uuids.assert_not_awaited()
+        delete.assert_not_awaited()
+        self.assertTrue(session.rolled_back)
+        self.assertFalse(session.committed)
 
     async def test_returns_success_when_post_commit_invalidation_fails(self):
         session = FakeSession()
