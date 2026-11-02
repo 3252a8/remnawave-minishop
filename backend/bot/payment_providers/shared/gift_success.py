@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from bot.infra import events
 from bot.infra.event_payloads import PaymentSucceededPayload
 from bot.infra.payment_events import build_payment_succeeded_payload
+from bot.services.gift_links import gift_telegram_url
 from bot.services.gift_purchase import issue_paid_gift
 from bot.services.partner_commission_service import PartnerCommissionService
 from bot.services.subscription_gifts import gift_url, is_gift_sale
@@ -91,10 +92,19 @@ async def finalize_gift_payment(req: PaymentSuccessRequest) -> PaymentSuccessOut
     translator = make_translator(req.i18n, language)
     base = str(req.settings.SUBSCRIPTION_MINI_APP_URL or "").strip()
     if base and not req.skip_user_notification:
+        text = translator("gift_payment_success", link=gift_url(base, token))
+        if req.bot is not None:
+            try:
+                telegram_link = gift_telegram_url((await req.bot.me()).username, token)
+            except Exception:
+                logger.warning("Could not resolve Telegram gift link for payment %s", payment_id)
+            else:
+                if telegram_link:
+                    text += f"\n\n{translator('wa_gift_link_telegram')}:\n{telegram_link}"
         await send_success_message_to_user(
             bot=req.bot,
             user_id=req.user_id,
-            text=translator("gift_payment_success", link=gift_url(base, token)),
+            text=text,
             language=language,
             i18n=req.i18n,
             settings=req.settings,

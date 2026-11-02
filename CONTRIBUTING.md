@@ -143,11 +143,18 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 | `backend/requirements.txt` | `python -m piptools compile --resolver=backtracking --no-emit-index-url --no-emit-trusted-host -o backend/requirements.txt backend/requirements.in` (Python 3.12) | CI install + `pip-audit` |
 | `frontend/package-lock.json`, `docs-site/package-lock.json` | `cd <каталог> && npx --yes npm@10.9.9 install --package-lock-only --ignore-scripts --no-audit --no-fund` | `npm run check:lockfiles`, pre-commit, CI до Docker matrix |
 
-В `docs-site/package.json` закреплён `postcss-selector-parser 7.1.6` для устранения
-[GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf):
-`@expressive-code/core` через `postcss-nested@6` пока требует уязвимую ветку parser 6.x.
-Удаляй этот override, когда upstream-зависимости сами разрешают parser не ниже `7.1.6`,
-а аудит и сборка документации проходят без него.
+`@expressive-code/core` использует `postcss-nested@7`, поэтому отдельный override
+для `postcss-selector-parser` больше не нужен. При обновлении lockfile проверяй,
+что разрешённая версия parser остаётся не ниже `7.1.6`, исправляющей
+[GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf),
+а аудит и сборка документации проходят без переопределения.
+
+Frontend закрепляет `minimatch@11.0.4` через override: ESLint пока требует
+уязвимую ветку 10.x ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)).
+Версия 11 поддерживает используемый API и Node 24; совместимость проверяется
+полным lint/frontend gate. Удали override, когда ESLint и остальные потребители
+перейдут на исправленные версии. TypeScript остаётся на 6.x: текущие
+`svelte-check` и `typescript-eslint` ещё не поддерживают 7.x в peer dependencies.
 
 Меняешь контракт API — регенерируй `openapi.json` **и** `openapi.generated.ts`.
 

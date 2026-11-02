@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildCheckoutUrl,
+  buildCheckoutMiniAppUrl,
   isPlansRoute,
   parseCheckoutDeeplink,
   readCheckoutPromoDeeplink,
@@ -41,6 +42,44 @@ describe("checkout promo deeplinks", () => {
 });
 
 describe("checkout route", () => {
+  it("round-trips a private Mini App link through every launch parameter", () => {
+    const accessCode = "ab".repeat(16);
+    const url = buildCheckoutMiniAppUrl({ botUsername: "@shop_bot", accessCode });
+    const payload = new URL(url).searchParams.get("startapp")!;
+    expect(url).toBe(`https://t.me/shop_bot?startapp=checkout_${accessCode}`);
+    for (const key of ["startapp", "start_param", "tgWebAppStartParam"]) {
+      expect(parseCheckoutDeeplink({ search: `?${key}=${payload}` })).toMatchObject({
+        accessCode,
+        plan: "",
+      });
+    }
+    expect(parseCheckoutDeeplink({ telegramStartParam: payload.toUpperCase() })).toEqual({
+      accessCode,
+      plan: "",
+      months: null,
+      addons: { deviceTotal: null, regularLimitGb: null, premiumLimitGb: null },
+    });
+  });
+
+  it("builds public Mini App links and rejects unavailable or malformed inputs", () => {
+    expect(buildCheckoutMiniAppUrl({ botUsername: "shop_bot", plan: "standard" })).toBe(
+      "https://t.me/shop_bot?startapp=plan_standard"
+    );
+    expect(buildCheckoutMiniAppUrl({ botUsername: "", accessCode: "ab".repeat(16) })).toBe("");
+    expect(
+      buildCheckoutMiniAppUrl({ botUsername: "shop_bot", accessCode: "bad", plan: "public" })
+    ).toBe("");
+    expect(buildCheckoutMiniAppUrl({ botUsername: "shop_bot", plan: "a__months_3" })).toBe("");
+    expect(buildCheckoutMiniAppUrl({ botUsername: "shop_bot" })).toBe("");
+    for (const payload of [
+      "checkout_bad",
+      `checkout_${"a".repeat(31)}`,
+      `checkout_${"a".repeat(33)}`,
+    ]) {
+      expect(parseCheckoutDeeplink({ telegramStartParam: payload })).toBeNull();
+    }
+  });
+
   it("builds a public checkout link for a tariff", () => {
     expect(
       buildCheckoutUrl({ origin: "https://shop.example", plan: "standard", routePrefix: "" })

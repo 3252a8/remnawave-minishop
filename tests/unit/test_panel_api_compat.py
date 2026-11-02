@@ -29,6 +29,8 @@ def test_metadata_selects_user_identity_contract() -> None:
         "3.4.3",
         "3.4.4",
         "3.4.5",
+        "3.4.6",
+        "3.4.7",
     ):
         current = PanelApiCompatibility.from_metadata({"response": {"version": version}})
 
@@ -39,6 +41,8 @@ def test_metadata_selects_user_identity_contract() -> None:
         assert current.supports(PanelApiCapability.USER_STREAM_FILTERS) is True
 
     assert current.certified_versions == (
+        "3.4.7",
+        "3.4.6",
         "3.4.5",
         "3.4.4",
         "3.4.3",

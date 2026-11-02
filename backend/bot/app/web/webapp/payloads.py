@@ -155,6 +155,7 @@ class WebAppPaymentCreatePayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     method: str = ""
+    quote_token: Annotated[str, StringConstraints(max_length=4096)] | None = None
     gift: bool = False
     gift_recipient_email: EmailStr | None = None
     payer_email: EmailStr | None = None
@@ -253,6 +254,7 @@ class CreateTicketPayload(BaseModel):
     priority: Literal["normal", "high"] = "normal"
     body: TicketBodyString
     body_format: TicketBodyFormat = "text"
+    payment_id: int | None = Field(default=None, gt=0, le=2_147_483_647)
 
     @field_validator("subject")
     @classmethod

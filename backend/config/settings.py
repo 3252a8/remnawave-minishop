@@ -12,6 +12,7 @@ from config.settings_defaults import (
     DEFAULT_SUBSCRIPTION_PURCHASE_DESCRIPTION_RU,
     DEFAULT_TRUSTED_PROXIES,
 )
+from config.settings_invites import InvitationSettings
 from config.settings_mixins import SettingsComputedMixin, SettingsValidationMixin
 from config.settings_models import (
     BalanceSettings,
@@ -35,6 +36,7 @@ class Settings(
     SettingsComputedMixin,
     SettingsValidationMixin,
     AuthenticationSettings,
+    InvitationSettings,
     TrialSettings,
     TelegramTransportSettings,
 ):
@@ -82,6 +84,8 @@ class Settings(
     REDIS_URL: str | None = Field(default=None)
     ADVERTISING_ENABLED: bool = Field(default=True)
     MAINTENANCE_MODE_ENABLED: bool = Field(default=False)
+    MAINTENANCE_MODE_AUTO_ENABLED: bool = Field(default=False)
+    MAINTENANCE_MODE_AUTO_DELAY_SECONDS: int = Field(default=60, ge=0, le=86400)
     REDIS_KEY_PREFIX: str = Field(default="remnawave-tg-shop")
     WEBAPP_ME_CACHE_TTL_SECONDS: int = Field(default=15)
     WEBAPP_DEVICES_CACHE_TTL_SECONDS: int = Field(default=5)
@@ -205,6 +209,9 @@ class Settings(
     DEFAULT_LANGUAGE: str = Field(default="ru")
     DEFAULT_CURRENCY_SYMBOL: str = Field(default="RUB")
     USER_BALANCE_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_DAYS_DEVICES_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_DAYS_TRAFFIC_ENABLED: bool = Field(default=False)
+    SUBSCRIPTION_DAYS_MIN_REMAINING: int = Field(default=1, ge=1, le=3650)
     USER_BALANCE_RECURRING_ENABLED: bool = Field(default=False)
     USER_BALANCE_CURRENCY: str = Field(
         default="",
@@ -234,6 +241,12 @@ class Settings(
     USER_AGREEMENT_URL: str | None = Field(default=None)
     REQUIRED_CHANNEL_ID: int | None = Field(
         default=None, description="Telegram channel ID the user must join to access the bot"
+    )
+    REQUIRED_CHANNEL_VERIFICATION_TTL_SECONDS: int = Field(
+        default=900,
+        ge=5,
+        le=86400,
+        description="Seconds to trust required channel membership before rechecking",
     )
     REQUIRED_CHANNEL_LINK: str | None = Field(
         default=None,

@@ -606,6 +606,7 @@ def _resolve_value(
     settings: Settings,
     bot_username: str,
 ) -> str:
+    from bot.utils.invite_links import invitation_link_prefix
     from bot.utils.partner_links import build_partner_bot_link, build_partner_webapp_link
     from bot.utils.referral_links import build_bot_referral_link, build_webapp_referral_link
 
@@ -657,19 +658,37 @@ def _resolve_value(
     if name == "referral_code":
         return ctx.referral_code or ""
     if name == "referral_bot_link":
-        return build_bot_referral_link(bot_username, ctx.referral_code) or ""
+        return (
+            build_bot_referral_link(
+                bot_username, ctx.referral_code, invitation_link_prefix(settings)
+            )
+            or ""
+        )
     if name == "referral_webapp_link":
-        return build_webapp_referral_link(mini_app_url, ctx.referral_code) or ""
+        return (
+            build_webapp_referral_link(
+                mini_app_url, ctx.referral_code, invitation_link_prefix(settings)
+            )
+            or ""
+        )
     if name == "partner_code":
         return ctx.partner_code or ""
     if name == "partner_bot_link":
         if not settings.partner_settings.telegram_link_enabled:
             return ""
-        return build_partner_bot_link(bot_username, ctx.partner_code) or ""
+        return (
+            build_partner_bot_link(bot_username, ctx.partner_code, invitation_link_prefix(settings))
+            or ""
+        )
     if name == "partner_webapp_link":
         if not settings.partner_settings.webapp_link_enabled:
             return ""
-        return build_partner_webapp_link(mini_app_url, ctx.partner_code) or ""
+        return (
+            build_partner_webapp_link(
+                mini_app_url, ctx.partner_code, invitation_link_prefix(settings)
+            )
+            or ""
+        )
     if name == "partner_status":
         return t(f"wa_partner_status_{ctx.partner_status}") if ctx.partner_status else ""
     if name == "partner_commission_rate":

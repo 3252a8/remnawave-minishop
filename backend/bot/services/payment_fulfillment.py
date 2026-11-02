@@ -148,10 +148,16 @@ async def _scalars_all(result: Any) -> list[Any]:
 async def capture_payment_entitlement_snapshot(
     session: AsyncSession,
     payment: Payment,
+    *,
+    include_referrer: bool = True,
 ) -> dict[str, Any]:
     primary_user = await session.get(User, int(payment.user_id))
     user_ids = {int(payment.user_id)}
-    if isinstance(primary_user, User) and primary_user.referred_by_id is not None:
+    if (
+        include_referrer
+        and isinstance(primary_user, User)
+        and primary_user.referred_by_id is not None
+    ):
         user_ids.add(int(primary_user.referred_by_id))
 
     users_result = await session.execute(
@@ -231,6 +237,8 @@ async def payment_action_state(session: AsyncSession, payment: Payment) -> dict[
     can_finalize = status not in _FINAL_PAYMENT_STATUSES and bool(
         str(payment.sale_mode or "").strip()
     )
+    if getattr(payment, "provider", None) == "subscription_days":
+        can_finalize = False
     context_confirmation = False
     if can_finalize and payment_uses_entitlement_context(payment):
         active_subscription = await subscription_dal.get_active_subscription_by_user_id(
@@ -594,6 +602,18 @@ async def reverse_payment_fulfillment(
         for subscription_id, after_subscription in _snapshot_subscriptions(after_user).items():
             before_subscription = before_subscriptions.get(subscription_id)
             if subscription_id in topups_by_subscription:
+                if getattr(payment, "provider", None) == "subscription_days":
+                    current = current_subscriptions.get(subscription_id)
+                    if current is None or _snapshot_value(
+                        current.end_date
+                    ) != after_subscription.get("end_date"):
+                        conflicts.append(f"subscription:{subscription_id}:end_date")
+                    elif before_subscription is not None:
+                        deltas[subscription_id] = (
+                            before_subscription,
+                            after_subscription,
+                            ["end_date"],
+                        )
                 continue
             changed_fields = [
                 field

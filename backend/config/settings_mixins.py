@@ -589,6 +589,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         flag, not on this list.
         """
         from bot.payment_providers import iter_provider_specs
+        from bot.payment_providers.yookassa.config import order_checkout_methods
 
         all_specs = list(iter_provider_specs())
         spec_ids: list[str] = []
@@ -625,7 +626,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
                 default_order.append(sid)
 
         if not self.PAYMENT_METHODS_ORDER:
-            return default_order
+            return order_checkout_methods(default_order)
 
         methods: list[str] = []
         for item in self.PAYMENT_METHODS_ORDER.split(","):
@@ -654,7 +655,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         for sid in spec_ids:
             if sid not in methods:
                 methods.append(sid)
-        return methods or default_order
+        return order_checkout_methods(methods or default_order)
 
     def subscription_purchase_description(self, language: str | None = None) -> str:
         if not self.SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED:

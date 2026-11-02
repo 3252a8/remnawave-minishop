@@ -301,9 +301,7 @@
                       >
                     {/if}
                     {#if tariff.enabled === false}
-                      <AdminBadge variant="muted"
-                        >{at("status_disabled", {}, "Disabled")}</AdminBadge
-                      >
+                      <AdminBadge variant="muted">{at("status_hidden", {}, "Hidden")}</AdminBadge>
                     {:else}
                       <AdminBadge variant="success">{at("status_active", {}, "Active")}</AdminBadge>
                     {/if}

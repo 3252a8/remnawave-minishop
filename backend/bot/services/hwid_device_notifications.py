@@ -371,6 +371,7 @@ class HwidDeviceNotificationService:
         chat_id = telegram_recipient(user, subscription.user_id)
         if chat_id is None:
             return False, False
+        delivery_observed_at = datetime.now(UTC)
         try:
             await self.bot.send_message(
                 chat_id,
@@ -385,7 +386,13 @@ class HwidDeviceNotificationService:
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
             status = telegram_notification_status_from_error(exc)
             if status:
-                await mark_telegram_notifications_status(session, int(user.user_id), status)
+                await mark_telegram_notifications_status(
+                    session,
+                    int(user.user_id),
+                    status,
+                    checked_at=delivery_observed_at,
+                    telegram_id=chat_id,
+                )
                 logger.warning(
                     "Skipping unreachable Telegram recipient for HWID device notification: %s",
                     chat_id,
@@ -416,6 +423,7 @@ class HwidDeviceNotificationService:
                 int(user.user_id),
                 TELEGRAM_NOTIFICATIONS_ENABLED,
                 telegram_id=chat_id,
+                checked_at=delivery_observed_at,
             )
         return True, False
 

@@ -16,6 +16,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.lknpd_service import LknpdService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.user_email_notifications import send_user_notification_email
+from bot.services.user_notification_policy import telegram_recipient
 from bot.utils.request_security import ip_in_allowlist, request_client_ip
 from config.settings import Settings
 from db.dal import user_billing_dal
@@ -306,13 +307,15 @@ async def yookassa_webhook_route(request: web.Request) -> web.Response:
 
                                             message_text = _("payment_method_bound_success")
                                             try:
-                                                await bot.send_message(
-                                                    chat_id=user_id,
-                                                    text=message_text,
-                                                    reply_markup=get_back_to_payment_methods_keyboard(
-                                                        i18n_lang, i18n_instance
-                                                    ),
-                                                )
+                                                chat_id = telegram_recipient(db_user)
+                                                if chat_id is not None:
+                                                    await bot.send_message(
+                                                        chat_id=chat_id,
+                                                        text=message_text,
+                                                        reply_markup=get_back_to_payment_methods_keyboard(
+                                                            i18n_lang, i18n_instance
+                                                        ),
+                                                    )
                                             except Exception:
                                                 logger.exception(
                                                     "Failed to notify user %s "

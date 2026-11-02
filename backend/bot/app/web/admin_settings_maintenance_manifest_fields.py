@@ -14,4 +14,28 @@ MAINTENANCE_SETTINGS_FIELDS = [
         ),
         optional=False,
     ),
+    SettingField(
+        "MAINTENANCE_MODE_AUTO_ENABLED",
+        "bool",
+        "general",
+        "Automatic panel maintenance",
+        (
+            "Pause user actions after the panel stays unavailable for the configured delay. "
+            "Recovery clears only automatic maintenance. Administrators receive Telegram notices."
+        ),
+        optional=False,
+    ),
+    SettingField(
+        "MAINTENANCE_MODE_AUTO_DELAY_SECONDS",
+        "int",
+        "general",
+        "Panel outage delay (seconds)",
+        (
+            "Minimum observed panel outage before automatic maintenance. "
+            "Default: 60; checked every 15 seconds."
+        ),
+        optional=False,
+        min=0,
+        max=86400,
+    ),
 ]

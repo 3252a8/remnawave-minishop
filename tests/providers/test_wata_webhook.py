@@ -1,8 +1,13 @@
 import asyncio
+import base64
 import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
+import pytest
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from bot.payment_providers.shared import PAYMENT_STATUS_PENDING_FINALIZATION
 from bot.payment_providers.wata import WataConfig, WataService
@@ -72,7 +77,6 @@ def _service(session, **config_overrides):
         "ENABLED": True,
         "API_TOKEN": "token",
         "WEBHOOK_VERIFY_SIGNATURE": False,
-        "TRUSTED_IPS": "",
     }
     config_values.update(config_overrides)
     return WataService(
@@ -94,7 +98,8 @@ async def _run_and_close(service, awaitable):
         await service.close()
 
 
-def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch):
+@pytest.mark.parametrize("remote", ["198.51.100.25", "2001:db8::25"])
+def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch, remote):
     session = _FakeSession()
     payment = _payment()
     updates = []
@@ -122,24 +127,60 @@ def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch
         update_provider_payment_and_status,
     )
 
-    response = asyncio.run(
-        _service(session).webhook_route(
-            _FakeRequest(
-                {
-                    "transactionStatus": "Created",
-                    "transactionId": "tx-1",
-                    "orderId": "465",
-                    "amount": 100,
-                    "currency": "RUB",
-                }
-            )
-        )
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
     )
+    service = _service(session, WEBHOOK_VERIFY_SIGNATURE=True, PUBLIC_KEY=public_key.decode())
+    assert service.config.trusted_ips_list == []
+    request = _FakeRequest(
+        {
+            "transactionStatus": "Created",
+            "transactionId": "tx-1",
+            "orderId": "465",
+            "amount": 100,
+            "currency": "RUB",
+        }
+    )
+    request.remote = remote
+    request.headers["X-Signature"] = base64.b64encode(
+        private_key.sign(request._raw_body, padding.PKCS1v15(), hashes.SHA512())
+    ).decode()
+
+    response = asyncio.run(service.webhook_route(request))
 
     assert response.status == 200
     assert updates == [(465, "tx-1", "pending_wata")]
     assert session.commits == 1
     assert session.rollbacks == 0
+
+
+@pytest.mark.parametrize("signature_state", ["missing", "malformed", "tampered"])
+def test_wata_default_ip_policy_rejects_unverified_webhooks(monkeypatch, signature_state):
+    session = _FakeSession()
+    lookup = AsyncMock()
+    monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup)
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    service = _service(session, WEBHOOK_VERIFY_SIGNATURE=True, PUBLIC_KEY=public_key.decode())
+    request = _FakeRequest({"transactionStatus": "Paid", "transactionId": "tx-1", "orderId": "465"})
+    request.remote = "198.51.100.25"
+    if signature_state == "malformed":
+        request.headers["X-Signature"] = "invalid-signature"
+    elif signature_state == "tampered":
+        request.headers["X-Signature"] = base64.b64encode(
+            private_key.sign(request._raw_body, padding.PKCS1v15(), hashes.SHA512())
+        ).decode()
+        request._raw_body = request._raw_body.replace(b"465", b"466")
+
+    response = asyncio.run(service.webhook_route(request))
+
+    assert response.status == 403
+    assert response.text == "invalid_signature"
+    lookup.assert_not_awaited()
+    assert session.commits == 0
 
 
 def test_wata_created_webhook_can_find_payment_by_payment_link_id(monkeypatch):

@@ -404,6 +404,7 @@ class TorrentBlockerNotificationService:
             )
             return False
 
+        delivery_observed_at = datetime.now(UTC)
         try:
             await self.bot.send_message(chat_id, message_text)
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
@@ -413,6 +414,8 @@ class TorrentBlockerNotificationService:
                     session,
                     int(user.user_id),
                     delivery_status,
+                    checked_at=delivery_observed_at,
+                    telegram_id=chat_id,
                 )
                 self._log_outcome(
                     outcome="recipient_unavailable",
@@ -444,7 +447,7 @@ class TorrentBlockerNotificationService:
                 int(user.user_id),
                 TELEGRAM_NOTIFICATIONS_ENABLED,
                 telegram_id=chat_id,
-                checked_at=sent_at,
+                checked_at=delivery_observed_at,
             )
         self._log_outcome(
             outcome="sent",

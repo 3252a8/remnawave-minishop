@@ -20,6 +20,7 @@ import type {
 } from "../billingActions";
 import { billingErrorMessage, TrialCaptchaCancelled } from "../billingActions";
 import { paymentProviderUnavailable } from "../paymentFallback.js";
+import { createTopupPaymentAction } from "../billingTopupPayment.js";
 import type { CheckoutAddonSelection } from "../tariffs";
 import type { CheckoutAddonPreset } from "../deeplinks.js";
 import {
@@ -118,6 +119,18 @@ export function createBillingStore({
     },
     setBusy: (payBusy) => updateState((s) => ({ ...s, payBusy })),
   });
+
+  const topupPaymentDeps = {
+    billing,
+    getState: (): BillingState => state,
+    updateState,
+    checkoutPromoCode,
+    handlePaymentResponse,
+    showToast,
+    t,
+  };
+  const createTopupPayment = createTopupPaymentAction(false, topupPaymentDeps);
+  const createDeviceTopupPayment = createTopupPaymentAction(true, topupPaymentDeps);
 
   const state = $state<BillingStore>({
     paymentModalOpen: false,
@@ -804,33 +817,6 @@ export function createBillingStore({
     }
   }
 
-  async function createTopupPayment(options: PartnerBalancePaymentOptions = {}) {
-    const s = state;
-    if (!s.selectedTopupPlan || !s.selectedMethod || s.payBusy) return;
-    updateState((s) => ({ ...s, payBusy: true }));
-    try {
-      const response = await billing.postPayment(
-        billing.topupPaymentBody(
-          s.selectedTopupPlan,
-          s.selectedMethod,
-          stringField(s.topupOptions?.tariff_key),
-          checkoutPromoCode(),
-          options.usePartnerBalance,
-          options.balanceSource
-        )
-      );
-      await handlePaymentResponse(response, {}, () => {
-        updateState((s) => ({ ...s, topupModalOpen: false }));
-      });
-    } catch (error: unknown) {
-      if (paymentProviderUnavailable(error) && options.onProviderUnavailable)
-        options.onProviderUnavailable(s.selectedMethod);
-      else showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
-    } finally {
-      updateState((s) => ({ ...s, payBusy: false }));
-    }
-  }
-
   async function loadTariffChangeOptions() {
     const s = state;
     if (s.changeOptions || s.tariffActionBusy) return;
@@ -933,33 +919,6 @@ export function createBillingStore({
       updateState((s) => ({ ...s, deviceTopupModalOpen: false }));
     } finally {
       updateState((s) => ({ ...s, tariffActionBusy: false }));
-    }
-  }
-
-  async function createDeviceTopupPayment(options: PartnerBalancePaymentOptions = {}) {
-    const s = state;
-    if (!s.selectedDeviceTopupPlan || !s.selectedMethod || s.payBusy) return;
-    updateState((s) => ({ ...s, payBusy: true }));
-    try {
-      const response = await billing.postPayment(
-        billing.deviceTopupPaymentBody(
-          s.selectedDeviceTopupPlan,
-          s.selectedMethod,
-          stringField(s.deviceTopupOptions?.tariff_key),
-          checkoutPromoCode(),
-          options.usePartnerBalance,
-          options.balanceSource
-        )
-      );
-      await handlePaymentResponse(response, {}, () => {
-        updateState((s) => ({ ...s, deviceTopupModalOpen: false }));
-      });
-    } catch (error: unknown) {
-      if (paymentProviderUnavailable(error) && options.onProviderUnavailable)
-        options.onProviderUnavailable(s.selectedMethod);
-      else showToast(stringField(asRecord(error).message) || t("wa_payment_create_failed"));
-    } finally {
-      updateState((s) => ({ ...s, payBusy: false }));
     }
   }
 

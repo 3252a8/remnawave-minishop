@@ -12,7 +12,12 @@ from bot.app.web.context import (
 )
 from bot.app.web.message_image_responses import message_image_response
 from bot.app.web.request_parsing import parse_body_with_optional_image_or_400
-from bot.app.web.support_schemas import SupportMessageOut, SupportTicketOut, SupportTypingIn
+from bot.app.web.support_schemas import (
+    SupportMessageOut,
+    SupportPaymentOut,
+    SupportTicketOut,
+    SupportTypingIn,
+)
 from bot.app.web.telegram_emoji_media import emoji_media_response
 from bot.services.broadcast_personalization import telegram_html_error
 from bot.services.message_image_service import (
@@ -21,11 +26,13 @@ from bot.services.message_image_service import (
     prepare_message_image,
 )
 from bot.services.support_message_body import SupportBodyError
+from bot.services.support_payment_body import SupportPaymentUnavailable
 from bot.services.support_presence import is_support_typing, set_support_typing
 from bot.services.support_service import TicketForbidden, TicketNotFound, TicketRateLimited
 from bot.services.telegram_emoji_catalog import TelegramEmojiError, media
 from config.telegram_menu import CUSTOM_EMOJI_ID_RE
 from db.dal import support_dal, user_dal
+from db.dal.support_payment_dal import SUPPORT_PAYMENT_RECENT_DAYS, list_support_payments
 from db.models import SupportTicket, SupportTicketMessage
 
 from .common import (
@@ -77,6 +84,20 @@ async def support_tickets_route(request: web.Request) -> web.Response:
     )
 
 
+async def support_payment_options_route(request: web.Request) -> web.Response:
+    user_id = _require_user_id(request)
+    async with get_session_factory(request)() as session:
+        user = await user_dal.get_user_by_id(session, user_id)
+        if not user or user.is_banned or not get_settings(request).support_settings.tickets_enabled:
+            return _json_error(403, "ticket_forbidden", "Support ticket action is forbidden")
+        payments = await list_support_payments(session, user_id)
+        items = [
+            SupportPaymentOut.from_orm_payment(payment).model_dump(mode="json")
+            for payment in payments
+        ]
+    return json_response({"ok": True, "items": items, "recent_days": SUPPORT_PAYMENT_RECENT_DAYS})
+
+
 def _invalid_body_response(body: str, body_format: str) -> web.Response | None:
     """Reject markup Telegram would refuse before it reaches the ticket.
 
@@ -118,6 +139,11 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
             payload.body,
             body_format=payload.body_format,
             image=image,
+            payment_id=payload.payment_id,
+        )
+    except SupportPaymentUnavailable:
+        return _json_error(
+            400, "support_payment_unavailable", "Select another payment or send without one"
         )
     except SupportBodyError:
         return _json_error(400, "empty_text", "Message is empty")

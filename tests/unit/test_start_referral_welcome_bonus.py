@@ -4,10 +4,45 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
 from bot.handlers.user.start import start_command_handler
+from bot.services.registration_invite_gate import RegistrationInviteCheck, RegistrationInviteStatus
 from config.settings_models import ReferralSettings
 
 
 class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
+    async def test_configured_invitation_reaches_gate_without_advertising_attribution(self):
+        for payload, expected in (
+            ("join_r_ABC123XYZ", "uABC123XYZ"),
+            ("join_p_PARTNER123", "p_PARTNER123"),
+        ):
+            with self.subTest(payload=payload):
+                message = self._message()
+                message.text = f"/start {payload}"
+                gate = AsyncMock(
+                    return_value=RegistrationInviteCheck(
+                        enabled=True, status=RegistrationInviteStatus.INVALID
+                    )
+                )
+                with (
+                    patch(
+                        "bot.handlers.user.start_flow.user_dal.get_user_by_telegram_id",
+                        AsyncMock(return_value=None),
+                    ),
+                    patch("bot.handlers.user.start_flow.evaluate_registration_invite", gate),
+                ):
+                    await start_command_handler(
+                        message=message,
+                        state=SimpleNamespace(clear=AsyncMock()),
+                        settings=self._settings(INVITE_LINK_PREFIX="join"),
+                        i18n_data={},
+                        subscription_service=SimpleNamespace(),
+                        referral_service=AsyncMock(),
+                        session=AsyncMock(),
+                        ad_param_match=Mock(),
+                    )
+                self.assertEqual(gate.await_args.args[1], expected)
+                self.capture.assert_not_awaited()
+                message.answer.assert_awaited_once_with("registration_invite_required")
+
     async def asyncSetUp(self):
         self.capture = AsyncMock(return_value=None)
         guard = patch("bot.services.advertising.capture.capture_contact", self.capture)
@@ -412,3 +447,76 @@ class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
         self.assertIsNone(created_user.referral_welcome_bonus_claimed_at)
         sent = [call.args[0] for call in message.answer.await_args_list if call.args]
         self.assertIn("referral_welcome_bonus_added_to_trial", sent)
+
+    async def test_gift_start_registers_without_referral_and_redacts_behavior_event(self):
+        from bot.handlers.user import gifts
+        from db.gift_models import SubscriptionGift
+        from db.models import Payment, User
+
+        token = "R" * 43
+        message = self._message()
+        message.text = f"/start gift_{token}"
+        message.chat.type = "private"
+        state = AsyncMock()
+        session = AsyncMock()
+        user = User(user_id=20, telegram_id=42, is_banned=False, language_code="en")
+        gift = SubscriptionGift(payment_id=77, purchaser_id=10, token=token, status="ready")
+        with (
+            patch(
+                "bot.handlers.user.start_flow.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=None),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.user_dal.create_user",
+                AsyncMock(return_value=(user, True)),
+            ) as create,
+            patch(
+                "bot.services.registration_invite_gate.gift_dal.by_token",
+                AsyncMock(return_value=gift),
+            ),
+            patch(
+                "bot.services.registration_invite_gate.payment_dal.get_payment_by_db_id",
+                AsyncMock(return_value=Payment(status="succeeded")),
+            ),
+            patch(
+                "bot.services.partner_program_service.PartnerProgramService.auto_enroll_user",
+                AsyncMock(),
+            ),
+            patch(
+                "bot.handlers.user.start_flow.ensure_required_channel_subscription",
+                AsyncMock(return_value=True),
+            ),
+            patch("bot.handlers.user.start_flow.emit_bot_started", AsyncMock()) as emit,
+            patch.object(gifts, "show_gift_preview", AsyncMock()) as preview,
+        ):
+            await start_command_handler(
+                message,
+                state,
+                self._settings(REGISTRATION_INVITE_ONLY_ENABLED=True),
+                {"current_language": "en"},
+                AsyncMock(),
+                AsyncMock(),
+                session,
+            )
+        self.assertIsNone(create.await_args.args[1]["referred_by_id"])
+        self.assertEqual(preview.await_args.kwargs["token"], token)
+        self.assertIsNone(emit.await_args.kwargs["start_param"])
+        self.assertEqual(self.capture.await_args.kwargs["code"], "")
+        state.update_data.assert_awaited_once_with(pending_gift_token=token)
+
+    async def test_gift_start_rejects_bad_token_and_group_without_registering(self):
+        for chat_type, argument in (("private", "gift_bad"), ("group", "gift_" + "R" * 43)):
+            message = self._message()
+            message.text = f"/start {argument}"
+            message.chat.type = chat_type
+            with patch("bot.handlers.user.start_flow.user_dal.create_user", AsyncMock()) as create:
+                await start_command_handler(
+                    message,
+                    AsyncMock(),
+                    self._settings(),
+                    {},
+                    AsyncMock(),
+                    AsyncMock(),
+                    AsyncMock(),
+                )
+            create.assert_not_awaited()

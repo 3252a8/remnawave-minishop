@@ -260,6 +260,7 @@
 />
 
 <TariffDialogs
+  currentLang={user.language_code || "ru"}
   {api}
   bind:changeConfirmOpen={billingStore.changeConfirmOpen}
   bind:changeModalOpen={billingStore.changeModalOpen}

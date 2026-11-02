@@ -27,6 +27,8 @@
   import ProviderLogo from "./ProviderLogo.svelte";
   import QrLoginDialog from "./QrLoginDialog.svelte";
   import { parseQrLoginCode } from "$lib/webapp/qrLogin.js";
+  import { externalOAuthNeedsBrowser } from "$lib/webapp/externalOAuthBrowser.js";
+  import ExternalOAuthBrowserHint from "./ExternalOAuthBrowserHint.svelte";
 
   type WebappConfig = Record<string, unknown> & {
     authProviders?: string[];
@@ -159,9 +161,13 @@
       .filter((provider) =>
         provider === "email" ? emailAuthEnabled && compactEmail : authProviders.includes(provider)
       )
+      .filter((provider) => !externalOAuthNeedsBrowser(provider))
       .sort((left, right) => Number(isCompact(left)) - Number(isCompact(right)))
   );
   const showEmailForm = $derived(emailAuthEnabled && (!compactEmail || emailFormOpen));
+  const externalBrowserRequired = $derived(
+    authProviders.some((provider) => externalOAuthNeedsBrowser(provider))
+  );
   const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
   const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
   const showLanguageSelect = $derived(languageOptions.length > 1);
@@ -179,6 +185,7 @@
   }
 
   function openProvider(provider: string): void {
+    if (externalOAuthNeedsBrowser(provider)) return;
     window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang));
   }
 
@@ -499,6 +506,9 @@
                   {/if}
                 {/each}
               </div>
+              {#if externalBrowserRequired}
+                <ExternalOAuthBrowserHint {t} />
+              {/if}
               {#if qrApprovalPending}
                 <StatusMessage class="auth-login-status">
                   {t("wa_qr_login_signed_out_hint")}

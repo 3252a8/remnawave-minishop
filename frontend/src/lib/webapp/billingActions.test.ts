@@ -47,6 +47,28 @@ describe("billing error translation", () => {
 });
 
 describe("billingActions partner balance funding", () => {
+  it.each(["topupPaymentBody", "deviceTopupPaymentBody"] as const)(
+    "%s sends the day quote without mixing promo codes or money balances",
+    (action) => {
+      const actions = createBillingActions({ api: vi.fn() });
+      const plan = {
+        months: 2,
+        traffic_gb: 50,
+        device_count: 2,
+        tariff_key: "pro",
+        subscription_days: { eligible: true, quote_token: "signed-days-quote" },
+      };
+      const body = actions[action](plan, "subscription_days", "pro", "SALE", true, "partner");
+      expect(body).toMatchObject({
+        method: "subscription_days",
+        tariff_key: "pro",
+        quote_token: "signed-days-quote",
+      });
+      expect(body).not.toHaveProperty("promo_code");
+      expect(body).not.toHaveProperty("balance_source");
+      expect(body).not.toHaveProperty("use_partner_balance");
+    }
+  );
   it("keeps the recurring balance consent and flexible limits in subscription payments", () => {
     const actions = createBillingActions({ api: vi.fn() });
     const body = actions.planPaymentBody(

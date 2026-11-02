@@ -43,6 +43,7 @@ export type TariffEditorTab = "general" | "pricing" | "topup" | "premium" | "hwi
 export type TariffsState = {
   tariffsCatalog: TariffsCatalog;
   tariffsPath: string;
+  botUsername: string;
   tariffsLoading: boolean;
   tariffsSaving: boolean;
   tariffEditorOpen: boolean;
@@ -155,6 +156,7 @@ export function createTariffsStore({
       tariffs: [],
     },
     tariffsPath: "",
+    botUsername: "",
     tariffsLoading: false,
     tariffsSaving: false,
     tariffEditorOpen: false,
@@ -226,6 +228,7 @@ export function createTariffsStore({
           ...s,
           tariffsCatalog: normalizeCatalog(result.catalog),
           tariffsPath: result.path || "",
+          botUsername: result.bot_username || "",
           providerCurrencySupport: normalizeProviderCurrencySupport(
             result.provider_currency_support
           ),
@@ -401,6 +404,7 @@ export function createTariffsStore({
           ...s,
           tariffsCatalog: normalizeCatalog(result.catalog),
           tariffsPath: result.path || currentPath,
+          botUsername: result.bot_username || "",
           providerCurrencySupport: normalizeProviderCurrencySupport(
             result.provider_currency_support || s.providerCurrencySupport || []
           ),

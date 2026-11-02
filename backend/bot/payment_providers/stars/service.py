@@ -12,6 +12,7 @@ from bot.keyboards.inline.user_keyboards import payment_methods_back_callback
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult, checkout_promo_payment_fields
 from bot.services.subscription_order_terms import freeze_subscription_terms
+from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_message_or_none
 from config.settings import Settings
 from db.dal import payment_dal
@@ -95,6 +96,7 @@ class StarsService:
         months: int,
         stars_price: int,
         description: str,
+        chat_id: int,
         sale_mode: str = "subscription",
         hwid_quote: dict[str, Any] | None = None,
         entitlement_context_snapshot: str | None = None,
@@ -149,7 +151,7 @@ class StarsService:
         prices = [LabeledPrice(label=description, amount=stars_price)]
         try:
             await self.bot.send_invoice(
-                chat_id=user_id,
+                chat_id=chat_id,
                 title=description,
                 description=description,
                 payload=payload,
@@ -229,7 +231,7 @@ class StarsService:
 
         target_user_id = payment.user_id
         if target_user_id is None and message.from_user is not None:
-            target_user_id = message.from_user.id
+            target_user_id = await require_telegram_account_id(session, message.from_user.id)
         if target_user_id is None:
             logger.error("Stars: payment %s has no user id.", payment_db_id)
             await session.rollback()
@@ -278,9 +280,10 @@ async def pay_stars_callback_handler(
         await notify_callback_parse_error(callback, translator)
         return
 
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     if not SPEC.is_available_to_user(
         settings,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         require_configured=False,
     ):
         await notify_service_unavailable(callback, translator)
@@ -292,7 +295,7 @@ async def pay_stars_callback_handler(
         return
     parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         parts=parts,
         subscription_service=stars_service.subscription_service,
         currency="stars",
@@ -309,7 +312,8 @@ async def pay_stars_callback_handler(
 
     payment_db_id = await stars_service.create_invoice(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
+        chat_id=callback.from_user.id,
         months=int(parts.months),
         stars_price=stars_price,
         description=payment_description,

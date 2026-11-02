@@ -396,3 +396,24 @@ def test_builtin_lknpd_plugin_respects_existing_service():
     ctx = PluginContext(settings=make_settings(), services={"lknpd_service": sentinel})
     run_setup(ctx)
     assert ctx.services["lknpd_service"] is sentinel
+
+
+def test_root_adds_service_updates_without_losing_existing_types(fresh_core_routers):
+    import bot.routers as routers_mod
+
+    async def handled(event):
+        return None
+
+    routers_mod.user_router_aggregate.message.register(handled)
+    routers_mod.user_router_aggregate.callback_query.register(handled)
+    routers_mod.user_router_aggregate.pre_checkout_query.register(handled)
+    routers_mod.inline_mode.router.inline_query.register(handled)
+    root = build_root_router(make_settings())
+    assert set(root.resolve_used_update_types()) == {
+        "message",
+        "callback_query",
+        "pre_checkout_query",
+        "inline_query",
+        "my_chat_member",
+        "chat_member",
+    }

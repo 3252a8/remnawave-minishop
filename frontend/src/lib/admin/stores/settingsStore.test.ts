@@ -4,6 +4,63 @@ import { QueryClient } from "@tanstack/svelte-query";
 import { createSettingsStore } from "./settingsStore.svelte.js";
 
 describe("settingsStore", () => {
+  it("refreshes required channel diagnostics after changing the saved channel", async () => {
+    const firstCheck = {
+      channel_id: -100123,
+      status: "available",
+      checked_at: "2026-10-24T10:00:00Z",
+    };
+    const nextCheck = {
+      channel_id: -100456,
+      status: "missing_rights",
+      checked_at: "2026-10-24T10:01:00Z",
+    };
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, sections: [], required_channel_diagnostics: firstCheck })
+      .mockResolvedValueOnce({ ok: true, applied: 1, not_applied: [], reverted: 0 })
+      .mockResolvedValueOnce({ ok: true, sections: [], required_channel_diagnostics: nextCheck });
+    const store = createSettingsStore({
+      api: api as never,
+      at: (_key, _params, fallback) => fallback || "",
+      onToast: vi.fn(),
+    });
+    await store.loadSettings();
+    expect(store.requiredChannelDiagnostics).toEqual(firstCheck);
+    store.markDirty("REQUIRED_CHANNEL_ID", -100456);
+
+    await expect(
+      store.saveSettings(() => {
+        expect(store.requiredChannelDiagnostics).toBeNull();
+      })
+    ).resolves.toBe(true);
+
+    expect(store.requiredChannelDiagnostics).toEqual(nextCheck);
+  });
+
+  it("clears diagnostics when an optional response field is absent", async () => {
+    const api = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        sections: [],
+        required_channel_diagnostics: {
+          channel_id: -100123,
+          status: "available",
+          checked_at: "2026-10-24T10:00:00Z",
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, sections: [] });
+    const store = createSettingsStore({
+      api: api as never,
+      at: (_key, _params, fallback) => fallback || "",
+      onToast: vi.fn(),
+    });
+    await store.loadSettings();
+    await store.loadSettings({ refresh: true });
+    expect(store.requiredChannelDiagnostics).toBeNull();
+  });
+
   it("explains rejected payment origins and preserves the unsaved value", async () => {
     const api = vi
       .fn()

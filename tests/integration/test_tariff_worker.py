@@ -1332,6 +1332,71 @@ class TariffWorkerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sub.premium_used_bytes, 0)
             self.assertFalse(sub.premium_is_limited)
 
+    async def test_tariff_squad_sync_drops_manual_squad_deleted_in_panel(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "tariffs.json"
+            config_path.write_text(json.dumps(_tariffs_config_payload()), encoding="utf-8")
+
+            settings = Settings(
+                _env_file=None,
+                BOT_TOKEN="token",
+                POSTGRES_USER="app_user",
+                POSTGRES_PASSWORD="app_password",
+                TARIFFS_CONFIG_PATH=str(config_path),
+            )
+            panel_service = AsyncMock(spec=PanelApiService)
+            panel_service.get_internal_squads = AsyncMock(return_value=[{"uuid": "squad-1"}])
+            panel_service.update_user_details_on_panel = AsyncMock(return_value={"response": {}})
+            subscription_service = SubscriptionService(settings, panel_service)
+            worker = TariffTrafficWorker(
+                settings=settings,
+                session_factory=SimpleNamespace(),
+                panel_service=panel_service,
+                subscription_service=subscription_service,
+            )
+            sub = SimpleNamespace(
+                subscription_id=1,
+                user_id=123,
+                panel_user_uuid="panel-uuid",
+                tariff_managed_squad_uuids='["squad-1"]',
+            )
+            session = AsyncMock(spec=AsyncSession)
+
+            with (
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.deactivate_panel_internal_overrides_for_squads",
+                    new=AsyncMock(return_value=0),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.get_active_internal_squad_uuids",
+                    new=AsyncMock(return_value=["deleted-squad"]),
+                ),
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.deactivate_internal_override",
+                    new=AsyncMock(return_value=1),
+                ) as deactivate_override,
+                patch(
+                    "bot.services.subscription_service_impl.squad_overrides."
+                    "override_dal.get_active_external_override",
+                    new=AsyncMock(return_value=None),
+                ),
+            ):
+                # The squad was deleted in the panel, so its memberships are gone too.
+                await worker._sync_tariff_squads_without_premium(
+                    session,
+                    sub,
+                    settings.tariffs_config.require("standard"),
+                    panel_user_dict={"activeInternalSquads": [{"uuid": "squad-1"}]},
+                    panel_view="full_fetch",
+                )
+
+            panel_service.update_user_details_on_panel.assert_not_awaited()
+            deactivate_override.assert_awaited_once()
+            self.assertEqual(deactivate_override.await_args.kwargs["squad_uuid"], "deleted-squad")
+
     async def test_trial_premium_limit_uses_trial_premium_traffic_limit(self):
         payload = _tariffs_config_payload()
         payload["tariffs"][0]["premium_squad_uuids"] = ["premium-squad"]

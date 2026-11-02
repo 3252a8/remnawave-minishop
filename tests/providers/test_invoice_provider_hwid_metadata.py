@@ -107,6 +107,7 @@ class InvoiceProviderHwidMetadataTests(IsolatedAsyncioTestCase):
             payment_id = await service.create_invoice(
                 session=session,
                 user_id=42,
+                chat_id=123,
                 months=1,
                 stars_price=150,
                 description="Subscription",
@@ -116,6 +117,8 @@ class InvoiceProviderHwidMetadataTests(IsolatedAsyncioTestCase):
 
         assert payment_id == 88
         record_payload = create_record.await_args.args[1]
+        assert record_payload["user_id"] == 42
+        assert bot.send_invoice.await_args.kwargs["chat_id"] == 123
         assert record_payload["subscription_duration_months"] == 1
         assert record_payload["purchased_hwid_devices"] == 1
         assert record_payload["hwid_valid_from"] == valid_from

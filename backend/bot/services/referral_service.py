@@ -12,6 +12,7 @@ from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_accruals import enqueue_period_accrual
 from bot.services.registration_invite_gate import referral_program_enabled
 from bot.services.subscription_order_terms import read_subscription_terms
+from bot.utils.invite_links import invitation_link_prefix
 from bot.utils.referral_links import build_bot_referral_link
 from config.settings import Settings
 from config.subscription_periods import days_to_legacy_months, legacy_months_to_days
@@ -403,7 +404,9 @@ class ReferralService:
                 )
                 return None
 
-            return build_bot_referral_link(bot_username, referral_code)
+            return build_bot_referral_link(
+                bot_username, referral_code, invitation_link_prefix(self.settings)
+            )
         except Exception as exc:
             logger.exception(
                 "Failed to generate referral link for user %s: %s", inviter_user_id, exc

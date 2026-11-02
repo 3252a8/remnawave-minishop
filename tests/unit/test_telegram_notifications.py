@@ -7,7 +7,6 @@ from aiogram.methods import SendMessage
 
 from bot.services import telegram_notifications as module
 from bot.services.telegram_notifications import (
-    TELEGRAM_NOTIFICATIONS_ENABLED,
     telegram_notifications_need_prompt,
 )
 
@@ -64,9 +63,9 @@ def test_probe_telegram_notifications_uses_silent_chat_check(monkeypatch):
 
     bot.get_chat.assert_awaited_once_with(123)
     bot.send_message.assert_not_called()
-    assert result["ok"] is True
-    assert result["status"] == TELEGRAM_NOTIFICATIONS_ENABLED
-    assert recorded == [("session", 42, TELEGRAM_NOTIFICATIONS_ENABLED, 123, None)]
+    assert result["ok"] is False
+    assert result["status"] == "unknown"
+    assert recorded == []
 
 
 def test_record_telegram_notification_failure_persists_blocked_status(monkeypatch):
@@ -89,5 +88,5 @@ def test_record_telegram_notification_failure_persists_blocked_status(monkeypatc
     status = asyncio.run(module.record_telegram_notification_failure(SessionContext, 42, error))
 
     assert status == "blocked"
-    mark_status.assert_awaited_once_with(session, 42, "blocked")
+    mark_status.assert_awaited_once_with(session, 42, "blocked", checked_at=None, telegram_id=None)
     session.commit.assert_awaited_once()

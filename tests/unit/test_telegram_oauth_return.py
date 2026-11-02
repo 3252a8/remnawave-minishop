@@ -130,3 +130,46 @@ def test_security_redirect_allowlist_rejects_external_urls() -> None:
     )
     assert _telegram_oauth_redirect_url("//other.test/settings/security") == "/"
     assert _telegram_oauth_redirect_url("/settings/security/../../other") == "/"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "https://other.test/",
+        "//[invalid",
+        "https:/other.test/",
+        "//other.test/",
+        "/\\other.test/",
+        "\\\\other.test/",
+        "/%2fother.test/",
+        "/checkout/" + "a" * 32 + "/../..//other.test/",
+    ],
+)
+def test_telegram_redirect_rejects_browser_url_variants(path: str) -> None:
+    assert _telegram_oauth_redirect_url(path, status="disabled") == "/?telegram_auth=disabled"
+
+
+def test_telegram_redirect_preserves_checkout_and_encodes_status() -> None:
+    path = "/checkout/" + "ab" * 16
+    location = urlsplit(_telegram_oauth_redirect_url(path, status="error&next=//other.test/#x"))
+    assert location.path == path
+    assert not location.scheme and not location.netloc and not location.fragment
+    assert parse_qs(location.query) == {"telegram_auth": ["error&next=//other.test/#x"]}
+
+
+@pytest.mark.parametrize("failure", ["disabled", "not_configured"])
+@pytest.mark.parametrize("access_code", ["ab" * 16, "//other.test", "/\\other.test"])
+def test_login_start_failure_keeps_redirect_on_shop(failure: str, access_code: str) -> None:
+    settings = _settings()
+    if failure == "disabled":
+        settings.TELEGRAM_LOGIN_ENABLED = False
+    else:
+        settings.TELEGRAM_OAUTH_CLIENT_SECRET = None
+    request = _request(settings)
+    request.query = {"purpose": "login", "tariff_access": access_code}
+    with pytest.raises(web.HTTPFound) as raised:
+        asyncio.run(auth_oauth.telegram_oauth_start_route(request))
+    location = urlsplit(str(raised.value.location))
+    assert not location.scheme and not location.netloc
+    assert location.path == (f"/checkout/{access_code}" if access_code == "ab" * 16 else "/")
+    assert parse_qs(location.query) == {"telegram_auth": [failure]}

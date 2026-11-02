@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.telegram_account import require_telegram_account_id
 from config.settings import Settings
 from db.dal import payment_dal as payment_dal
 from db.dal import subscription_dal as subscription_dal
@@ -740,12 +741,13 @@ async def pay_tribute_callback_handler(
     if not i18n or not callback.message:
         await notify_callback_parse_error(callback, translator)
         return
+    account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     if (
         not tribute_service
         or not tribute_service.configured
         or not SPEC.is_available_to_user(
             settings,
-            user_id=callback.from_user.id,
+            user_id=account_user_id,
             require_configured=False,
         )
     ):
@@ -757,7 +759,7 @@ async def pay_tribute_callback_handler(
         return
     if await _has_active_tribute_recurrence(
         session,
-        user_id=int(callback.from_user.id),
+        user_id=int(account_user_id),
         sale_mode=str(parts.sale_mode),
     ):
         await notify_service_unavailable(callback, translator)
@@ -777,7 +779,7 @@ async def pay_tribute_callback_handler(
         return
     quoted_parts, hwid_quote = await quote_hwid_callback_parts(
         session=session,
-        user_id=callback.from_user.id,
+        user_id=account_user_id,
         parts=parts,
         subscription_service=tribute_service.subscription_service,
         settings=settings,

@@ -62,6 +62,11 @@ def manifest_keys() -> list[str]:
 def coerce_value(field: SettingField, raw: Any) -> Any:
     """Coerce a value coming from JSON to the type declared by the field."""
 
+    if field.key == "INVITE_LINK_PREFIX" and raw is not None:
+        from config.settings_invites import InvitationSettings
+
+        return InvitationSettings(INVITE_LINK_PREFIX=str(raw).strip()).INVITE_LINK_PREFIX
+
     if field.type in {"telegram_menu", "telegram_emoji_library"}:
         from config.telegram_menu import normalized_telegram_setting
 

@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery, Message, TelegramObject, Update, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.account_roles import is_admin
+from bot.services.gift_links import redact_gift_tokens
 from bot.services.message_log_notifier import notify_message_log
 from config.settings import Settings
 from db.dal import message_log_dal, user_dal
@@ -67,11 +68,13 @@ class ActionLoggerMiddleware(BaseMiddleware):
 
         raw_update_snippet = None
         try:
-            raw_update_snippet = update.model_dump_json(exclude_none=True, indent=None)[:1000]
+            raw_update_snippet = redact_gift_tokens(
+                update.model_dump_json(exclude_none=True, indent=None)
+            )[:1000]
         except AttributeError:
-            raw_update_snippet = str(update)[:1000]
+            raw_update_snippet = redact_gift_tokens(str(update))[:1000]
         except Exception:
-            raw_update_snippet = str(update)[:1000]
+            raw_update_snippet = redact_gift_tokens(str(update))[:1000]
 
         current_event_type = update.event_type
 
@@ -90,6 +93,9 @@ class ActionLoggerMiddleware(BaseMiddleware):
             content = cb.data
             action_part = cb.data.split(":")[0] if cb.data and ":" in cb.data else cb.data
             current_event_type = f"callback:{action_part}"
+
+        content = redact_gift_tokens(content) if content else content
+        raw_update_snippet = redact_gift_tokens(raw_update_snippet) if raw_update_snippet else None
 
         if user_id or current_event_type not in ["update"]:
             log_user_id_for_db = user_id

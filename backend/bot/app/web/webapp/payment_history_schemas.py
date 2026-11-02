@@ -50,6 +50,7 @@ class PaymentHistoryItemOut(HttpResponseModel):
     payment_id: int
     provider: str | None = None
     funding_source: str = "external"
+    subscription_days_spent: int | None = None
     amount: float
     currency: str | None = None
     status: str | None = None
@@ -78,6 +79,7 @@ class PaymentHistoryItemOut(HttpResponseModel):
             payment_id=int(payment.payment_id),
             provider=payment.provider,
             funding_source=str(payment.funding_source or "external"),
+            subscription_days_spent=getattr(payment, "subscription_days_spent", None),
             amount=float(payment.amount),
             currency=payment.currency,
             status=payment.status,

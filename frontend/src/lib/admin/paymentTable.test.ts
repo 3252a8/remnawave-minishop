@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  paymentAmountDisplay,
   paymentDescriptionDisplay,
   paymentDiscountDisplay,
   paymentProviderDisplay,
@@ -12,6 +13,17 @@ import en from "../../../../locales/en.json";
 
 const money = (value: number, currency?: string | null): string =>
   `${value.toFixed(2)} ${currency || ""}`.trim();
+
+describe("subscription day payment amount", () => {
+  it.each(["ru", "en"])("shows the separate non-money amount in %s", (language) => {
+    const { t } = createI18n({ messages: { ru, en }, defaultLang: language });
+    const at = (key: string, params = {}) => t(`admin_${key}`, params);
+    expect(
+      paymentAmountDisplay({ amount: 0, currency: "RUB", subscription_days_spent: 7 }, money, at)
+    ).toBe(language === "ru" ? "0.00 RUB · 7 дн." : "0.00 RUB · 7 days");
+    expect(paymentAmountDisplay({ amount: 190, currency: "RUB" }, money, at)).toBe("190.00 RUB");
+  });
+});
 
 describe("paymentDescriptionDisplay", () => {
   it.each([

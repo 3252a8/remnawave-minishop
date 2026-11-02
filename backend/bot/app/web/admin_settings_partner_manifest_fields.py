@@ -4,6 +4,19 @@ from bot.app.web.admin_settings_manifest_types import SettingField
 
 PARTNER_SETTINGS_FIELDS: tuple[SettingField, ...] = (
     SettingField(
+        "INVITE_LINK_PREFIX",
+        "string",
+        "pricing",
+        "Invitation link prefix",
+        "Shared Web App parameter and Telegram prefix for both invitation programs. "
+        "Use 1–16 lowercase Latin letters/digits, starting with a letter. "
+        "Leave blank to generate the legacy formats. Existing ref/partner links remain valid.",
+        subsection="referral",
+        allow_empty=True,
+        i18n_label_key="admin_settings_field_invite_link_prefix_label",
+        i18n_description_key="admin_settings_field_invite_link_prefix_description",
+    ),
+    SettingField(
         "USER_BALANCE_ENABLED",
         "bool",
         "payments",

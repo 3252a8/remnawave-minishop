@@ -5,7 +5,7 @@ import ipaddress
 import re
 import secrets
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from aiohttp import web
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,6 +78,16 @@ def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> st
 
 
 def _telegram_oauth_redirect_url(path: str = "/", *, status: str | None = None) -> str:
+    # Browsers treat backslashes as slashes. Validate the parsed destination as
+    # well as the application route, so it can never introduce an external origin.
+    path = path.replace("\\", "/")
+    try:
+        parsed = urlsplit(path)
+    except ValueError:
+        path = "/"
+        parsed = urlsplit(path)
+    if parsed.scheme or parsed.netloc:
+        path = "/"
     target_path = path if path.startswith("/") else "/"
     if target_path not in {"/", "/settings", "/settings/security"} and not re.fullmatch(
         r"/checkout/[a-f0-9]{32}", target_path
@@ -85,8 +95,7 @@ def _telegram_oauth_redirect_url(path: str = "/", *, status: str | None = None) 
         target_path = "/"
     if not status:
         return target_path
-    separator = "&" if "?" in target_path else "?"
-    return f"{target_path}{separator}telegram_auth={status}"
+    return f"{target_path}?{urlencode({'telegram_auth': status})}"
 
 
 def _set_telegram_oauth_state_cookie(

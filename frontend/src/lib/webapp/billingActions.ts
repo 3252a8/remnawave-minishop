@@ -37,6 +37,7 @@ import type {
   TariffTopupOptionsResponse,
 } from "./publicApi";
 import type { CheckoutAddonSelection } from "./tariffs";
+import { SUBSCRIPTION_DAYS_METHOD, subscriptionDaysQuote } from "./subscriptionDays.js";
 
 type BillingApi = ApiClient["api"];
 type BillingPlan = WebappBillingPlan;
@@ -65,6 +66,7 @@ export function billingErrorMessage(
 }
 
 export type PartnerBalancePaymentOptions = {
+  paymentMethod?: string;
   balanceOnly?: boolean;
   balanceSource?: "user" | "partner" | null;
   balanceAutoRenew?: boolean;
@@ -287,6 +289,12 @@ export function createBillingActions({
       method,
     };
     setOptionalString(body, "tariff_key", plan.tariff_key || fallbackTariffKey);
+    if (method === SUBSCRIPTION_DAYS_METHOD) {
+      delete body.balance_source;
+      delete body.use_partner_balance;
+      body.quote_token = subscriptionDaysQuote(plan)?.quote_token;
+      return body as PostPayload<"/api/payments">;
+    }
     setOptionalString(body, "promo_code", promoCode);
     return body as PostPayload<"/api/payments">;
   }
@@ -308,6 +316,12 @@ export function createBillingActions({
       method,
     };
     setOptionalString(body, "tariff_key", plan.tariff_key || fallbackTariffKey);
+    if (method === SUBSCRIPTION_DAYS_METHOD) {
+      delete body.balance_source;
+      delete body.use_partner_balance;
+      body.quote_token = subscriptionDaysQuote(plan)?.quote_token;
+      return body as PostPayload<"/api/payments">;
+    }
     setOptionalString(body, "promo_code", promoCode);
     return body as PostPayload<"/api/payments">;
   }

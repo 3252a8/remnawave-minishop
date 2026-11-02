@@ -54,11 +54,15 @@ async def _log_telegram_notification_failure(
     user_id: int,
     notification: str,
     exc: Exception,
+    attempted_at: datetime,
+    telegram_id: int,
 ) -> bool:
     telegram_status = await record_telegram_notification_failure(
         ctx.session_factory,
         user_id,
         exc,
+        attempted_at=attempted_at,
+        telegram_id=telegram_id,
     )
     if telegram_status is None:
         return False
@@ -592,6 +596,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             logger.exception("Failed to invalidate payment caches for user %s.", user_id)
 
     async def on_payment_canceled(self, event_name: str, payload: dict[str, Any]) -> None:
+        delivery_observed_at = datetime.now(UTC)
         del event_name
         user_id = payload.get("user_id")
         if user_id is None:
@@ -689,6 +694,8 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     user_id,
                     "canceled_payment",
                     exc,
+                    attempted_at=delivery_observed_at,
+                    telegram_id=chat_id,
                 )
                 if not expected_failure:
                     logger.exception("Failed to notify user %s about canceled payment.", user_id)
@@ -728,6 +735,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
             )
 
     async def on_referral_bonus_granted(self, event_name: str, payload: dict[str, Any]) -> None:
+        delivery_observed_at = datetime.now(UTC)
         del event_name
         if not _truthy(payload.get("inviter_bonus_applied")):
             return
@@ -772,6 +780,8 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                     int(inviter_user_id),
                     "referral_bonus",
                     exc,
+                    attempted_at=delivery_observed_at,
+                    telegram_id=chat_id,
                 )
                 if not expected_failure:
                     logger.exception(

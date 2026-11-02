@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from bot.payment_providers.shared import RecurringChargeContext
 from bot.payment_providers.yookassa import YooKassaConfig, YooKassaService
+from bot.payment_providers.yookassa import payment_request as yookassa_request
 from bot.payment_providers.yookassa import service as yookassa_service
 
 
@@ -319,7 +320,7 @@ class YooKassaRecurringProviderTests(IsolatedAsyncioTestCase):
             )
         )
 
-        with patch.object(yookassa_service, "PaymentRequestBuilder", FakeBuilder):
+        with patch.object(yookassa_request, "PaymentRequestBuilder", FakeBuilder):
             response = await service.create_payment(
                 amount=1.125,
                 currency="RUB",

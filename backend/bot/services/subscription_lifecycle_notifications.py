@@ -205,6 +205,7 @@ class SubscriptionLifecycleNotificationService:
                 return False, False
         if await self._already_sent(session, sub.subscription_id, stage.key, "telegram"):
             return False, False
+        delivery_observed_at = datetime.now(UTC)
         try:
             await self.bot.send_message(chat_id, message_text, reply_markup=markup)
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
@@ -214,6 +215,8 @@ class SubscriptionLifecycleNotificationService:
                     session,
                     int(user.user_id),
                     delivery_status,
+                    checked_at=delivery_observed_at,
+                    telegram_id=chat_id,
                 )
             if delivery_status:
                 logger.warning(
@@ -264,7 +267,7 @@ class SubscriptionLifecycleNotificationService:
                     int(user.user_id),
                     TELEGRAM_NOTIFICATIONS_ENABLED,
                     telegram_id=chat_id,
-                    checked_at=sent_at,
+                    checked_at=delivery_observed_at,
                 )
         return True, False
 

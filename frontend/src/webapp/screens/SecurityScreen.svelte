@@ -22,6 +22,8 @@
   import { passkeyRegistrationBlockReason, registerPasskey } from "$lib/webapp/passkeys.js";
   import type { Translate, UserProfile, VoidAction } from "$lib/webapp/types.js";
   import ProviderLogo from "../auth/ProviderLogo.svelte";
+  import ExternalOAuthBrowserHint from "../auth/ExternalOAuthBrowserHint.svelte";
+  import { externalOAuthNeedsBrowser } from "$lib/webapp/externalOAuthBrowser.js";
   import ChangeEmailDialog from "../security/ChangeEmailDialog.svelte";
 
   type ExternalIdentity = {
@@ -94,6 +96,11 @@
     ]).filter((provider) => !["telegram", "email", "passkey", "qr"].includes(provider))
   );
   const passkeyEnabled = $derived(authProviders.includes("passkey"));
+  const externalBrowserRequired = $derived(
+    externalProviders.some((provider) =>
+      externalOAuthNeedsBrowser(provider, telegramMiniAppContext)
+    )
+  );
   const showPasskeys = $derived(passkeyEnabled || passkeys.length > 0);
   const emailEnabled = $derived(
     emailAuthEnabled && (authProviders.includes("email") || Boolean(user.email))
@@ -141,6 +148,7 @@
   }
 
   function linkExternal(provider: string): void {
+    if (externalOAuthNeedsBrowser(provider, telegramMiniAppContext)) return;
     window.location.assign(buildExternalOAuthStartUrl(provider, "link", currentLang));
   }
 
@@ -383,12 +391,14 @@
             class="settings-row"
             type="button"
             onclick={() => linkExternal(provider)}
-            disabled={busy}
+            disabled={busy || externalOAuthNeedsBrowser(provider, telegramMiniAppContext)}
           >
             <ProviderLogo {provider} size={21} />
             <span
               ><strong>{label}</strong><small
-                >{t("wa_security_link_provider", {}, "Link account")}</small
+                >{externalOAuthNeedsBrowser(provider, telegramMiniAppContext)
+                  ? t("wa_external_oauth_link_in_browser")
+                  : t("wa_security_link_provider", {}, "Link account")}</small
               ></span
             >
             <ArrowRight size={17} />
@@ -396,6 +406,9 @@
         {/if}
       {/each}
     </div>
+    {#if externalBrowserRequired}
+      <ExternalOAuthBrowserHint {t} security />
+    {/if}
   </Card>
 
   {#if emailAuthEnabled && emailAddresses.length}

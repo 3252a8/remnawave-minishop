@@ -76,6 +76,7 @@ async def verify_channel_subscription_callback(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -83,7 +84,7 @@ async def verify_channel_subscription_callback(
     db_user = await user_dal.get_user_by_telegram_id(session, callback.from_user.id)
 
     verified = await ensure_required_channel_subscription(
-        callback, settings, i18n, current_lang, session, db_user
+        callback, settings, i18n, current_lang, session, db_user, force=True
     )
     if not verified:
         return
@@ -96,6 +97,21 @@ async def verify_channel_subscription_callback(
         _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     else:
         _ = lambda key, **kwargs: key
+
+    pending = (await state.get_data()).get("pending_gift_token") if state else None
+    if isinstance(pending, str) and db_user and callback.message:
+        from .gifts import show_gift_preview
+
+        await safe_answer_callback(callback)
+        await show_gift_preview(
+            callback_message(callback),
+            token=pending,
+            user=db_user,
+            settings=settings,
+            i18n_data=i18n_data,
+            session=session,
+        )
+        return
 
     if not settings.DISABLE_WELCOME_MESSAGE:
         welcome_text = _(key="welcome", user_name=hd.quote(callback.from_user.full_name))

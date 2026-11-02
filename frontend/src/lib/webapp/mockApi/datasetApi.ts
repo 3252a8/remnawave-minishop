@@ -117,10 +117,12 @@ export function demoApiResponse(
       ],
       checked_at: new Date().toISOString(),
       panel_compatibility: {
-        version: "3.4.5",
+        version: "3.4.7",
         generation: "rw3-numeric-user-id",
         support_status: "current",
         certified_versions: [
+          "3.4.7",
+          "3.4.6",
           "3.4.5",
           "3.4.4",
           "3.4.3",
@@ -636,8 +638,25 @@ export function demoApiResponse(
       reverted: deletes.length,
     };
   }
-  if (cleanPath === "/admin/settings")
-    return { ok: true, sections: demoSettingsSections(clone), features: [] };
+  if (cleanPath === "/admin/settings") {
+    const sections = demoSettingsSections(clone);
+    const channelId = Number(
+      sections
+        .flatMap((section) => section.fields || [])
+        .find((field) => field.key === "REQUIRED_CHANNEL_ID")?.value
+    );
+    const configured = Number.isSafeInteger(channelId) && channelId !== 0;
+    return {
+      ok: true,
+      sections,
+      features: [],
+      required_channel_diagnostics: {
+        channel_id: configured ? channelId : null,
+        status: configured ? "available" : "disabled",
+        checked_at: configured ? new Date().toISOString() : null,
+      },
+    };
+  }
 
   if (cleanPath === "/documents" && method === "GET") {
     return {
@@ -715,6 +734,7 @@ export function demoApiResponse(
     return {
       ok: true,
       path: "data/tariffs.json",
+      bot_username: "preview_bot",
       catalog: clone(demoTariffs()),
       provider_currency_support: demoProviderCurrencySupport(),
     };

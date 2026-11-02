@@ -19,6 +19,7 @@
     AdminSelect,
   } from "$components/patterns/admin/index.js";
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
+  import RequiredChannelDiagnostic from "./RequiredChannelDiagnostic.svelte";
   import AdministratorsSubsection from "./AdministratorsSubsection.svelte";
   import PaymentMethodsOrderField from "./PaymentMethodsOrderField.svelte";
   import BalanceSettingsLink from "./BalanceSettingsLink.svelte";
@@ -66,10 +67,12 @@
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
   type DynamicComponent = ComponentType<SvelteComponent<Record<string, unknown>>>;
-  const telegramMenuSettings = createTelegramMenuSettingsAdapter(getSettingsStore(), getAdminApi());
+  const settingsStore = getSettingsStore();
+  const telegramMenuSettings = createTelegramMenuSettingsAdapter(settingsStore, getAdminApi());
   onMount(telegramMenuSettings.subscribeDraftInvalidation);
   let {
     at,
+    currentLang = "ru",
     appRepositoryUrl = "https://minishop.minidoc.cc/",
     settingsLoading,
     extraDirtyCount = 0,
@@ -123,6 +126,7 @@
     menuButtonLanguages = [],
   }: {
     at: TranslateFn;
+    currentLang?: string;
     appRepositoryUrl?: string;
     settingsLoading: boolean;
     extraDirtyCount?: number;
@@ -586,6 +590,14 @@
         {#if fieldDescriptionText(field)}
           <small>{fieldDescriptionText(field)}</small>
         {/if}
+        {#if field.key === "REQUIRED_CHANNEL_ID"}
+          <RequiredChannelDiagnostic
+            {at}
+            {currentLang}
+            diagnostics={settingsStore.requiredChannelDiagnostics}
+            changed={Boolean(settingsDirty[field.key])}
+          />
+        {/if}
       </div>
       <div class="admin-setting-control">
         {#if field.type === "bool" || field.key === "SUBSCRIPTION_LINK_MODE"}
@@ -672,6 +684,7 @@
           <Input
             class="input"
             type="number"
+            aria-label={fieldLabelText(field)}
             step={field.type === "float" ? "0.1" : "1"}
             min={field.min ?? undefined}
             max={field.max ?? undefined}

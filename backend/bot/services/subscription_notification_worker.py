@@ -478,6 +478,7 @@ class SubscriptionNotificationWorker:
             user,
             telegram_available=telegram_chat_id > 0 and can_try_telegram,
         )
+        delivery_observed_at = datetime.now(UTC)
         if send_telegram and plan.telegram and self.bot is not None:
             try:
                 await self.bot.send_message(
@@ -501,7 +502,13 @@ class SubscriptionNotificationWorker:
             except Exception as exc:
                 status = telegram_notification_status_from_error(exc)
                 if status and user and user_id:
-                    await mark_telegram_notifications_status(session, user_id, status)
+                    await mark_telegram_notifications_status(
+                        session,
+                        user_id,
+                        status,
+                        checked_at=delivery_observed_at,
+                        telegram_id=telegram_chat_id,
+                    )
                 logger.exception(
                     "Failed to send trial traffic depleted warning to user %s",
                     telegram_chat_id,
@@ -513,6 +520,7 @@ class SubscriptionNotificationWorker:
                         user_id,
                         TELEGRAM_NOTIFICATIONS_ENABLED,
                         telegram_id=telegram_chat_id,
+                        checked_at=delivery_observed_at,
                     )
         if send_email and plan.email and user:
             email_sent = await send_user_notification_email(

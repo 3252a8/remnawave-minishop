@@ -4402,6 +4402,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/support/payment-options": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Support Payment Options */
+    get: operations["get_support_payment_options_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/support/tickets": {
     parameters: {
       query?: never;
@@ -6323,6 +6340,11 @@ export interface components {
       status: string;
       /** Tariff Title */
       tariff_title: string;
+      /**
+       * Telegram Link
+       * @default null
+       */
+      telegram_link: string | null;
       /** Total Amount */
       total_amount: number;
       /** User Balance Amount */
@@ -7181,6 +7203,8 @@ export interface components {
       features: string[];
       /** Partner Encryption Available */
       partner_encryption_available: boolean;
+      /** @default null */
+      required_channel_diagnostics: components["schemas"]["RequiredChannelDiagnostics"] | null;
       /** Sections */
       sections: components["schemas"]["AdminSettingsSectionOut"][];
     };
@@ -7812,6 +7836,11 @@ export interface components {
     };
     /** AdminTariffsOut */
     AdminTariffsOut: {
+      /**
+       * Bot Username
+       * @default
+       */
+      bot_username: string;
       catalog: components["schemas"]["AdminTariffsCatalogOut"];
       /** Exists */
       exists: boolean;
@@ -8685,6 +8714,11 @@ export interface components {
        */
       category: "billing" | "technical" | "account" | "other";
       /**
+       * Payment Id
+       * @default null
+       */
+      payment_id: number | null;
+      /**
        * Priority
        * @default normal
        * @enum {string}
@@ -9213,6 +9247,11 @@ export interface components {
       status: string;
       /** Tariff Title */
       tariff_title: string;
+      /**
+       * Telegram Link
+       * @default null
+       */
+      telegram_link: string | null;
     };
     /** HiddenMenuButton */
     HiddenMenuButton: {
@@ -10148,6 +10187,11 @@ export interface components {
        */
       status: string | null;
       /**
+       * Subscription Days Spent
+       * @default null
+       */
+      subscription_days_spent: number | null;
+      /**
        * Subscription Duration Days
        * @default null
        */
@@ -10279,6 +10323,11 @@ export interface components {
        */
       status: string | null;
       /**
+       * Subscription Days Spent
+       * @default null
+       */
+      subscription_days_spent: number | null;
+      /**
        * Subscription Duration Days
        * @default null
        */
@@ -10387,6 +10436,11 @@ export interface components {
        * @default null
        */
       status: string | null;
+      /**
+       * Subscription Days Spent
+       * @default null
+       */
+      subscription_days_spent: number | null;
       /**
        * Subscription Duration Days
        * @default null
@@ -11133,6 +11187,24 @@ export interface components {
       /** Url */
       url: string;
     };
+    /** RequiredChannelDiagnostics */
+    RequiredChannelDiagnostics: {
+      /**
+       * Channel Id
+       * @default null
+       */
+      channel_id: number | null;
+      /**
+       * Checked At
+       * @default null
+       */
+      checked_at: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "disabled" | "available" | "missing_rights" | "unavailable";
+    };
     /** ServerStatus */
     ServerStatus: {
       /** Enabled */
@@ -11352,6 +11424,40 @@ export interface components {
       read_by_user_at: string | null;
       /** Ticket Id */
       ticket_id: number;
+    };
+    /** SupportPaymentOut */
+    SupportPaymentOut: {
+      /** Amount */
+      amount: number;
+      /**
+       * Created At
+       * @default null
+       */
+      created_at: string | null;
+      /**
+       * Currency
+       * @default null
+       */
+      currency: string | null;
+      /**
+       * History State
+       * @enum {string}
+       */
+      history_state:
+        | "awaiting_payment"
+        | "processing"
+        | "crediting"
+        | "review"
+        | "completed"
+        | "refunded"
+        | "failed";
+      /** Payment Id */
+      payment_id: number;
+      /**
+       * Provider
+       * @default null
+       */
+      provider: string | null;
     };
     /** SupportTicketOut */
     SupportTicketOut: {
@@ -12580,6 +12686,11 @@ export interface components {
        */
       promo_code: string | null;
       /**
+       * Quote Token
+       * @default null
+       */
+      quote_token: string | null;
+      /**
        * Renew Hwid Devices
        * @default null
        */
@@ -12694,6 +12805,11 @@ export interface components {
       payer_phone: string | null;
       /** Promo Code */
       promo_code: string;
+      /**
+       * Quote Token
+       * @default null
+       */
+      quote_token: string | null;
       /**
        * Renew Hwid Devices
        * @default null
@@ -12820,6 +12936,11 @@ export interface components {
        * @default null
        */
       promo_code: string | null;
+      /**
+       * Quote Token
+       * @default null
+       */
+      quote_token: string | null;
       /**
        * Renew Hwid Devices
        * @default null
@@ -12967,6 +13088,11 @@ export interface components {
       faviconUrl: string;
       /** Faviconusecustom */
       faviconUseCustom: boolean;
+      /**
+       * Invitelinkprefix
+       * @default discount
+       */
+      inviteLinkPrefix: string;
       /** Language */
       language: string;
       /** Languages */
@@ -15403,6 +15529,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20166,6 +20303,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20575,6 +20723,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20794,6 +20953,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;
@@ -20933,6 +21103,17 @@ export interface operations {
                 sale_mode?: string;
                 squad_uuids?: string[];
                 stars_price?: number;
+                subscription_days?: {
+                  currency: string;
+                  current_expires_at: string | null;
+                  days_to_charge: number | null;
+                  disabled_reason: string | null;
+                  eligible: boolean;
+                  minimum_remaining_days: number;
+                  next_expires_at: string | null;
+                  price_amount: number | null;
+                  quote_token: string | null;
+                };
                 subtitle?: string;
                 tariff_key?: string;
                 tariff_name?: string;
@@ -21936,6 +22117,31 @@ export interface operations {
       };
     };
   };
+  get_support_payment_options_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["SupportPaymentOut"][];
+            /** @constant */
+            ok: true;
+            recent_days: number;
+          };
+        };
+      };
+    };
+  };
   get_support_tickets_route: {
     parameters: {
       query?: never;
@@ -22373,6 +22579,17 @@ export interface operations {
               sale_mode?: string;
               squad_uuids?: string[];
               stars_price?: number;
+              subscription_days?: {
+                currency: string;
+                current_expires_at: string | null;
+                days_to_charge: number | null;
+                disabled_reason: string | null;
+                eligible: boolean;
+                minimum_remaining_days: number;
+                next_expires_at: string | null;
+                price_amount: number | null;
+                quote_token: string | null;
+              };
               subtitle?: string;
               tariff_key?: string;
               tariff_name?: string;

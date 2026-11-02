@@ -485,6 +485,9 @@ async def merge_users(
         target.channel_subscription_verified = source.channel_subscription_verified
     if not target.channel_subscription_checked_at and source.channel_subscription_checked_at:
         target.channel_subscription_checked_at = source.channel_subscription_checked_at
+        target.channel_subscription_observation_order = (
+            source.channel_subscription_observation_order
+        )
     if not target.channel_subscription_verified_for and source.channel_subscription_verified_for:
         target.channel_subscription_verified_for = source.channel_subscription_verified_for
     source_tg_status = str(getattr(source, "telegram_notifications_status", None) or "unknown")
@@ -498,6 +501,9 @@ async def merge_users(
         or source.telegram_notifications_checked_at > target.telegram_notifications_checked_at
     ):
         target.telegram_notifications_checked_at = source.telegram_notifications_checked_at
+        target.telegram_notifications_observation_order = (
+            source.telegram_notifications_observation_order
+        )
     if getattr(source, "telegram_notifications_enabled_at", None) and (
         not getattr(target, "telegram_notifications_enabled_at", None)
         or source.telegram_notifications_enabled_at > target.telegram_notifications_enabled_at

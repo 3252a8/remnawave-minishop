@@ -69,11 +69,23 @@ def request_bytes(
         data = json.dumps(payload).encode()
         request_headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=request_headers, method=method)
-    with urllib.request.build_opener(NoRedirect()).open(request, timeout=30) as response:
-        content = response.read(8 * 1024 * 1024 + 1)
-        if response.status not in {200, 201} or len(content) > 8 * 1024 * 1024:
-            raise ValueError(f"Unexpected deployment response from {url}")
-        return bytes(content)
+    opener = urllib.request.build_opener(NoRedirect())
+    retries = 0
+    while True:
+        try:
+            with opener.open(request, timeout=30) as response:
+                content = response.read(8 * 1024 * 1024 + 1)
+                if response.status not in {200, 201} or len(content) > 8 * 1024 * 1024:
+                    raise ValueError(f"Unexpected deployment response from {url}")
+                return bytes(content)
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            if request.get_method() != "GET" or data is not None or retries == 2:
+                raise
+            retries += 1
+            print(f"Retrying documentation GET after network failure ({retries}/2)", flush=True)
+            time.sleep(2**retries)
 
 
 def assert_source_head(sha: str, branch: str) -> None:
@@ -201,6 +213,25 @@ def verify_publication(origins: list[str], files: dict[str, str]) -> None:
             time.sleep(15)
 
 
+def retryable_upload_failure(output: Path) -> bool:
+    try:
+        entries = [
+            object_dict(json.loads(line))
+            for line in output.read_text(encoding="utf-8").splitlines()
+        ]
+    except (OSError, ValueError):
+        return False
+    for entry in entries:
+        message = entry.get("message")
+        if (
+            entry.get("type") == "command-failed"
+            and isinstance(message, str)
+            and (message == "fetch failed" or message.startswith("Failed to upload files."))
+        ):
+            return True
+    return False
+
+
 def publish(dist: Path, sha: str, branch: str, output: Path) -> str:
     project = PROJECTS[branch]
     files = file_hashes(dist, sha, branch)
@@ -209,31 +240,43 @@ def publish(dist: Path, sha: str, branch: str, output: Path) -> str:
     if wrangler is None:
         raise RuntimeError("The pinned Wrangler CLI is required")
     configure_project(project, branch)
-    output.unlink(missing_ok=True)
-    subprocess.run(
-        [
-            wrangler,
-            "pages",
-            "deploy",
-            str(dist.resolve()),
-            "--project-name",
-            project,
-            "--branch",
-            branch,
-            "--commit-hash",
-            sha,
-            "--commit-message",
-            f"Documentation {sha}",
-            "--commit-dirty=false",
-        ],
-        cwd=dist.resolve().parent,
-        check=True,
-        env={
-            **os.environ,
-            "WRANGLER_SEND_METRICS": "false",
-            "WRANGLER_OUTPUT_FILE_PATH": str(output.resolve()),
-        },
-    )
+    command = [
+        wrangler,
+        "pages",
+        "deploy",
+        str(dist.resolve()),
+        "--project-name",
+        project,
+        "--branch",
+        branch,
+        "--commit-hash",
+        sha,
+        "--commit-message",
+        f"Documentation {sha}",
+        "--commit-dirty=false",
+    ]
+    for skip_caching in (False, True):
+        if skip_caching:
+            time.sleep(5)
+            assert_source_head(sha, branch)
+        output.unlink(missing_ok=True)
+        try:
+            subprocess.run(
+                [*command, *(["--skip-caching"] if skip_caching else [])],
+                cwd=dist.resolve().parent,
+                check=True,
+                env={
+                    **os.environ,
+                    "WRANGLER_SEND_METRICS": "false",
+                    "WRANGLER_OUTPUT_FILE_PATH": str(output.resolve()),
+                },
+            )
+        except subprocess.CalledProcessError:
+            if skip_caching or not retryable_upload_failure(output):
+                raise
+            print("Retrying documentation asset upload without cache", flush=True)
+        else:
+            break
     entries = [
         object_dict(json.loads(line)) for line in output.read_text(encoding="utf-8").splitlines()
     ]

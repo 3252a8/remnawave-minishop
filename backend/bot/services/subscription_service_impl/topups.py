@@ -306,6 +306,8 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         payment_db_id: int,
         provider: str = "yookassa",
         promo_code_id_from_payment: int | None = None,
+        *,
+        notify: bool = True,
     ) -> dict[str, Any] | None:
         tariff = self._resolve_tariff(tariff_key)
         if tariff.billing_model == "traffic":
@@ -468,15 +470,16 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
             purchased_bytes=purchase_bytes,
             kind="topup",
         )
-        await self._send_payment_success_email(
-            db_user=db_user,
-            sale_mode="topup",
-            months=0,
-            traffic_gb=float(granted_gb),
-            payment_amount=payment_amount,
-            end_date=getattr(updated_sub, "end_date", None),
-            provider=provider,
-        )
+        if notify:
+            await self._send_payment_success_email(
+                db_user=db_user,
+                sale_mode="topup",
+                months=0,
+                traffic_gb=float(granted_gb),
+                payment_amount=payment_amount,
+                end_date=getattr(updated_sub, "end_date", None),
+                provider=provider,
+            )
         return {
             "subscription_id": sub.subscription_id,
             "traffic_limit_bytes": new_limit,
@@ -495,6 +498,8 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
         payment_db_id: int,
         provider: str = "yookassa",
         promo_code_id_from_payment: int | None = None,
+        *,
+        notify: bool = True,
     ) -> dict[str, Any] | None:
         tariff = self._resolve_tariff(tariff_key)
         if not tariff or not tariff.premium_squad_uuids:
@@ -623,15 +628,16 @@ class TopupMixin(PanelSquadSyncMixin, SubscriptionServiceMixinContract):
             purchased_bytes=purchase_bytes,
             kind="premium_topup",
         )
-        await self._send_payment_success_email(
-            db_user=db_user,
-            sale_mode="premium_topup",
-            months=0,
-            traffic_gb=float(granted_gb),
-            payment_amount=payment_amount,
-            end_date=getattr(sub, "end_date", None),
-            provider=provider,
-        )
+        if notify:
+            await self._send_payment_success_email(
+                db_user=db_user,
+                sale_mode="premium_topup",
+                months=0,
+                traffic_gb=float(granted_gb),
+                payment_amount=payment_amount,
+                end_date=getattr(sub, "end_date", None),
+                provider=provider,
+            )
         return {
             "subscription_id": sub.subscription_id,
             "premium_limit_bytes": premium_limit,

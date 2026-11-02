@@ -21,6 +21,7 @@ from db.dal import tariff_dal
 from db.models import Subscription
 
 from ._typing import SubscriptionServiceMixinContract
+from .entitlement_helpers import subscription_is_trial
 
 logger = logging.getLogger(__name__)
 
@@ -561,6 +562,13 @@ class TariffMixin(SubscriptionServiceMixinContract):
             return int(tariff.hwid_device_limit)
         value = self.settings.USER_HWID_DEVICE_LIMIT
         return int(value) if value is not None else None
+
+    def _base_hwid_limit_for_subscription(
+        self, subscription: Subscription, tariff: Tariff | None
+    ) -> int | None:
+        if tariff is None and subscription_is_trial(subscription):
+            return self.settings.TRIAL_HWID_DEVICE_LIMIT
+        return self._base_hwid_limit_for_tariff(tariff)
 
     def _transition_hwid_base_limits(
         self,

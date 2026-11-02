@@ -9,6 +9,7 @@ from bot.app.web.admin_settings_manifest import manifest_payload
 from bot.app.web.context import (
     get_bot,
     get_i18n,
+    get_optional_bot,
     get_session_factory,
     get_settings,
 )
@@ -24,6 +25,7 @@ from bot.app.web.route_contracts import (
 from bot.app.web.webapp.cache_helpers import refresh_webapp_runtime_after_settings_change
 from bot.services.entitlements import features as entitlement_features
 from bot.services.partner_withdrawal_service import PartnerWithdrawalService
+from bot.services.required_channel_diagnostics import check_required_channel
 from bot.services.settings_override_service import current_value, update_overrides
 from bot.services.telegram_bot_commands import BOT_MENU_SETTING_KEY, sync_telegram_bot_commands
 from config.menu_buttons import parse_menu_buttons, validate_menu_button_languages
@@ -166,10 +168,15 @@ async def admin_settings_get_route(request: web.Request) -> web.Response:
                 response_field["webhook_url"] = f"{webhook_base_url}{webhook_path}"
         sections[section_id]["fields"].append(response_field)
 
+    async with async_session_factory() as session:
+        diagnostic = await check_required_channel(
+            get_optional_bot(request), settings, i18n=get_i18n(request), session=session
+        )
     ordered_sections = sorted(sections.values(), key=lambda s: s["order"])
     return _ok(
         {
             "sections": ordered_sections,
+            "required_channel_diagnostics": diagnostic.payload(),
             "features": sorted(entitlement_features()),
             "partner_encryption_available": PartnerWithdrawalService(
                 settings
@@ -230,6 +237,16 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
         )
 
     await refresh_webapp_runtime_after_settings_change(request, updates=updates, deletes=deletes)
+
+    if "REQUIRED_CHANNEL_ID" in set(updates) | set(deletes):
+        async with async_session_factory() as session:
+            await check_required_channel(
+                get_optional_bot(request),
+                settings,
+                force=True,
+                i18n=get_i18n(request),
+                session=session,
+            )
 
     not_applied = set(result.get("not_applied", []))
     if failed_key := await _sync_bot_commands_after_settings_change(

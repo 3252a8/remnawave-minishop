@@ -143,7 +143,7 @@ class WataConfig(ProviderEnvConfig):
     CRYPTO_SUPPORTED_CURRENCIES: str | None = None
     WEBHOOK_VERIFY_SIGNATURE: bool = Field(default=True)
     PUBLIC_KEY: str | None = None
-    TRUSTED_IPS: str = Field(default="62.84.126.140,51.250.106.150,51.250.117.109")
+    TRUSTED_IPS: str = Field(default="")
 
     @field_validator("LINK_TTL_MINUTES", mode="before")
     @classmethod

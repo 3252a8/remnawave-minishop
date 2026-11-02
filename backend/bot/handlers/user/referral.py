@@ -11,6 +11,7 @@ from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
 from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_data, callback_message, message_from_user
+from bot.utils.invite_links import invitation_link_prefix
 from bot.utils.referral_links import build_webapp_referral_link
 from config.settings import Settings
 from db.dal import user_dal
@@ -348,8 +349,10 @@ def _build_referral_bonus_details_text(
     )
 
 
-def _build_webapp_referral_link(base_url: str | None, referral_code: str | None) -> str | None:
-    return build_webapp_referral_link(base_url, referral_code)
+def _build_webapp_referral_link(
+    base_url: str | None, referral_code: str | None, prefix: str = "discount"
+) -> str | None:
+    return build_webapp_referral_link(base_url, referral_code, prefix)
 
 
 async def _generate_webapp_referral_link(
@@ -364,6 +367,7 @@ async def _generate_webapp_referral_link(
     return _build_webapp_referral_link(
         settings.SUBSCRIPTION_MINI_APP_URL,
         referral_code,
+        invitation_link_prefix(settings),
     )
 
 

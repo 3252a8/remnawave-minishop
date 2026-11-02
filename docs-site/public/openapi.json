@@ -3374,6 +3374,18 @@
             "title": "Tariff Title",
             "type": "string"
           },
+          "telegram_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Link"
+          },
           "total_amount": {
             "title": "Total Amount",
             "type": "number"
@@ -5545,6 +5557,17 @@
             "title": "Partner Encryption Available",
             "type": "boolean"
           },
+          "required_channel_diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequiredChannelDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/AdminSettingsSectionOut"
@@ -7069,6 +7092,11 @@
       },
       "AdminTariffsOut": {
         "properties": {
+          "bot_username": {
+            "default": "",
+            "title": "Bot Username",
+            "type": "string"
+          },
           "catalog": {
             "$ref": "#/components/schemas/AdminTariffsCatalogOut"
           },
@@ -8920,6 +8948,20 @@
             "title": "Category",
             "type": "string"
           },
+          "payment_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Payment Id"
+          },
           "priority": {
             "default": "normal",
             "enum": [
@@ -10149,6 +10191,18 @@
           "tariff_title": {
             "title": "Tariff Title",
             "type": "string"
+          },
+          "telegram_link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Link"
           }
         },
         "required": [
@@ -12327,6 +12381,18 @@
             "default": null,
             "title": "Status"
           },
+          "subscription_days_spent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Days Spent"
+          },
           "subscription_duration_days": {
             "anyOf": [
               {
@@ -12623,6 +12689,18 @@
             "default": null,
             "title": "Status"
           },
+          "subscription_days_spent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Days Spent"
+          },
           "subscription_duration_days": {
             "anyOf": [
               {
@@ -12874,6 +12952,18 @@
             ],
             "default": null,
             "title": "Status"
+          },
+          "subscription_days_spent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Days Spent"
           },
           "subscription_duration_days": {
             "anyOf": [
@@ -14615,6 +14705,49 @@
         "title": "RepositoryRequest",
         "type": "object"
       },
+      "RequiredChannelDiagnostics": {
+        "properties": {
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel Id"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checked At"
+          },
+          "status": {
+            "enum": [
+              "disabled",
+              "available",
+              "missing_rights",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RequiredChannelDiagnostics",
+        "type": "object"
+      },
       "ServerStatus": {
         "properties": {
           "enabled": {
@@ -15124,6 +15257,75 @@
           "is_internal_note"
         ],
         "title": "SupportMessageOut",
+        "type": "object"
+      },
+      "SupportPaymentOut": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "number"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Currency"
+          },
+          "history_state": {
+            "enum": [
+              "awaiting_payment",
+              "processing",
+              "crediting",
+              "review",
+              "completed",
+              "refunded",
+              "failed"
+            ],
+            "title": "History State",
+            "type": "string"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "integer"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "payment_id",
+          "amount",
+          "history_state"
+        ],
+        "title": "SupportPaymentOut",
         "type": "object"
       },
       "SupportTicketOut": {
@@ -17890,6 +18092,19 @@
             "default": null,
             "title": "Promo Code"
           },
+          "quote_token": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Quote Token"
+          },
           "renew_hwid_devices": {
             "anyOf": [
               {
@@ -18129,6 +18344,19 @@
             "minLength": 1,
             "title": "Promo Code",
             "type": "string"
+          },
+          "quote_token": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Quote Token"
           },
           "renew_hwid_devices": {
             "anyOf": [
@@ -18426,6 +18654,19 @@
             "default": null,
             "title": "Promo Code"
           },
+          "quote_token": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Quote Token"
+          },
           "renew_hwid_devices": {
             "anyOf": [
               {
@@ -18690,6 +18931,11 @@
           "faviconUseCustom": {
             "title": "Faviconusecustom",
             "type": "boolean"
+          },
+          "inviteLinkPrefix": {
+            "default": "discount",
+            "title": "Invitelinkprefix",
+            "type": "string"
           },
           "language": {
             "title": "Language",
@@ -23960,6 +24206,68 @@
                           },
                           "stars_price": {
                             "type": "integer"
+                          },
+                          "subscription_days": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "type": "string"
+                              },
+                              "current_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "days_to_charge": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "eligible": {
+                                "type": "boolean"
+                              },
+                              "minimum_remaining_days": {
+                                "type": "integer"
+                              },
+                              "next_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "price_amount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "quote_token": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "eligible",
+                              "disabled_reason",
+                              "days_to_charge",
+                              "current_expires_at",
+                              "next_expires_at",
+                              "minimum_remaining_days",
+                              "quote_token",
+                              "price_amount",
+                              "currency"
+                            ],
+                            "type": "object"
                           },
                           "subtitle": {
                             "type": "string"
@@ -34303,6 +34611,68 @@
                           "stars_price": {
                             "type": "integer"
                           },
+                          "subscription_days": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "type": "string"
+                              },
+                              "current_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "days_to_charge": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "eligible": {
+                                "type": "boolean"
+                              },
+                              "minimum_remaining_days": {
+                                "type": "integer"
+                              },
+                              "next_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "price_amount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "quote_token": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "eligible",
+                              "disabled_reason",
+                              "days_to_charge",
+                              "current_expires_at",
+                              "next_expires_at",
+                              "minimum_remaining_days",
+                              "quote_token",
+                              "price_amount",
+                              "currency"
+                            ],
+                            "type": "object"
+                          },
                           "subtitle": {
                             "type": "string"
                           },
@@ -35257,6 +35627,68 @@
                           "stars_price": {
                             "type": "integer"
                           },
+                          "subscription_days": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "type": "string"
+                              },
+                              "current_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "days_to_charge": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "eligible": {
+                                "type": "boolean"
+                              },
+                              "minimum_remaining_days": {
+                                "type": "integer"
+                              },
+                              "next_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "price_amount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "quote_token": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "eligible",
+                              "disabled_reason",
+                              "days_to_charge",
+                              "current_expires_at",
+                              "next_expires_at",
+                              "minimum_remaining_days",
+                              "quote_token",
+                              "price_amount",
+                              "currency"
+                            ],
+                            "type": "object"
+                          },
                           "subtitle": {
                             "type": "string"
                           },
@@ -35961,6 +36393,68 @@
                           "stars_price": {
                             "type": "integer"
                           },
+                          "subscription_days": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "type": "string"
+                              },
+                              "current_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "days_to_charge": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "eligible": {
+                                "type": "boolean"
+                              },
+                              "minimum_remaining_days": {
+                                "type": "integer"
+                              },
+                              "next_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "price_amount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "quote_token": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "eligible",
+                              "disabled_reason",
+                              "days_to_charge",
+                              "current_expires_at",
+                              "next_expires_at",
+                              "minimum_remaining_days",
+                              "quote_token",
+                              "price_amount",
+                              "currency"
+                            ],
+                            "type": "object"
+                          },
                           "subtitle": {
                             "type": "string"
                           },
@@ -36488,6 +36982,68 @@
                                 },
                                 "stars_price": {
                                   "type": "integer"
+                                },
+                                "subscription_days": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "currency": {
+                                      "type": "string"
+                                    },
+                                    "current_expires_at": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "days_to_charge": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ]
+                                    },
+                                    "disabled_reason": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "eligible": {
+                                      "type": "boolean"
+                                    },
+                                    "minimum_remaining_days": {
+                                      "type": "integer"
+                                    },
+                                    "next_expires_at": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "price_amount": {
+                                      "type": [
+                                        "number",
+                                        "null"
+                                      ]
+                                    },
+                                    "quote_token": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "eligible",
+                                    "disabled_reason",
+                                    "days_to_charge",
+                                    "current_expires_at",
+                                    "next_expires_at",
+                                    "minimum_remaining_days",
+                                    "quote_token",
+                                    "price_amount",
+                                    "currency"
+                                  ],
+                                  "type": "object"
                                 },
                                 "subtitle": {
                                   "type": "string"
@@ -38989,6 +39545,56 @@
         ]
       }
     },
+    "/api/support/payment-options": {
+      "get": {
+        "operationId": "get_support_payment_options_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "items": {
+                      "items": {
+                        "$ref": "#/components/schemas/SupportPaymentOut"
+                      },
+                      "type": "array"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "recent_days": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "items",
+                    "recent_days"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "UserSession": []
+          },
+          {
+            "UserBearer": []
+          }
+        ],
+        "summary": "Support Payment Options",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/api/support/tickets": {
       "get": {
         "operationId": "get_support_tickets_route",
@@ -40062,6 +40668,68 @@
                           },
                           "stars_price": {
                             "type": "integer"
+                          },
+                          "subscription_days": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "currency": {
+                                "type": "string"
+                              },
+                              "current_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "days_to_charge": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "disabled_reason": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "eligible": {
+                                "type": "boolean"
+                              },
+                              "minimum_remaining_days": {
+                                "type": "integer"
+                              },
+                              "next_expires_at": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "price_amount": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "quote_token": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "eligible",
+                              "disabled_reason",
+                              "days_to_charge",
+                              "current_expires_at",
+                              "next_expires_at",
+                              "minimum_remaining_days",
+                              "quote_token",
+                              "price_amount",
+                              "currency"
+                            ],
+                            "type": "object"
                           },
                           "subtitle": {
                             "type": "string"

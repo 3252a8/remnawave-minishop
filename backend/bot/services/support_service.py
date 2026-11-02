@@ -29,9 +29,11 @@ from bot.services.support_message_body import (
     normalize_body_format,
     sanitize_support_body,
 )
+from bot.services.support_payment_body import SupportPaymentUnavailable, attach_payment_summary
 from config.settings import Settings
 from config.settings_models import SupportSettings
 from db.dal import message_log_dal, subscription_dal, support_dal, user_dal
+from db.dal.support_payment_dal import lock_support_payment
 from db.models import Subscription, SupportTicket, SupportTicketMessage, User
 
 logger = logging.getLogger(__name__)
@@ -297,13 +299,31 @@ class SupportService:
         first_message_body: str,
         body_format: str = BODY_FORMAT_TEXT,
         image: PreparedMessageImage | None = None,
+        payment_id: int | None = None,
     ) -> SupportTicket:
         support_settings = self.settings.support_settings
         stored_body, stored_format = self._prepare_body(
             first_message_body, body_format, allow_empty=image is not None
         )
         async with self.session_factory() as session:
+            # Payment finalization takes the payment lock before the user lock.
+            # Keep that order so creating a ticket cannot deadlock a webhook.
+            payment = None
+            if payment_id is not None:
+                if category != "billing":
+                    raise SupportPaymentUnavailable("support_payment_unavailable")
+                payment = await lock_support_payment(session, user_id, payment_id)
+                if payment is None:
+                    raise SupportPaymentUnavailable("support_payment_unavailable")
             user = await self._ensure_user_allowed(session, user_id)
+            if payment is not None:
+                stored_body, stored_format = attach_payment_summary(
+                    stored_body,
+                    stored_format,
+                    payment,
+                    lang=user.language_code or self.settings.DEFAULT_LANGUAGE,
+                    i18n=self.i18n,
+                )
             limit = max(0, int(support_settings.ticket_rate_limit_per_hour or 0))
             if limit:
                 recent = await support_dal.count_recent_tickets_for_user(session, user_id, 3600)

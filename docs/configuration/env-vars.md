@@ -503,6 +503,9 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | --- | --- |
 | `PAYMENT_METHODS_ORDER` | Порядок способов оплаты в выпадающем списке или отдельных кнопках. Для Platega доступны `platega_sbp`, `platega_card`, `platega_crypto`, `platega_international`, `platega_all_methods`, `platega_subscription`; legacy-значение `platega` разворачивается во все варианты. Для RollyPay: `rollypay`, `rollypay_sbp`, `rollypay_card`, `rollypay_international`, `rollypay_crypto`, `rollypay_subscription`. |
 | `PAYMENT_METHODS_DISPLAY_MODE` | Представление способов оплаты в Mini App: компактный `dropdown` (по умолчанию) или отдельные `buttons`. В админке: **Платежи → Оформление оплаты**. |
+| `SUBSCRIPTION_DAYS_DEVICES_ENABLED` | Докупка устройств за дни оплаченной подписки. По умолчанию `False`; в админке: **Платежи → Оплата днями подписки**. |
+| `SUBSCRIPTION_DAYS_TRAFFIC_ENABLED` | Докупка обычного и премиум-трафика за дни оплаченной подписки. По умолчанию `False`. |
+| `SUBSCRIPTION_DAYS_MIN_REMAINING` | Минимальный остаток срока после докупки: от 1 до 3650 дней, по умолчанию `1`. См. [правила оплаты днями](../features/payments.md#оплата-докупок-днями-подписки). |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_ENABLED` | Показывать описание подписки перед выбором срока. |
 | `SUBSCRIPTION_PURCHASE_DESCRIPTION_RU` / `SUBSCRIPTION_PURCHASE_DESCRIPTION_EN` | Локализованное описание подписки. |
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
@@ -771,9 +774,9 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `WATA_RETURN_URL` | URL успешного возврата. |
 | `WATA_FAILED_URL` | URL неуспешного возврата. |
 | `WATA_LINK_TTL_MINUTES` | TTL платежной ссылки в минутах (по умолчанию 15, минимум 15, максимум 43200). |
-| `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять `X-Signature`. |
+| `WATA_WEBHOOK_VERIFY_SIGNATURE` | Проверять RSA-подпись `X-Signature`; включено по умолчанию. Не отключайте при пустом списке IP. |
 | `WATA_PUBLIC_KEY` | Закешированный публичный ключ; если пусто, загружается из API. |
-| `WATA_TRUSTED_IPS` | Список доверенных IP webhook-источников. |
+| `WATA_TRUSTED_IPS` | Дополнительный список разрешённых IP webhook-источников. По умолчанию пуст: IP-фильтрация отключена, подлинность проверяется по `X-Signature`. |
 | `WATA_SUBSCRIPTION_ENABLED` | Включить отдельный способ оплаты с расписанием на стороне Wata. На терминале должны быть подключены подписки. |
 | `WATA_SUBSCRIPTION_ADMIN_ONLY_ENABLED` | Показывать рекуррентный способ Wata только администраторам. |
 | `WATA_SUBSCRIPTION_MAX_PERIODS` | Максимальное число периодов новой подписки Wata (по умолчанию `120`). |
@@ -1029,6 +1032,7 @@ Stripe создает hosted Checkout Sessions и подтверждает ав�
 | `REFERRAL_WELCOME_BONUS_ADDS_TO_TRIAL` | Добавляет дни приветственного бонуса к бесплатному пробному периоду: при регистрации по приглашению отдельная бонусная подписка не создаётся, а триал приглашённого длиннее на эти дни. Работает, пока бесплатный триал включён. По умолчанию `False`. |
 | `REFERRAL_WELCOME_BONUS_WITHOUT_TELEGRAM_ENABLED` | Разрешает начислять реферальный приветственный бонус пользователям без привязанного Telegram. Disposable email домены всё равно требуют Telegram. |
 | `REFERRAL_WEBAPP_LINK_ENABLED` | Показывать реферальную ссылку на сайт в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
+| `INVITE_LINK_PREFIX` | Общий параметр Web App и префикс Telegram для обычных и партнёрских приглашений. По умолчанию `discount`: `?discount=r_<code>` / `?discount=p_<code>`. Допустимы 1–16 строчных латинских букв и цифр, начиная с буквы; служебные имена запрещены. Пустое значение возвращает прежнюю генерацию. Старые `ref` / `partner` продолжают работать. Настройка доступна в блоке ссылок реферальной программы. |
 | `REFERRAL_TELEGRAM_LINK_ENABLED` | Показывать реферальную ссылку на Telegram-бота в разделе бонусов Web App. Хотя бы один из двух флагов показа ссылок должен быть включён. |
 | `LEGACY_REFS` | Разрешить старые ссылки вида `/start ref_<telegram_id>`, где payload содержит Telegram/user ID пригласившего. |
 | `DISPOSABLE_EMAIL_DOMAINS` | Домены одноразовой почты через запятую или по одному на строку. По умолчанию используется встроенный проверяемый snapshot; для таких email trial и реферальный welcome bonus доступны только после привязки Telegram. |

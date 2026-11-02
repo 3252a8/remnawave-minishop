@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
@@ -94,12 +94,20 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
         )
         return user_display, keyboard
 
-    async def _mark_partner_delivery_status(self, user: User, status: str) -> None:
+    async def _mark_partner_delivery_status(
+        self, user: User, status: str, attempted_at: datetime
+    ) -> None:
         if self.session_factory is None:
             return
         try:
             async with self.session_factory() as session:
-                await mark_telegram_notifications_status(session, int(user.user_id), status)
+                await mark_telegram_notifications_status(
+                    session,
+                    int(user.user_id),
+                    status,
+                    checked_at=attempted_at,
+                    telegram_id=self._partner_user_chat_id(user),
+                )
                 await session.commit()
         except Exception:
             logger.exception(
@@ -118,6 +126,7 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
             return False
 
         queue_manager = get_queue_manager()
+        attempted_at = datetime.now(UTC)
         try:
             if queue_manager is not None:
                 await send_message_via_queue(
@@ -137,7 +146,7 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
         except (TelegramBadRequest, TelegramForbiddenError) as exc:
             delivery_status = telegram_notification_status_from_error(exc)
             if delivery_status:
-                await self._mark_partner_delivery_status(user, delivery_status)
+                await self._mark_partner_delivery_status(user, delivery_status, attempted_at)
                 logger.warning(
                     "Partner notification could not reach Telegram user %s: %s",
                     chat_id,

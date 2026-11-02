@@ -131,6 +131,37 @@ class ActionLoggerMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         create_log.assert_awaited_once()
         notify_log.assert_not_awaited()
 
+    async def test_gift_bearer_is_redacted_before_log_and_raw_preview_truncation(self):
+        token = "R" * 43
+        event = self._message_update(text=f"/start gift_{token}")
+        event.model_dump_json = lambda **kw: "x" * 980 + f'{{"text":"/start gift_{token}"}}'
+        settings = SimpleNamespace(LOG_ADMIN_ACTIONS=True, LOG_CHAT_ID=-100123)
+        data = {
+            "session": object(),
+            "event_from_user": SimpleNamespace(id=42, username="user", first_name="User"),
+        }
+        with (
+            patch(
+                "bot.middlewares.action_logger_middleware.user_dal.get_user_by_telegram_id",
+                AsyncMock(return_value=SimpleNamespace(user_id=20)),
+            ),
+            patch(
+                "bot.middlewares.action_logger_middleware.is_admin", AsyncMock(return_value=False)
+            ),
+            patch(
+                "bot.middlewares.action_logger_middleware.message_log_dal.create_message_log_no_commit",
+                AsyncMock(),
+            ) as log,
+            patch(
+                "bot.middlewares.action_logger_middleware.notify_message_log", AsyncMock()
+            ) as notify,
+        ):
+            await ActionLoggerMiddleware(settings)(AsyncMock(), event, data)
+        payload = log.await_args.args[1]
+        self.assertNotIn("R", payload["raw_update_preview"])
+        self.assertEqual(payload["content"], "/start gift_[redacted]")
+        self.assertEqual(notify.await_args.args[0], payload)
+
 
 if __name__ == "__main__":
     unittest.main()

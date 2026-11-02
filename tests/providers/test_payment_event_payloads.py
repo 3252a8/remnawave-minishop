@@ -1,5 +1,8 @@
 from types import SimpleNamespace
 
+import pytest
+from sqlalchemy.orm import Session, make_transient_to_detached
+
 from bot.infra.payment_events import (
     PaymentPurchase,
     build_payment_succeeded_payload,
@@ -7,6 +10,7 @@ from bot.infra.payment_events import (
     reset_payment_purchase_resolvers,
     resolve_payment_success_snapshot,
 )
+from db.models import Payment, PromoCode
 
 
 def teardown_function():
@@ -75,6 +79,73 @@ def test_payment_success_payload_builder_backfills_purchase_units():
     assert payload["traffic_gb"] is None
     assert payload["purchased_hwid_devices"] == 2
     assert payload["end_date"] == "2026-01-02T03:04:00+00:00"
+
+
+@pytest.mark.parametrize("detached", [False, True])
+def test_payment_success_payload_does_not_load_payment_relationships(detached: bool):
+    payment = Payment(
+        payment_id=5,
+        amount=75.0,
+        currency="RUB",
+        provider="partner_balance",
+        sale_mode="subscription@standard",
+        tariff_key="standard",
+        subscription_duration_months=1,
+        subscription_duration_days=None,
+        purchased_gb=None,
+        purchased_hwid_devices=None,
+        promo_code_id=17,
+        checkout_base_amount=100.0,
+        checkout_discount_amount=25.0,
+    )
+    make_transient_to_detached(payment)
+
+    # No database is bound: any implicit ORM load must fail this test.
+    with Session() as session:
+        if not detached:
+            session.add(payment)
+        payload = build_payment_succeeded_payload(
+            user_id=42,
+            payment_db_id=5,
+            provider="partner_balance",
+            notification_provider="partner_balance",
+            amount=75.0,
+            currency="RUB",
+            sale_mode="subscription@standard",
+            tariff_key="standard",
+            months=1,
+            traffic_gb=None,
+            payment=payment,
+            end_date="2026-01-02T03:04:00+00:00",
+            is_auto_renew=False,
+        )
+
+    assert payload["promo_code_id"] == 17
+    assert payload["base_amount"] == 100.0
+    assert payload["discount_amount"] == 25.0
+    assert payload["amount"] == 75.0
+    assert payload["provider"] == "partner_balance"
+
+
+@pytest.mark.parametrize("expired_fields", [(), ("archived_code",), ("code", "archived_code")])
+def test_payment_success_snapshot_reads_only_loaded_code_attributes(
+    expired_fields: tuple[str, ...],
+):
+    promo = PromoCode(promo_code_id=17, code="PUBLIC17", archived_code=None)
+    make_transient_to_detached(promo)
+    payment = Payment(promo_code_id=17, promo_code_used=promo)
+
+    with Session() as session:
+        session.add(promo)
+        if expired_fields:
+            session.expire(promo, list(expired_fields))
+        snapshot = resolve_payment_success_snapshot(
+            {"amount": 75.0, "currency": "RUB", "sale_mode": "subscription@standard"},
+            payment,
+        )
+
+    assert snapshot.promo_code == (None if "code" in expired_fields else "PUBLIC17")
+    assert snapshot.promo_code_id == 17
 
 
 def test_payment_success_snapshot_backfills_checkout_amounts_from_payment():

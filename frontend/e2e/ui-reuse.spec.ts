@@ -1,8 +1,61 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import type { Core } from "cytoscape";
 
+type RelationshipViewport = { pan: { x: number; y: number }; zoom: number };
+type RelationshipCanvas = HTMLDivElement & {
+  _cyreg: { cy: Core };
+  testReleaseViewport?: RelationshipViewport;
+};
+
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
+
+for (const width of [1440, 390]) {
+  test(`invitation link prefix can be edited and saved at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(adminUrl("settings/referral"));
+    const field = page.locator('[data-settings-anchor="settings-field:INVITE_LINK_PREFIX"]');
+    const input = field.getByRole("textbox", { name: "Префикс ссылок приглашения" });
+    await expect(input).toBeVisible();
+    await input.fill("join");
+    await expect(input).toHaveValue("join");
+    await noOverflow(field);
+    await field.screenshot({ path: testInfo.outputPath(`invitation-link-prefix-${width}.png`) });
+    await page.locator("header").getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(
+      page.locator("header").getByRole("button", { name: "Сохранить", exact: true })
+    ).toBeHidden();
+    await expect(input).toHaveValue("join");
+  });
+
+  test(`required channel diagnostics follow saved settings at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(adminUrl("settings/general"));
+    const field = page.locator('[data-settings-anchor="settings-field:REQUIRED_CHANNEL_ID"]');
+    const diagnostic = field.getByRole("status");
+    await expect(diagnostic).toContainText("Проверка подписки доступна");
+    await expect(diagnostic.locator("time")).toBeVisible();
+    await expect(diagnostic.locator("time")).toHaveAttribute("datetime", /T.*Z$/);
+    await noOverflow(field);
+    await field.screenshot({
+      path: testInfo.outputPath(`required-channel-available-${width}.png`),
+    });
+
+    await field.locator("input").fill("0");
+    await expect(diagnostic).toContainText("Сохраните настройку канала");
+    await expect(diagnostic.locator("time")).toHaveCount(0);
+    await expect(diagnostic).not.toContainText("Проверка подписки доступна");
+    await page.locator("header").getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(diagnostic).toContainText("Обязательный канал не настроен");
+    await expect(diagnostic).toContainText("Проверка ещё не выполнялась");
+    await noOverflow(field);
+    await field.screenshot({ path: testInfo.outputPath(`required-channel-disabled-${width}.png`) });
+  });
+}
 
 for (const width of [1440, 768, 390, 320]) {
   for (const theme of ["dark", "light"]) {
@@ -200,6 +253,24 @@ for (const width of [1440, 768, 390, 320]) {
           })
         )
         .toBe(false);
+      // Read the final drag position from the release event. A browser read
+      // between move and up can turn a flick into a held release under load.
+      await graph.locator(".relationships-canvas").evaluate((element) => {
+        const canvas = element as RelationshipCanvas;
+        const cy = canvas._cyreg.cy;
+        cy.on("tapstart", () => {
+          canvas.testReleaseViewport = undefined;
+        });
+        cy.on("tapend", () => {
+          canvas.testReleaseViewport = { pan: { ...cy.pan() }, zoom: cy.zoom() };
+        });
+      });
+      const readReleasedViewport = () =>
+        graph.locator(".relationships-canvas").evaluate((element) => {
+          const release = (element as RelationshipCanvas).testReleaseViewport;
+          if (!release) throw new Error("The graph did not emit tapend for the gesture");
+          return release;
+        });
       await page.mouse.move(point.x, point.y);
       const panBefore = await graph
         .locator(".relationships-canvas")
@@ -208,14 +279,10 @@ for (const width of [1440, 768, 390, 320]) {
         );
       await page.mouse.down();
       await page.mouse.move(point.x + 36, point.y + 24, { steps: 8 });
-      const panAfter = await graph
-        .locator(".relationships-canvas")
-        .evaluate((element) =>
-          (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan()
-        );
+      await page.mouse.up();
+      const panAfter = (await readReleasedViewport()).pan;
       expect(panAfter.x - panBefore.x).toBeCloseTo(36 * 1.5, 0);
       expect(panAfter.y - panBefore.y).toBeCloseTo(24 * 1.5, 0);
-      await page.mouse.up();
       const readPan = () =>
         graph.locator(".relationships-canvas").evaluate((element) => ({
           ...(element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy.pan(),
@@ -247,9 +314,11 @@ for (const width of [1440, 768, 390, 320]) {
         // A pause before movement must not dilute the velocity of a fresh flick.
         await page.mouse.down();
         await page.waitForTimeout(150);
-        await page.mouse.move(point.x + 72, point.y + 48, { steps: 4 });
-        const flick = await readPan();
+        // Cross the native drag threshold far enough to collect several pan
+        // samples; a 12px/four-step flick can leave less than 16 ms of movement.
+        await page.mouse.move(point.x + 108, point.y + 72, { steps: 8 });
         await page.mouse.up();
+        const flick = (await readReleasedViewport()).pan;
         await expect.poll(async () => (await readPan()).x).toBeGreaterThan(flick.x + 3);
         await page.mouse.down();
         await page.mouse.up();
@@ -295,14 +364,11 @@ for (const width of [1440, 768, 390, 320]) {
               touchPoints: [{ x: touch.x + 20 + step * 5, y: touch.y + 10 + step * 2.5, id: 1 }],
             });
           }
-          const touchAfter = await canvas.evaluate((element) => {
-            const cy = (element as HTMLDivElement & { _cyreg: { cy: Core } })._cyreg.cy;
-            return { pan: { ...cy.pan() }, zoom: cy.zoom() };
-          });
+          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          const touchAfter = await readReleasedViewport();
           expect(touchAfter.pan.x - touchBefore.pan.x).toBeCloseTo(40 * 1.5, 0);
           expect(touchAfter.pan.y - touchBefore.pan.y).toBeCloseTo(20 * 1.5, 0);
           expect(touchAfter.zoom).toBe(touchBefore.zoom);
-          await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
           await expect.poll(async () => (await readPan()).x).toBeGreaterThan(touchAfter.pan.x + 2);
           // Two fingers retain native 1:1 translation and the exact pinch ratio.
           const start = [
@@ -524,7 +590,7 @@ for (const width of [1440, 768, 390, 320]) {
         };
       });
       expect(initial.referrals).not.toBe(initial.partners);
-      const filter = graph.getByRole("button", { name: /Связи|Connections/, exact: true });
+      const filter = graph.getByRole("combobox", { name: /Связи|Connections/, exact: true });
       await filter.click();
       await expect(page.getByRole("listbox")).toBeVisible();
       expect(
@@ -698,7 +764,7 @@ test("relationship graph omits isolated users and recovers from worker failures"
   );
   await expect(graph.locator(".admin-empty")).toContainText(/связей пока нет|connections yet/);
   await expect(graph.locator(".relationships-stage")).toBeHidden();
-  const filter = graph.getByRole("button", { name: /Связи|Connections/, exact: true });
+  const filter = graph.getByRole("combobox", { name: /Связи|Connections/, exact: true });
   await filter.click();
   await page.getByRole("option", { name: /Партнёры|Partners/, exact: true }).click();
   await expect(filter).toBeEnabled();
@@ -723,6 +789,7 @@ for (const width of [1440, 768, 390]) {
     for (const [provider, methods] of [
       ["Cryptomus", ["cryptomus_subscription"]],
       ["CisPay", ["cispay_subscription_card", "cispay_subscription_sbp"]],
+      ["YooKassa", ["yookassa_sbp", "yookassa_bank_card"]],
     ] as const) {
       const card = cards.filter({
         has: page.locator(`[data-settings-anchor="settings-subsection:payments:${provider}"]`),
@@ -739,7 +806,7 @@ for (const width of [1440, 768, 390]) {
           `[data-settings-anchor="settings-field-group:payments:${provider}:${method}"]`
         );
         await expect(group).toBeVisible();
-        await expect(group.locator(".admin-setting")).toHaveCount(2);
+        await expect(group.locator(".admin-setting")).toHaveCount(provider === "YooKassa" ? 6 : 2);
         await noOverflow(group);
         await group.scrollIntoViewIfNeeded();
         await group.screenshot({ path: testInfo.outputPath(`${method}-${width}.png`) });
@@ -1222,7 +1289,7 @@ for (const [device, viewport] of [
   test(`shared list controls and gift creation remain consistent on ${device}`, async ({
     page,
     context,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     const errors: string[] = [];
@@ -1285,6 +1352,10 @@ for (const [device, viewport] of [
     );
     await expect(rows.first()).toBeVisible();
     await alignedSearch(page);
+    await rows.first().locator(".details-toggle").click();
+    const details = page.locator(".admin-gift-dialog");
+    await expect(details.locator(".copy-link-field")).toHaveCount(0);
+    await details.locator(".dialog-head button").click();
     await expect(page.locator(".admin-list-toolbar-filters")).toBeVisible();
     await page.locator('.gifts-toolbar .admin-select-trigger[aria-label="Источник"]').click();
     await page.getByRole("option", { name: "От администратора", exact: true }).click();
@@ -1293,10 +1364,24 @@ for (const [device, viewport] of [
     await expect(provider).toContainText("От администратора");
     await expect(provider.locator(".admin-payment-provider-logo")).toHaveText("🎁");
     await rows.first().locator(".details-toggle").click();
-    const details = page.locator(".admin-gift-dialog");
     await expect(details.locator(".admin-payment-provider-logo")).toHaveText("🎁");
-    await copyFullLink(page, details.locator(".copy-link-field"));
+    const webLink = details.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Web App", exact: true }),
+    });
+    const telegramLink = details.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Telegram", exact: true }),
+    });
+    await expect(details.getByText("Ссылка для Web App", { exact: true })).toBeVisible();
+    await expect(details.getByText("Ссылка для Telegram", { exact: true })).toBeVisible();
+    await expect(telegramLink.locator("input")).toHaveValue(
+      `https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`
+    );
+    await copyFullLink(page, webLink);
+    await expect(telegramLink.getByRole("button")).toHaveText("Копировать");
+    await copyFullLink(page, telegramLink);
+    await expect(webLink.getByRole("button")).toHaveText("Копировать");
     await noOverflow(details.locator(".dialog-body-scroll > .scroll-area__viewport"), true);
+    await details.screenshot({ path: testInfo.outputPath(`gift-links-admin-${device}.png`) });
     await details.locator(".dialog-head button").click();
 
     await page.getByRole("button", { name: "Создать подарок", exact: true }).click();
@@ -1318,7 +1403,9 @@ for (const [device, viewport] of [
     await creation.locator('input[type="email"]').fill("friend@example.com");
     await noOverflow(creation.locator(".dialog-body-scroll > .scroll-area__viewport"), true);
     await creation.locator('button[type="submit"]').click();
-    await expect(details.locator(".copy-link-field")).toBeVisible();
+    await expect(details.locator(".copy-link-field")).toHaveCount(2);
+    await copyFullLink(page, webLink);
+    await copyFullLink(page, telegramLink);
     await expect(details).toContainText("0.00");
     await expect(details).toContainText("friend@example.com");
     await noOverflow(details.locator(".dialog-body-scroll > .scroll-area__viewport"), true);
@@ -1455,8 +1542,25 @@ for (const [device, viewport] of [
     await noOverflow(paymentDialog);
     await paymentDialog.getByRole("button", { name: "Закрыть", exact: true }).last().click();
     await page.goto("/demo/runtime/app/?mock=checkout-addons&path=/invite&theme_preview=dark");
-    await expect(page.locator(".gift-entry .copy-link-field").first()).toBeVisible();
-    await copyFullLink(page, page.locator(".gift-entry .copy-link-field").first());
+    const giftCard = page.locator(".gift-entry .gift-card").first();
+    const giftWebLink = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Web App", exact: true }),
+    });
+    const giftTelegramLink = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: "Ссылка для Telegram", exact: true }),
+    });
+    await expect(giftCard.getByText("Ссылка для Web App", { exact: true })).toBeVisible();
+    await expect(giftCard.getByText("Ссылка для Telegram", { exact: true })).toBeVisible();
+    await expect(giftTelegramLink.locator("input")).toHaveValue(
+      `https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`
+    );
+    await copyFullLink(page, giftWebLink);
+    await copyFullLink(page, giftTelegramLink);
+    await noOverflow(giftCard);
+    await expect(
+      page.locator(".gift-entry .gift-card").nth(1).locator(".copy-link-field")
+    ).toHaveCount(0);
+    await giftCard.screenshot({ path: testInfo.outputPath(`gift-links-webapp-${device}.png`) });
     const referralField = page.locator(".bonus-card .copy-link-field").first();
     await copyFullLink(page, referralField);
     await referralField.getByRole("button", { name: /QR/ }).click();

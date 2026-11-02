@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -15,6 +16,10 @@ from bot.utils.telegram_markup import (
 )
 
 logger = logging.getLogger(__name__)
+
+delivery_attempted_at: ContextVar[datetime | None] = ContextVar(
+    "delivery_attempted_at", default=None
+)
 
 
 @dataclass
@@ -76,6 +81,8 @@ class MessageQueue:
                 await self._wait_if_needed(message.chat_id)
                 self.queue.popleft()
 
+                token = delivery_attempted_at.set(datetime.now(UTC))
+                logger.info("metric telegram_delivery_attempts_total=1")
                 try:
                     await self._send_message(message)
                     self._record_send_time(message.chat_id)
@@ -120,6 +127,8 @@ class MessageQueue:
                     self.total_failed += 1
                     logger.exception("Failed to send queued message to %s.", message.chat_id)
                     await self._notify_failure(message, exc)
+                finally:
+                    delivery_attempted_at.reset(token)
 
         finally:
             self.is_processing = False
@@ -185,6 +194,7 @@ class MessageQueue:
         )
 
     async def _notify_failure(self, message: QueuedMessage, exc: Exception) -> None:
+        logger.info("metric telegram_delivery_errors_total=1 kind=%s", type(exc).__name__)
         if message.error_callback is None:
             return
         try:

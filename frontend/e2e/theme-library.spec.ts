@@ -166,7 +166,7 @@ for (const viewport of [
       .poll(() => importedImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0);
     await importPreview.locator(".dialog-head button").click();
-    await dialog.getByRole("button", { name: "Если тема уже установлена", exact: true }).click();
+    await dialog.getByRole("combobox", { name: "Если тема уже установлена", exact: true }).click();
     await page.getByRole("option", { name: /Обновить/ }).click();
     await dialog.getByRole("button", { name: /Установить/ }).click();
     await expect(dialog).toBeHidden();

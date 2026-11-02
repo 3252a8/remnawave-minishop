@@ -556,7 +556,9 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect(page.locator(".support-list-card")).toBeHidden();
   await expect(createScreen.getByRole("toolbar")).toBeHidden();
   await expect(createScreen.locator("details")).toHaveCount(0);
-  await expect(createScreen.getByRole("combobox")).toHaveCount(0);
+  await expect(createScreen.getByRole("combobox", { name: "Категория", exact: true })).toHaveCount(
+    1
+  );
   await page.setViewportSize(MOBILE_VIEWPORT);
   await expect(createScreen.locator(".ticket-composer-send")).toBeInViewport();
   await expect
@@ -773,12 +775,20 @@ async function assertMobileExtendTariffSelectDoesNotTapThrough(
   const targetItem = items.nth(Math.min(2, itemCount - 1));
   await expect(targetItem).toBeVisible();
   const targetLabel = (await targetItem.locator("span").first().innerText()).trim();
-  const itemReceivesPointer = await targetItem.evaluate((item) => {
-    const rect = item.getBoundingClientRect();
-    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    return Boolean(hit && (hit === item || item.contains(hit)));
-  });
-  expect(itemReceivesPointer, `${phase}: select option must receive pointer events`).toBe(true);
+  await expect
+    .poll(
+      () =>
+        targetItem.evaluate((item) => {
+          const rect = item.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2
+          );
+          return Boolean(hit && (hit === item || item.contains(hit)));
+        }),
+      { message: `${phase}: select option must receive pointer events` }
+    )
+    .toBe(true);
 
   await targetItem.click();
   await expect(extendTariffTrigger).toContainText(targetLabel);
@@ -2058,7 +2068,7 @@ test("broadcast promo picker fills its mobile editor row", async ({ page }) => {
 
   await page.getByRole("button", { name: "Добавить кнопку", exact: true }).click();
   const row = page.locator(".admin-row-editor-broadcast").first();
-  await row.getByRole("button", { name: "Кнопки", exact: true }).click();
+  await row.getByRole("combobox", { name: "Кнопки", exact: true }).click();
   await page.getByRole("option", { name: "Промокод — в боте", exact: true }).click();
 
   const kindSelect = row.locator(".admin-select-trigger");
@@ -2106,10 +2116,10 @@ test("message button editor offers the partner program screen", async ({ page })
 
   await page.getByRole("button", { name: "Добавить кнопку", exact: true }).click();
   const row = page.locator(".admin-row-editor-broadcast").first();
-  await row.getByRole("button", { name: "Кнопки", exact: true }).click();
+  await row.getByRole("combobox", { name: "Кнопки", exact: true }).click();
   await page.getByRole("option", { name: "Экран веб-приложения", exact: true }).click();
 
-  const sectionSelect = row.getByRole("button", { name: "Выберите экран", exact: true });
+  const sectionSelect = row.getByRole("combobox", { name: "Выберите экран", exact: true });
   await sectionSelect.click();
   await page.getByRole("option", { name: "Партнёрская программа", exact: true }).click();
 
@@ -2540,7 +2550,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     ".admin-panel-version-trigger"
   );
   await expect(panelVersionTrigger).toBeVisible();
-  await expect(panelVersionTrigger).toContainText("v3.4.5");
+  await expect(panelVersionTrigger).toContainText("v3.4.7");
   await panelVersionTrigger.click();
   const panelVersionPopover = page.locator(".admin-panel-version-popover");
   await expect(panelVersionPopover).toBeVisible();

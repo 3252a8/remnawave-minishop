@@ -1,5 +1,6 @@
 import { GIFT_STORAGE_KEY, rememberReferral, readReferral } from "./session.js";
 import { referralStartParam } from "./launchParams.js";
+import { invitationQueryKeys } from "./inviteLinks.js";
 import { rememberInstallAuthDestination } from "./installAuthDestination.js";
 
 type TelegramWebAppLike = {
@@ -66,13 +67,22 @@ export function accountMergeErrorMessage(errorCode: string, t: TranslateFn): str
 function readReferralParamFromLocation(): string {
   if (typeof window === "undefined") return "";
   const params = new URLSearchParams(window.location.search);
-  const referral =
-    ["ref", "start", "start_param", "startapp", "tgWebAppStartParam"]
-      .map((key) => referralStartParam(params.get(key)))
-      .find(Boolean) || "";
+  const referrals = [
+    ...["ref", "start", "start_param", "startapp", "tgWebAppStartParam"].map((key) =>
+      referralStartParam(params.get(key))
+    ),
+    ...invitationQueryKeys().flatMap((key) =>
+      params.getAll(key).map((value) => {
+        const payload = `${key}_${value}`;
+        const decoded = referralStartParam(payload);
+        return decoded === payload ? "" : decoded;
+      })
+    ),
+  ].filter(Boolean);
   const partner = String(params.get("partner") || "").trim();
-  if (partner && referral) return "ambiguous_invite";
-  return partner ? `p_${partner}` : referral;
+  if (partner) referrals.push(`p_${partner}`);
+  const unique = [...new Set(referrals)];
+  return unique.length > 1 ? "ambiguous_invite" : unique[0] || "";
 }
 
 export function readReferralParam(tg: unknown = null): string {
@@ -163,8 +173,11 @@ export function clearAuthQuery(): void {
     "hash",
     "partner",
     "ref",
+    ...invitationQueryKeys(),
     "start",
     "start_param",
+    "startapp",
+    "tgWebAppStartParam",
   ].forEach((key) => url.searchParams.delete(key));
   window.history?.replaceState?.({}, document.title, url.pathname + url.search + url.hash);
 }

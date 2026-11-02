@@ -39,6 +39,7 @@ from bot.services.telegram_notifications import (
 )
 from bot.services.user_balance_service import UserBalanceService
 from bot.services.user_notification_preferences import UserNotificationPreferences
+from bot.utils.invite_links import invitation_link_prefix
 from bot.utils.locale_defaults import subscription_purchase_description_text
 from bot.utils.traffic_reset import format_traffic_reset_date, parse_panel_datetime
 from config.menu_buttons import public_menu_buttons
@@ -220,8 +221,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
                 user_id,
             )
         webapp_referral_link = _build_webapp_referral_link(
-            get_settings(request).SUBSCRIPTION_MINI_APP_URL,
+            settings.SUBSCRIPTION_MINI_APP_URL,
             referral_code,
+            invitation_link_prefix(settings),
         )
         referral_link, webapp_referral_link = visible_referral_links(
             referral_settings,

@@ -13,6 +13,9 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+from sqlalchemy import inspect
+from sqlalchemy.orm import InstanceState
+
 from bot.infra.event_payloads import PaymentSucceededPayload
 
 logger = logging.getLogger(__name__)
@@ -121,6 +124,11 @@ def _optional_int(value: Any) -> int | None:
 
 
 def _getattr_or_none(source: Any, name: str) -> Any:
+    """Read loaded ORM values without triggering implicit database IO."""
+
+    state = inspect(source, raiseerr=False)
+    if isinstance(state, InstanceState):
+        return state.dict.get(name)
     return getattr(source, name, None) if source is not None else None
 
 

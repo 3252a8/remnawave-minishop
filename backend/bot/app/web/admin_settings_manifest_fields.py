@@ -9,6 +9,7 @@ from bot.app.web.admin_settings_notification_manifest_fields import (
     NOTIFICATION_SETTINGS_FIELDS,
 )
 from bot.app.web.admin_settings_partner_manifest_fields import PARTNER_SETTINGS_FIELDS
+from bot.app.web.admin_settings_subscription_days_fields import SUBSCRIPTION_DAYS_SETTINGS_FIELDS
 from bot.app.web.admin_settings_trial_manifest_fields import TRIAL_SETTINGS_FIELDS
 
 SETTINGS_MANIFEST: list[SettingField] = [
@@ -150,6 +151,18 @@ SETTINGS_MANIFEST: list[SettingField] = [
         ("Controls the 'Required Channel Link' setting in admin overrides."),
     ),
     # ─── Login methods ─────────────────────────────────────────────
+    SettingField(
+        "REQUIRED_CHANNEL_VERIFICATION_TTL_SECONDS",
+        "int",
+        "general",
+        "Channel membership verification lifetime",
+        "Seconds to trust channel membership before checking again.",
+        optional=False,
+        min=5,
+        max=86400,
+        i18n_label_key="admin_channel_verification_ttl",
+        i18n_description_key="admin_channel_verification_ttl_hint",
+    ),
     *LOGIN_METHOD_SETTINGS_FIELDS,
     # ─── Email auth & SMTP ─────────────────────────────────────────
     *EMAIL_SETTINGS_FIELDS,
@@ -675,6 +688,7 @@ SETTINGS_MANIFEST: list[SettingField] = [
         subsection="referral",
     ),
     *PARTNER_SETTINGS_FIELDS,
+    *SUBSCRIPTION_DAYS_SETTINGS_FIELDS,
     SettingField(
         "LEGACY_REFS",
         "bool",

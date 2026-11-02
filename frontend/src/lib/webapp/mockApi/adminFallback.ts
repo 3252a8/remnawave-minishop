@@ -148,6 +148,7 @@ export function adminFallbackResponse(
       ok: true,
       path: "data/tariffs.json",
       user_hwid_device_limit: 5,
+      bot_username: "preview_bot",
       provider_currency_support: demoProviderCurrencySupport(),
       catalog: {
         default_tariff: "standard",

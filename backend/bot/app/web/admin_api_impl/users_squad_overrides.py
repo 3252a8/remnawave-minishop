@@ -121,6 +121,7 @@ async def admin_user_squad_overrides_route(request: web.Request) -> web.Response
                 managed_internal_squads=managed_squads,
                 discover_panel_overrides=False,
                 include_internal_squads=True,
+                keep_manual_internal_squads=body.add_internal_squad_uuids,
                 source="admin_squad_overrides",
             )
             panel_response = await subscription_service.panel_service.update_user_details_on_panel(

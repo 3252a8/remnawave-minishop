@@ -30,6 +30,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
     if not service or not service.configured:
         return payment_unavailable()
     currency = (ctx.currency or "RUB").upper()
+    method_type = {"yookassa_sbp": "sbp", "yookassa_bank_card": "bank_card"}.get(ctx.method)
 
     payment = None
     try:
@@ -77,6 +78,8 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             metadata["tariff_key"] = amounts.tariff_key
         if ctx.promo_code_id is not None:
             metadata["promo_code_id"] = str(ctx.promo_code_id)
+        if method_type:
+            metadata["checkout_method"] = method_type
         response = await service.create_payment(
             amount=ctx.price,
             currency=currency,
@@ -84,6 +87,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             metadata=metadata,
             receipt_email=service.config.DEFAULT_RECEIPT_EMAIL,
             save_payment_method=False,
+            payment_method_type=method_type,
         )
         payment_url = response.get("confirmation_url") if response else None
         provider_payment_id = str(response.get("id") or "") if response else ""
@@ -145,6 +149,9 @@ async def reuse_webapp_payment(ctx: WebAppPaymentContext, payment: Any) -> str |
 
     metadata_raw = info.get("metadata")
     metadata = metadata_raw if isinstance(metadata_raw, dict) else {}
+    method_type = {"yookassa_sbp": "sbp", "yookassa_bank_card": "bank_card"}.get(ctx.method, "")
+    if str(metadata.get("checkout_method") or "") != method_type:
+        return None
     expected_metadata = {
         "user_id": str(ctx.user_id),
         "payment_db_id": str(payment.payment_id),

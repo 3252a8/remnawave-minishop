@@ -7,7 +7,7 @@
 # > .build-version file > live git > "dev+unknown") so the admin sidebar always
 # shows a tag / sha even though the runtime images have no git tooling and no
 # .git tree.
-FROM alpine:3.23@sha256:85fe1e81d6758c208f3e1eed4338a1997e19d4be002d4dd32d3100c9a8c010a0 AS version-builder
+FROM alpine:3.23@sha256:ff7f0c727dd796aa36787bfcd9a64bf35a6ce72a73451b3359fde849b6703d63 AS version-builder
 COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
 RUN sh /tmp/retry_apk.sh add --no-cache git
 WORKDIR /repo
@@ -62,7 +62,7 @@ RUN --mount=type=bind,source=.git,target=/repo/.git \
     printf '%s' "$provenance" > /build-provenance
 
 
-FROM ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac AS python-dependencies
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852 AS python-dependencies
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -72,9 +72,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Reuse the publication nonce so Ubuntu security upgrades cannot stay cached
+# across published build attempts, just like the Alpine package refresh below.
+ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
+
 # A 502 from an Ubuntu mirror fails the image build outright, so index refreshes
 # retry instead of taking the release down with them.
 RUN set -eux; \
+    : "$REMNAWAVE_MINISHOP_APK_REFRESH"; \
     printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
       > /etc/apt/apt.conf.d/99-minishop-retries; \
     apt_update_with_retries() { \
@@ -93,6 +98,8 @@ RUN set -eux; \
       gnupg \
       python3.12 \
       python3.12-venv; \
+    # CVE-2026-111497: require the fixed Noble Brotli decoder used by curl.
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libbrotli1)" ge '1.1.0-2ubuntu0.1'; \
     . /etc/os-release; \
     install -d /usr/share/postgresql-common/pgdg; \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
@@ -115,7 +122,7 @@ COPY deploy/docker/refresh_pip_vendor.py /tmp/refresh_pip_vendor.py
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-compile --upgrade "pip==26.2.2" && \
     pip install --no-compile --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
-      "urllib3==2.8.0" "msgpack==1.2.3" "setuptools==80.9.0" && \
+      "urllib3==2.8.0" "msgpack==1.2.4" "setuptools==80.9.0" && \
     pip install --no-compile -r backend/requirements.txt && \
     python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
     rm -rf /tmp/pip-vendor-fixes /tmp/refresh_pip_vendor.py
@@ -136,7 +143,7 @@ COPY --from=version-builder /build-provenance /app/.build-provenance
 USER appuser
 
 
-FROM node:24-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS node-runtime
+FROM node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS node-runtime
 
 FROM node-runtime AS frontend-builder
 
@@ -183,7 +190,7 @@ EXPOSE 8080 8081
 CMD ["python", "backend/plugin_launcher.py", "backend"]
 
 
-FROM docker:29.9.1-cli@sha256:6fae2214c3121a28d5aa639d09032f61310b7c9c75ffbad1025f261a1b621800 AS docker-test-tools
+FROM docker:29.9.2-cli@sha256:5e6baf67325a79f64ed3bed6863954d5e05d0f3d4e57cbdb14809346814bbfdb AS docker-test-tools
 
 FROM python-dependencies AS qa-deps
 
@@ -225,7 +232,7 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
 CMD ["python", "backend/plugin_launcher.py", "worker"]
 
 
-FROM nginx:1.30.6-alpine@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5 AS nginx-brotli-builder
+FROM nginx:1.30.6-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949 AS nginx-brotli-builder
 
 # Refresh Alpine packages for every published source revision.
 ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
@@ -257,7 +264,7 @@ RUN set -eu; \
     cp objs/ngx_http_brotli_static_module.so /brotli-modules/
 
 
-FROM nginx:1.30.6-alpine@sha256:970364228b1e4f932abc22d321932816782cca8a20b85a77552a7cfe9acfb3b5 AS frontend
+FROM nginx:1.30.6-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949 AS frontend
 
 ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
 COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh

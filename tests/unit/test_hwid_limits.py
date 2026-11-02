@@ -97,6 +97,34 @@ class ResolveHwidDeviceLimitsTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(limits, HwidDeviceLimits(base=None, extra=4, effective=0))
 
+    async def test_trial_without_tariff_uses_trial_limit_and_active_extras(self):
+        service = _service(USER_HWID_DEVICE_LIMIT=5, TRIAL_HWID_DEVICE_LIMIT=1)
+        service._active_hwid_extra_devices_for_sub = AsyncMock(return_value=2)
+        sub = SimpleNamespace(hwid_device_limit=1, provider="trial")
+
+        limits = await service._resolve_hwid_device_limits(None, sub, None)
+
+        self.assertEqual(limits, HwidDeviceLimits(base=1, extra=2, effective=3))
+
+    async def test_trial_status_without_provider_uses_trial_limit(self):
+        service = _service(USER_HWID_DEVICE_LIMIT=5, TRIAL_HWID_DEVICE_LIMIT=1)
+        service._active_hwid_extra_devices_for_sub = AsyncMock(return_value=0)
+        sub = SimpleNamespace(hwid_device_limit=1, status_from_panel="TRIAL")
+
+        limits = await service._resolve_hwid_device_limits(None, sub, None)
+
+        self.assertEqual(limits, HwidDeviceLimits(base=1, extra=0, effective=1))
+
+    async def test_trial_with_bound_tariff_keeps_tariff_limit(self):
+        service = _service(USER_HWID_DEVICE_LIMIT=5, TRIAL_HWID_DEVICE_LIMIT=1)
+        service._active_hwid_extra_devices_for_sub = AsyncMock(return_value=0)
+        sub = SimpleNamespace(hwid_device_limit=1, provider="trial")
+        tariff = SimpleNamespace(hwid_device_limit=3)
+
+        limits = await service._resolve_hwid_device_limits(None, sub, tariff)
+
+        self.assertEqual(limits, HwidDeviceLimits(base=3, extra=0, effective=3))
+
 
 if __name__ == "__main__":
     unittest.main()

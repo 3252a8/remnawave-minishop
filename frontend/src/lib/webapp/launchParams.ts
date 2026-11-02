@@ -1,7 +1,9 @@
+import { decodeInvitationPayload } from "./inviteLinks.js";
+
 /** Keep action namespaces out of invitation attribution, including stored values. */
 export function referralStartParam(value: unknown): string {
   if (typeof value !== "string") return "";
-  const raw = value.trim();
+  const raw = decodeInvitationPayload(value.trim());
   if (
     /^(?:promo|plan|gift|ticket|admin|ext)_/i.test(raw) ||
     /^(?:home|plans|checkout|invite|partner|install|trial|devices|support|settings|notifications|security|status|admin|extensions|balance|gifts)$/i.test(

@@ -57,6 +57,7 @@ from bot.services.hwid_device_notifications import (
 )
 from bot.services.hwid_device_webhook import HWID_DEVICE_EVENTS
 from bot.services.message_log_notifier import configure_message_log_notifier
+from bot.services.panel_maintenance_worker import PanelMaintenanceWorker
 from bot.services.panel_webhook_service import ACTIONABLE_EVENTS
 from bot.services.partner_program_worker import PartnerProgramWorker
 from bot.services.payment_reconciliation_worker import PaymentReconciliationWorker
@@ -529,6 +530,15 @@ async def _outbound_settings_refresh_task(ctx: PluginContext) -> None:
         await asyncio.sleep(5)
 
 
+def _panel_maintenance_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
+    return PanelMaintenanceWorker(
+        ctx.settings,
+        ctx.require_session_factory(),
+        ctx.require_panel_service(),
+        ctx.notification_service,
+    ).run()
+
+
 def _account_cleanup_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
     return AccountCleanupWorker(
         ctx.settings, ctx.require_session_factory(), ctx.require_panel_service()
@@ -538,6 +548,7 @@ def _account_cleanup_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
         WorkerTaskSpec(name="AccountCleanupWorker", factory=_account_cleanup_task),
+        WorkerTaskSpec(name="PanelMaintenanceWorker", factory=_panel_maintenance_task),
         WorkerTaskSpec(name="OutboundSettingsRefresh", factory=_outbound_settings_refresh_task),
         WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
         WorkerTaskSpec(name="ReferralAccrualWorker", factory=_referral_accrual_task),

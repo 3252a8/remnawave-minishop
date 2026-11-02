@@ -820,6 +820,7 @@
 <SettingsMaintenanceStatus {at} sections={settingsSections} />
 <SettingsContent
   {at}
+  {currentLang}
   {appRepositoryUrl}
   {settingsLoading}
   extraDirtyCount={Number(settingsStore.extraDirtyCount || 0)}

@@ -82,6 +82,7 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
     wide_auth_providers: list[str] = Field(alias="wideAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
+    invite_link_prefix: str = Field(default="discount", alias="inviteLinkPrefix")
     checkout_plans: list[dict[str, Any]] = Field(default_factory=list, alias="checkoutPlans")
     app_version: str = Field(alias="appVersion")
     app_repository_url: str = Field(alias="appRepositoryUrl")
@@ -352,6 +353,32 @@ HWID_DEVICE_PACKAGE_SCHEMA: dict[str, Any] = {
         "externally_managed_price_method_ids": STRING_ARRAY_SCHEMA,
     },
 }
+SUBSCRIPTION_DAYS_QUOTE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "eligible": BOOLEAN_SCHEMA,
+        "disabled_reason": NULLABLE_STRING_SCHEMA,
+        "days_to_charge": NULLABLE_INTEGER_SCHEMA,
+        "current_expires_at": NULLABLE_STRING_SCHEMA,
+        "next_expires_at": NULLABLE_STRING_SCHEMA,
+        "minimum_remaining_days": INTEGER_SCHEMA,
+        "quote_token": NULLABLE_STRING_SCHEMA,
+        "price_amount": NULLABLE_NUMBER_SCHEMA,
+        "currency": STRING_SCHEMA,
+    },
+    "required": [
+        "eligible",
+        "disabled_reason",
+        "days_to_charge",
+        "current_expires_at",
+        "next_expires_at",
+        "minimum_remaining_days",
+        "quote_token",
+        "price_amount",
+        "currency",
+    ],
+}
 PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -359,6 +386,7 @@ PLAN_SCHEMA: dict[str, Any] = {
         "id": STRING_SCHEMA,
         "tariff_key": STRING_SCHEMA,
         "access_via_link": BOOLEAN_SCHEMA,
+        "subscription_days": SUBSCRIPTION_DAYS_QUOTE_SCHEMA,
         "is_default_tariff": BOOLEAN_SCHEMA,
         "tariff_name": STRING_SCHEMA,
         "billing_model": STRING_SCHEMA,

@@ -13,7 +13,11 @@
   import { FileText, User } from "$components/ui/icons.js";
   import { Popover } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
-  import { paymentDescriptionDisplay, paymentDiscountDisplay } from "$lib/admin/paymentTable.js";
+  import {
+    paymentAmountDisplay,
+    paymentDescriptionDisplay,
+    paymentDiscountDisplay,
+  } from "$lib/admin/paymentTable.js";
   import { paymentStatusLabel } from "$lib/admin/format.js";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
@@ -259,7 +263,7 @@
             >
               <PaymentPurchasesCell payment={p} {at} />
             </td>
-            <td data-label={at("amount", {}, "Amount")}>{fmtMoney(p.amount, p.currency)}</td>
+            <td data-label={at("amount", {}, "Amount")}>{paymentAmountDisplay(p, fmtMoney, at)}</td>
             <td data-label={at("payments_col_discount", {}, "Discount")}>
               {paymentDiscountDisplay(p, fmtMoney)}
             </td>
@@ -304,7 +308,7 @@
                 oncopy={copyValue}
               />
             </span>
-            <AdminBadge wrap variant={paymentStatusVariant(p.status)}
+            <AdminBadge variant={paymentStatusVariant(p.status)}
               >{paymentStatusLabel(p.status, at)}</AdminBadge
             >
           </div>
@@ -338,7 +342,7 @@
           <dl class="admin-payment-mobile-metrics">
             <div>
               <dt>{at("amount", {}, "Amount")}</dt>
-              <dd>{fmtMoney(p.amount, p.currency)}</dd>
+              <dd>{paymentAmountDisplay(p, fmtMoney, at)}</dd>
             </div>
             <div>
               <dt>{at("payments_col_discount", {}, "Discount")}</dt>
@@ -573,6 +577,15 @@
     .admin-payment-mobile-head {
       justify-content: space-between;
       gap: 10px;
+    }
+
+    .admin-payment-mobile-head .admin-payment-id-actions {
+      flex: 1 1 auto;
+      width: auto;
+    }
+
+    .admin-payment-mobile-head :global(.admin-badge) {
+      flex: 0 0 auto;
     }
 
     .admin-payment-mobile-user {

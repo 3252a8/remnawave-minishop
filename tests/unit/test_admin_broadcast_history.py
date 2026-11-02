@@ -435,5 +435,9 @@ class MessageQueueDeliveryCallbackTests(unittest.IsolatedAsyncioTestCase):
             await service._queue_telegram(_delivery(user_id=7), "Hello", [])
             await queue.messages[0]["error_callback"](error)
 
-        record_failure.assert_awaited_once_with(service.session_factory, 7, error)
+        record_failure.assert_awaited_once()
+        assert record_failure.await_args is not None
+        self.assertEqual(record_failure.await_args.args, (service.session_factory, 7, error))
+        self.assertEqual(record_failure.await_args.kwargs["telegram_id"], 111)
+        self.assertIsNotNone(record_failure.await_args.kwargs["attempted_at"])
         mark_result.assert_awaited_once_with(1, success=False, error=str(error))

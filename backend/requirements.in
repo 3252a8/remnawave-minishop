@@ -1,4 +1,4 @@
-# Checked 2026-10-13:
+# Checked 2026-11-02:
 # https://pypi.org/pypi/aiogram/json latest is 3.31.0 and still requires
 # aiohttp>=3.9.0,<3.15 plus redis[hiredis]>=6.2.0,<8.
 aiogram==3.31.0
@@ -12,7 +12,7 @@ python-dotenv==1.2.4
 pydantic==2.13.5
 yookassa==3.13.0
 httpx>=0.27.0
-pydantic-settings==2.16.0
+pydantic-settings==2.16.2
 email-validator==2.3.0
 # SQLAlchemy 2.1 changes autoflush, PostgreSQL named types, and Row typing;
 # keep 2.0 until transaction, migration, and type compatibility is validated.
@@ -23,9 +23,12 @@ asyncpg==0.32.0
 certifi>=2026.10.19
 PyJWT[crypto]==2.15.1
 webauthn==3.0.1
+# pyasn1 0.6.5 fixes quadratic ASN.1 decoding (GHSA-mm57-4v3p-rchx and related).
+# https://github.com/pyasn1/pyasn1/releases/tag/v0.6.5
+pyasn1>=0.6.5
 cryptography>=50.0.2
 Pillow==13.0.0
-# Checked 2026-10-13: 1.8.1 provides CPython 3.12 wheels and registers
+# Checked 2026-11-02: 1.8.1 provides CPython 3.12 wheels and registers
 # libheif-backed HEIC/HEIF decoding as a Pillow plugin.
 pillow-heif==1.8.1
 # aiogram 3.31.0 still caps its optional redis[hiredis] extra at <8, so both

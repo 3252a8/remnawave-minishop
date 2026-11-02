@@ -48,6 +48,74 @@ function makeBillingStore(overrides: TestOverrides = {}) {
 }
 
 describe("billingStore", () => {
+  it.each([false, true])(
+    "refreshes a stale day quote without retrying the purchase (devices=%s)",
+    async (devices) => {
+      const quote = {
+        eligible: true,
+        disabled_reason: null,
+        days_to_charge: 4,
+        current_expires_at: "2026-12-31T12:00:00Z",
+        next_expires_at: "2026-12-27T12:00:00Z",
+        minimum_remaining_days: 1,
+        quote_token: "before",
+      };
+      const plan = { id: "topup", device_count: 1, traffic_gb: 25, subscription_days: quote };
+      const refreshed = {
+        ...plan,
+        subscription_days: {
+          ...quote,
+          days_to_charge: 5,
+          next_expires_at: "2026-12-26T12:00:00Z",
+          quote_token: "after",
+        },
+      };
+      const fetchOptions = vi
+        .fn()
+        .mockResolvedValue({ ok: true, plans: [refreshed], topup_kind: "regular" });
+      const { store, billing, deps } = makeBillingStore({
+        billing: {
+          postPayment: vi
+            .fn()
+            .mockResolvedValue({ ok: false, error: "subscription_days_quote_stale" }),
+          fetchTopupOptions: fetchOptions,
+          fetchDeviceTopupOptions: fetchOptions,
+        },
+      });
+      store.update((state) => ({
+        ...state,
+        selectedMethod: "card",
+        topupKind: "regular",
+        topupModalOpen: !devices,
+        deviceTopupModalOpen: devices,
+        selectedTopupPlan: plan,
+        selectedDeviceTopupPlan: plan,
+      }));
+      await (devices ? store.createDeviceTopupPayment : store.createTopupPayment)({
+        paymentMethod: "subscription_days",
+      });
+      expect(billing.postPayment).toHaveBeenCalledOnce();
+      expect(fetchOptions).toHaveBeenCalledOnce();
+      expect(devices ? store.selectedDeviceTopupPlan : store.selectedTopupPlan).toEqual(refreshed);
+      expect(devices ? store.deviceTopupModalOpen : store.topupModalOpen).toBe(true);
+      expect(store.selectedMethod).toBe("card");
+      expect(deps.openExternalLink).not.toHaveBeenCalled();
+      expect(deps.showToast).toHaveBeenCalledWith("wa_subscription_days_quote_stale");
+      expect(store.payBusy).toBe(false);
+    }
+  );
+
+  it("refuses day payment without an eligible server quote", async () => {
+    const { store, billing, deps } = makeBillingStore();
+    store.update((state) => ({
+      ...state,
+      selectedTopupPlan: { traffic_gb: 25 },
+      selectedMethod: "card",
+    }));
+    await store.createTopupPayment({ paymentMethod: "subscription_days" });
+    expect(billing.postPayment).not.toHaveBeenCalled();
+    expect(deps.showToast).toHaveBeenCalledWith("wa_subscription_days_unavailable");
+  });
   it("offers another method after a provider rejection over HTTP 502", async () => {
     vi.stubGlobal(
       "fetch",

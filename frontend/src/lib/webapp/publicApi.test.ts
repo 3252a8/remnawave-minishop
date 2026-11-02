@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildAdminInformationPagesPath, buildApiUrl, createApiClient } from "./publicApi";
+import { parseCheckoutDeeplink } from "./deeplinks";
+import { createBillingActions } from "./billingActions";
 
 function jsonResponse(payload = {}, status = 200) {
   return {
@@ -15,6 +17,23 @@ afterEach(() => {
 });
 
 describe("createApiClient", () => {
+  it("preserves private Mini App access in catalog and Stars payment requests", async () => {
+    const accessCode = "ab".repeat(16);
+    const checkout = parseCheckoutDeeplink({ telegramStartParam: `checkout_${accessCode}` });
+    const fetchMock = vi.fn(async () => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createApiClient({ getTariffAccessCode: () => checkout?.accessCode || "" });
+    await client.api("/me");
+    const billing = createBillingActions({ api: client.api });
+    await billing.postPayment(
+      billing.planPaymentBody({ months: 1, tariff_key: "hidden" }, "stars")
+    );
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    expect(calls).toHaveLength(2);
+    for (const [, options] of calls) {
+      expect((options.headers as Headers).get("X-Tariff-Access-Code")).toBe(accessCode);
+    }
+  });
   it("shows maintenance on an explicit 503 and keeps the session usable for retry", async () => {
     const onMaintenance = vi.fn();
     const onUnauthorized = vi.fn();
