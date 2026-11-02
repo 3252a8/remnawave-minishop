@@ -6,6 +6,67 @@ from bot.plugins.package_ui_composition import validate_admin_slots
 from bot.plugins.package_user_ui import validate_user_frontend
 
 
+@pytest.mark.parametrize("region", ["", ".header", ".details", ".actions"])
+@pytest.mark.parametrize("placement", ["before", "after", "replace"])
+def test_individual_device_card_regions_accept_composition(region, placement):
+    validate_user_frontend(
+        {
+            "entry": "user.js",
+            "slots": [
+                {
+                    "id": "device-info",
+                    "view": "device-info",
+                    "label": "Device info",
+                    "target": f"user.devices.card{region}",
+                    "placement": placement,
+                }
+            ],
+        },
+        {"frontend/user.js": "digest"},
+    )
+
+
+@pytest.mark.parametrize(
+    "device_types", [[], ["missing"], ["router", "router"], [["router"]], None, "router"]
+)
+def test_invalid_device_type_filters_are_rejected_before_installation(device_types):
+    with pytest.raises(ValueError, match="invalid_user_view_device_types"):
+        validate_user_frontend(
+            {
+                "entry": "user.js",
+                "slots": [
+                    {
+                        "id": "card",
+                        "view": "card",
+                        "label": "Card",
+                        "target": "user.devices.card",
+                        "device_types": device_types,
+                    }
+                ],
+            },
+            {"frontend/user.js": "digest"},
+        )
+
+
+def test_device_type_filters_are_scoped_to_device_cards_and_preserved_in_runtime_schema():
+    from bot.app.web.webapp.extension_schemas import ExtensionViewOut
+
+    slot = {
+        "id": "card",
+        "view": "card",
+        "label": "Card",
+        "target": "user.devices.card",
+        "device_types": ["router"],
+    }
+    validate_user_frontend({"entry": "user.js", "slots": [slot]}, {"frontend/user.js": "digest"})
+    assert ExtensionViewOut.model_validate(slot).model_dump()["device_types"] == ["router"]
+    with pytest.raises(ValueError, match="invalid_user_view_device_types"):
+        validate_user_frontend(
+            {"entry": "user.js", "slots": [{**slot, "target": "user.home.cards"}]},
+            {"frontend/user.js": "digest"},
+        )
+
+
 def test_support_ticket_panel_is_additive_and_cannot_replace_the_reply_composer():
     slot = {
         "id": "ticket-panel",

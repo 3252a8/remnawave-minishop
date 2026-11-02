@@ -1,10 +1,14 @@
 <script lang="ts">
   import { getContext, type Snippet } from "svelte";
-  import { composeUi } from "$lib/extensions/composition";
+  import { composeUi, matchesDeviceType } from "$lib/extensions/composition";
   import { USER_COMPOSITION, type UserCompositionContext } from "./compositionContext";
   import UserExtensionSlot from "./UserExtensionSlot.svelte";
 
-  let { target, children }: { target: string; children?: Snippet } = $props();
+  let {
+    target,
+    context = {},
+    children,
+  }: { target: string; context?: Record<string, unknown>; children?: Snippet } = $props();
   const composition = getContext<UserCompositionContext | undefined>(USER_COMPOSITION);
   const content = $derived(
     composeUi(
@@ -13,6 +17,7 @@
           .filter(
             (view) =>
               view.target !== "page" &&
+              matchesDeviceType(view, context) &&
               !(view.target === "user.security.content" && view.placement === "replace")
           )
           .map((view) => ({ ...view, id: `${plugin.id}:${view.id}`, plugin, view }))
@@ -24,7 +29,7 @@
 
 {#if composition}
   {#each content.before as item (`${item.id}:${item.plugin.digest}`)}
-    <UserExtensionSlot plugin={item.plugin} view={item.view} {composition} />
+    <UserExtensionSlot plugin={item.plugin} view={item.view} {composition} {context} />
   {/each}
   {#if content.conflict}<p role="alert">{composition.t("wa_extension_conflict")}</p>{/if}
   {#if content.replacement}
@@ -33,11 +38,12 @@
         plugin={content.replacement.plugin}
         view={content.replacement.view}
         {composition}
+        {context}
         {children}
       />
     {/key}
   {:else}{@render children?.()}{/if}
   {#each content.after as item (`${item.id}:${item.plugin.digest}`)}
-    <UserExtensionSlot plugin={item.plugin} view={item.view} {composition} />
+    <UserExtensionSlot plugin={item.plugin} view={item.view} {composition} {context} />
   {/each}
 {:else}{@render children?.()}{/if}

@@ -9897,6 +9897,22 @@
       },
       "ExtensionViewOut": {
         "properties": {
+          "device_types": {
+            "items": {
+              "enum": [
+                "phone",
+                "tablet",
+                "laptop",
+                "desktop",
+                "tv",
+                "router",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            "title": "Device Types",
+            "type": "array"
+          },
           "i18nKey": {
             "default": "",
             "title": "I18Nkey",
@@ -17518,6 +17534,25 @@
             "title": "Default Name",
             "type": "string"
           },
+          "device_model": {
+            "default": "",
+            "title": "Device Model",
+            "type": "string"
+          },
+          "device_type": {
+            "default": "unknown",
+            "enum": [
+              "phone",
+              "tablet",
+              "laptop",
+              "desktop",
+              "tv",
+              "router",
+              "unknown"
+            ],
+            "title": "Device Type",
+            "type": "string"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -17557,6 +17592,26 @@
           "platform_label": {
             "title": "Platform Label",
             "type": "string"
+          },
+          "router_platform": {
+            "anyOf": [
+              {
+                "enum": [
+                  "openwrt",
+                  "keenetic",
+                  "routeros",
+                  "dd-wrt",
+                  "asuswrt",
+                  "tomato"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Router Platform"
           },
           "token": {
             "title": "Token",

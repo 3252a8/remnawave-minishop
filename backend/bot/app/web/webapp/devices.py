@@ -19,6 +19,7 @@ from bot.app.web.webapp.cache_helpers import (
     invalidate_webapp_user_caches,
     webapp_cached_user_payload,
 )
+from bot.services.device_detection import DeviceType, RouterPlatform, detect_device
 from bot.services.device_names import DEVICE_NAME_MAX_LENGTH, normalize_device_name
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
@@ -378,6 +379,9 @@ class WebAppDeviceOut(HttpResponseModel):
     can_disconnect: bool
     default_name: str = ""
     custom_name: str | None = None
+    device_model: str = ""
+    device_type: DeviceType = "unknown"
+    router_platform: RouterPlatform | None = None
 
     @classmethod
     def from_panel_device(
@@ -388,6 +392,9 @@ class WebAppDeviceOut(HttpResponseModel):
         platform = str(device.get("platform") or "").strip()
         os_version = str(device.get("osVersion") or "").strip()
         user_agent = str(device.get("userAgent") or "").strip()
+        detection = detect_device(
+            device_model=model, platform=platform, os_version=os_version, user_agent=user_agent
+        )
         default_name = model or platform or f"Device {index}"
         platform_label = " ".join(part for part in (platform, os_version) if part).strip()
         last_connected_at = device.get("updatedAt") or device.get("createdAt")
@@ -407,6 +414,9 @@ class WebAppDeviceOut(HttpResponseModel):
             can_disconnect=bool(hwid),
             default_name=default_name,
             custom_name=custom_name or None,
+            device_model=model,
+            device_type=detection.device_type,
+            router_platform=detection.router_platform,
         )
 
 

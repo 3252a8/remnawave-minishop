@@ -1365,6 +1365,7 @@
   "wa_devices_empty_hint": "Можно подключить до {max} устройств через приложение с подпиской.",
   "wa_device_fallback_name": "Устройство {index}",
   "wa_devices_platform_unknown": "Платформа неизвестна",
+  "wa_devices_type_router": "Роутер",
   "wa_devices_last_connected_at": "Последнее подключение",
   "wa_devices_disconnect": "Отключить устройство",
   "wa_devices_rename": "Переименовать",

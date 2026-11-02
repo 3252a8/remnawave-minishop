@@ -10,6 +10,45 @@ const locale: Record<string, string> = JSON.parse(
 const t = (key: string) => locale[key] || key;
 
 describe("DevicesScreen progress semantics", () => {
+  it("renders the Lucide router icon and localized type after a device rename", () => {
+    const html = render(DevicesScreen, {
+      props: {
+        devicesData: {
+          devices: [
+            {
+              index: 1,
+              token: "router",
+              display_name: "My phone",
+              default_name: "Keenetic Giga",
+              custom_name: "My phone",
+              device_model: "Keenetic Giga",
+              device_type: "router",
+              router_platform: "keenetic",
+              platform: "Linux",
+              platform_label: "Linux",
+              os_version: "",
+              user_agent: "",
+              created_at: null,
+              created_at_text: "",
+              last_connected_at: null,
+              last_connected_at_text: "",
+              hwid_short: "",
+              can_disconnect: true,
+            },
+          ],
+        },
+        devicesLoaded: true,
+        subscription: { active: true },
+        t,
+      },
+    }).body;
+    expect(html).toContain('data-device-shape="router"');
+    expect(html).toContain("lucide-router");
+    expect(html).toContain("Keenetic Giga · Router · Linux");
+    expect(html).toContain('data-webapp-action="open-device-disconnect"');
+    expect(html).toContain('data-webapp-action="open-device-rename"');
+  });
+
   it.each([
     { current: 199, max: 200, state: "available", percent: 100 },
     { current: 200, max: 200, state: "reached", percent: 100 },

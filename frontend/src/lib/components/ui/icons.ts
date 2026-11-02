@@ -73,6 +73,7 @@ export {
   RotateCcw,
   Save,
   ScanQrCode,
+  Router,
   Search,
   Send,
   Server,

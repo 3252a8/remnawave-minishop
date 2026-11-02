@@ -9084,6 +9084,8 @@ export interface components {
     };
     /** ExtensionViewOut */
     ExtensionViewOut: {
+      /** Device Types */
+      device_types?: ("phone" | "tablet" | "laptop" | "desktop" | "tv" | "router" | "unknown")[];
       /**
        * I18Nkey
        * @default
@@ -12429,6 +12431,17 @@ export interface components {
        * @default
        */
       default_name: string;
+      /**
+       * Device Model
+       * @default
+       */
+      device_model: string;
+      /**
+       * Device Type
+       * @default unknown
+       * @enum {string}
+       */
+      device_type: "phone" | "tablet" | "laptop" | "desktop" | "tv" | "router" | "unknown";
       /** Display Name */
       display_name: string;
       /** Hwid Short */
@@ -12448,6 +12461,12 @@ export interface components {
       platform: string;
       /** Platform Label */
       platform_label: string;
+      /**
+       * Router Platform
+       * @default null
+       */
+      router_platform:
+        ("openwrt" | "keenetic" | "routeros" | "dd-wrt" | "asuswrt" | "tomato") | null;
       /** Token */
       token: string;
       /** User Agent */

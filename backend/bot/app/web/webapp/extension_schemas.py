@@ -4,6 +4,7 @@ from pydantic import ConfigDict, Field, JsonValue
 
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.plugins.extensions.contracts import ProductQuote
+from bot.services.device_detection import DeviceType
 
 
 class ExtensionViewOut(HttpResponseModel):
@@ -17,6 +18,7 @@ class ExtensionViewOut(HttpResponseModel):
     navigation: str = "primary"
     parent: str = ""
     placement: str = "after"
+    device_types: list[DeviceType] = Field(default_factory=list)
 
 
 class ExtensionPluginOut(HttpResponseModel):

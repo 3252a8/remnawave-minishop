@@ -1,7 +1,9 @@
 """Validate the separately authorized customer UI surface of a signed package."""
 
 import re
-from typing import Any
+from typing import Any, get_args
+
+from bot.services.device_detection import DeviceType
 
 from .package_ui_composition import USER_SECTIONS, validate_placement
 
@@ -35,6 +37,7 @@ def validate_user_frontend(value: Any, files: dict[str, Any]) -> None:
                 "navigation",
                 "parent",
                 "placement",
+                "device_types",
             }:
                 raise ValueError("invalid_user_view")
             for key in ("id", "view"):
@@ -43,6 +46,26 @@ def validate_user_frontend(value: Any, files: dict[str, Any]) -> None:
             if view["id"] in ids:
                 raise ValueError("duplicate_user_view")
             ids.add(view["id"])
+            if "device_types" in view:
+                device_types = view["device_types"]
+                if (
+                    collection != "slots"
+                    or view.get("target")
+                    not in {
+                        "user.devices.card",
+                        "user.devices.card.header",
+                        "user.devices.card.details",
+                        "user.devices.card.actions",
+                    }
+                    or not isinstance(device_types, list)
+                    or not 1 <= len(device_types) <= len(get_args(DeviceType))
+                    or any(
+                        not isinstance(item, str) or item not in get_args(DeviceType)
+                        for item in device_types
+                    )
+                    or len(set(device_types)) != len(device_types)
+                ):
+                    raise ValueError("invalid_user_view_device_types")
             if not isinstance(view.get("label"), str) or not 1 <= len(view["label"]) <= 200:
                 raise ValueError("invalid_user_view_label")
             if not isinstance(view.get("i18nKey", ""), str):
