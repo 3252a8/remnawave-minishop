@@ -10,6 +10,14 @@
 
 ## В разработке · dev
 
+Новые изменения продукта после v3.8.4 пока не записаны.
+
+[Сравнить с v3.8.4](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.4...dev).
+
+## v3.8.4 — 2026-11-02
+
+[GitLab](https://gitlab.com/3252a8/remnawave-minishop/-/releases/v3.8.4) · [GitHub](https://github.com/3252a8/remnawave-minishop/releases/tag/v3.8.4)
+
 ### Добавлено
 
 - **Платёж в обращении об оплате.** Форма тикета предлагает категории и
@@ -227,7 +235,7 @@
   `my_chat_member` и `chat_member` с сохранением прежних типов событий.
   Обычная перенастройка webhook пока очищает ожидающие updates; восстановление
   состояния опирается на реальные взаимодействия и ограниченный срок подтверждения.
-[Сравнить с v3.8.3](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.3...dev).
+[Сравнить с v3.8.3](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.3...v3.8.4).
 
 ## v3.8.3 — 2026-10-22
 
