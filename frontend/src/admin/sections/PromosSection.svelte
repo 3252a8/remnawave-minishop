@@ -19,6 +19,7 @@
   import { Tabs } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import PromoCreateDialog from "./promos/PromoCreateDialog.svelte";
+  import BirthdayActivationSettings from "./promos/BirthdayActivationSettings.svelte";
   import PromoEditDialog from "./promos/PromoEditDialog.svelte";
   import type { components } from "../../lib/api/openapi.generated";
   import type {
@@ -123,7 +124,7 @@
   const promoKind = $derived(String(promosStore.promoKind || "shared"));
   // The split only means something once some code carries an owner, so an
   // install that never issues one keeps the plain single list.
-  const promoKindTabsVisible = $derived(Number(promosStore.promoOwnedTotal || 0) > 0);
+  let openBirthdaySettings = $state(false);
   const promoCreateOpen = $derived(Boolean(promosStore.promoCreateOpen));
   const promoEditOpen = $derived(Boolean(promosStore.promoEditOpen));
   const promoEditing = $derived(promosStore.promoEditing as Promo | null);
@@ -238,6 +239,14 @@
     ...scopeItems,
   ]);
   onMount(() => {
+    if (window.location.hash === "#birthday-activation-settings") {
+      openBirthdaySettings = true;
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      if (promoKind !== "personal") {
+        promosStore.setPromoKind("personal");
+        return;
+      }
+    }
     promosStore.loadPromos();
   });
 
@@ -519,18 +528,22 @@
   }
 </script>
 
-{#if promoKindTabsVisible}
-  <Tabs.Root
-    value={promoKind}
-    onValueChange={(value) => promosStore.setPromoKind(value as PromoKind)}
-    class="admin-tabs-root admin-promo-kind-tabs"
-  >
-    <Tabs.List class="admin-tabs-list">
-      {#each promoKindTabs as tab (tab.value)}
-        <Tabs.Trigger value={tab.value} class="admin-tabs-trigger">{tab.label}</Tabs.Trigger>
-      {/each}
-    </Tabs.List>
-  </Tabs.Root>
+<Tabs.Root
+  value={promoKind}
+  onValueChange={(value) => {
+    openBirthdaySettings = false;
+    promosStore.setPromoKind(value as PromoKind);
+  }}
+  class="admin-tabs-root admin-promo-kind-tabs"
+>
+  <Tabs.List class="admin-tabs-list">
+    {#each promoKindTabs as tab (tab.value)}
+      <Tabs.Trigger value={tab.value} class="admin-tabs-trigger">{tab.label}</Tabs.Trigger>
+    {/each}
+  </Tabs.List>
+</Tabs.Root>
+{#if promoKind === "personal"}
+  <BirthdayActivationSettings {at} {scopeItems} initiallyOpen={openBirthdaySettings} />
 {/if}
 
 <AdminListToolbar

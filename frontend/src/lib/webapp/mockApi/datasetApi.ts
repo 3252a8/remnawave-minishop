@@ -42,6 +42,7 @@ import {
 
 const demoInformationPages = new Map<string, string>();
 const demoDocuments = loadDemoDocuments();
+let demoBirthdayCampaign: Record<string, unknown> = { enabled: false, valid_days: 7, effects: {} };
 
 function demoSortValue(value: unknown): AdminSortValue {
   if (value == null || typeof value === "string" || typeof value === "number") return value;
@@ -395,6 +396,10 @@ export function demoApiResponse(
     };
   }
 
+  if (cleanPath === "/admin/promos/birthday") {
+    if (method === "PUT") demoBirthdayCampaign = jsonBody(options);
+    return { ok: true, campaign: clone(demoBirthdayCampaign) };
+  }
   if (cleanPath === "/admin/promos") {
     if (method === "POST") {
       const body = jsonBody(options);

@@ -16,7 +16,7 @@ export type SettingsSearchEntry = {
   pathLabel: string;
   anchorKey: string;
   searchText: string;
-  navigationSection?: "tariffs" | "appearance";
+  navigationSection?: "tariffs" | "appearance" | "promos";
 };
 
 type SettingsSearchTextResolvers = {

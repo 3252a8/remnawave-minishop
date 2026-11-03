@@ -8964,6 +8964,28 @@
         "title": "Author",
         "type": "object"
       },
+      "BirthdayActivationConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "$ref": "#/components/schemas/PromoEffects"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "valid_days": {
+            "default": 7,
+            "maximum": 365,
+            "minimum": 1,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "title": "BirthdayActivationConfig",
+        "type": "object"
+      },
       "ButtonAppearance": {
         "additionalProperties": false,
         "properties": {
@@ -14011,6 +14033,95 @@
           "max_activations"
         ],
         "title": "PromoCreateBody",
+        "type": "object"
+      },
+      "PromoEffects": {
+        "properties": {
+          "applies_to": {
+            "default": "all",
+            "title": "Applies To",
+            "type": "string"
+          },
+          "bonus_days": {
+            "default": 0,
+            "title": "Bonus Days",
+            "type": "integer"
+          },
+          "bonus_requires_payment": {
+            "default": false,
+            "title": "Bonus Requires Payment",
+            "type": "boolean"
+          },
+          "discount_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Percent"
+          },
+          "duration_multiplier": {
+            "default": 1.0,
+            "title": "Duration Multiplier",
+            "type": "number"
+          },
+          "min_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Days"
+          },
+          "min_subscription_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Months"
+          },
+          "min_traffic_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Traffic Gb"
+          },
+          "premium_traffic_gb": {
+            "default": 0.0,
+            "title": "Premium Traffic Gb",
+            "type": "number"
+          },
+          "regular_traffic_gb": {
+            "default": 0.0,
+            "title": "Regular Traffic Gb",
+            "type": "number"
+          },
+          "traffic_multiplier": {
+            "default": 1.0,
+            "title": "Traffic Multiplier",
+            "type": "number"
+          }
+        },
+        "title": "PromoEffects",
         "type": "object"
       },
       "PromoOptionOut": {
@@ -27785,6 +27896,100 @@
           }
         ],
         "summary": "Admin Promo Create",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/promos/birthday": {
+      "get": {
+        "operationId": "get_admin_birthday_activation_get_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "campaign": {
+                      "$ref": "#/components/schemas/BirthdayActivationConfig"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "campaign"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Birthday Activation Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_admin_birthday_activation_put_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BirthdayActivationConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "campaign": {
+                      "$ref": "#/components/schemas/BirthdayActivationConfig"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "campaign"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Birthday Activation Put",
         "tags": [
           "admin"
         ]

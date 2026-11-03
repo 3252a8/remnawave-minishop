@@ -10,8 +10,11 @@ from sqlalchemy import Select, case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.birthday_activation_config import (
+    BirthdayActivationConfig,
+    load_birthday_activation_config,
+)
 from bot.services.promo_code_service import PromoCodeService
-from bot.services.promo_effects import PromoEffects
 from config.settings import Settings
 from db.models import PromoCode, User
 
@@ -41,7 +44,7 @@ class BirthdayActivationWorker:
             query = query.where(User.marketing_notifications_telegram_enabled.is_(True))
         return query
 
-    async def _tick(self, now: datetime, days: int) -> None:
+    async def _tick(self, now: datetime, config: BirthdayActivationConfig) -> None:
         today = now.month * 100 + now.day
         due = (User.telegram_birthday_month_day == today) & (
             User.telegram_birthday_sent_year.is_distinct_from(now.year)
@@ -66,17 +69,17 @@ class BirthdayActivationWorker:
             )
             candidates = [(int(user.user_id), int(user.telegram_id)) for user in result.scalars()]
         for user_id, telegram_id in candidates:
-            if self.settings.BIRTHDAY_ACTIVATION_CODE_DAYS <= 0:
-                return
             try:
-                await self._process_user(user_id, telegram_id, now, days)
+                await self._process_user(user_id, telegram_id, now, config)
             except TelegramRetryAfter:
                 raise
             except Exception:
                 logger.exception("Birthday activation delivery failed for user %s", user_id)
             await asyncio.sleep(1)
 
-    async def _process_user(self, user_id: int, telegram_id: int, now: datetime, days: int) -> None:
+    async def _process_user(
+        self, user_id: int, telegram_id: int, now: datetime, config: BirthdayActivationConfig
+    ) -> None:
         try:
             chat = await self.bot.get_chat(telegram_id)
             birthdate = chat.birthdate
@@ -106,17 +109,20 @@ class BirthdayActivationWorker:
             if promo is None:
                 promo = await PromoCodeService.issue_code(
                     session,
-                    effects=PromoEffects(bonus_days=days),
+                    effects=config.effects,
                     code=None,
                     max_activations=1,
-                    valid_until=now + timedelta(days=7),
+                    valid_until=now + timedelta(days=config.valid_days),
                     origin=origin,
                     created_by_admin_id=None,
                     user_id=user_id,
+                    max_duration_multiplier=float(self.settings.PROMO_DURATION_MULTIPLIER_MAX),
+                    max_traffic_multiplier=float(self.settings.PROMO_TRAFFIC_MULTIPLIER_MAX),
                 )
             if promo.archived_at or not promo.is_active:
                 return
-            code, granted_days = str(promo.code), int(promo.bonus_days)
+            code = str(promo.code)
+            expires = promo.valid_until.strftime("%Y-%m-%d %H:%M")
 
         # Commit issuance before sending so a failed delivery can reuse the same code.
         async with self.sessions.begin() as session:
@@ -127,7 +133,7 @@ class BirthdayActivationWorker:
                 user.language_code or self.settings.DEFAULT_LANGUAGE,
                 "birthday_activation_code_message",
                 code=code,
-                days=granted_days,
+                expires=expires,
             )
             try:
                 await self.bot.send_message(telegram_id, message, parse_mode=None)
@@ -140,9 +146,10 @@ class BirthdayActivationWorker:
         while True:
             delay = 30
             try:
-                days = self.settings.BIRTHDAY_ACTIVATION_CODE_DAYS
-                if days > 0:
-                    await self._tick(datetime.now(UTC), days)
+                async with self.sessions() as session:
+                    config = await load_birthday_activation_config(session, self.settings)
+                if config.enabled:
+                    await self._tick(datetime.now(UTC), config)
             except TelegramRetryAfter as exc:
                 delay = max(delay, exc.retry_after)
             except Exception:

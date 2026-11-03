@@ -18,6 +18,10 @@ from .backups import (
     admin_backups_upload_route,
     backup_restore_status_route,
 )
+from .birthday_activation import (
+    admin_birthday_activation_get_route,
+    admin_birthday_activation_put_route,
+)
 from .broadcast import (
     admin_broadcast_audience_counts_route,
     admin_broadcast_delete_route,
@@ -379,6 +383,8 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/gifts/{gift_id:\\d+}/revoke", admin_gift_revoke_route)
 
     router.add_get("/api/admin/promos", admin_promos_list_route)
+    router.add_get("/api/admin/promos/birthday", admin_birthday_activation_get_route)
+    router.add_put("/api/admin/promos/birthday", admin_birthday_activation_put_route)
     router.add_post("/api/admin/promos", admin_promo_create_route)
     router.add_get("/api/admin/promos/options", admin_promo_options_route)
     router.add_get("/api/admin/promos/{promo_id:\\d+}", admin_promo_detail_route)

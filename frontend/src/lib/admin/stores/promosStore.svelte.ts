@@ -401,13 +401,6 @@ export function createPromosStore({
       promos = payload.promos || [];
       state.promosTotal = payload.total || 0;
       state.promoOwnedTotal = payload.owned_total || 0;
-      // Nothing issues codes for a named customer here, so drop back to the
-      // plain single list instead of stranding the admin on an empty tab.
-      if (!state.promoOwnedTotal && currentKind !== "shared") {
-        state.promoKind = "shared";
-        state.promosPage = 0;
-        void loadPromos({ refresh });
-      }
     } catch (error) {
       if (requestSeq !== promosRequestSeq) return;
       if (error instanceof AdminPromosError) {

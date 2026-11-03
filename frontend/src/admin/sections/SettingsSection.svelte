@@ -138,6 +138,25 @@
     }),
     ...programSearchEntries(),
     {
+      key: "BIRTHDAY_ACTIVATION_CAMPAIGN",
+      sectionId: "promos",
+      subsectionId: "personal",
+      label: at("promo_birthday_title"),
+      description: at("promo_birthday_hint"),
+      pathLabel: at("promo_birthday_search_path"),
+      anchorKey: "birthday-activation-settings",
+      navigationSection: "promos" as const,
+      searchText: normalizeSettingsSearchText(
+        [
+          at("promo_birthday_title"),
+          at("promo_birthday_hint"),
+          at("promo_birthday_search_keywords"),
+          "BIRTHDAY_ACTIVATION_CODE_DAYS",
+          "BIRTHDAY_ACTIVATION_CAMPAIGN",
+        ].join(" ")
+      ),
+    },
+    {
       key: "ADMINISTRATORS",
       sectionId: "general",
       subsectionId: "administrators",

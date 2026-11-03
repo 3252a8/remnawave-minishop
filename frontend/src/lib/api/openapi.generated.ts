@@ -2123,6 +2123,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/promos/birthday": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Birthday Activation Get */
+    get: operations["get_admin_birthday_activation_get_route"];
+    /** Admin Birthday Activation Put */
+    put: operations["put_admin_birthday_activation_put_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/promos/options": {
     parameters: {
       query?: never;
@@ -8682,6 +8700,20 @@ export interface components {
       /** Name */
       name: string;
     };
+    /** BirthdayActivationConfig */
+    BirthdayActivationConfig: {
+      effects?: components["schemas"]["PromoEffects"];
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Valid Days
+       * @default 7
+       */
+      valid_days: number;
+    };
     /** ButtonAppearance */
     ButtonAppearance: {
       /**
@@ -10885,6 +10917,64 @@ export interface components {
        * @default null
        */
       valid_days: unknown;
+    };
+    /** PromoEffects */
+    PromoEffects: {
+      /**
+       * Applies To
+       * @default all
+       */
+      applies_to: string;
+      /**
+       * Bonus Days
+       * @default 0
+       */
+      bonus_days: number;
+      /**
+       * Bonus Requires Payment
+       * @default false
+       */
+      bonus_requires_payment: boolean;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default 1
+       */
+      duration_multiplier: number;
+      /**
+       * Min Subscription Days
+       * @default null
+       */
+      min_subscription_days: number | null;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /**
+       * Premium Traffic Gb
+       * @default 0
+       */
+      premium_traffic_gb: number;
+      /**
+       * Regular Traffic Gb
+       * @default 0
+       */
+      regular_traffic_gb: number;
+      /**
+       * Traffic Multiplier
+       * @default 1
+       */
+      traffic_multiplier: number;
     };
     /** PromoOptionOut */
     PromoOptionOut: {
@@ -17235,6 +17325,58 @@ export interface operations {
             /** @constant */
             ok: true;
             promo: components["schemas"]["PromoOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_birthday_activation_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            campaign: components["schemas"]["BirthdayActivationConfig"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  put_admin_birthday_activation_put_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BirthdayActivationConfig"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            campaign: components["schemas"]["BirthdayActivationConfig"];
+            /** @constant */
+            ok: true;
           };
         };
       };
