@@ -396,6 +396,7 @@ PLAN_SCHEMA: dict[str, Any] = {
         "hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "effective_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "premium_enabled": BOOLEAN_SCHEMA,
+        "shop_premium_enabled": BOOLEAN_SCHEMA,
         "premium_monthly_gb": NULLABLE_NUMBER_SCHEMA,
         "premium_title": STRING_SCHEMA,
         "premium_unlimited": BOOLEAN_SCHEMA,

@@ -168,6 +168,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[0]["hwid_device_limit"], 5)
         self.assertEqual(plans[0]["effective_hwid_device_limit"], 5)
         self.assertTrue(plans[0]["premium_enabled"])
+        self.assertTrue(plans[0]["shop_premium_enabled"])
         self.assertEqual(plans[0]["premium_title"], "Fast lane")
         self.assertEqual(russian_plans[0]["premium_title"], "Быстрый доступ")
         self.assertEqual(plans[0]["premium_monthly_gb"], 25)
@@ -176,6 +177,8 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plans[0]["premium_traffic_limit_strategy"], "DAY")
         self.assertEqual(plans[0]["hwid_device_packages"][0]["device_count"], 1)
         self.assertEqual(plans[1]["sale_mode"], "traffic_package")
+        self.assertFalse(plans[1]["premium_enabled"])
+        self.assertTrue(plans[1]["shop_premium_enabled"])
         self.assertFalse(plans[1]["is_default_tariff"])
         self.assertEqual(plans[1]["traffic_gb"], 50.0)
         self.assertEqual(plans[1]["stars_price"], 2500)
@@ -231,6 +234,7 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
             plans = subscription_webapp._serialize_plans(settings, "en")
 
         self.assertEqual([plan["months"] for plan in plans], [12, 1, 6, 3])
+        self.assertTrue(all(plan["shop_premium_enabled"] is False for plan in plans))
 
     def test_serialize_plans_preserves_traffic_package_order(self):
         with tempfile.TemporaryDirectory() as tmpdir:

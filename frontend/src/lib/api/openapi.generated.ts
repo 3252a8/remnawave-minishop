@@ -15546,6 +15546,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -20320,6 +20321,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -20740,6 +20742,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -20970,6 +20973,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -21120,6 +21124,7 @@ export interface operations {
                 price?: number;
                 proration_ratio?: number;
                 sale_mode?: string;
+                shop_premium_enabled?: boolean;
                 squad_uuids?: string[];
                 stars_price?: number;
                 subscription_days?: {
@@ -22596,6 +22601,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {

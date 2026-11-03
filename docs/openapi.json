@@ -24253,6 +24253,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -34657,6 +34660,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -35673,6 +35679,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -36439,6 +36448,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -37028,6 +37040,9 @@
                                 },
                                 "sale_mode": {
                                   "type": "string"
+                                },
+                                "shop_premium_enabled": {
+                                  "type": "boolean"
                                 },
                                 "squad_uuids": {
                                   "items": {
@@ -40714,6 +40729,9 @@
                           },
                           "sale_mode": {
                             "type": "string"
+                          },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
                           },
                           "squad_uuids": {
                             "items": {
