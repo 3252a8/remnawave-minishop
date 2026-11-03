@@ -14037,6 +14037,27 @@
     "order": 7,
     "fields": [
       {
+        "key": "BIRTHDAY_ACTIVATION_CODE_DAYS",
+        "type": "int",
+        "section": "notifications",
+        "section_order": 7,
+        "subsection": "notification_delivery",
+        "label": "Birthday activation code days",
+        "description": "Subscription days granted by a personal code on a visible Telegram birthday. Set to 0 to disable.",
+        "i18n_label_key": "admin_settings_field_birthday_activation_code_days_label",
+        "i18n_description_key": "admin_settings_field_birthday_activation_code_days_description",
+        "i18n_subsection_key": "admin_settings_subsection_notification_delivery",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "min": 0,
+        "max": 365,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "USER_NOTIFICATION_PREFERENCES_ENABLED",
         "type": "bool",
         "section": "notifications",

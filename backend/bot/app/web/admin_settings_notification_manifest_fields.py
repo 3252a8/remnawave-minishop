@@ -4,6 +4,17 @@ from bot.app.web.admin_settings_manifest_types import SettingField
 
 NOTIFICATION_SETTINGS_FIELDS: list[SettingField] = [
     SettingField(
+        "BIRTHDAY_ACTIVATION_CODE_DAYS",
+        "int",
+        "notifications",
+        "Birthday activation code days",
+        "Subscription days granted by a personal code on a visible Telegram birthday. "
+        "Set to 0 to disable.",
+        min=0,
+        max=365,
+        subsection="notification_delivery",
+    ),
+    SettingField(
         "USER_NOTIFICATION_PREFERENCES_ENABLED",
         "bool",
         "notifications",

@@ -451,7 +451,7 @@ def outbound_runtime_setting_keys() -> set[str]:
     """Keep SMTP and provider settings consistent in the separate worker process."""
     from bot.payment_providers import find_manifest_owner
 
-    keys = set()
+    keys = {"BIRTHDAY_ACTIVATION_CODE_DAYS"}
     for key in manifest_keys():
         owner = find_manifest_owner(key)
         if key.startswith("SMTP_") or (owner is not None and owner[1].target == "config"):
