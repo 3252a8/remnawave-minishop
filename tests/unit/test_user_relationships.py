@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 from uuid import UUID
 
@@ -17,7 +17,7 @@ from bot.app.web import session as web_session
 from bot.app.web.admin_api_impl import user_relationships
 from db.base import Base
 from db.dal.user_relationships_dal import has_user_relationships, load_user_relationships
-from db.models import User, UserTelegramAvatar
+from db.models import Payment, Subscription, User, UserTelegramAvatar
 from db.partner_models import PartnerClient, PartnerProfile
 
 
@@ -28,7 +28,15 @@ def test_complete_graph_preserves_both_edge_kinds_and_excludes_unlinked_users(
     Base.metadata.create_all(
         engine,
         tables=[
-            model.__table__ for model in (User, UserTelegramAvatar, PartnerProfile, PartnerClient)
+            model.__table__
+            for model in (
+                User,
+                UserTelegramAvatar,
+                PartnerProfile,
+                PartnerClient,
+                Payment,
+                Subscription,
+            )
         ],
     )
     with Session(engine) as session:
@@ -111,6 +119,36 @@ def test_complete_graph_preserves_both_edge_kinds_and_excludes_unlinked_users(
                 updated_at=datetime(2026, 10, 18, tzinfo=UTC),
             )
         )
+        now = datetime.now(UTC)
+        session.add_all(
+            [
+                Subscription(
+                    user_id=2,
+                    panel_user_uuid="second",
+                    end_date=now + timedelta(days=1),
+                    is_active=True,
+                    tariff_key="standard",
+                ),
+                Subscription(
+                    user_id=2,
+                    panel_user_uuid="second",
+                    end_date=now + timedelta(days=2),
+                    is_active=False,
+                    tariff_key="older",
+                ),
+                Payment(user_id=2, currency="rub", amount=100, status="succeeded"),
+                Payment(user_id=2, currency="RUB", amount=50, status="succeeded"),
+                Payment(user_id=2, currency="XTR", amount=12, status="succeeded"),
+                Payment(user_id=2, currency="RUB", amount=75, status="refunded"),
+                Payment(
+                    user_id=2,
+                    currency="RUB",
+                    amount=40,
+                    status="succeeded",
+                    funding_source="balance",
+                ),
+            ]
+        )
         session.commit()
         async_session = AsyncMock(spec=AsyncSession)
         async_session.execute.side_effect = session.execute
@@ -150,6 +188,12 @@ def test_complete_graph_preserves_both_edge_kinds_and_excludes_unlinked_users(
         assert root["username"] == "user1"
         assert root["telegram_id"] == 1
         assert root["email"] == "user1@example.test"
+        assert root["subscription_active"] is None
+        assert root["revenue_by_currency"] == {}
+        referral = next(node for node in payload["nodes"] if node["user_id"] == 2)
+        assert referral["subscription_active"] is True
+        assert referral["current_tariff_key"] == "standard"
+        assert referral["revenue_by_currency"] == {"RUB": 150, "XTR": 12}
         email_only = next(node for node in payload["nodes"] if node["user_id"] == -11)
         assert email_only["telegram_id"] is None
         assert email_only["avatar_url"] is None

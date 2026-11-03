@@ -8362,6 +8362,101 @@ export interface components {
       /** Target */
       target: number;
     };
+    /** AdminUserRelationshipNodeOut */
+    AdminUserRelationshipNodeOut: {
+      /**
+       * Account Id
+       * @default null
+       */
+      account_id: string | null;
+      /**
+       * Avatar Url
+       * @default null
+       */
+      avatar_url: string | null;
+      /** Current Tariff Key */
+      current_tariff_key: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Panel Username
+       * @default null
+       */
+      panel_username: string | null;
+      /**
+       * Panel Username State
+       * @default null
+       */
+      panel_username_state: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /** Revenue By Currency */
+      revenue_by_currency: {
+        [key: string]: number;
+      };
+      /** Subscription Active */
+      subscription_active: boolean | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
     /** AdminUserSquadOverridesPatchBody */
     AdminUserSquadOverridesPatchBody: {
       /** Add Internal Squad Uuids */
@@ -11575,6 +11670,16 @@ export interface components {
        * @default null
        */
       conversion_rate_rub_per_gb: number | null;
+      /**
+       * Day Conversion From Cheaper
+       * @default null
+       */
+      day_conversion_from_cheaper: number | null;
+      /**
+       * Day Conversion From Dearer
+       * @default null
+       */
+      day_conversion_from_dearer: number | null;
       /** Descriptions */
       descriptions?: {
         [key: string]: string;
@@ -18602,7 +18707,7 @@ export interface operations {
         content: {
           "application/json": {
             edges: components["schemas"]["AdminUserRelationshipEdgeOut"][];
-            nodes: components["schemas"]["AdminUserWithAvatarOut"][];
+            nodes: components["schemas"]["AdminUserRelationshipNodeOut"][];
             /** @constant */
             ok: true;
           };

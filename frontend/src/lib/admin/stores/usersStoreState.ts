@@ -105,6 +105,7 @@ export type AdminStoreState = {
 export type AdminUser = Partial<
   components["schemas"]["AdminUserOut"] &
     components["schemas"]["AdminUserWithAvatarOut"] &
+    components["schemas"]["AdminUserRelationshipNodeOut"] &
     AdminListUser
 > & { user_id: number | string };
 export type ToastFn = (message: string) => void;

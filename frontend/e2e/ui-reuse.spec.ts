@@ -86,6 +86,9 @@ for (const width of [1440, 768, 390, 320]) {
       await graph.locator('input[type="search"]').fill("910001");
       await graph.locator('input[type="search"]').press("Enter");
       await expect(graph.locator('[data-graph-user-id="910001"]')).toHaveClass(/selected/);
+      const selectedDetails = graph.locator(".relationships-selection dl");
+      await expect(selectedDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();
+      await expect(selectedDetails.locator("dd").last()).toHaveText(/\d.*₽/);
       expect(
         await graph
           .locator('.relationships-selection li[data-relationship-kind="referral"]')
