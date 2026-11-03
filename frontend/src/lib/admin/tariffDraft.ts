@@ -54,6 +54,8 @@ export interface TariffDraft extends UnknownRecord {
   premium_traffic_limit_strategy: string;
   hwid_device_limit: string | number;
   conversion_rate_rub_per_gb: string | number;
+  day_conversion_from_cheaper: string | number;
+  day_conversion_from_dearer: string | number;
   tributeLink: string;
   tributeSubscriptionId: string | number;
   periodRows: DraftRow[];
@@ -158,6 +160,8 @@ export function emptyTariffDraft(): TariffDraft {
     premium_traffic_limit_strategy: "",
     hwid_device_limit: "",
     conversion_rate_rub_per_gb: "",
+    day_conversion_from_cheaper: "",
+    day_conversion_from_dearer: "",
     tributeLink: "",
     tributeSubscriptionId: "",
     periodRows: [
@@ -430,6 +434,8 @@ export function draftFromTariff(tariff: UnknownRecord, defaultCurrency = "rub"):
     premium_traffic_limit_strategy: String(tariff.premium_traffic_limit_strategy || ""),
     hwid_device_limit: scalarDraftValue(tariff.hwid_device_limit),
     conversion_rate_rub_per_gb: scalarDraftValue(tariff.conversion_rate_rub_per_gb),
+    day_conversion_from_cheaper: scalarDraftValue(tariff.day_conversion_from_cheaper),
+    day_conversion_from_dearer: scalarDraftValue(tariff.day_conversion_from_dearer),
     tributeLink: String(tribute.link || ""),
     tributeSubscriptionId: scalarDraftValue(tribute.subscription_id),
     periodRows: periodRows.length ? periodRows : emptyTariffDraft().periodRows,
@@ -762,6 +768,10 @@ export function tariffFromDraft(draft: TariffDraft, fallbackCurrency = "rub"): U
       tribute.traffic_products = trafficProducts;
     }
     tariff.topup_always_available = Boolean(draft.topup_always_available);
+    for (const key of ["day_conversion_from_cheaper", "day_conversion_from_dearer"] as const) {
+      const coefficient = parseNumber(draft[key]);
+      if (coefficient !== null) tariff[key] = coefficient;
+    }
   } else {
     const trafficPackages = packageSetFromRows(draft.trafficRows, "gb", defaultCurrency);
     if (trafficPackages) tariff.traffic_packages = trafficPackages;

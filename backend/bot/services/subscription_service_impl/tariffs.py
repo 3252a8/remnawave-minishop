@@ -1,6 +1,7 @@
 import logging
 import math
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -630,10 +631,15 @@ class TariffMixin(SubscriptionServiceMixinContract):
                 or 1
             )
             remaining_value = remaining_days * (effective / 30) if effective else 0
+            coefficient = None
+            if 0 < effective < target_monthly:
+                coefficient = target_tariff.day_conversion_from_cheaper
+            elif effective > target_monthly:
+                coefficient = target_tariff.day_conversion_from_dearer
             days_after = (
-                math.floor((remaining_value / float(target_monthly)) * 30)
-                if target_monthly
-                else remaining_days
+                math.floor(remaining_days * Decimal(str(coefficient)))
+                if coefficient is not None
+                else math.floor((remaining_value / float(target_monthly)) * 30)
             )
             paid_diff = (
                 max(0, math.ceil((float(target_monthly) - effective) * remaining_days / 30))

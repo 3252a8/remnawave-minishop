@@ -899,6 +899,28 @@ class HwidTariffSwitchConversionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(options["recalc_days"], 10)
         self.assertEqual(options["paid_diff_rub"], 67)
 
+    async def test_day_conversion_uses_the_target_coefficient_for_each_price_direction(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            settings = _settings(tmpdir)
+            service = _service(settings)
+            target = settings.tariffs_config.require("pro").model_copy(
+                update={"day_conversion_from_cheaper": 0.29, "day_conversion_from_dearer": 1.25}
+            )
+            sub = SimpleNamespace(
+                tariff_key="basic",
+                end_date=datetime.now(UTC) + timedelta(days=100, hours=1),
+                effective_monthly_price_rub=100,
+            )
+
+            cheaper = service.calculate_tariff_switch_options(sub, target)
+            sub.effective_monthly_price_rub = 300
+            dearer = service.calculate_tariff_switch_options(sub, target)
+
+        self.assertEqual(cheaper["recalc_days"], 29)
+        self.assertEqual(cheaper["paid_diff"], 334)
+        self.assertEqual(dearer["recalc_days"], 125)
+        self.assertEqual(dearer["paid_diff"], 0)
+
     async def test_multi_month_target_price_is_normalized_to_monthly_equivalent(self):
         payload = {
             "default_tariff": "basic",

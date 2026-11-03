@@ -38,6 +38,10 @@
   const panelSquadOptions: SelectOption[] = $derived(toPanelSquadOptions(panelSquads));
   const defaultCurrencyCode = $derived(getDefaultCurrencyCode(tariffsCatalog));
   const conversionCurrencyLabel = $derived(formatConversionCurrencyLabel(at, defaultCurrencyCode));
+  const dayConversionFields = $derived([
+    { field: "day_conversion_from_cheaper", label: at("tariff_day_conversion_from_cheaper") },
+    { field: "day_conversion_from_dearer", label: at("tariff_day_conversion_from_dearer") },
+  ] as const);
   const tariffAccessCode = $derived(
     String(tariffDraft.accessCode || "")
       .trim()
@@ -276,6 +280,20 @@
           oninput={draftInputHandler(tariffsStore, "conversion_rate_rub_per_gb")}
         />
       </AdminSettingCard>
+    {:else}
+      {#each dayConversionFields as { field, label } (field)}
+        <AdminSettingCard title={label} description={at("tariff_day_conversion_hint")}>
+          <Input
+            class="input"
+            type="number"
+            min="0"
+            step="any"
+            value={tariffDraft[field]}
+            aria-label={label}
+            oninput={draftInputHandler(tariffsStore, field)}
+          />
+        </AdminSettingCard>
+      {/each}
     {/if}
   </AdminSettingsGroup>
 
