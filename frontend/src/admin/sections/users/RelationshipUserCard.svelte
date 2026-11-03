@@ -25,8 +25,6 @@
     [at("user_telegram_id", {}, "Telegram ID"), user.telegram_id],
     [at("relationships_username", {}, "TG username"), user.username ? `@${user.username}` : null],
     [at("relationships_email", {}, "Email"), user.email],
-  ]);
-  const subscriptionFields = $derived([
     [
       at("relationships_subscription"),
       user.subscription_active == null
@@ -55,7 +53,7 @@
   >
     {#snippet details()}
       <dl>
-        {#each expanded ? [...fields, ...subscriptionFields] : fields as [label, value] (label)}
+        {#each fields as [label, value] (label)}
           <div>
             <dt>{label}</dt>
             <dd title={String(value ?? "—")}>{value ?? "—"}</dd>

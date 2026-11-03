@@ -17,8 +17,8 @@
   и более дорогого тарифа. Пустые поля сохраняют расчёт по ценам.
   ([#154](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/154),
   [0450667c](https://gitlab.com/3252a8/remnawave-minishop/-/commit/0450667cf24c4c8ec6e37fb562ab58f19e6f1b11))
-- В графе рефералов карточка выбранного пользователя показывает статус подписки,
-  ключ тарифа и суммы успешных внешних платежей по каждой валюте.
+- Узлы графа рефералов сразу показывают статус подписки, ключ тарифа и суммы
+  успешных внешних платежей по каждой валюте.
   ([#152](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/152),
   [af54d6c5](https://gitlab.com/3252a8/remnawave-minishop/-/commit/af54d6c52ca92a7a302bc5976f4bd16d8aa31fd6))
 - На вкладке персональных кодов можно включать отправку ко дню рождения,
@@ -26,7 +26,8 @@
   Поиск настроек открывает эту форму. Ранее заданное число дней подписки
   подставляется при первом открытии.
   ([#144](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/144),
-  [ead5ac72](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ead5ac728deab275ec7f380878ee51a108f1c4f9))
+  [ead5ac72](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ead5ac728deab275ec7f380878ee51a108f1c4f9),
+  [b18b7361](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b18b73613ecd109a8c79254d2076846d76e1148e))
 - Core определяет тип подключённого устройства по данным панели. Роутеры с
   признаками OpenWrt, Keenetic, RouterOS и других поддержанных прошивок получают
   отдельный значок и подпись; переименование не меняет распознанный тип.

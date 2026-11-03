@@ -89,6 +89,9 @@ for (const width of [1440, 768, 390, 320]) {
       const selectedDetails = graph.locator(".relationships-selection dl");
       await expect(selectedDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();
       await expect(selectedDetails.locator("dd").last()).toHaveText(/\d.*₽/);
+      const nodeDetails = graph.locator('[data-graph-user-id="910001"] dl');
+      await expect(nodeDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();
+      await expect(nodeDetails.locator("dd").last()).toHaveText(/\d.*₽/);
       expect(
         await graph
           .locator('.relationships-selection li[data-relationship-kind="referral"]')
@@ -182,7 +185,7 @@ for (const width of [1440, 768, 390, 320]) {
         });
       expect(identityGeometry.rightOfAvatar).toBe(true);
       expect(identityGeometry.fitsHeight).toBe(true);
-      expect(identityGeometry.height).toBeLessThanOrEqual(112);
+      expect(identityGeometry.height).toBeLessThanOrEqual(160);
       if (width === 1440 && theme === "dark") {
         const focusBefore = new URL(page.url()).searchParams.get("focus");
         await graph.locator(".relationships-node").first().focus();
