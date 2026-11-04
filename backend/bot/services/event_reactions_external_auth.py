@@ -15,13 +15,19 @@ EXTERNAL_REGISTRATION_PROVIDERS = {
 EXTERNAL_MERGE_PROVIDERS = {
     "discord_verified_email_link": "discord",
     "discord_oauth_link": "discord",
+    "explicit_discord_merge": "discord",
+    "explicit_google_merge": "google",
+    "explicit_yandex_merge": "yandex",
     "google_verified_email_link": "google",
     "google_oauth_link": "google",
     "yandex_verified_email_link": "yandex",
     "yandex_oauth_link": "yandex",
 }
 ACCOUNT_MERGE_NOTIFY_REASONS = {
+    "admin_manual_merge",
     "email_link",
+    "explicit_email_merge",
+    "explicit_telegram_merge",
     "telegram_link",
     "login",
     *EXTERNAL_MERGE_PROVIDERS,

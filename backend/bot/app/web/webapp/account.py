@@ -15,7 +15,7 @@ from bot.app.web.context import (
 from bot.app.web.webapp.cache_helpers import webapp_cached_user_payload
 from bot.app.web.webapp_auth import create_webapp_session_token
 from bot.infra import events
-from bot.infra.event_payloads import AccountEmailLinkedPayload, AccountTelegramLinkedPayload
+from bot.infra.event_payloads import AccountEmailLinkedPayload
 from bot.services.email_auth_service import EmailAuthService
 from config.settings import Settings
 from db.dal import user_dal, user_email_dal
@@ -362,11 +362,7 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
     source_panel_uuid: str | None = None
     final_user_id = user_id
     final_telegram_id: int | None = None
-    final_email: str | None = None
-    final_username: str | None = None
-    final_first_name: str | None = None
     final_panel_uuid: str | None = None
-    should_notify_telegram_linked = False
     conflict_language = settings.DEFAULT_LANGUAGE
     async with async_session_factory() as session:
         try:
@@ -375,9 +371,6 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                 await session.rollback()
                 return _json_error(403, "access_denied", "Access denied")
             conflict_language = current_user_before_link.language_code or conflict_language
-            should_notify_telegram_linked = bool(
-                current_user_before_link.email
-            ) and not _telegram_id_for_user(current_user_before_link)
             source_panel_uuid = current_user_before_link.panel_user_uuid
 
             db_user = await _link_telegram_to_user(
@@ -394,9 +387,6 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
 
             final_user_id = int(db_user.user_id)
             final_telegram_id = _telegram_id_for_user(db_user)
-            final_email = db_user.email
-            final_username = db_user.username
-            final_first_name = db_user.first_name
             final_panel_uuid = db_user.panel_user_uuid
             if final_user_id != user_id:
                 merge_notice = await _build_account_merge_notice(
@@ -407,17 +397,6 @@ async def account_telegram_link_route(request: web.Request) -> web.Response:
                     settings=settings,
                 )
             await session.commit()
-
-            await events.emit_model(
-                AccountTelegramLinkedPayload(
-                    user_id=final_user_id,
-                    telegram_id=final_telegram_id,
-                    first_link=should_notify_telegram_linked,
-                    email=final_email,
-                    username=final_username,
-                    first_name=final_first_name,
-                )
-            )
 
             if merge_notice:
                 merge_end_date_raw = merge_notice.get("final_end_date")

@@ -12,6 +12,7 @@ from bot.infra.auto_renew import (
     managed_recurring_service_for,
     stop_provider_managed_recurrence,
 )
+from bot.infra.event_payloads import AccountTelegramLinkedPayload
 from bot.payment_providers.shared import service_manages_recurrence
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.utils.text_sanitizer import sanitize_display_name, sanitize_username
@@ -19,6 +20,7 @@ from config.settings import Settings
 from db.dal import subscription_dal, user_dal
 from db.dal.user_dal import UserMergeConflictError
 from db.models import User
+from db.transaction_events import defer_event_until_commit
 
 from .auth_common import (
     _telegram_photo_url_value,
@@ -297,7 +299,19 @@ async def _link_telegram_to_user(
             code="account_merge_required",
         )
 
+    first_link = bool(current_user.email) and not _telegram_id_for_user(current_user)
     _apply_telegram_profile_to_user(current_user, telegram_user, settings)
     await session.flush()
     await _sync_panel_identity_for_user(request, current_user)
+    defer_event_until_commit(
+        session,
+        AccountTelegramLinkedPayload(
+            user_id=current_user_id,
+            telegram_id=telegram_id,
+            first_link=first_link,
+            email=current_user.email,
+            username=current_user.username,
+            first_name=current_user.first_name,
+        ),
+    )
     return current_user

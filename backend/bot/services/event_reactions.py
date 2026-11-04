@@ -812,7 +812,7 @@ class CoreEventReactions(PartnerEventReactionsMixin):
 
     async def on_account_merged(self, event_name: str, payload: dict[str, Any]) -> None:
         del event_name
-        reason = str(payload.get("reason") or "")
+        reason = str(payload.get("reason") or "").split(":", 1)[0]
         if reason not in ACCOUNT_MERGE_NOTIFY_REASONS:
             return
 

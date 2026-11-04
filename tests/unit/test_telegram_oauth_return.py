@@ -5,10 +5,14 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from aiohttp import web
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.app.web.webapp import auth_oauth
 from bot.app.web.webapp.auth_common import _telegram_oauth_redirect_url
 from bot.app.web.webapp_auth import create_webapp_session_token, verify_webapp_session_token
+from bot.infra import events
+from bot.infra.event_payloads import AccountTelegramLinkedPayload
+from db.models import User
 
 
 def _settings() -> SimpleNamespace:
@@ -48,7 +52,13 @@ def test_link_start_failure_returns_to_security(failure: str) -> None:
     assert raised.value.location == f"/settings/security?telegram_auth={failure}"
 
 
-def test_link_callback_round_trips_signed_state_and_keeps_email_account() -> None:
+@pytest.mark.parametrize(
+    ("previous_telegram_id", "banned"),
+    [(None, False), (42, False), (None, True)],
+)
+def test_link_callback_round_trips_signed_state_and_keeps_email_account(
+    previous_telegram_id: int | None, banned: bool
+) -> None:
     settings = _settings()
     request = _request(settings)
     with pytest.raises(web.HTTPFound) as started:
@@ -56,20 +66,31 @@ def test_link_callback_round_trips_signed_state_and_keeps_email_account() -> Non
     query = parse_qs(urlsplit(str(started.value.location)).query)
     request.cookies["rw_tg_oauth_state"] = started.value.cookies["rw_tg_oauth_state"].value
     request.query = {"state": query["state"][0], "code": "authorization-code"}
-    user = SimpleNamespace(user_id=-100, telegram_id=42, panel_user_uuid=None, is_banned=False)
-    session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
-    context = AsyncMock()
-    context.__aenter__.return_value = session
+    user = User(
+        user_id=-100,
+        email="alice@example.test",
+        telegram_id=previous_telegram_id,
+        language_code="en",
+        is_banned=banned,
+    )
+
+    async def lock_user(session: AsyncSession, user_id: int) -> User:
+        assert user_id == -100
+        await session.begin()
+        return user
+
     with (
-        patch.object(auth_oauth, "get_session_factory", return_value=lambda: context),
+        patch.object(auth_oauth, "get_session_factory", return_value=AsyncSession),
         patch.object(auth_oauth.user_dal, "get_user_by_id", AsyncMock(return_value=user)),
+        patch.object(auth_oauth.user_dal, "lock_user_by_id", side_effect=lock_user),
+        patch.object(auth_oauth.user_dal, "get_user_by_telegram_id", AsyncMock(return_value=None)),
         patch.object(
             auth_oauth, "_exchange_telegram_oauth_code", AsyncMock(return_value={"id_token": "jwt"})
         ),
         patch.object(
             auth_oauth, "validate_telegram_oauth_id_token", AsyncMock(return_value={"id": 42})
         ) as validate,
-        patch.object(auth_oauth, "_link_telegram_to_user", AsyncMock(return_value=user)) as link,
+        patch.object(events, "emit_model", AsyncMock()) as emit,
         patch.object(
             auth_oauth, "_grant_deferred_referral_welcome_bonus_after_telegram_link", AsyncMock()
         ),
@@ -78,16 +99,20 @@ def test_link_callback_round_trips_signed_state_and_keeps_email_account() -> Non
         pytest.raises(web.HTTPFound) as finished,
     ):
         asyncio.run(auth_oauth.telegram_oauth_callback_route(request))
+    if banned:
+        assert finished.value.location == "/settings/security?telegram_auth=banned"
+        emit.assert_not_awaited()
+        return
+
     assert finished.value.location == "/settings/security?telegram_auth=success"
-    link.assert_awaited_once_with(
-        request,
-        session,
-        current_user_id=-100,
-        telegram_user={"id": 42},
-        settings=settings,
-        merge_reason="telegram_link",
+    emit.assert_awaited_once_with(
+        AccountTelegramLinkedPayload(
+            user_id=-100,
+            telegram_id=42,
+            first_link=previous_telegram_id is None,
+            email="alice@example.test",
+        )
     )
-    session.commit.assert_awaited_once()
     assert validate.await_args is not None
     assert validate.await_args.kwargs["expected_nonce"] == query["nonce"][0]
     token = finished.value.cookies["rw_webapp_session"].value

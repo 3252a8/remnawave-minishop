@@ -55,6 +55,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
     @staticmethod
     def _external_auth_provider_label(translate: Callable[..., str], provider: str | None) -> str:
         key = {
+            "discord": "log_auth_provider_discord",
             "google": "log_auth_provider_google",
             "yandex": "log_auth_provider_yandex",
         }.get(str(provider or "").lower())
@@ -478,7 +479,10 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             merge_source = self._external_auth_provider_label(_, provider)
         else:
             source_key = {
+                "admin_manual_merge": "log_account_merge_source_admin",
                 "email_link": "log_account_merge_source_email",
+                "explicit_email_merge": "log_account_merge_source_email",
+                "explicit_telegram_merge": "log_account_merge_source_telegram",
                 "telegram_link": "log_account_merge_source_telegram",
                 "login": "log_account_merge_source_login",
             }.get(str(reason or ""))
