@@ -711,8 +711,25 @@
   min-width: 0;
 }
 
-.admin-revenue-summary {
-  margin-bottom: 10px;
+@media (min-width: 640px) {
+  .admin-cn-dashboard-grid.admin-revenue-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.admin-revenue-summary > .admin-revenue-kpi {
+  align-content: start;
+  gap: 8px;
+}
+
+.admin-revenue-summary .admin-revenue-breakdown > div {
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.admin-revenue-summary .admin-revenue-breakdown > div:first-child dd {
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 .admin-revenue-kpi--net {
@@ -742,10 +759,6 @@
   color: var(--admin-text);
 }
 
-.admin-revenue-chart-totals {
-  width: min(100%, 320px);
-}
-
 .admin-revenue-kpi-label {
   font-size: 11px;
   font-weight: 600;
@@ -766,19 +779,6 @@
   font-size: 12px;
   color: var(--admin-muted);
   line-height: 1.35;
-}
-
-.admin-revenue-kpi-growth {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.admin-revenue-kpi-growth.is-up {
-  color: var(--success-text);
-}
-
-.admin-revenue-kpi-growth.is-down {
-  color: var(--danger-text);
 }
 
 .admin-revenue-chart {

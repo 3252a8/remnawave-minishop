@@ -278,31 +278,30 @@
   });
 </script>
 
-{#snippet revenueKpi(label: string, net: number, fees: number | undefined)}
+{#snippet revenueKpi(label: string, net: number | null, fees: number | undefined)}
   <div class="admin-revenue-kpi">
     <div class="admin-revenue-kpi-label">{label}</div>
     {@render revenueBreakdown(net, fees)}
   </div>
 {/snippet}
 
-{#snippet revenueBreakdown(net: number, fees: number | undefined)}
+{#snippet revenueBreakdown(net: number | null, fees: number | undefined, gross?: unknown)}
   <dl class="admin-revenue-breakdown">
     <div>
       <dt>{at("stats_revenue_net_short")}</dt>
-      <dd>{fmtMoney(net, currency)}</dd>
+      <dd>{net == null ? "—" : fmtMoney(net, currency)}</dd>
     </div>
     <div>
       <dt>{at("stats_revenue_fees_label")}</dt>
-      <dd>{fmtMoney(fees, currency)}</dd>
+      <dd>{net == null ? "—" : fmtMoney(fees, currency)}</dd>
     </div>
+    {#if gross !== undefined}
+      <div>
+        <dt>{at("stats_revenue_gross_label")}</dt>
+        <dd>{fmtMoney(gross, currency)}</dd>
+      </div>
+    {/if}
   </dl>
-{/snippet}
-
-{#snippet revenueTile(label: string, amount: unknown, highlight = false)}
-  <div class="admin-revenue-kpi" class:admin-revenue-kpi--net={highlight}>
-    <div class="admin-revenue-kpi-label">{label}</div>
-    <div class="admin-revenue-kpi-value">{fmtMoney(amount, currency)}</div>
-  </div>
 {/snippet}
 
 {#if statsError}
@@ -472,101 +471,31 @@
     {/if}
 
     <Card.Root>
-      <Card.Header>
-        <Card.Title>{at("stats_label_today_rev")}</Card.Title>
-        <Card.Description>{at("stats_revenue_currency", { currency })}</Card.Description>
-        <Card.Action>
-          {#if revenueKpis.growthPct != null}
-            <Badge variant={growthBadgeVariant(revenueKpis.growthPct)}>
-              {#if revenueKpis.growthPct >= 0}
-                <TrendingUp />
-              {:else}
-                <TrendingDown />
-              {/if}
-              {revenueKpis.growthPct >= 0 ? "+" : ""}{revenueKpis.growthPct.toFixed(1)}%
-            </Badge>
-          {:else}
-            <Badge variant="outline">—</Badge>
-          {/if}
-        </Card.Action>
-      </Card.Header>
       <Card.Content>
-        <AdminDashboardGrid columns={3} class="admin-revenue-summary">
-          {@render revenueTile(at("stats_revenue_gross_label"), fin.today_revenue)}
-          {@render revenueTile(at("stats_revenue_fees_label"), fin.today_fees)}
-          {@render revenueTile(
-            at("stats_revenue_net_short"),
-            netRevenue(fin.today_revenue, fin.today_fees),
-            true
+        <AdminDashboardGrid class="admin-revenue-summary">
+          {@render revenueKpi(
+            at("stats_revenue_selected_period"),
+            revenueDailyFiltered.length ? chartRangeSum : null,
+            chartRangeFees
           )}
+          <div class="admin-revenue-kpi admin-revenue-kpi--net">
+            <div class="admin-revenue-kpi-label">{at("stats_label_today_rev")}</div>
+            {@render revenueBreakdown(
+              netRevenue(fin.today_revenue, fin.today_fees),
+              fin.today_fees,
+              fin.today_revenue ?? 0
+            )}
+          </div>
         </AdminDashboardGrid>
-        <div class="admin-revenue-kpis">
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("gifts_free_stats")}</div>
-            <div class="admin-revenue-kpi-value">{fin.admin_gifts_count ?? 0}</div>
-            <div class="admin-revenue-kpi-label">
-              {at("gifts_free_stats_hint", { count: fin.admin_gifts_activated_count ?? 0 })}
-            </div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">
-              {at("stats_trend_payments", { count: fin.today_payments_count ?? 0 }, "")}
-            </div>
-            <div class="admin-revenue-kpi-value">{fin.today_payments_count ?? 0}</div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">
-              {at("stats_revenue_avg_ticket_label", {}, "")}
-            </div>
-            <div class="admin-revenue-kpi-value">
-              {revenueKpis.avgToday != null ? fmtMoney(revenueKpis.avgToday, currency) : "—"}
-            </div>
-            {#if revenueKpis.avgToday == null}
-              <div class="admin-revenue-kpi-sub">{at("stats_revenue_avg_none", {}, "")}</div>
-            {/if}
-          </div>
-          {@render revenueKpi(
-            at("stats_revenue_rolling_week"),
-            netRevenue(fin.week_revenue, fin.week_fees),
-            fin.week_fees
-          )}
-          {@render revenueKpi(
-            at("stats_revenue_rolling_month"),
-            netRevenue(fin.month_revenue, fin.month_fees),
-            fin.month_fees
-          )}
-          {@render revenueKpi(
-            at("stats_revenue_last_7_calendar"),
-            revenueKpis.last7,
-            sumFees(dailySeries.slice(-7))
-          )}
-          {@render revenueKpi(
-            at("stats_label_all_time"),
-            netRevenue(fin.all_time_revenue, fin.all_time_fees),
-            fin.all_time_fees
-          )}
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("stats_revenue_total_14", {}, "")}</div>
-            {@render revenueBreakdown(revenueKpis.total14, sumFees(dailySeries.slice(-14)))}
-            <div class="admin-revenue-kpi-sub">
-              {#if revenueKpis.growthPct != null}
-                <span
-                  class="admin-revenue-kpi-growth"
-                  class:is-up={revenueKpis.growthPct >= 0}
-                  class:is-down={revenueKpis.growthPct < 0}
-                >
-                  {at("stats_revenue_growth", { value: revenueKpis.growthPct.toFixed(1) }, "")}
-                </span>
-              {:else}
-                {at("stats_revenue_growth_na", {}, "")}
-              {/if}
-            </div>
-          </div>
-        </div>
 
         <div class="admin-revenue-chart">
           <div class="admin-revenue-chart-head">
-            <div class="admin-revenue-chart-title">{at("stats_revenue_net_label")}</div>
+            <div>
+              <div class="admin-revenue-chart-title">{at("stats_revenue_net_label")}</div>
+              <p class="admin-revenue-chart-hint admin-muted">
+                {at("stats_revenue_currency", { currency })}
+              </p>
+            </div>
             <div class="admin-revenue-chart-toolbar">
               <AdminRevenueTabs
                 value={revenueRangeMode === "preset" ? String(revenuePreset) : ""}
@@ -604,10 +533,6 @@
           />
           <p class="admin-revenue-chart-hint admin-muted">{at(revenueChartHintKey(), {}, "")}</p>
           {#if revenueHasValues}
-            <div class="admin-revenue-kpi admin-revenue-chart-totals">
-              <div class="admin-revenue-kpi-label">{at("stats_revenue_selected_period")}</div>
-              {@render revenueBreakdown(chartRangeSum, chartRangeFees)}
-            </div>
             <div class="admin-revenue-chart-meta admin-muted">
               {#if revenueGranularity !== "day"}
                 <span
@@ -659,6 +584,71 @@
               />
             </div>
           {/if}
+        </div>
+
+        <div class="admin-revenue-kpis">
+          <div class="admin-revenue-kpi">
+            <div class="admin-revenue-kpi-label">{at("gifts_free_stats")}</div>
+            <div class="admin-revenue-kpi-value">{fin.admin_gifts_count ?? 0}</div>
+            <div class="admin-revenue-kpi-label">
+              {at("gifts_free_stats_hint", { count: fin.admin_gifts_activated_count ?? 0 })}
+            </div>
+          </div>
+          <div class="admin-revenue-kpi">
+            <div class="admin-revenue-kpi-label">
+              {at("stats_trend_payments", { count: fin.today_payments_count ?? 0 }, "")}
+            </div>
+            <div class="admin-revenue-kpi-value">{fin.today_payments_count ?? 0}</div>
+          </div>
+          <div class="admin-revenue-kpi">
+            <div class="admin-revenue-kpi-label">
+              {at("stats_revenue_avg_ticket_label", {}, "")}
+            </div>
+            <div class="admin-revenue-kpi-value">
+              {revenueKpis.avgToday != null ? fmtMoney(revenueKpis.avgToday, currency) : "—"}
+            </div>
+            {#if revenueKpis.avgToday == null}
+              <div class="admin-revenue-kpi-sub">{at("stats_revenue_avg_none", {}, "")}</div>
+            {/if}
+          </div>
+          {@render revenueKpi(
+            at("stats_revenue_rolling_week"),
+            netRevenue(fin.week_revenue, fin.week_fees),
+            fin.week_fees
+          )}
+          {@render revenueKpi(
+            at("stats_revenue_rolling_month"),
+            netRevenue(fin.month_revenue, fin.month_fees),
+            fin.month_fees
+          )}
+          {@render revenueKpi(
+            at("stats_revenue_last_7_calendar"),
+            revenueKpis.last7,
+            sumFees(dailySeries.slice(-7))
+          )}
+          {@render revenueKpi(
+            at("stats_label_all_time"),
+            netRevenue(fin.all_time_revenue, fin.all_time_fees),
+            fin.all_time_fees
+          )}
+          <div class="admin-revenue-kpi">
+            <div class="admin-revenue-kpi-label">{at("stats_revenue_total_14", {}, "")}</div>
+            {@render revenueBreakdown(revenueKpis.total14, sumFees(dailySeries.slice(-14)))}
+            <div class="admin-revenue-kpi-sub">
+              {#if revenueKpis.growthPct != null}
+                <Badge variant={growthBadgeVariant(revenueKpis.growthPct)} wrap>
+                  {#if revenueKpis.growthPct >= 0}
+                    <TrendingUp />
+                  {:else}
+                    <TrendingDown />
+                  {/if}
+                  {at("stats_revenue_growth", { value: revenueKpis.growthPct.toFixed(1) }, "")}
+                </Badge>
+              {:else}
+                {at("stats_revenue_growth_na", {}, "")}
+              {/if}
+            </div>
+          </div>
         </div>
       </Card.Content>
     </Card.Root>
