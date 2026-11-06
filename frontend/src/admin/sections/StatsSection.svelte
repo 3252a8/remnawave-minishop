@@ -30,6 +30,7 @@
     REVENUE_GRANULARITIES,
     REVENUE_PRESETS,
     type RevenueGranularity,
+    type RevenuePoint,
     type RevenuePreset,
   } from "../../lib/admin/revenueSeriesAgg.js";
   import {
@@ -44,7 +45,6 @@
     type PanelStats,
     type PanelSystemMetrics,
     type RevenueKpis,
-    type RevenuePoint,
   } from "$lib/admin/statsDerivations";
   import { paymentDescriptionDisplay } from "$lib/admin/paymentTable.js";
   import type { PaymentOut } from "$lib/admin/stores/paymentsStore";
@@ -120,7 +120,9 @@
 
   const dailySeries: RevenuePoint[] = $derived(
     Array.isArray(fin.daily_series)
-      ? fin.daily_series.map((point) => (emptyRevenuePreview ? { ...point, amount: 0 } : point))
+      ? fin.daily_series.map((point) =>
+          emptyRevenuePreview ? { ...point, amount: 0, fees: 0 } : point
+        )
       : []
   );
   const revenueBoundsIso: { min: string; max: string } | null = $derived(
@@ -137,15 +139,29 @@
     return filterRevenueByPreset(dailySeries, revenuePreset, revenueBoundsIso?.max);
   });
 
-  const revenueChartSeries: RevenuePoint[] = $derived(
-    aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity)
+  const netDailySeries: RevenuePoint[] = $derived(
+    dailySeries.map((point) => ({ ...point, amount: netRevenue(point.amount, point.fees) }))
   );
-
-  const revenueKpis: RevenueKpis = $derived(computeRevenueKpis(fin, dailySeries));
-  const revenueHasValues = $derived(hasChartValues(revenueChartSeries));
+  const revenueChartSeries: RevenuePoint[] = $derived(
+    aggregateRevenueSeries(revenueDailyFiltered, revenueGranularity).map((point) => ({
+      ...point,
+      amount: netRevenue(point.amount, point.fees),
+    }))
+  );
+  const revenueKpis: RevenueKpis = $derived(computeRevenueKpis(fin, netDailySeries));
+  const revenueHasValues = $derived(hasChartValues(revenueDailyFiltered));
+  const chartRangeFees = $derived(sumFees(revenueDailyFiltered));
   const chartRangeSum = $derived(
     revenueChartSeries.reduce((a, p) => a + (Number(p.amount) || 0), 0)
   );
+
+  function netRevenue(gross: unknown, fees = 0): number {
+    return (Number(gross) || 0) - fees;
+  }
+
+  function sumFees(points: RevenuePoint[]): number {
+    return points.reduce((total, point) => total + (point.fees ?? 0), 0);
+  }
 
   function loadRevenueChart(): void {
     if (AdminRevenueChartComponent) return;
@@ -261,6 +277,33 @@
     void statsStore.loadStats();
   });
 </script>
+
+{#snippet revenueKpi(label: string, net: number, fees: number | undefined)}
+  <div class="admin-revenue-kpi">
+    <div class="admin-revenue-kpi-label">{label}</div>
+    {@render revenueBreakdown(net, fees)}
+  </div>
+{/snippet}
+
+{#snippet revenueBreakdown(net: number, fees: number | undefined)}
+  <dl class="admin-revenue-breakdown">
+    <div>
+      <dt>{at("stats_revenue_net_short")}</dt>
+      <dd>{fmtMoney(net, currency)}</dd>
+    </div>
+    <div>
+      <dt>{at("stats_revenue_fees_label")}</dt>
+      <dd>{fmtMoney(fees, currency)}</dd>
+    </div>
+  </dl>
+{/snippet}
+
+{#snippet revenueTile(label: string, amount: unknown, highlight = false)}
+  <div class="admin-revenue-kpi" class:admin-revenue-kpi--net={highlight}>
+    <div class="admin-revenue-kpi-label">{label}</div>
+    <div class="admin-revenue-kpi-value">{fmtMoney(amount, currency)}</div>
+  </div>
+{/snippet}
 
 {#if statsError}
   <AdminEmptyState>{at("stats_error", { error: statsError }, "")}</AdminEmptyState>
@@ -430,8 +473,8 @@
 
     <Card.Root>
       <Card.Header>
-        <Card.Description>{at("stats_label_today_rev", {}, "")}</Card.Description>
-        <Card.Title>{fmtMoney(fin.today_revenue, currency)}</Card.Title>
+        <Card.Title>{at("stats_label_today_rev")}</Card.Title>
+        <Card.Description>{at("stats_revenue_currency", { currency })}</Card.Description>
         <Card.Action>
           {#if revenueKpis.growthPct != null}
             <Badge variant={growthBadgeVariant(revenueKpis.growthPct)}>
@@ -448,6 +491,15 @@
         </Card.Action>
       </Card.Header>
       <Card.Content>
+        <AdminDashboardGrid columns={3} class="admin-revenue-summary">
+          {@render revenueTile(at("stats_revenue_gross_label"), fin.today_revenue)}
+          {@render revenueTile(at("stats_revenue_fees_label"), fin.today_fees)}
+          {@render revenueTile(
+            at("stats_revenue_net_short"),
+            netRevenue(fin.today_revenue, fin.today_fees),
+            true
+          )}
+        </AdminDashboardGrid>
         <div class="admin-revenue-kpis">
           <div class="admin-revenue-kpi">
             <div class="admin-revenue-kpi-label">{at("gifts_free_stats")}</div>
@@ -473,25 +525,29 @@
               <div class="admin-revenue-kpi-sub">{at("stats_revenue_avg_none", {}, "")}</div>
             {/if}
           </div>
+          {@render revenueKpi(
+            at("stats_revenue_rolling_week"),
+            netRevenue(fin.week_revenue, fin.week_fees),
+            fin.week_fees
+          )}
+          {@render revenueKpi(
+            at("stats_revenue_rolling_month"),
+            netRevenue(fin.month_revenue, fin.month_fees),
+            fin.month_fees
+          )}
+          {@render revenueKpi(
+            at("stats_revenue_last_7_calendar"),
+            revenueKpis.last7,
+            sumFees(dailySeries.slice(-7))
+          )}
+          {@render revenueKpi(
+            at("stats_label_all_time"),
+            netRevenue(fin.all_time_revenue, fin.all_time_fees),
+            fin.all_time_fees
+          )}
           <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("stats_revenue_rolling_week", {}, "")}</div>
-            <div class="admin-revenue-kpi-value">{fmtMoney(fin.week_revenue, currency)}</div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("stats_revenue_rolling_month", {}, "")}</div>
-            <div class="admin-revenue-kpi-value">{fmtMoney(fin.month_revenue, currency)}</div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("stats_revenue_last_7_calendar", {}, "")}</div>
-            <div class="admin-revenue-kpi-value">{fmtMoney(revenueKpis.last7, currency)}</div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("stats_label_all_time", {}, "")}</div>
-            <div class="admin-revenue-kpi-value">{fmtMoney(fin.all_time_revenue, currency)}</div>
-          </div>
-          <div class="admin-revenue-kpi admin-revenue-kpi--wide">
             <div class="admin-revenue-kpi-label">{at("stats_revenue_total_14", {}, "")}</div>
-            <div class="admin-revenue-kpi-value">{fmtMoney(revenueKpis.total14, currency)}</div>
+            {@render revenueBreakdown(revenueKpis.total14, sumFees(dailySeries.slice(-14)))}
             <div class="admin-revenue-kpi-sub">
               {#if revenueKpis.growthPct != null}
                 <span
@@ -510,7 +566,7 @@
 
         <div class="admin-revenue-chart">
           <div class="admin-revenue-chart-head">
-            <div class="admin-revenue-chart-title">{at("stats_revenue_chart_title", {}, "")}</div>
+            <div class="admin-revenue-chart-title">{at("stats_revenue_net_label")}</div>
             <div class="admin-revenue-chart-toolbar">
               <AdminRevenueTabs
                 value={revenueRangeMode === "preset" ? String(revenuePreset) : ""}
@@ -548,16 +604,12 @@
           />
           <p class="admin-revenue-chart-hint admin-muted">{at(revenueChartHintKey(), {}, "")}</p>
           {#if revenueHasValues}
+            <div class="admin-revenue-kpi admin-revenue-chart-totals">
+              <div class="admin-revenue-kpi-label">{at("stats_revenue_selected_period")}</div>
+              {@render revenueBreakdown(chartRangeSum, chartRangeFees)}
+            </div>
             <div class="admin-revenue-chart-meta admin-muted">
-              <span
-                >{at(
-                  "stats_revenue_chart_range_sum",
-                  { value: fmtMoney(chartRangeSum, currency) },
-                  ""
-                )}</span
-              >
               {#if revenueGranularity !== "day"}
-                <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
                 <span
                   >{at(
                     "stats_revenue_chart_bucket_count",
@@ -567,7 +619,6 @@
                 >
               {/if}
               {#if revenueChartShortfall}
-                <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
                 <span
                   >{at(
                     "stats_revenue_chart_days_available",
@@ -576,7 +627,6 @@
                   )}</span
                 >
               {:else if revenueRangeMode === "custom" && revenueCustomDaySpan > 0}
-                <span class="admin-revenue-chart-meta-sep" aria-hidden="true">·</span>
                 <span
                   >{at("stats_revenue_chart_custom_span", { days: revenueCustomDaySpan }, "")}</span
                 >
@@ -592,7 +642,9 @@
                   locale={currentLang}
                   granularity={revenueGranularity}
                   legendTimeLabel={at("stats_revenue_chart_uplot_time", {}, "Time")}
-                  legendValueLabel={at("stats_revenue_chart_uplot_value", {}, "Value")}
+                  legendValueLabel={at("stats_revenue_net_short")}
+                  legendGrossLabel={at("stats_revenue_gross_label")}
+                  legendFeeLabel={at("stats_revenue_fees_label")}
                   legendDeltaLabel={at("stats_revenue_chart_uplot_delta", {}, "Change")}
                 />
               {:else}

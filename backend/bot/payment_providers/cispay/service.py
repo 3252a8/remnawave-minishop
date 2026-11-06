@@ -490,6 +490,7 @@ def _subscription_spec(method: str) -> PaymentProviderSpec:
     return replace(
         SPEC,
         id=f"cispay_subscription_{lower}",
+        reporting_fee_method=f"subscription_{lower}",
         provider_key=f"cispay_subscription_{lower}",
         label=label,
         webapp_label=label,

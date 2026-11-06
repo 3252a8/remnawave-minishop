@@ -436,6 +436,7 @@ async def pay_cryptomus_subscription_callback_handler(
 SUBSCRIPTION_SPEC = replace(
     SPEC,
     id="cryptomus_subscription",
+    reporting_fee_method="subscription",
     provider_key="cryptomus_subscription",
     label="Cryptomus recurring",
     webapp_label="Cryptomus recurring",

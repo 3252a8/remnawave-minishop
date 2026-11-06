@@ -812,7 +812,12 @@ for (const width of [1440, 768, 390]) {
           `[data-settings-anchor="settings-field-group:payments:${provider}:${method}"]`
         );
         await expect(group).toBeVisible();
-        await expect(group.locator(".admin-setting")).toHaveCount(provider === "YooKassa" ? 6 : 2);
+        const fields = group.locator(".admin-setting");
+        await expect(fields).toHaveCount(provider === "YooKassa" ? 7 : 3);
+        const fee = fields.filter({
+          has: page.getByText(`${method.toUpperCase()}_REPORTING_FEE_PERCENT`, { exact: true }),
+        });
+        await expect(fee.getByRole("spinbutton")).toBeVisible();
         await noOverflow(group);
         await group.scrollIntoViewIfNeeded();
         await group.screenshot({ path: testInfo.outputPath(`${method}-${width}.png`) });

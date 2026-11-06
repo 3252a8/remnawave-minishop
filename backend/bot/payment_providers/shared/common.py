@@ -177,6 +177,7 @@ def build_payment_record_payload(
     months: Any,
     provider: str,
     sale_mode: str,
+    provider_method: str | None = None,
     duration_days: int | None = None,
     subscription_terms_snapshot: str | None = None,
     hwid_quote: dict | None = None,
@@ -238,6 +239,8 @@ def build_payment_record_payload(
                 "hwid_traffic_bonus_bytes": hwid_quote.get("traffic_bonus_bytes"),
             }
         )
+    if provider_method is not None:
+        payload["provider_method"] = provider_method
     if entitlement_context_snapshot is not None:
         payload["entitlement_context_snapshot"] = entitlement_context_snapshot
     if checkout_bundle_snapshot is not None:
@@ -443,6 +446,7 @@ async def create_base_payment_record(
     description: str,
     months: int,
     provider: str,
+    provider_method: str | None = None,
     sale_mode: str | None = None,
     tariff_key: str | None = None,
     purchased_gb: float | None = None,
@@ -505,6 +509,7 @@ async def create_base_payment_record(
             else None,
             "period_semantics": "fixed_days" if duration_days is not None else None,
             "provider": provider,
+            **({"provider_method": provider_method} if provider_method is not None else {}),
             "funding_source": funding_source,
             "balance_auto_renew": balance_auto_renew,
             "sale_mode": sale_mode,
@@ -614,6 +619,7 @@ async def create_webapp_payment_record(
     currency: str,
     status: str,
     provider: str,
+    provider_method: str | None = None,
     funding_source: str = "external",
     balance_auto_renew: bool = False,
 ) -> Payment:
@@ -634,6 +640,7 @@ async def create_webapp_payment_record(
         duration_days=ctx.duration_days,
         subscription_terms_snapshot=ctx.subscription_terms_snapshot,
         provider=provider,
+        provider_method=provider_method,
         sale_mode=ctx.sale_mode,
         tariff_key=amounts.tariff_key,
         purchased_gb=amounts.purchased_gb,

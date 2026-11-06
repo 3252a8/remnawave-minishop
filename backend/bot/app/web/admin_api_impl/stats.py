@@ -9,6 +9,7 @@ from bot.app.web.context import (
 )
 
 import asyncio
+import json
 
 
 from aiohttp import web
@@ -18,6 +19,7 @@ from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
+from db.dal.payment_reporting_dal import load_reporting_fee_rates
 from db.dal import user_subscription_plans
 from .payment_schemas import PaymentOut
 from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut
@@ -70,7 +72,8 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     settings: Settings = get_settings(request)
     async_session_factory: sessionmaker = get_session_factory(request)
 
-    payload = dict(await _load_admin_db_stats(settings, async_session_factory))
+    currency = default_payment_currency_code_for_settings(settings)
+    payload = dict(await _load_admin_db_stats(settings, async_session_factory, currency))
     payload["active_tariffs"] = admin_active_tariffs(settings, payload.pop("active_tariff_counts"))
 
     panel_service = get_panel_service(request)
@@ -84,7 +87,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
         except Exception:  # pragma: no cover - defensive
             payload["queue"] = None
 
-    payload["currency_symbol"] = default_payment_currency_code_for_settings(settings)
+    payload["currency_symbol"] = currency
     stats = AdminStatsOut.model_validate(payload)
     response = stats.model_dump(mode="json", exclude_none=True)
     response["active_tariffs"] = [row.model_dump(mode="json") for row in stats.active_tariffs]
@@ -94,27 +97,34 @@ async def admin_stats_route(request: web.Request) -> web.Response:
 async def _load_admin_db_stats(
     settings: Settings,
     async_session_factory: sessionmaker,
+    currency: str,
 ) -> dict[str, Any]:
+    async with async_session_factory() as session:
+        rates = await load_reporting_fee_rates(session)
     cache = _admin_db_stats_cache(settings)
     if cache is None:
-        return await _load_admin_db_stats_uncached(async_session_factory)
+        return await _load_admin_db_stats_uncached(async_session_factory, currency, rates)
     return cast(
         dict[str, Any],
         await cache.get_or_load(
-            "db:subscription-plans-v1",
-            lambda: _load_admin_db_stats_uncached(async_session_factory),
+            f"db:provider-fees-v3:{currency}:{json.dumps(rates, sort_keys=True)}",
+            lambda: _load_admin_db_stats_uncached(async_session_factory, currency, rates),
         ),
     )
 
 
-async def _load_admin_db_stats_uncached(async_session_factory: sessionmaker) -> dict[str, Any]:
+async def _load_admin_db_stats_uncached(
+    async_session_factory: sessionmaker, currency: str, rates: dict[str, dict[str, float]]
+) -> dict[str, Any]:
     async with async_session_factory() as session:
         now = datetime.now(UTC)
         user_stats = await user_dal.get_enhanced_user_statistics(session, now=now)
         active_tariff_counts = await user_subscription_plans.get_active_subscription_plan_counts(
             session, now=now
         )
-        financial_stats = await payment_dal.get_financial_statistics(session)
+        financial_stats = await payment_dal.get_financial_statistics(
+            session, currency=currency, provider_fee_rates=rates
+        )
         sync_status = await panel_sync_dal.get_panel_sync_status(session)
         recent_payments = await payment_dal.get_recent_payment_logs_with_user(session, limit=10)
 

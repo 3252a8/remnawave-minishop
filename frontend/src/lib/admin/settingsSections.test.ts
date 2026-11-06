@@ -71,8 +71,11 @@ describe("settingsSections", () => {
           : ["cispay_subscription_card", "cispay_subscription_sbp"]),
       ]);
       for (const method of methods.filter((item) => item.id.includes("subscription"))) {
-        expect(method.fields).toHaveLength(2);
+        expect(method.fields).toHaveLength(3);
         expect(method.fields.every((item) => item.key.includes("SUBSCRIPTION_"))).toBe(true);
+        expect(method.fields.some((item) => item.key.endsWith("_REPORTING_FEE_PERCENT"))).toBe(
+          true
+        );
       }
     }
     for (const [provider, method, legacy] of [
@@ -88,7 +91,7 @@ describe("settingsSections", () => {
     }
   });
 
-  it("keeps YooKassa configuration separate from each method's presentation", () => {
+  it("keeps YooKassa presentation and fee settings with each method", () => {
     const payments = settingsManifest.find((section) => section.id === "payments");
     const section: AdminSettingsSection = {
       id: "payments",
@@ -105,8 +108,15 @@ describe("settingsSections", () => {
       "yookassa_bank_card",
     ]);
     expect(groups[0].fields.some((item) => item.key === "YOOKASSA_PAYMENT_METHODS")).toBe(true);
-    expect(groups[1].fields).toHaveLength(6);
-    expect(groups[2].fields).toHaveLength(6);
+    for (const [index, method] of ["SBP", "BANK_CARD"].entries()) {
+      const fields = groups[index + 1].fields;
+      expect(
+        fields.filter((item) => item.key.startsWith(`PAYMENT_YOOKASSA_${method}_`))
+      ).toHaveLength(6);
+      expect(fields.some((item) => item.key === `YOOKASSA_${method}_REPORTING_FEE_PERCENT`)).toBe(
+        true
+      );
+    }
     expect(resolveSettingsPath(["payments", "yookassa", "sbp"], [section])?.fieldGroup?.id).toBe(
       "yookassa_sbp"
     );

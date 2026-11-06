@@ -246,10 +246,16 @@ class PlategaService(PlategaTransactionMixin, HttpClientMixin, PlategaSubscripti
                     return web.Response(status=400, text="amount_mismatch")
 
                 try:
+                    method = (
+                        None
+                        if getattr(payment, "provider_method", None)
+                        else _reported_method(self, callback_value(data, "paymentMethod"))
+                    )
                     claimed_payment = await payment_dal.claim_payment_finalization(
                         session,
                         payment.payment_id,
                         provider_payment_id=transaction_id,
+                        provider_method=method,
                     )
                 except Exception:
                     await session.rollback()
@@ -446,6 +452,17 @@ def _platega_method_id(service: PlategaService, variant: str) -> int | None:
     return service.config.sbp_method_resolved
 
 
+def _reported_method(service: PlategaService, code: object) -> str | None:
+    if not isinstance(code, (int, str)):
+        return None
+    matches = [
+        method
+        for method in ("sbp", "card", "crypto", "international")
+        if str(_platega_method_id(service, method)) == str(code)
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 async def _create_payment(
     service: PlategaService,
     request: CreatePaymentRequest,
@@ -569,6 +586,7 @@ _SBP_MANIFEST = CONFIG_MANIFEST + platega_presentation_manifest(
 
 SBP_SPEC = PaymentProviderSpec(
     id="platega_sbp",
+    reporting_fee_method="sbp",
     payment_group="fiat",
     provider_key="platega",
     label="Platega",
@@ -607,6 +625,7 @@ SBP_SPEC = PaymentProviderSpec(
 
 CARD_SPEC = PaymentProviderSpec(
     id="platega_card",
+    reporting_fee_method="card",
     payment_group="fiat",
     provider_key="platega",
     label="Platega",
@@ -641,6 +660,7 @@ CARD_SPEC = PaymentProviderSpec(
 
 CRYPTO_SPEC = PaymentProviderSpec(
     id="platega_crypto",
+    reporting_fee_method="crypto",
     payment_group="crypto",
     provider_key="platega",
     label="Platega",
@@ -676,6 +696,7 @@ CRYPTO_SPEC = PaymentProviderSpec(
 
 INTERNATIONAL_SPEC = PaymentProviderSpec(
     id="platega_international",
+    reporting_fee_method="international",
     payment_group="fiat",
     provider_key="platega",
     label="Platega",
@@ -770,6 +791,7 @@ ALL_METHODS_SPEC = PaymentProviderSpec(
 
 SUBSCRIPTION_SPEC = PaymentProviderSpec(
     id="platega_subscription",
+    reporting_fee_method="subscription",
     payment_group="fiat",
     provider_key="platega",
     label="Platega",
@@ -826,6 +848,7 @@ def _one_off_descriptor(
     return LinkPaymentDescriptor(
         spec=spec,
         provider_key="platega",
+        provider_method=spec.reporting_fee_method,
         pending_status="pending_platega",
         display_name="Platega",
         log_prefix=_LOG,
@@ -856,6 +879,7 @@ _ALL_METHODS_DESCRIPTOR = _one_off_descriptor(ALL_METHODS_SPEC, "all_methods")
 _SUBSCRIPTION_DESCRIPTOR: LinkPaymentDescriptor[PlategaService] = LinkPaymentDescriptor(
     spec=SUBSCRIPTION_SPEC,
     provider_key="platega",
+    provider_method=SUBSCRIPTION_SPEC.reporting_fee_method,
     pending_status="pending_platega",
     display_name="Platega",
     log_prefix=_LOG,

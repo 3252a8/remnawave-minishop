@@ -375,7 +375,15 @@ async def process_successful_payment(
                 )
             )
             return None
-        payment_record = await payment_dal.claim_payment_finalization(session, payment_db_id)
+        method = payment_info_from_webhook.get("payment_method")
+        method_type = method.get("type") if isinstance(method, dict) else None
+        payment_record = await payment_dal.claim_payment_finalization(
+            session,
+            payment_db_id,
+            provider_method=(method_type.strip()[:48] or None)
+            if isinstance(method_type, str)
+            else None,
+        )
         if payment_record is None:
             logger.info(
                 "Skipping duplicate YooKassa webhook for payment %s (YK: %s).",

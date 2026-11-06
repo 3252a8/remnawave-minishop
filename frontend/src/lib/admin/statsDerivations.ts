@@ -1,9 +1,9 @@
 import { fmtTrafficBytes } from "./format.js";
+import type { RevenuePoint } from "./revenueSeriesAgg.js";
 import type { PaymentOut } from "./stores/paymentsStore";
 import type { StatsState } from "./stores/statsStore";
 
 export type BadgeVariant = "default" | "outline" | "destructive" | "success" | "muted";
-export type RevenuePoint = { date: string; amount: number };
 export type DynamicRecord = Record<string, unknown>;
 export type PanelStats = DynamicRecord & {
   error?: unknown;
@@ -53,6 +53,10 @@ export type AdminStats = NonNullable<StatsState["stats"]> & {
     week_revenue?: unknown;
     month_revenue?: unknown;
     all_time_revenue?: unknown;
+    today_fees?: number;
+    week_fees?: number;
+    month_fees?: number;
+    all_time_fees?: number;
   };
   panel: PanelStats | null;
   recent_payments: PaymentOut[];

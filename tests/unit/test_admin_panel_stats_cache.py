@@ -199,6 +199,7 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch("bot.infra.redis.cache_get_json", fake_get),
             patch("bot.infra.redis.cache_set_json", fake_set),
+            patch.object(stats_module, "load_reporting_fee_rates", AsyncMock(return_value={})),
             patch.object(stats_module.user_dal, "get_enhanced_user_statistics", user_stats),
             patch.object(
                 stats_module.user_subscription_plans,
@@ -213,8 +214,10 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
                 recent_payments,
             ),
         ):
-            first = await stats_module._load_admin_db_stats(settings, self._SessionFactory())
-            second = await stats_module._load_admin_db_stats(settings, self._SessionFactory())
+            first = await stats_module._load_admin_db_stats(settings, self._SessionFactory(), "RUB")
+            second = await stats_module._load_admin_db_stats(
+                settings, self._SessionFactory(), "RUB"
+            )
 
         self.assertEqual(first, second)
         self.assertEqual(first["recent_payments"][0]["payment_id"], 1)

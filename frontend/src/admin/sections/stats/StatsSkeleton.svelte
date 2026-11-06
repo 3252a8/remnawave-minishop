@@ -49,7 +49,7 @@
     </Card.Header>
     <Card.Content>
       <div class="admin-revenue-kpis" aria-hidden="true">
-        {#each Array(6) as _, i (i)}
+        {#each Array(7) as _, i (i)}
           <div class="admin-revenue-kpi">
             <span
               class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
@@ -61,7 +61,7 @@
             ></span>
           </div>
         {/each}
-        <div class="admin-revenue-kpi admin-revenue-kpi--wide">
+        <div class="admin-revenue-kpi">
           <span
             class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
             style="width:46%"

@@ -340,11 +340,14 @@ def test_confirmed_transaction_callback_finalizes_matching_payment(monkeypatch):
             "status": "CONFIRMED",
             "amount": 150.0,
             "currency": "RUB",
+            "paymentMethod": 13,
         },
     )
 
     assert response.status == 200
-    claim.assert_awaited_once_with(session, 88, provider_payment_id="tx-1")
+    claim.assert_awaited_once_with(
+        session, 88, provider_payment_id="tx-1", provider_method="crypto"
+    )
     finalize.assert_awaited_once()
 
 

@@ -1,4 +1,4 @@
-export type RevenuePoint = { date: string; amount: number };
+export type RevenuePoint = { date: string; amount: number; fees?: number };
 
 export const REVENUE_PRESETS = [7, 14, 30, 90, 180, 365, 730, 1095, "all"] as const;
 export const REVENUE_GRANULARITIES = ["day", "week", "month", "year"] as const;
@@ -90,44 +90,7 @@ export function hasChartValues(points: RevenuePoint[]): boolean {
   });
 }
 
-/** `daily` sorted ascending, day granularity. */
-function bucketWeeks(daily: RevenuePoint[]): RevenuePoint[] {
-  const sums = new Map<number, number>();
-  for (const p of daily) {
-    const k = utcWeekStartMs(p.date);
-    const amt = Number(p.amount) || 0;
-    sums.set(k, (sums.get(k) || 0) + amt);
-  }
-  return [...sums.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([ms, amount]) => ({ date: isoUtcDateFromMs(ms), amount }));
-}
-
-/** `daily` sorted ascending. */
-function bucketMonths(daily: RevenuePoint[]): RevenuePoint[] {
-  const sums = new Map<number, number>();
-  for (const p of daily) {
-    const k = utcMonthStartMs(p.date);
-    const amt = Number(p.amount) || 0;
-    sums.set(k, (sums.get(k) || 0) + amt);
-  }
-  return [...sums.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([ms, amount]) => ({ date: isoUtcDateFromMs(ms), amount }));
-}
-
-/** `daily` sorted ascending. */
-function bucketYears(daily: RevenuePoint[]): RevenuePoint[] {
-  const sums = new Map<number, number>();
-  for (const p of daily) {
-    const k = utcYearStartMs(p.date);
-    const amt = Number(p.amount) || 0;
-    sums.set(k, (sums.get(k) || 0) + amt);
-  }
-  return [...sums.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([ms, amount]) => ({ date: isoUtcDateFromMs(ms), amount }));
-}
+const bucketStart = { week: utcWeekStartMs, month: utcMonthStartMs, year: utcYearStartMs };
 
 /** `dailySorted` ascending by date, consecutive calendar days. */
 export function aggregateRevenueSeries(
@@ -135,10 +98,18 @@ export function aggregateRevenueSeries(
   granularity: RevenueGranularity
 ): RevenuePoint[] {
   if (!dailySorted?.length) return [];
-  if (granularity === "week") return bucketWeeks(dailySorted);
-  if (granularity === "month") return bucketMonths(dailySorted);
-  if (granularity === "year") return bucketYears(dailySorted);
-  return dailySorted.map((p) => ({ date: p.date, amount: Number(p.amount) || 0 }));
+  if (granularity === "day") {
+    return dailySorted.map((point) => ({ ...point, amount: Number(point.amount) || 0 }));
+  }
+  const buckets = new Map<number, RevenuePoint>();
+  for (const point of dailySorted) {
+    const start = bucketStart[granularity](point.date);
+    const bucket = buckets.get(start) ?? { date: isoUtcDateFromMs(start), amount: 0 };
+    bucket.amount += Number(point.amount) || 0;
+    if (point.fees != null) bucket.fees = (bucket.fees ?? 0) + point.fees;
+    buckets.set(start, bucket);
+  }
+  return [...buckets.entries()].sort(([a], [b]) => a - b).map(([, point]) => point);
 }
 
 /** For chart hint: calendar span of inclusive range. */

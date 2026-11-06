@@ -46,6 +46,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
             currency=currency,
             status="pending_yookassa",
             provider="yookassa",
+            provider_method=method_type,
         )
         metadata = {
             "user_id": str(ctx.user_id),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from typing import Any, cast
 
@@ -90,6 +91,8 @@ PAYMENT_PROVIDER_SPECS: tuple[PaymentProviderSpec, ...] = (
 # ``_provider_presentations`` instead, indexed by ``spec.id``.
 _provider_configs: dict[str, ProviderConfigBundle] = {}
 _provider_presentations: dict[str, Any] = {}
+type FeeSources = dict[str, dict[str, list[tuple[str, float | None]]]]
+_reporting_fee_sources: FeeSources = {}
 
 
 def iter_provider_specs() -> Iterable[PaymentProviderSpec]:
@@ -179,6 +182,8 @@ def build_provider_configs(*, force: bool = False) -> dict[str, ProviderConfigBu
     _provider_configs.update(bundles)
     _provider_presentations.clear()
     _provider_presentations.update(presentations)
+    _reporting_fee_sources.clear()
+    _reporting_fee_sources.update(_build_reporting_fee_sources())
     return bundles
 
 
@@ -194,6 +199,38 @@ def get_provider_bundle(service_key: str | None) -> ProviderConfigBundle | None:
     if not service_key:
         return None
     return _provider_configs.get(service_key)
+
+
+def _build_reporting_fee_sources() -> FeeSources:
+    sources: FeeSources = {}
+    provider_counts = Counter(spec.provider_key for spec in PAYMENT_PROVIDER_SPECS)
+    for spec in PAYMENT_PROVIDER_SPECS:
+        bundle = get_provider_bundle(spec.service_key)
+        config = bundle.config if bundle else None
+        if config is None and spec.config_class is None:
+            config = get_spec_presentation(spec.id)
+        fields = tuple(_reporting_manifest_fields(spec))
+        if config is None or not fields:
+            continue
+        provider_sources = sources.setdefault(spec.provider_key, {})
+        base, *methods = fields
+        provider_sources.setdefault("", [(base.key, config.REPORTING_FEE_PERCENT)])
+        if methods and spec.reporting_fee_method:
+            method = methods[0]
+            # A distinct provider key already identifies the method, including on old rows.
+            slot = spec.reporting_fee_method if provider_counts[spec.provider_key] > 1 else ""
+            provider_sources.setdefault(slot, []).insert(
+                0, (method.key, getattr(config, method.attr or method.key))
+            )
+    return sources
+
+
+def reporting_fee_sources(provider: str | None = None) -> FeeSources:
+    """Return candidate setting keys with their original environment defaults."""
+    if provider is None:
+        return _reporting_fee_sources
+    methods = _reporting_fee_sources.get(provider)
+    return {provider: methods} if methods is not None else {}
 
 
 def _setting_value(source: Any, key: str) -> str | None:
@@ -519,6 +556,61 @@ def pending_statuses() -> list[str]:
     return statuses
 
 
+_REPORTING_METHOD_LABELS = {
+    "sbp": "SBP",
+    "card": "bank card",
+    "bank_card": "bank card",
+    "crypto": "crypto",
+    "international": "international card",
+    "subscription": "recurring payments",
+    "subscription_card": "recurring card",
+    "subscription_sbp": "recurring SBP",
+}
+
+
+def _reporting_manifest_fields(spec: PaymentProviderSpec) -> Iterable[ProviderManifestField]:
+    model = spec.config_class or spec.presentation_class
+    if spec.service_key is None or model is None:
+        return
+    prefix = model.model_config.get("env_prefix")
+    if not prefix:
+        return
+    base = next(
+        candidate
+        for candidate in PAYMENT_PROVIDER_SPECS
+        if candidate.service_key == spec.service_key
+    )
+    subsection = next((f.subsection for f in base.manifest_fields if f.subsection), base.label)
+    yield ProviderManifestField(
+        f"{prefix}REPORTING_FEE_PERCENT",
+        "float",
+        "Estimated provider fee, %",
+        "Used when a payment has no method-specific rate. Successful payments retain saved fees.",
+        min=0,
+        max=100,
+        subsection=subsection,
+        target="config" if spec.config_class else "presentation",
+        attr="REPORTING_FEE_PERCENT",
+        i18n_label_key="admin_settings_provider_reporting_fee_label",
+        i18n_description_key="admin_settings_provider_reporting_fee_description",
+    )
+    method = spec.reporting_fee_method
+    if method is not None:
+        attr = f"{method.upper()}_REPORTING_FEE_PERCENT"
+        yield ProviderManifestField(
+            f"{prefix}{attr}",
+            "float",
+            f"Estimated {_REPORTING_METHOD_LABELS[method]} fee, %",
+            "Leave empty to use the provider rate. Enter 0 to save a zero fee for this method.",
+            min=0,
+            max=100,
+            subsection=subsection,
+            attr=attr,
+            i18n_label_key=f"admin_settings_reporting_fee_{method}_label",
+            i18n_description_key="admin_settings_reporting_method_fee_description",
+        )
+
+
 def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, ProviderManifestField]]:
     """Yield (spec, manifest_field) for every fragment declared on a provider SPEC."""
     emitted_keys: set[str] = set()
@@ -531,6 +623,10 @@ def iter_provider_manifest_fields() -> Iterable[tuple[PaymentProviderSpec, Provi
         if admin_only_field is not None and admin_only_field.key not in emitted_keys:
             emitted_keys.add(admin_only_field.key)
             yield spec, admin_only_field
+        for fee_field in _reporting_manifest_fields(spec):
+            if fee_field.key not in emitted_keys:
+                emitted_keys.add(fee_field.key)
+                yield spec, fee_field
 
 
 def provider_admin_only_manifest_field(

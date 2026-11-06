@@ -58,6 +58,22 @@ describe("revenueSeriesAgg", () => {
     expect(isRevenueGranularity("quarter")).toBe(false);
   });
 
+  it("keeps fees aligned with the selected calendar buckets", () => {
+    const withFees = [
+      { date: "2026-06-01", amount: 100, fees: 3.5 },
+      { date: "2026-06-07", amount: 200, fees: 8.25 },
+      { date: "2026-06-08", amount: 70, fees: 0 },
+    ];
+    expect(aggregateRevenueSeries(withFees, "day")).toEqual(withFees);
+    expect(aggregateRevenueSeries(withFees, "week")).toEqual([
+      { date: "2026-06-01", amount: 300, fees: 11.75 },
+      { date: "2026-06-08", amount: 70, fees: 0 },
+    ]);
+    expect(aggregateRevenueSeries(withFees, "month")).toEqual([
+      { date: "2026-06-01", amount: 370, fees: 11.75 },
+    ]);
+  });
+
   it("normalizes invalid amounts and reports inclusive spans", () => {
     expect(
       aggregateRevenueSeries(

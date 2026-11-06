@@ -28,6 +28,7 @@ from .payment_reporting_dal import (
 from .payment_reporting_dal import (
     get_user_total_paid as get_user_total_paid,
 )
+from .payment_reporting_dal import snapshot_payment_provider_fee
 from .referral_payment_dal import count_user_succeeded_payments as count_user_succeeded_payments
 from .yookassa_reconciliation_dal import (
     PAYMENT_STATUS_PENDING_REVIEW as PAYMENT_STATUS_PENDING_REVIEW,
@@ -125,6 +126,8 @@ async def create_payment_record(session: AsyncSession, payment_data: dict[str, A
     session.add(new_payment)
     await session.flush()
     await session.refresh(new_payment)
+    if _normalize_payment_status(new_payment.status) == _PAYMENT_STATUS_SUCCEEDED:
+        await snapshot_payment_provider_fee(session, new_payment)
     from .extension_dal import bind_payment
 
     await bind_payment(session, new_payment)
@@ -196,6 +199,8 @@ async def create_or_get_payment_record_by_idempotence_key(
     if created:
         from bot.services.advertising.capture import record_payment_created
 
+        if _normalize_payment_status(payload.get("status")) == _PAYMENT_STATUS_SUCCEEDED:
+            await snapshot_payment_provider_fee(session, payment)
         await record_payment_created(session, payment)
         logger.info(
             "Payment record %s created with idempotence key %s",
@@ -413,6 +418,7 @@ async def claim_payment_finalization(
     *,
     provider_payment_id: str | None = None,
     provider_payment_url: str | None = None,
+    provider_method: str | None = None,
 ) -> Payment | None:
     """Atomically claim a non-final payment for successful-payment effects.
 
@@ -430,6 +436,8 @@ async def claim_payment_finalization(
         values["provider_payment_id"] = provider_payment_id
     if provider_payment_url is not None:
         values["provider_payment_url"] = provider_payment_url
+    if provider_method is not None:
+        values["provider_method"] = provider_method
 
     stmt = (
         update(Payment)
@@ -451,7 +459,10 @@ async def claim_payment_finalization(
     # The conditional UPDATE above already holds the row lock until the caller
     # commits. Reload through the normal loader so callers retain eager-loaded
     # relationships such as ``payment.user``.
-    return await get_payment_by_db_id(session, int(claimed_payment_id), fresh=True)
+    payment = await get_payment_by_db_id(session, int(claimed_payment_id), fresh=True)
+    if payment is not None:
+        await snapshot_payment_provider_fee(session, payment)
+    return payment
 
 
 async def find_recent_pending_provider_payment(
@@ -637,6 +648,8 @@ async def update_payment_status_by_db_id(
                 payment.failure_notified_at = func.now()
             normalized_new_status = _normalize_payment_status(new_status)
             if normalized_new_status == _PAYMENT_STATUS_SUCCEEDED:
+                if previous_status != _PAYMENT_STATUS_SUCCEEDED:
+                    await snapshot_payment_provider_fee(session, payment)
                 from bot.services.partner_checkout_balance import (
                     PartnerCheckoutBalanceService,
                 )
@@ -829,8 +842,14 @@ async def update_provider_payment_and_status(
                 new_status,
             )
         else:
+            previous_status = _normalize_payment_status(payment.status)
             payment.status = new_status
             payment.updated_at = func.now()
+            if (
+                previous_status != _PAYMENT_STATUS_SUCCEEDED
+                and _normalize_payment_status(new_status) == _PAYMENT_STATUS_SUCCEEDED
+            ):
+                await snapshot_payment_provider_fee(session, payment)
         payment.provider_payment_id = provider_payment_id
         if provider_payment_url:
             payment.provider_payment_url = provider_payment_url
@@ -896,6 +915,8 @@ async def transition_provider_payment_to_terminal(
     payment.status = normalized_new_status
     payment.updated_at = func.now()
     payment.provider_payment_id = provider_payment_id
+    if normalized_new_status == _PAYMENT_STATUS_SUCCEEDED:
+        await snapshot_payment_provider_fee(session, payment)
     if failure_kind is not None:
         payment.failure_kind = str(failure_kind)[:64]
     if failure_http_status is not None:

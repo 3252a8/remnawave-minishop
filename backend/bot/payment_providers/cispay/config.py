@@ -1,6 +1,6 @@
 from pydantic_settings import SettingsConfigDict
 
-from ..base import ProviderEnvConfig, provider_env_file
+from ..base import ProviderEnvConfig, ReportingFeePercent, provider_env_file
 
 
 class CisPayConfig(ProviderEnvConfig):
@@ -11,6 +11,8 @@ class CisPayConfig(ProviderEnvConfig):
         extra="ignore",
     )
     ENABLED: bool = False
+    SUBSCRIPTION_CARD_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    SUBSCRIPTION_SBP_REPORTING_FEE_PERCENT: ReportingFeePercent = None
     SHOP_ID: str = ""
     API_KEY: str = ""
     BASE_URL: str = "https://api.cispay.app"

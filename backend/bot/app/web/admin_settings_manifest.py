@@ -9,6 +9,7 @@ the API, even by an admin.
 from __future__ import annotations
 
 import re
+from math import isfinite
 from typing import Any
 
 from bot.app.web.admin_settings_maintenance_manifest_fields import MAINTENANCE_SETTINGS_FIELDS
@@ -124,6 +125,8 @@ def coerce_value(field: SettingField, raw: Any) -> Any:
             float_value = float(str(raw).strip())
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{field.key}: number expected") from exc
+        if not isfinite(float_value):
+            raise ValueError(f"{field.key}: finite number expected")
         if field.min is not None and float_value < field.min:
             raise ValueError(f"{field.key}: must be >= {field.min:g}")
         if field.max is not None and float_value > field.max:

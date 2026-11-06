@@ -1157,7 +1157,7 @@ class YooKassaHwidWebhookTests(IsolatedAsyncioTestCase):
             )
 
         assert result is None
-        claim.assert_awaited_once_with(ANY, 5)
+        claim.assert_awaited_once_with(ANY, 5, provider_method=None)
         subscription_service.activate_subscription.assert_not_awaited()
 
     async def test_underpaid_webhook_skips_finalization_and_entitlements(self):

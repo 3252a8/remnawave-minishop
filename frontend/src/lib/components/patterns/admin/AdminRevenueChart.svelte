@@ -11,9 +11,8 @@
     type ChartAlignedData,
   } from "$lib/admin/chartMotion.js";
   import { revenueChartGradientFallbacks } from "$lib/admin/revenueChartColors.js";
+  import type { RevenueGranularity, RevenuePoint } from "$lib/admin/revenueSeriesAgg.js";
 
-  type RevenuePoint = { date: string; amount: number };
-  type RevenueGranularity = "day" | "week" | "month" | "year";
   type TooltipGeometry = {
     left: number;
     arrowLeft: number;
@@ -48,6 +47,9 @@
     legendTimeLabel?: string;
     /** Readout: column header for the value (y) series */
     legendValueLabel?: string;
+    /** When provided, amount is net and fees are added back for the gross readout. */
+    legendGrossLabel?: string;
+    legendFeeLabel?: string;
     /** Readout: column header for the change against the previous point */
     legendDeltaLabel?: string;
     /** Line/area for revenue, bars for payout-like series. */
@@ -63,6 +65,8 @@
     granularity = "day",
     legendTimeLabel = "Time",
     legendValueLabel = "Value",
+    legendGrossLabel,
+    legendFeeLabel,
     legendDeltaLabel = "Change",
     variant = "area",
   }: Props = $props();
@@ -773,7 +777,7 @@
 
   <!-- A fixed-height lane keeps the layout stable. The card follows the active
        period only horizontally; its arrow remains aligned when clamped. -->
-  <div class="admin-chart-tooltip-lane">
+  <div class="admin-chart-tooltip-lane" class:admin-chart-tooltip-lane--with-fees={legendFeeLabel}>
     <Plate
       bind:ref={tooltipEl}
       class="admin-chart-tooltip"
@@ -798,6 +802,16 @@
         <small>{legendValueLabel}</small>
         <strong>{activePoint ? fmtMoney(Number(activePoint.amount), currency) : "—"}</strong>
       </div>
+      {#if legendGrossLabel && legendFeeLabel && activePoint}
+        <div class="admin-chart-tooltip-value admin-chart-tooltip-breakdown">
+          <small>{legendGrossLabel}</small>
+          <span>{fmtMoney(activePoint.amount + (activePoint.fees ?? 0), currency)}</span>
+        </div>
+        <div class="admin-chart-tooltip-value admin-chart-tooltip-breakdown">
+          <small>{legendFeeLabel}</small>
+          <span>{fmtMoney(activePoint.fees ?? 0, currency)}</span>
+        </div>
+      {/if}
       <span class="sr-only">{legendTimeLabel}</span>
     </Plate>
   </div>

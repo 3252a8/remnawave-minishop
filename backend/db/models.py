@@ -349,6 +349,8 @@ class Payment(Base):
     provider_checked_at = Column(DateTime(timezone=True), nullable=True, index=True)
     failure_notified_at = Column(DateTime(timezone=True), nullable=True, index=True)
     provider = Column(String, nullable=False, default="yookassa", index=True)
+    provider_method = Column(String(48), nullable=True)
+    provider_fee_amount = Column(Float, nullable=True)
     funding_source = Column(String(48), nullable=False, default="external", index=True)
     subscription_days_spent = Column(Integer, nullable=True)
     subscription_days_snapshot = Column(Text, nullable=True)

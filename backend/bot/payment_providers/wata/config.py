@@ -8,6 +8,7 @@ from pydantic_settings import SettingsConfigDict
 
 from ..base import (
     ProviderEnvConfig,
+    ReportingFeePercent,
     parse_supported_currency_codes,
     provider_env_file,
     provider_runtime_enabled,
@@ -119,6 +120,7 @@ class WataConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
+    CRYPTO_REPORTING_FEE_PERCENT: ReportingFeePercent = None
     ADMIN_ONLY_ENABLED: bool = Field(default=False)
     API_TOKEN: str | None = None
     TERMINAL_ID: str | None = None

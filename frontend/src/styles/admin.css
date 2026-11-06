@@ -711,8 +711,39 @@
   min-width: 0;
 }
 
-.admin-revenue-kpi--wide {
-  grid-column: span 2;
+.admin-revenue-summary {
+  margin-bottom: 10px;
+}
+
+.admin-revenue-kpi--net {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--admin-border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--admin-surface-2));
+}
+
+.admin-revenue-breakdown {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.admin-revenue-breakdown > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 10px;
+  font-size: 12px;
+  color: var(--admin-muted);
+}
+
+.admin-revenue-breakdown dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  color: var(--admin-text);
+}
+
+.admin-revenue-chart-totals {
+  width: min(100%, 320px);
 }
 
 .admin-revenue-kpi-label {
@@ -995,10 +1026,6 @@
   line-height: 1.35;
 }
 
-.admin-revenue-chart-meta-sep {
-  opacity: 0.55;
-}
-
 .admin-revenue-svg-frame {
   position: relative;
   width: 100%;
@@ -1082,6 +1109,16 @@
   min-width: 0;
   height: 70px;
   overflow: hidden;
+}
+
+.admin-chart-tooltip-lane--with-fees {
+  height: 106px;
+}
+
+.admin-chart-tooltip-breakdown {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Compact readout follows only the active period's horizontal position. */

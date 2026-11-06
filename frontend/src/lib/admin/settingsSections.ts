@@ -60,21 +60,25 @@ const PLATEGA_SBP_KEYS = new Set([
   "PLATEGA_SBP_ENABLED",
   "PLATEGA_SBP_ADMIN_ONLY_ENABLED",
   "PLATEGA_SBP_METHOD",
+  "PLATEGA_SBP_REPORTING_FEE_PERCENT",
 ]);
 const PLATEGA_CARD_KEYS = new Set([
   "PLATEGA_CARD_ENABLED",
   "PLATEGA_CARD_ADMIN_ONLY_ENABLED",
   "PLATEGA_CARD_METHOD",
+  "PLATEGA_CARD_REPORTING_FEE_PERCENT",
 ]);
 const PLATEGA_CRYPTO_KEYS = new Set([
   "PLATEGA_CRYPTO_ENABLED",
   "PLATEGA_CRYPTO_ADMIN_ONLY_ENABLED",
   "PLATEGA_CRYPTO_METHOD",
+  "PLATEGA_CRYPTO_REPORTING_FEE_PERCENT",
 ]);
 const PLATEGA_INTERNATIONAL_KEYS = new Set([
   "PLATEGA_INTERNATIONAL_ENABLED",
   "PLATEGA_INTERNATIONAL_ADMIN_ONLY_ENABLED",
   "PLATEGA_INTERNATIONAL_METHOD",
+  "PLATEGA_INTERNATIONAL_REPORTING_FEE_PERCENT",
 ]);
 const PLATEGA_ALL_METHODS_KEYS = new Set([
   "PLATEGA_ALL_METHODS_ENABLED",
@@ -84,6 +88,7 @@ const PLATEGA_SUBSCRIPTION_KEYS = new Set([
   "PLATEGA_SUBSCRIPTION_ENABLED",
   "PLATEGA_SUBSCRIPTION_ADMIN_ONLY_ENABLED",
   "PLATEGA_SUBSCRIPTION_METHOD",
+  "PLATEGA_SUBSCRIPTION_REPORTING_FEE_PERCENT",
 ]);
 const PLATEGA_LEGACY_KEYS = new Set(["PLATEGA_PAYMENT_METHOD"]);
 const WATA_FIAT_KEYS = new Set([
@@ -107,6 +112,7 @@ const WATA_CRYPTO_KEYS = new Set([
   "WATA_CRYPTO_FAILED_URL",
   "WATA_CRYPTO_LINK_TTL_MINUTES",
   "WATA_CRYPTO_SUPPORTED_CURRENCIES",
+  "WATA_CRYPTO_REPORTING_FEE_PERCENT",
 ]);
 const WATA_SUBSCRIPTION_KEYS = new Set([
   "WATA_SUBSCRIPTION_ENABLED",
@@ -664,10 +670,16 @@ function semanticFieldGroup(
   field: AdminSettingField
 ): Omit<SemanticFieldGroup, "fields"> | null {
   if (section?.id === "payments" && group?.id === "YooKassa") {
-    if (field.key.startsWith("PAYMENT_YOOKASSA_SBP_")) {
+    if (
+      field.key.startsWith("PAYMENT_YOOKASSA_SBP_") ||
+      field.key === "YOOKASSA_SBP_REPORTING_FEE_PERCENT"
+    ) {
       return fieldGroupMeta("yookassa_sbp", "settings_group_yookassa_sbp", "SBP button");
     }
-    if (field.key.startsWith("PAYMENT_YOOKASSA_BANK_CARD_")) {
+    if (
+      field.key.startsWith("PAYMENT_YOOKASSA_BANK_CARD_") ||
+      field.key === "YOOKASSA_BANK_CARD_REPORTING_FEE_PERCENT"
+    ) {
       return fieldGroupMeta(
         "yookassa_bank_card",
         "settings_group_yookassa_bank_card",
