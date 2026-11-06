@@ -315,7 +315,10 @@ for (const [device, viewport] of devices) {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto(`/demo/runtime/app/${query}&mock=checkout-addons&path=/invite`);
-    const gift = page.locator(".gift-entry .copy-link-field").first();
+    const giftCard = page.locator(".gift-entry .gift-card").first();
+    const gift = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: ru.wa_gift_link_webapp, exact: true }),
+    });
     await expect(gift).toBeVisible();
     await expect(page.locator(".referral-tariff-dropdown")).toHaveCount(2);
     await expect(page.locator(".referral-tariff-dropdown").first()).toContainText(
@@ -367,6 +370,21 @@ for (const [device, viewport] of devices) {
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(gift.getByRole("button", { name: ru.wa_gift_qr_show })).toBeFocused();
+    const telegram = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: ru.wa_gift_link_telegram, exact: true }),
+    });
+    const telegramLink = await telegram.locator("input").inputValue();
+    expect(telegramLink).toBe(`https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`);
+    const telegramQr = telegram.getByRole("button", { name: ru.wa_gift_qr_show });
+    await expect(telegramQr).toBeVisible();
+    await telegramQr.click();
+    await expect(dialog.locator(".link-qr-tile img")).toBeVisible();
+    const telegramImage = await dialog.locator(".link-qr-tile img").getAttribute("src");
+    expect(await decodeQr(Buffer.from(telegramImage!.split(",")[1], "base64"))).toBe(telegramLink);
+    await snapshot(page, `gift-telegram-qr-${device}`);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(telegramQr).toBeFocused();
     const referral = page.locator(".bonus-card .copy-link-field").first();
     const referralLink = await referral.locator("input").inputValue();
     await referral.getByRole("button", { name: /QR/ }).click();
