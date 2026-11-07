@@ -6440,5 +6440,11 @@
   "admin_settings_field_subscription_days_min_remaining_description": "Сколько дней должно остаться после докупки. Минимум 1 день.",
   "wa_hwid_devices_package_one": "+{count} устройство",
   "wa_hwid_devices_package_few": "+{count} устройства",
-  "wa_hwid_devices_package_many": "+{count} устройств"
+  "wa_hwid_devices_package_many": "+{count} устройств",
+  "admin_user_hwid_reset": "Сбросить устройства",
+  "admin_user_hwid_reset_hint": "Очистите записанные устройства, чтобы освободить места.",
+  "admin_user_hwid_reset_confirm_title": "Сбросить записанные устройства?",
+  "admin_user_hwid_reset_confirm_description": "Все записанные HWID будут удалены. Устройства смогут зарегистрироваться заново при подключении. Лимит устройств, купленные места и ссылка подписки останутся прежними.",
+  "admin_user_hwid_reset_success": "Записанные устройства очищены",
+  "admin_user_hwid_reset_failed": "Не удалось очистить все записанные устройства. Часть записей уже могла быть удалена. Обновите данные и повторите попытку."
 }

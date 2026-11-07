@@ -1,6 +1,8 @@
 <script lang="ts">
   import { getUsersStore } from "$lib/admin/context";
   import { AdminBadge, AdminButton, AdminSectionHeader } from "$components/patterns/admin/index.js";
+  import Dialog from "$components/ui/dialog.svelte";
+  import { RefreshCw } from "$components/ui/icons.js";
   import { Checkbox, Input } from "$components/ui/index.js";
   import { Label } from "$components/ui/primitives.js";
   import type { ActiveSubscription, TranslateFn } from "./userDetailTypes";
@@ -24,6 +26,15 @@
   } = $props();
 
   const usersStore = getUsersStore();
+  let resetConfirmOpen = $state(false);
+
+  function closeResetConfirmation() {
+    if (!userActionBusy) resetConfirmOpen = false;
+  }
+
+  async function confirmReset() {
+    if (await usersStore.resetHwidDevicesUser()) resetConfirmOpen = false;
+  }
 </script>
 
 <section
@@ -101,5 +112,49 @@
         )}
       </span>
     </div>
+    <AdminButton
+      data-admin-action="reset-user-hwid-devices"
+      onclick={() => (resetConfirmOpen = true)}
+      disabled={userActionBusy}
+    >
+      <RefreshCw size={14} />
+      {at("user_hwid_reset", {}, "Reset devices")}
+    </AdminButton>
+    <small class="admin-muted">
+      {at(
+        "user_hwid_reset_hint",
+        {},
+        "Clear recorded devices to free slots after changing VPN clients."
+      )}
+    </small>
   </div>
 </section>
+
+<Dialog
+  open={resetConfirmOpen}
+  title={at("user_hwid_reset_confirm_title", {}, "Reset recorded devices?")}
+  description={at(
+    "user_hwid_reset_confirm_description",
+    {},
+    "All recorded HWIDs will be removed. Devices can register again when they reconnect. The device limit, purchased slots and subscription link will stay the same."
+  )}
+  closeLabel={at("close", {}, "Close")}
+  onclose={closeResetConfirmation}
+  portal
+  class="admin-dialog admin-user-hwid-reset-dialog"
+>
+  <div class="admin-form-row">
+    <AdminButton onclick={closeResetConfirmation} disabled={userActionBusy}>
+      {at("btn_cancel", {}, "Cancel")}
+    </AdminButton>
+    <AdminButton
+      variant="danger"
+      data-admin-action="confirm-user-hwid-reset"
+      onclick={confirmReset}
+      disabled={userActionBusy}
+    >
+      <RefreshCw size={14} />
+      {at("user_hwid_reset", {}, "Reset devices")}
+    </AdminButton>
+  </div>
+</Dialog>

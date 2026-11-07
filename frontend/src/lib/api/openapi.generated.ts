@@ -2989,6 +2989,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/hwid-devices/reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Hwid Devices Reset */
+    post: operations["post_admin_user_hwid_devices_reset_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/merge": {
     parameters: {
       query?: never;
@@ -19209,6 +19226,31 @@ export interface operations {
             /** @constant */
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_hwid_devices_reset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };
