@@ -280,6 +280,16 @@
   color: currentColor;
 }
 
+/* Subscription-page configs ship app logos with a hard-coded near-white fill,
+   which disappears on light tiles. Repaint those shapes in the text colour. */
+.theme-light .install-app-button .install-svg {
+  color: var(--text);
+}
+
+.theme-light .install-svg :is([fill="#FAFAFA" i], [fill="#FFFFFF" i], [fill="#FFF" i], [fill="white"]) {
+  fill: currentColor;
+}
+
 .install-steps {
   display: grid;
   gap: 10px;

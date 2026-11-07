@@ -625,9 +625,9 @@
       font-family: var(--font-mono);
     }
 
+    /* The date keeps its full width; the user ID line is what truncates. */
     .admin-payment-mobile-user time {
-      flex: 0 1 auto;
-      max-width: 42%;
+      flex: 0 0 auto;
       text-align: right;
     }
 
@@ -641,21 +641,16 @@
 
     .admin-payment-mobile-metrics > div {
       display: grid;
-      gap: 3px;
+      gap: 2px;
       min-width: 0;
-      padding: 8px 9px;
-      border-radius: 8px;
-      background: color-mix(in srgb, var(--admin-bg) 58%, transparent);
     }
 
     .admin-payment-mobile-metrics dt {
       overflow: hidden;
       color: var(--admin-muted);
-      font-size: 10px;
-      font-weight: 650;
-      letter-spacing: 0.04em;
+      font-size: 11px;
+      font-weight: 500;
       text-overflow: ellipsis;
-      text-transform: uppercase;
       white-space: nowrap;
     }
 
@@ -664,7 +659,8 @@
       margin: 0;
       overflow-wrap: anywhere;
       color: var(--admin-text);
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
 

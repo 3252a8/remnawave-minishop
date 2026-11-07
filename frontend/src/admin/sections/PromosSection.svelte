@@ -563,7 +563,7 @@
     />
   {/snippet}
   {#snippet searchActions()}
-    <AdminButton type="submit" variant="primary" disabled={promosLoading}>
+    <AdminButton type="submit" variant="default" disabled={promosLoading}>
       {at("find", {}, "Find")}
     </AdminButton>
   {/snippet}
@@ -777,7 +777,7 @@
                 <AdminButton
                   data-admin-action="delete-code"
                   size="icon"
-                  variant="danger"
+                  variant="dangerSoft"
                   title={at("btn_delete", {}, "Delete")}
                   aria-label={at("btn_delete", {}, "Delete")}
                   onclick={() => promosStore.deletePromo(p)}

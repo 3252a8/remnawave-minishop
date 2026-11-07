@@ -44,6 +44,7 @@
     type PartnerWithdrawalTransition,
   } from "$lib/admin/partnerProgramUi.js";
   import { sortAdminRows } from "$lib/admin/tableSort.js";
+  import { fmtDateTime } from "$lib/admin/format.js";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
   import { getSettingsStore } from "$lib/admin/context.js";
   import {
@@ -841,9 +842,11 @@
               class="partners-preview-row"
               onclick={() => openApplication(application)}
               ><span
-                ><strong>{application.handle} — {application.user}</strong><small
-                  >{application.submitted}</small
-                ></span
+                ><strong
+                  >{application.user && application.user !== application.handle.replace(/^@/, "")
+                    ? `${application.handle} — ${application.user}`
+                    : application.handle}</strong
+                ><small>{fmtDateTime(application.submitted)}</small></span
               ><AdminBadge variant={partnerStatusVariant(application.status)}
                 >{statusLabel(application.status)}</AdminBadge
               ></button

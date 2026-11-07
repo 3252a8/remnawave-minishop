@@ -2,6 +2,7 @@
   import {
     ArrowRight,
     CircleX,
+    Trash2,
     Pencil,
     Plus,
     RefreshCw,
@@ -9,6 +10,7 @@
   } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import Card from "$components/ui/card.svelte";
   import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import {
@@ -116,22 +118,23 @@
 <main class="content with-nav">
   {#if !hideDevicesSummary}
     <Card class="devices-summary-card">
-      <div class="devices-summary-head">
-        <Smartphone size={28} />
-        <span>
-          <strong>{t("wa_devices_title")}</strong>
-          <small>{devicesCountLabel(devicesData, t, effectiveMaxDevices)}</small>
-        </span>
-        <Button
-          variant="icon"
-          size="icon"
-          onclick={() => loadDevices(true)}
-          disabled={devicesBusy}
-          aria-label={t("wa_devices_refresh")}
-        >
-          <RefreshCw size={18} />
-        </Button>
-      </div>
+      <ScreenHeading
+        title={t("wa_devices_title")}
+        subtitle={devicesCountLabel(devicesData, t, effectiveMaxDevices)}
+      >
+        {#snippet icon()}<Smartphone />{/snippet}
+        {#snippet actions()}
+          <Button
+            variant="icon"
+            size="icon"
+            onclick={() => loadDevices(true)}
+            disabled={devicesBusy}
+            aria-label={t("wa_devices_refresh")}
+          >
+            <RefreshCw size={18} />
+          </Button>
+        {/snippet}
+      </ScreenHeading>
       <LinearProgress
         class="devices-progress"
         value={progressState === "pending" ? 0 : devicesPercent(devicesData, effectiveMaxDevices)}
@@ -160,7 +163,7 @@
           {#if showDeviceTopupAction}
             <Button
               data-webapp-action="open-device-topup"
-              variant="secondary"
+              variant={hasReachedDeviceLimit ? "default" : "secondary"}
               class="wide"
               onclick={openDeviceTopupModal}
             >
@@ -261,10 +264,11 @@
                   data-webapp-action="open-device-disconnect"
                   variant="outline"
                   class="wide device-disconnect-button"
+                  title={t("wa_devices_disconnect")}
                   onclick={() => openDeviceDisconnectDialog(device)}
                 >
-                  <CircleX size={17} />
-                  {t("wa_devices_disconnect")}
+                  <Trash2 size={17} aria-hidden="true" />
+                  <span class="device-disconnect-label">{t("wa_devices_disconnect")}</span>
                 </Button>
               {/if}
             </UserExtensionPoint>

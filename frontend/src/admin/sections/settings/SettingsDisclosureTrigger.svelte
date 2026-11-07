@@ -86,9 +86,7 @@
       {/if}
     </span>
     <span class={isSubsection ? "admin-settings-subsection-meta" : "admin-accordion-meta"}>
-      {countLabel}{#if overriddenLabel}
-        · {overriddenLabel}{/if}{#if dirtyLabel}
-        · {dirtyLabel}{/if}
+      {countLabel}{#if overriddenLabel}{" · "}{overriddenLabel}{/if}{#if dirtyLabel}{" · "}{dirtyLabel}{/if}
     </span>
     <ChevronRight size={iconSize} class="admin-accordion-chev" />
   </button>

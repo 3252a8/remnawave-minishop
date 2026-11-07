@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import { getSupportStore } from "$lib/webapp/context";
   import { onDestroy, onMount, tick } from "svelte";
   import { fade } from "svelte/transition";
@@ -305,15 +306,9 @@
         <h1 bind:this={createHeading} tabindex="-1">{t("wa_support_new_ticket")}</h1>
       </header>
     {:else}
-      <div class="support-heading-row">
-        <span class="support-heading-icon" aria-hidden="true">
-          <LifeBuoy size={42} />
-        </span>
-        <div class="support-heading-copy">
-          <h1>{t("wa_support_title")}</h1>
-          <p>{t("wa_support_subtitle")}</p>
-        </div>
-      </div>
+      <ScreenHeading title={t("wa_support_title")} subtitle={t("wa_support_subtitle")}>
+        {#snippet icon()}<LifeBuoy />{/snippet}
+      </ScreenHeading>
 
       <button class="support-new-ticket-button" type="button" onclick={openCreatePage}>
         <span class="support-new-ticket-icon">

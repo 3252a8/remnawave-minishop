@@ -752,13 +752,7 @@
     width: 100%;
     height: 100%;
     color: var(--accent);
-    background:
-      radial-gradient(
-        circle at 50% 50%,
-        color-mix(in srgb, var(--accent) 18%, transparent),
-        transparent 65%
-      ),
-      var(--admin-surface-2);
+    background: var(--admin-surface-2);
   }
   .add-symbol {
     display: grid;

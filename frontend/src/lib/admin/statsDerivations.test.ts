@@ -39,6 +39,15 @@ describe("statsDerivations", () => {
         },
       })
     ).toEqual({ week: "7d", month: "30d" });
+
+    expect(
+      parsePanelBandwidth({
+        bandwidth: {
+          bandwidthLastSevenDays: { current: 3680786972672 },
+          bandwidthLastThirtyDays: { current: "13812614823936" },
+        },
+      })
+    ).toEqual({ week: "3.35 TB", month: "12.6 TB" });
   });
 
   it("normalizes node traffic rows and attaches online counts", () => {

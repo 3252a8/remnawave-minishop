@@ -26,6 +26,20 @@ export function fmtDate(value: unknown): string {
   }
 }
 
+/** Date and minutes for timestamps that arrive as ISO strings; unparsable text is kept. */
+export function fmtDateTime(value: unknown): string {
+  if (!value) return "—";
+  const date = new Date(dateInput(value));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function fmtDateShort(value: unknown): string {
   if (!value) return "—";
   try {
@@ -35,10 +49,22 @@ export function fmtDateShort(value: unknown): string {
   }
 }
 
-export function fmtMoney(amount: unknown, currency?: string | null): string {
-  const sym = currency === "RUB" ? "₽" : currency || "";
+/** Groups thousands with a no-break space; always two decimals, since payments
+    are not always whole amounts and columns of money must line up. */
+export function fmtAmount(amount: unknown): string {
   const num = Number(amount || 0);
-  return `${num.toFixed(2)} ${sym}`.trim();
+  const fixed = num.toFixed(2);
+  const [integer, fraction] = fixed.split(".");
+  const sign = integer.startsWith("-") ? "-" : "";
+  const digits = sign ? integer.slice(1) : integer;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  return `${sign}${grouped}.${fraction}`;
+}
+
+export function fmtMoney(amount: unknown, currency?: string | null): string {
+  const code = String(currency || "").trim();
+  const sym = code.toUpperCase() === "RUB" ? "₽" : code;
+  return `${fmtAmount(amount)}\u00a0${sym}`.trim();
 }
 
 export function fmtTrafficBytes(value: unknown): string {
@@ -84,7 +110,20 @@ export function paymentStatusLabel(
   if (status === "succeeded_pending_finalization" || status === "succeeded_pending_review") {
     return at(`payment_status_${status}`);
   }
-  return String(status || "—");
+  const raw = String(status || "").trim();
+  const value = raw.toLowerCase();
+  if (!value) return "—";
+  if (value === "succeeded" || value === "paid") return at("payment_status_succeeded", {}, "Paid");
+  if (value === "refunded") return at("payment_status_refunded", {}, "Refunded");
+  if (value === "expired") return at("payment_status_expired", {}, "Expired");
+  if (value === "canceled" || value === "cancelled" || value === "pre_cancelled") {
+    return at("payment_status_canceled", {}, "Canceled");
+  }
+  if (value === "failed" || value.startsWith("failed_")) {
+    return at("payment_status_failed", {}, "Failed");
+  }
+  if (value.startsWith("pending")) return at("payment_status_pending", {}, "Pending");
+  return raw;
 }
 
 export function optionLabel(options: readonly SelectOption[], value: string): string {

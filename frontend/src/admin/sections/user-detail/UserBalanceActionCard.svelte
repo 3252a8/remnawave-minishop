@@ -692,7 +692,7 @@
     color: var(--accent);
     font: inherit;
     font-size: 11px;
-    font-weight: 750;
+    font-weight: 700;
     cursor: pointer;
     transform: translateY(-50%);
   }

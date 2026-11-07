@@ -1,6 +1,7 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import {
-    ArrowLeft,
     ArrowRight,
     CheckCircle2,
     Circle,
@@ -271,18 +272,14 @@
 </script>
 
 <main class="content with-nav security-screen">
-  <button class="security-back" type="button" onclick={goSettings}>
-    <ArrowLeft size={19} />
-    {t("wa_back")}
-  </button>
+  <ScreenBackLink class="security-back" label={t("wa_back")} onclick={goSettings} />
   <Card class="security-overview-card">
-    <div class="security-heading">
-      <span><Shield size={32} /></span>
-      <div>
-        <h1>{t("wa_security_title", {}, "Security")}</h1>
-        <p>{t("wa_security_hint", {}, "Manage how you sign in and recover access")}</p>
-      </div>
-    </div>
+    <ScreenHeading
+      title={t("wa_security_title", {}, "Security")}
+      subtitle={t("wa_security_hint", {}, "Manage how you sign in and recover access")}
+    >
+      {#snippet icon()}<Shield />{/snippet}
+    </ScreenHeading>
   </Card>
 
   {#if subscriptionReissueVisible}

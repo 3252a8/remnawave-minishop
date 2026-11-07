@@ -285,6 +285,11 @@
       Number(referral?.welcome_bonus_days || 0) > 0
     )
   );
+  // A trial/welcome card above already carries the screen's primary action, so
+  // the purchase button steps down to secondary instead of competing with it.
+  const trialCardHasPrimary = $derived(
+    trialOfferAvailable || trialRequiresOauth || referralWelcomeRequiresTelegram
+  );
   const subscriptionEndAtMs = $derived(parseSubscriptionEndMs(subscription));
   const subscriptionEndMs = $derived(subscription?.active ? subscriptionEndAtMs : null);
   const subscriptionExpired = $derived(
@@ -614,7 +619,7 @@
                     <span class="premium-summary-copy">
                       {t("wa_home_traffic_used")}
                       {#if trafficResetScheduled(subscription)}
-                        <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                        <span class="traffic-summary-separator" aria-hidden="true"></span>
                         {trafficResetLabel(subscription)}
                       {/if}
                     </span>
@@ -622,7 +627,7 @@
                   </span>
                   <strong class="traffic-summary-right">
                     <span>{trafficLabel(subscription)}</span>
-                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                    <span class="traffic-summary-separator" aria-hidden="true"></span>
                     <span>{trafficPercent(subscription)}%</span>
                   </strong>
                 </button>
@@ -691,14 +696,14 @@
                   <span class="traffic-summary-left premium-summary-trigger">
                     <span class="premium-summary-copy">
                       {premiumTitle(subscription)}
-                      <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                      <span class="traffic-summary-separator" aria-hidden="true"></span>
                       {premiumTrafficMetaLabel(subscription)}
                     </span>
                     <CircleQuestionMark class="premium-server-help-icon" size={15} />
                   </span>
                   <strong class="traffic-summary-right">
                     <span>{premiumTrafficLabel(subscription)}</span>
-                    <span class="traffic-summary-separator" aria-hidden="true">|</span>
+                    <span class="traffic-summary-separator" aria-hidden="true"></span>
                     <span>{premiumTrafficPercent(subscription)}%</span>
                   </strong>
                 </button>
@@ -880,8 +885,8 @@
       {/if}
       <Button
         data-webapp-action="open-payment"
-        class={`wide${subscription.active ? " subscription-renew-action" : ""}`}
-        variant={subscription.active ? "secondary" : "default"}
+        class="wide"
+        variant={subscription.active || trialCardHasPrimary ? "secondary" : "default"}
         onclick={openPaymentModal}
       >
         {#if subscription.active}

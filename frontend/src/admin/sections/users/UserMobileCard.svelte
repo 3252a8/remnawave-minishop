@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DollarSign, UsersRound } from "$components/ui/icons.js";
+  import { UsersRound } from "$components/ui/icons.js";
   import {
     AdminBadge,
     AdminUserCell,
@@ -119,15 +119,12 @@
       <div>
         <dt>{at("users_col_payments_total", {}, "Paid total")}</dt>
         <dd>
-          <AdminBadge variant="success" class="admin-user-money-badge">
-            {rowPaymentsTotal(user)}
-          </AdminBadge>
+          <span class="admin-user-mobile-money">{rowPaymentsTotal(user)}</span>
         </dd>
       </div>
       <div>
         <dt>{at("users_col_payments_count", {}, "Payments")}</dt>
         <dd class="admin-user-counter">
-          <DollarSign size={12} />
           <span>{user.payments_count ?? 0}</span>
         </dd>
       </div>
@@ -154,6 +151,12 @@
 </li>
 
 <style>
+  .admin-user-mobile-money {
+    color: var(--admin-text);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
   .admin-user-mobile-metrics > .admin-user-mobile-plan {
     grid-column: 1 / -1;
   }
@@ -193,10 +196,12 @@
     flex: 0 0 auto;
   }
 
+  /* Compact facts: label-over-value in three columns without tile fills, so a
+     user takes about two thirds of the former height. */
   .admin-user-mobile-metrics {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 12px;
     min-width: 0;
     margin: 0;
   }
@@ -204,23 +209,17 @@
   .admin-user-mobile-metrics > div {
     display: grid;
     align-content: start;
-    gap: 4px;
+    gap: 2px;
     min-width: 0;
-    min-height: 56px;
-    padding: 8px 9px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--admin-bg) 58%, transparent);
   }
 
   .admin-user-mobile-metrics dt,
   .admin-user-mobile-dates dt {
     overflow: hidden;
     color: var(--admin-muted);
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: 0.04em;
+    font-size: 11px;
+    font-weight: 500;
     text-overflow: ellipsis;
-    text-transform: uppercase;
     white-space: nowrap;
   }
 
@@ -242,7 +241,7 @@
 
   .admin-user-mobile-metrics .admin-user-balance-value {
     overflow: hidden;
-    font-weight: 750;
+    font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -253,7 +252,7 @@
     gap: 12px;
     min-width: 0;
     margin: 0;
-    padding-top: 10px;
+    padding-top: 8px;
     border-top: 1px solid var(--admin-border);
   }
 

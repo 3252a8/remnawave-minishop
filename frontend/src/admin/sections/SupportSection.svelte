@@ -359,7 +359,7 @@
   <div class="support-admin-summary" aria-label={at("support_summary", {}, "Support summary")}>
     <span>
       <strong>{stats?.open || 0}</strong>
-      <small>{at("support_status_open", {}, "Open")}</small>
+      <small>{at("support_summary_new", {}, "New")}</small>
     </span>
     <span>
       <strong>{stats?.awaiting_admin || 0}</strong>

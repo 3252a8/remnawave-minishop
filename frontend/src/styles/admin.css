@@ -6,9 +6,8 @@
 .admin-screen-wrap {
   --admin-sidebar-w: var(--desktop-rail-width);
   --admin-header-h: 60px;
-  --admin-card-bg:
-    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft)), var(--admin-surface);
-  --admin-card-shadow: var(--shadow-soft), inset 0 1px 0 var(--inset-highlight);
+  --admin-card-bg: var(--admin-surface);
+  --admin-card-shadow: none;
 
   position: fixed;
   inset: 0;
@@ -38,8 +37,6 @@
   padding: 22px 14px;
   border-right: 1px solid var(--admin-border);
   background: var(--rail-bg);
-  backdrop-filter: blur(14px);
-  box-shadow: inset -1px 0 0 var(--admin-border);
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -96,7 +93,7 @@
   overflow: hidden;
   color: var(--accent);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   font-family: var(--font-logo);
   letter-spacing: 0;
   text-overflow: ellipsis;
@@ -129,8 +126,9 @@
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  min-height: 38px;
-  padding: 9px 12px;
+  /* Fixed row height: a count badge must not make its item taller than the rest. */
+  height: 38px;
+  padding: 0 12px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
@@ -305,8 +303,7 @@
   gap: 16px;
   padding: 0 28px;
   border-bottom: 1px solid var(--admin-border);
-  background: color-mix(in srgb, var(--admin-bg) 82%, transparent);
-  backdrop-filter: blur(14px);
+  background: var(--admin-bg);
 }
 
 .admin-header-title {
@@ -321,7 +318,6 @@
   padding-bottom: 4px;
   border-bottom: 0;
   background: transparent;
-  backdrop-filter: none;
 }
 
 .admin-header.is-user-detail + .admin-main {
@@ -565,12 +561,30 @@
 .admin-empty {
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 8px;
   padding: 48px 16px;
   border: 1px dashed var(--admin-border);
   border-radius: 12px;
   background: var(--admin-card-bg);
   color: var(--admin-muted);
   font-size: 13px;
+  text-align: center;
+}
+
+/* Icon + title + hint empty states share one rhythm. */
+.admin-empty > svg {
+  color: var(--admin-dim);
+}
+
+.admin-empty > strong {
+  color: var(--admin-text);
+  font-size: 14px;
+}
+
+.admin-empty > p {
+  max-width: 420px;
+  margin: 0;
 }
 
 .admin-muted {
@@ -732,11 +746,6 @@
   line-height: 1.2;
 }
 
-.admin-revenue-kpi--net {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--admin-border));
-  background: color-mix(in srgb, var(--accent) 8%, var(--admin-surface-2));
-}
-
 .admin-revenue-breakdown {
   display: grid;
   gap: 4px;
@@ -815,6 +824,30 @@
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+/* Phones: the period chips wrap into full-width rows that share the space
+   (right-aligned wrapping left "Всё время" alone on a line), nothing hides off
+   screen, and the four granularity options share one row. */
+@media (max-width: 720px) {
+  .admin-revenue-chart-toolbar {
+    justify-content: flex-start;
+  }
+
+  .admin-revenue-chart-toolbar .admin-revenue-period {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .admin-revenue-chart-toolbar .admin-revenue-period > * {
+    flex: 1 1 auto;
+  }
+
+  .admin-revenue-granularity {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
 }
 
 .admin-revenue-period-btn--compact {
@@ -1154,7 +1187,7 @@
   gap: 8px;
   color: var(--admin-muted);
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -2551,7 +2584,7 @@
   height: 32px;
   color: var(--admin-text);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0;
   overflow: hidden;
 }
@@ -2919,7 +2952,7 @@
 .admin-settings-field-group-head strong {
   color: var(--admin-text);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.25;
 }
 
@@ -3011,6 +3044,13 @@
   min-width: 0;
 }
 
+/* Reset sits at the right edge of the control column on every row type and
+   matches the 36px field it belongs to. */
+.admin-setting-control .admin-setting-reset {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .admin-icon-picker-trigger {
   min-width: 180px;
   justify-content: flex-start;
@@ -3040,7 +3080,6 @@
   border: 1px solid var(--admin-border);
   border-radius: 10px;
   background:
-    linear-gradient(135deg, var(--surface-sheen), transparent),
     color-mix(in srgb, var(--admin-surface-2) 86%, transparent);
 }
 
@@ -3374,7 +3413,7 @@
 .admin-translations-audience-head strong {
   color: var(--admin-text);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .admin-translations-audience-head small {
@@ -3737,7 +3776,7 @@
 .admin-payment-summary-meta strong {
   color: var(--admin-text);
   font-size: 17px;
-  font-weight: 750;
+  font-weight: 700;
   word-break: break-word;
 }
 
@@ -4008,15 +4047,15 @@
   height: 100%;
   max-width: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #ffffff));
+  background: var(--accent);
 }
 
 .admin-traffic-bar-premium span {
-  background: linear-gradient(90deg, var(--info), color-mix(in srgb, var(--info) 64%, #ffffff));
+  background: var(--info);
 }
 
 .admin-traffic-card-warning .admin-traffic-bar span {
-  background: linear-gradient(90deg, var(--warning), var(--danger));
+  background: var(--warning);
 }
 
 .admin-traffic-meta {
@@ -4767,10 +4806,17 @@
     padding-inline: 12px;
   }
 
+  /* Trailing badges and buttons drop under the title at their own width; the
+     default stretch turned a count badge into a full-width bar. */
   .admin-card-head {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
+    justify-items: start;
     padding: 12px 14px;
+  }
+
+  .admin-card-head > :first-child {
+    justify-self: stretch;
   }
 
   .admin-card-head > .admin-editor-section-actions {
@@ -4968,6 +5014,16 @@
     display: none;
   }
 
+  /* Rows turn into cards below, so the wrapper's own frame would draw a second
+     border a few pixels outside them. Wrappers with a titled header keep it. */
+  .admin-table-wrap:not(:has(> .admin-card-head)) {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
+
   /* Mobile: each row becomes a self-contained card with an aligned
      label/value grid, so dense listings stay readable and structured on
      narrow screens. Skeleton and virtual-spacer rows keep their plain shape. */
@@ -5001,13 +5057,13 @@
     overflow-wrap: anywhere;
   }
 
+  /* Sentence-case labels: upper-case with tracking wrapped to two lines in the
+     narrow label column and made rows uneven. */
   .admin-table:not(.admin-table-skeleton) tbody td::before {
     content: attr(data-label);
     color: var(--admin-muted);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 12px;
+    font-weight: 500;
   }
 
   /* A badge is an inline pill, but as a direct grid item in the value column it
@@ -5095,6 +5151,22 @@
   display: none;
 }
 
+/* Phones: tabs wrap onto a second row and share its width instead of scrolling
+   out of sight, so every tab stays visible however many a section adds. */
+@media (max-width: 720px) {
+  .admin-tabs-list {
+    flex-wrap: wrap;
+    width: 100%;
+    overflow-x: visible;
+  }
+
+  .admin-tabs-list > .admin-tabs-trigger {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 .admin-tabs-trigger {
   appearance: none;
   border: 0;
@@ -5121,7 +5193,7 @@
 .admin-tabs-trigger[data-state="active"] {
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 0 0 1px var(--admin-border);
 }
 
 .admin-tabs-trigger:focus-visible {
@@ -5139,41 +5211,15 @@
   display: none;
 }
 
+/* The user card already is the surface: its tabs use the same segmented bar as
+   the rest of the admin, and the tab panel adds no second frame inside it. */
 .admin-user-tabs-root {
-  gap: 0;
+  gap: 16px;
 }
 
 .admin-user-tabs-root .admin-tabs-list {
-  gap: 2px;
-  padding: 4px 4px 0;
-  border-radius: 10px 10px 0 0;
-  background: color-mix(in srgb, var(--admin-surface-2) 74%, var(--admin-bg));
-  border-bottom: 0;
   width: fit-content;
   max-width: 100%;
-}
-
-.admin-user-tabs-root .admin-tabs-trigger {
-  padding: 8px 14px 9px;
-  border-radius: 7px 7px 0 0;
-}
-
-.admin-user-tabs-root .admin-tabs-trigger[data-state="active"] {
-  position: relative;
-  z-index: 1;
-  box-shadow:
-    0 -1px 0 var(--admin-border),
-    1px 0 0 var(--admin-border),
-    -1px 0 0 var(--admin-border),
-    0 1px 0 var(--admin-surface);
-}
-
-.admin-user-tabs-root .admin-tabs-content {
-  margin-top: -1px;
-  padding: 16px;
-  border: 1px solid var(--admin-border);
-  border-radius: 0 10px 10px 10px;
-  background: var(--admin-surface);
 }
 
 /* Switch (bits-ui Switch.Root + Thumb) */
@@ -5188,8 +5234,8 @@
   flex: 0 0 auto;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--admin-border);
-  background: var(--admin-elev);
+  border: 1px solid var(--admin-border-strong);
+  background: color-mix(in srgb, var(--admin-muted) 28%, var(--admin-surface-2));
   cursor: pointer;
   transition:
     background 0.18s ease,
@@ -5289,8 +5335,7 @@
   overflow: hidden;
   border: 1px solid var(--admin-border);
   border-radius: 10px;
-  background:
-    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft)), var(--admin-surface);
+  background: var(--admin-surface);
   padding: 4px;
   box-shadow: var(--shadow-popover);
   outline: none;
@@ -5492,10 +5537,30 @@
   gap: 10px;
 }
 
+/* Segmented control: a mode switch, not two competing actions. */
 .admin-user-extend-mode {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-surface-2);
+}
+
+.admin-user-extend-mode .admin-btn {
+  height: 30px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--admin-muted);
+}
+
+.admin-user-extend-mode .admin-btn[aria-pressed="true"] {
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
 }
 
 .admin-user-extend-days-control {
@@ -5505,10 +5570,16 @@
   align-items: center;
 }
 
-.admin-user-extend-days-control .admin-btn {
+.admin-user-extend-days-control .admin-btn.admin-btn-icon {
   width: 36px;
   min-width: 36px;
   height: 36px;
+}
+
+/* The pressed sign is a state of the value, so it is marked, not filled with the accent. */
+.admin-user-extend-days-control .admin-btn[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--admin-border));
+  color: var(--accent);
 }
 
 .admin-user-extend-days-control .input {
@@ -6022,7 +6093,7 @@
   background: color-mix(in srgb, var(--admin-surface-2) 80%, transparent);
   color: var(--admin-muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
@@ -6053,7 +6124,7 @@
 .support-inbox-row-title strong {
   overflow: hidden;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.25;
   color: var(--admin-text);
@@ -6129,7 +6200,7 @@
 .support-ticket-controls label > span {
   color: var(--admin-muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -6139,7 +6210,7 @@
   margin: 0;
   overflow-wrap: anywhere;
   font-size: 19px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.25;
   color: var(--admin-text);
@@ -6252,7 +6323,7 @@
 .support-user-context > h3 {
   margin: 0;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.2;
   color: var(--admin-muted);
@@ -6277,7 +6348,7 @@
   background: color-mix(in srgb, var(--admin-surface-2) 80%, transparent);
   color: var(--admin-text);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
@@ -6295,7 +6366,7 @@
 
 .support-user-context-identity strong {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
   color: var(--admin-text);
@@ -6516,7 +6587,7 @@
 .support-admin-summary strong {
   color: var(--admin-text);
   font-size: 24px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -6695,7 +6766,7 @@
 .support-user-context-identity small {
   color: var(--admin-muted);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.06em;
   line-height: 1.1;
   text-transform: uppercase;
@@ -6712,7 +6783,7 @@
 .support-user-context-identity strong {
   color: var(--admin-text);
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.15;
 }
 
@@ -6742,7 +6813,7 @@
 .support-user-context-metrics small {
   color: var(--admin-muted);
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1.1;
   text-transform: uppercase;
@@ -6902,7 +6973,7 @@
   color: var(--admin-muted);
   font: inherit;
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -6921,7 +6992,7 @@
   background: color-mix(in srgb, var(--admin-surface-2) 76%, transparent);
   color: var(--admin-muted);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 700;
   padding-inline: 7px;
 }
 
@@ -7576,27 +7647,42 @@
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  min-height: 34px;
+  min-height: 32px;
   vertical-align: middle;
 }
 
+/* One 32px row: icon actions, the on/off toggle and delete share a size. */
 .admin-promo-actions .admin-btn {
   flex: 0 0 auto;
+  height: 32px;
+  min-height: 32px;
   margin-left: 0;
 }
 
+.admin-promo-actions .admin-btn.admin-btn-icon {
+  width: 32px;
+}
+
+/* A link-like count: flush with the column edge, underlined to show it opens the list. */
 .admin-promos-table-wrap .admin-promo-activations-btn.admin-btn {
   height: 28px;
   min-height: 28px;
-  padding: 0 8px;
+  padding: 0;
+  justify-content: flex-start;
   font-family: var(--font-mono);
+  text-decoration: underline dotted color-mix(in srgb, var(--admin-muted) 70%, transparent);
+  text-underline-offset: 3px;
+}
+
+.admin-promos-table-wrap .admin-promo-activations-btn.admin-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--admin-text);
 }
 
 .admin-promos-table-wrap .admin-promo-toggle-btn.admin-btn {
-  height: 34px;
-  min-height: 34px;
+  height: 32px;
+  min-height: 32px;
   padding: 0 12px;
-  border-radius: 8px;
 }
 
 .dialog-card.admin-dialog.admin-promo-dialog {
@@ -7762,7 +7848,7 @@
   color: var(--admin-text);
   font-family: var(--font-mono);
   font-size: 16px;
-  font-weight: 750;
+  font-weight: 700;
   min-width: 0;
   overflow-wrap: anywhere;
 }

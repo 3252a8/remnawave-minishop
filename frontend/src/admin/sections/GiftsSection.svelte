@@ -167,7 +167,7 @@
       />
     {/snippet}
     {#snippet searchActions()}
-      <AdminButton type="submit" variant="primary">{at("find")}</AdminButton>
+      <AdminButton type="submit" variant="default">{at("find")}</AdminButton>
     {/snippet}
     {#snippet filters()}
       <div class="admin-toolbar-field">

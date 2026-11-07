@@ -60,7 +60,7 @@
 <section class="notification-preferences" aria-labelledby="notification-preferences-title">
   <div class="notification-preferences__intro">
     <strong id="notification-preferences-title">{title}</strong>
-    <small>{description}</small>
+    {#if description}<small>{description}</small>{/if}
   </div>
 
   <div class="notification-preferences__grid" class:single-channel={emailOnly || telegramOnly}>
@@ -221,8 +221,9 @@
     width: 20px;
     height: 20px;
     border-radius: 999px;
-    background: var(--text);
-    box-shadow: 0 1px 4px color-mix(in srgb, var(--text) 35%, transparent);
+    /* White knob in both themes; a text-coloured knob turned near-black in light. */
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     transform: translateX(0);
     transition: transform 160ms ease;
   }

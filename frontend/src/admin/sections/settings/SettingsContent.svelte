@@ -759,7 +759,11 @@
           />
         {/if}
         {#if isOverridden(field) || settingsDirty[field.key]}
-          <AdminButton size="sm" variant="ghost" onclick={() => resetField(field)}>
+          <AdminButton
+            variant="ghost"
+            class="admin-setting-reset"
+            onclick={() => resetField(field)}
+          >
             <X size={12} />
             {at("reset", {}, "Reset")}
           </AdminButton>

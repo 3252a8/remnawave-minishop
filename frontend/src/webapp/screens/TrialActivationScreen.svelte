@@ -338,7 +338,7 @@
   .trial-activation-copy h2 {
     color: var(--text);
     font-size: 19px;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.15;
   }
 
@@ -383,7 +383,7 @@
   .trial-activation-facts dd {
     overflow-wrap: anywhere;
     color: var(--text);
-    font-weight: 850;
+    font-weight: 700;
     text-align: right;
   }
 

@@ -1,4 +1,5 @@
 import type { SettingField, SettingsDirtyEntry } from "$lib/admin/stores/settingsStore";
+import { atPlural } from "$lib/admin/plural";
 
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -7,7 +8,7 @@ export function settingsDirtyCountLabel(at: TranslateFn, count: number): string 
 }
 
 export function settingsFieldsCountLabel(at: TranslateFn, count: number): string {
-  return at("settings_fields_count", { count }, "{count} fields");
+  return atPlural(at, "settings_fields_count", count, {}, `${count} fields`);
 }
 
 export function settingsOverriddenCountLabel(at: TranslateFn, count: number): string {
@@ -15,7 +16,7 @@ export function settingsOverriddenCountLabel(at: TranslateFn, count: number): st
 }
 
 export function settingsParamsCountLabel(at: TranslateFn, count: number): string {
-  return at("settings_params_count", { count }, "{count} parameters");
+  return atPlural(at, "settings_params_count", count, {}, `${count} parameters`);
 }
 
 export function settingsFieldValueSourceLabel(

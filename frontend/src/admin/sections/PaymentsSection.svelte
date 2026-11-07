@@ -60,7 +60,7 @@
     />
   {/snippet}
   {#snippet searchActions()}
-    <AdminButton type="submit" variant="primary" disabled={paymentsLoading}
+    <AdminButton type="submit" variant="default" disabled={paymentsLoading}
       >{at("find", {}, "Find")}</AdminButton
     >
   {/snippet}

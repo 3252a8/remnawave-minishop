@@ -23,12 +23,6 @@
   color: var(--danger-text);
   background: var(--danger-soft);
 }
-.partner-settings-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--admin-muted);
-}
 .partner-settings-chips {
   display: flex;
   flex-wrap: wrap;
@@ -156,7 +150,7 @@
 }
 .partner-network-editor-head > span {
   color: var(--admin-text);
-  font-weight: 750;
+  font-weight: 700;
 }
 .partner-network-list {
   display: grid;

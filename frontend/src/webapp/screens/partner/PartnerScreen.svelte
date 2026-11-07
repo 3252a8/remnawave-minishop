@@ -1,8 +1,9 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { onMount } from "svelte";
   import "./partnerScreen.css";
   import {
-    ArrowLeft,
     ArrowRight,
     Check,
     CheckCircle2,
@@ -430,10 +431,7 @@
 
 <main class="content with-nav partner-page" aria-busy={preview.loading}>
   {#if goBack}
-    <button class="partner-back" type="button" onclick={goBack}>
-      <ArrowLeft size={19} />
-      {t("wa_back")}
-    </button>
+    <ScreenBackLink class="partner-back" label={t("wa_back")} onclick={goBack} />
   {/if}
   {#if preview.loading}
     {#if loadingPlaceholder === "dashboard"}
@@ -549,35 +547,34 @@
     </Card>
   {:else}
     <Card class="partner-overview-card">
-      <div class="partner-overview-head">
-        <div class="partner-overview-title">
-          <UsersRound size={34} />
-          <div>
-            <strong>{t("wa_partner_profile_title")}</strong>
-            <span
-              class="partner-status"
-              class:partner-status-pending={partnerPaused}
-              class:partner-status-available={!partnerPaused}
-            >
-              {preview.profileState === "closed"
-                ? t("wa_partner_status_closed")
-                : partnerPaused
-                  ? t("wa_partner_status_paused")
-                  : t("wa_partner_status_active")}
-            </span>
-          </div>
-        </div>
-        <Button
-          class="partner-tutorial-button"
-          variant="outline"
-          size="sm"
-          onclick={() => openTutorial()}
-          aria-label={t("wa_partner_tutorial_open")}
-          title={t("wa_partner_tutorial_open")}
-        >
-          <Sparkles size={15} /><span>{t("wa_partner_tutorial_open")}</span>
-        </Button>
-      </div>
+      <ScreenHeading class="partner-overview-head" title={t("wa_partner_profile_title")}>
+        {#snippet icon()}<UsersRound />{/snippet}
+        {#snippet meta()}
+          <span
+            class="partner-status"
+            class:partner-status-pending={partnerPaused}
+            class:partner-status-available={!partnerPaused}
+          >
+            {preview.profileState === "closed"
+              ? t("wa_partner_status_closed")
+              : partnerPaused
+                ? t("wa_partner_status_paused")
+                : t("wa_partner_status_active")}
+          </span>
+        {/snippet}
+        {#snippet actions()}
+          <Button
+            class="partner-tutorial-button"
+            variant="outline"
+            size="sm"
+            onclick={() => openTutorial()}
+            aria-label={t("wa_partner_tutorial_open")}
+            title={t("wa_partner_tutorial_open")}
+          >
+            <Sparkles size={15} /><span>{t("wa_partner_tutorial_open")}</span>
+          </Button>
+        {/snippet}
+      </ScreenHeading>
       <p class="partner-overview-copy">
         {preview.welcomeMessage || t("wa_partner_program_kicker")}
       </p>

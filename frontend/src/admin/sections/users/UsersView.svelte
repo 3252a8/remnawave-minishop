@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Input } from "$components/ui/index.js";
-  import { DollarSign, Sliders, X, UsersRound } from "$components/ui/icons.js";
+  import { Sliders, X, UsersRound } from "$components/ui/icons.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { Label } from "$components/ui/primitives.js";
   import {
@@ -255,7 +255,6 @@
   {/snippet}
   {#snippet searchActions()}
     <AdminButton
-      variant="primary"
       class="admin-users-search-button"
       onclick={() => {
         usersStore.updateState({ usersPage: 0 });
@@ -489,16 +488,13 @@
               class="admin-users-cell-money"
               data-label={at("users_col_payments_total", {}, "Paid total")}
             >
-              <AdminBadge variant="success" class="admin-user-money-badge">
-                {rowPaymentsTotal(user)}
-              </AdminBadge>
+              <span class="admin-user-balance-value">{rowPaymentsTotal(user)}</span>
             </td>
             <td
               class="admin-users-cell-counter"
               data-label={at("users_col_payments_count", {}, "Payments")}
             >
               <span class="admin-user-counter">
-                <DollarSign size={12} />
                 <span>{user.payments_count ?? 0}</span>
               </span>
             </td>
@@ -607,7 +603,7 @@
     background: color-mix(in srgb, var(--admin-bg) 74%, transparent);
     color: inherit;
     font-size: 11px;
-    font-weight: 750;
+    font-weight: 700;
     line-height: 1;
   }
 
@@ -697,20 +693,22 @@
   }
 
   @media (min-width: 721px) {
+    /* Fits the 1120px content column of a 1440px screen; extra balance columns
+       still scroll horizontally. */
     .admin-users-table-wrap :global(.admin-users-table) {
-      min-width: 1250px;
+      min-width: 1100px;
     }
 
     .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
-      min-width: 1370px;
+      min-width: 1220px;
     }
 
     .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
-      min-width: 1390px;
+      min-width: 1240px;
     }
 
     .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
-      min-width: 1510px;
+      min-width: 1360px;
     }
   }
 
@@ -736,10 +734,6 @@
   .admin-users-cell-money,
   .admin-users-cell-counter {
     white-space: nowrap;
-  }
-
-  .admin-users-cell-money :global(.admin-user-money-badge) {
-    font-variant-numeric: tabular-nums;
   }
 
   .admin-user-balance-value {

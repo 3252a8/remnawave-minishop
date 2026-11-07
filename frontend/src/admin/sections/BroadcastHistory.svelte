@@ -397,7 +397,7 @@
                   ></td
                 >
                 <td
-                  class="admin-cell-wrap broadcast-history-message-preview"
+                  class="broadcast-history-message-preview"
                   data-label={at("broadcast_label_text", {}, "Message Text")}
                   title={messagePreview(item)}>{messagePreview(item)}</td
                 >
@@ -659,8 +659,10 @@
     display: grid;
     gap: 12px;
   }
+  /* The card body is narrower than the 1120px content column; a wider table
+     pushed the last column off-screen behind a scrollbar at the table bottom. */
   :global(.broadcast-history-table) {
-    min-width: 1120px;
+    min-width: 1040px;
   }
   :global(.broadcast-history-table tbody tr.broadcast-history-row) {
     cursor: pointer;
@@ -837,7 +839,7 @@
     transition: width 0.3s ease;
   }
   .broadcast-progress.is-running .broadcast-progress-track span {
-    background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 35%, white));
+    background: var(--accent);
     background-size: 180% 100%;
     animation: broadcast-progress-pulse 1.2s linear infinite;
   }

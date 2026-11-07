@@ -11,7 +11,6 @@
     onCreateAd: ActionCallback;
     onCreateCode: ActionCallback;
     onCreateDocument: ActionCallback;
-    onCreateTariff: ActionCallback;
     onExportPayments: ActionCallback;
     onSaveSettings: ActionCallback;
     onSaveTranslations: ActionCallback;
@@ -29,7 +28,6 @@
     onCreateAd,
     onCreateCode,
     onCreateDocument,
-    onCreateTariff,
     onExportPayments,
     onSaveSettings,
     onSaveTranslations,
@@ -63,12 +61,6 @@
     <AdminButton data-admin-action="create-ad" variant="primary" onclick={onCreateAd}>
       <Plus size={14} />
       {at("btn_campaign", {}, "Campaign")}
-    </AdminButton>
-  {/if}
-  {#if active === "tariffs"}
-    <AdminButton data-admin-action="create-tariff" variant="primary" onclick={onCreateTariff}>
-      <Plus size={14} />
-      {at("btn_tariff", {}, "Tariff")}
     </AdminButton>
   {/if}
   {#if active === "documents"}

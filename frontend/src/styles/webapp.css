@@ -22,9 +22,10 @@ a {
   padding-top: max(16px, env(safe-area-inset-top, 0px));
 }
 
+/* One vertical rhythm for every cabinet screen; screens do not set their own. */
 .content {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   animation: section-enter 0.22s ease-out both;
 }
 
@@ -66,7 +67,7 @@ a {
   align-content: safe center;
   gap: 14px;
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .app-shell .loader .brand-mark.brand-mark-lg {
@@ -105,7 +106,7 @@ a {
   color: var(--text);
   font-size: 18px;
   line-height: 1.16;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .screen-head p,
@@ -132,7 +133,7 @@ a {
   overflow: hidden;
   color: var(--text);
   font-size: 15px;
-  font-weight: 850;
+  font-weight: 700;
   font-family: var(--font-logo);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -205,20 +206,14 @@ a {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background:
-    linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft)), var(--panel);
-  box-shadow:
-    var(--shadow-soft),
-    inset 0 1px 0 var(--inset-highlight);
+  background: var(--panel);
+  box-shadow: none;
   padding: 14px;
 }
 
 .card-active {
   border-color: color-mix(in srgb, var(--accent) 76%, var(--border));
-  box-shadow:
-    var(--shadow-soft),
-    0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent),
-    inset 0 1px 0 var(--inset-highlight);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent);
 }
 
 .card-compact {
@@ -231,13 +226,7 @@ a {
 
 .status-card-inactive {
   border-color: color-mix(in srgb, var(--danger) 58%, var(--border));
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--danger) 14%, var(--surface-sheen-soft)),
-      var(--surface-sheen-soft)
-    ),
-    var(--panel);
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
 }
 
 .status-card-inactive .sub-status {
@@ -246,17 +235,8 @@ a {
 
 .status-card-warning {
   border-color: var(--warning-border);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--warning) 14%, var(--surface-sheen-soft)),
-      color-mix(in srgb, var(--warning) 8%, var(--surface-sheen-soft))
-    ),
-    var(--panel);
-  box-shadow:
-    var(--shadow-soft),
-    0 0 0 1px color-mix(in srgb, var(--warning) 20%, transparent),
-    inset 0 1px 0 var(--inset-highlight);
+  background: color-mix(in srgb, var(--warning) 8%, var(--panel));
+  box-shadow: none;
 }
 
 .status-card-warning .sub-status {
@@ -300,7 +280,7 @@ a {
 }
 
 .sub-status .current-tariff-line {
-  font-weight: 850;
+  font-weight: 700;
   opacity: 1;
 }
 
@@ -428,17 +408,6 @@ a {
     justify-content: center;
   }
 
-  .subscription-renew-action {
-    min-height: 54px;
-    padding-block: 12px;
-    font-size: 15px;
-  }
-
-  .subscription-renew-action svg {
-    width: 19px;
-    height: 19px;
-    flex: 0 0 auto;
-  }
 }
 
 .traffic-top,
@@ -460,7 +429,7 @@ a {
 
 .traffic-top strong {
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .traffic-card-compact {
@@ -501,7 +470,7 @@ a {
   justify-content: flex-end;
   color: var(--text);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 700;
   text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -509,6 +478,11 @@ a {
 
 .traffic-summary-separator {
   color: color-mix(in srgb, var(--muted) 58%, transparent);
+}
+
+/* Same theme-owned separator as the status line ("·" by default). */
+.traffic-summary-separator::before {
+  content: var(--separator, "·");
 }
 
 .traffic-summary-right .traffic-summary-separator {
@@ -519,7 +493,7 @@ a {
   margin: 0 0 10px;
   color: var(--text);
   font-size: 15px;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -556,13 +530,7 @@ a {
 
 .traffic-card-depleted {
   border-color: var(--danger-border);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--danger) 16%, var(--surface-sheen-soft)),
-      var(--surface-sheen-soft)
-    ),
-    var(--panel);
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
 }
 
 .traffic-card-depleted .traffic-top span,
@@ -919,7 +887,6 @@ a {
   gap: 10px;
 }
 
-.devices-summary-head,
 .device-card-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -927,18 +894,12 @@ a {
   gap: 11px;
 }
 
-.devices-summary-head > svg {
-  color: var(--accent);
-}
-
-.devices-summary-head span,
 .device-card-head span {
   display: grid;
   min-width: 0;
   gap: 3px;
 }
 
-.devices-summary-head strong,
 .device-card-head strong {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -968,7 +929,6 @@ a {
   margin-inline: 4px;
 }
 
-.devices-summary-head small,
 .device-card-head small,
 .device-meta span,
 .device-meta small,
@@ -1039,7 +999,7 @@ a {
   overflow: hidden;
   color: var(--text);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1053,6 +1013,8 @@ a {
   border-color: var(--danger-border);
   color: var(--danger-text);
 }
+
+
 
 .devices-empty-card {
   display: grid;
@@ -1097,9 +1059,9 @@ a {
 .settings-row {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
+  background: var(--surface-muted);
   color: var(--text);
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
 }
 
 .rail-settings-subnav {
@@ -1108,7 +1070,6 @@ a {
 
 .security-screen {
   display: grid;
-  gap: 14px;
 }
 
 .security-overview-card {
@@ -1116,49 +1077,11 @@ a {
   min-width: 0;
 }
 
-.security-back {
-  width: max-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  padding: 4px 0;
-  font: inherit;
-  cursor: pointer;
-}
-
-.security-heading {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-}
-
-.security-heading > span {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  color: var(--accent);
-}
-
-.security-heading h1,
 .security-card h2,
-.security-heading p,
 .security-card p {
   margin: 0;
 }
 
-.security-heading h1 {
-  color: var(--accent);
-  font-size: 17px;
-  font-weight: 850;
-  line-height: 1.16;
-}
-
-.security-heading p,
 .security-card p,
 .security-empty {
   color: var(--muted);
@@ -1305,7 +1228,7 @@ a {
 
 .period-card span {
   font-size: 16px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .promo-price-pair {
@@ -1328,7 +1251,7 @@ a {
 .promo-price-pair s {
   color: var(--muted);
   font-size: 0.72em;
-  font-weight: 750;
+  font-weight: 700;
   opacity: 0.62;
   text-decoration-thickness: 1px;
 }
@@ -1336,7 +1259,7 @@ a {
 .promo-price-pair b {
   color: var(--accent);
   font-size: 0.9em;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .payment-submit-button .promo-price-pair s,
@@ -1348,7 +1271,7 @@ a {
   color: var(--muted);
   font-size: 10px;
   font-style: normal;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .period-card small {
@@ -1380,9 +1303,7 @@ a {
 .method-card.active {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, var(--surface-muted));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
-    inset 0 1px 0 var(--inset-highlight);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .method-card:disabled,
@@ -1395,7 +1316,7 @@ a {
 .method-card.disabled.active {
   border-color: var(--border);
   background: var(--surface-muted);
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
 }
 
 .total-card {
@@ -1404,7 +1325,7 @@ a {
 
 .total-card strong {
   font-size: 22px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .method-grid {
@@ -1433,7 +1354,7 @@ a {
   color: var(--text);
   font: inherit;
   text-align: left;
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
   transition:
     border-color 160ms ease,
     background 160ms ease;
@@ -1576,7 +1497,7 @@ a {
 .checkout-tariff-card-head strong {
   color: var(--text);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -1651,7 +1572,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--radius-inner);
   background: var(--surface-muted);
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
 }
 
 .checkout-tariff-editor-copy {
@@ -1753,7 +1674,7 @@ a {
 .payment-method-picker-label {
   color: var(--muted);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.035em;
   text-transform: uppercase;
 }
@@ -1761,19 +1682,30 @@ a {
 .payment-method-select-trigger {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  /* Same height as the promo field and pay button stacked below it. */
+  min-height: 46px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
+  background: var(--surface-muted);
   color: var(--text);
   font: inherit;
   font-size: 13px;
-  font-weight: 800;
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+/* Label starts next to the provider icon, like every other select. */
+.payment-method-select-trigger > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .payment-method-select-trigger:focus-visible,
@@ -1816,7 +1748,7 @@ a {
   border-radius: var(--radius-inner);
   color: var(--text);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   outline: none;
   cursor: pointer;
 }
@@ -1867,11 +1799,11 @@ a {
   gap: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
+  background: var(--surface-muted);
   color: var(--text);
   padding: 12px;
   text-align: left;
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
 }
 
 .option-row-main,
@@ -1884,7 +1816,7 @@ a {
 .option-row-main strong,
 .tariff-selected-card strong {
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -1911,7 +1843,7 @@ a {
   color: var(--accent);
   font-size: 12px;
   font-style: normal;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
@@ -1921,7 +1853,7 @@ a {
   max-width: 100%;
   color: var(--accent);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .option-row-meta small {
@@ -1933,9 +1865,7 @@ a {
 .option-row.active {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, var(--surface-muted));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent),
-    inset 0 1px 0 var(--inset-highlight);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 @media (min-width: 461px) {
@@ -1992,7 +1922,7 @@ a {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-muted);
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
 }
 
 .subscription-purchase-description p {
@@ -2013,12 +1943,19 @@ a {
   width: 100%;
 }
 
+/* In the dialog header the purchase note is supporting copy, not another card. */
 .subscription-purchase-description-header {
   box-sizing: border-box;
   width: 100%;
   min-height: 40px;
   align-content: center;
-  padding-block: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.subscription-purchase-description-header p {
+  color: var(--muted);
 }
 
 .pending-payment-card {
@@ -2027,10 +1964,8 @@ a {
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--accent) 46%, var(--border));
   border-radius: var(--radius);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 64%),
-    var(--surface-muted);
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-muted));
+  box-shadow: none;
 }
 
 .pending-payment-heading {
@@ -2131,7 +2066,7 @@ a {
   border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-muted));
-  box-shadow: inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
   cursor: pointer;
 }
 
@@ -2254,7 +2189,7 @@ a {
   color: var(--muted);
   padding: 0;
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .tariff-step-caption,
@@ -2262,7 +2197,7 @@ a {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.3;
 }
 
@@ -2289,7 +2224,7 @@ a {
   gap: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, var(--surface-sheen), var(--surface-sheen-soft));
+  background: var(--surface-muted);
   color: var(--text);
   padding: 12px;
   text-align: left;
@@ -2304,7 +2239,7 @@ a {
 .tariff-action-card strong,
 .tariff-warning-card span {
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .tariff-action-card small {
@@ -2316,7 +2251,7 @@ a {
   color: var(--accent);
   font-size: 10px;
   font-style: normal;
-  font-weight: 850;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -2339,7 +2274,7 @@ a {
   margin: 0;
   color: var(--text);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.35;
 }
 
@@ -2460,7 +2395,7 @@ a {
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
   color: var(--text);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .promo-code-input-wrap .promo-code-clear {
@@ -2641,20 +2576,10 @@ a {
   }
 }
 
-.bonus-card-head {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.bonus-card-head > svg {
-  flex: 0 0 auto;
-  color: var(--accent);
-}
-
+/* Tier names and amounts are data, not links: text colour in both themes. */
 .bonus-card strong {
   display: block;
-  color: var(--accent);
+  color: var(--text);
   font-size: 17px;
 }
 
@@ -2933,6 +2858,37 @@ a {
   gap: 8px;
 }
 
+/* Settings rows of one block share a single inset card with dividers instead of
+   a stack of separately framed cards, so the grouping reads at a glance. */
+.settings-links-block.settings-group,
+.settings-list.settings-group {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.settings-group > .settings-divider {
+  display: none;
+}
+
+.settings-group > .settings-row {
+  min-height: 52px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-group > .settings-row ~ .settings-row {
+  border-top: 1px solid var(--border);
+}
+
+.settings-group > .settings-row strong {
+  font-size: 14px;
+}
+
+
 .settings-admin-block {
   display: grid;
   gap: 8px;
@@ -2987,11 +2943,7 @@ a {
 .settings-row.settings-row-admin {
   min-height: 54px;
   border-color: var(--warning-border);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--warning) 13%, var(--panel)),
-    color-mix(in srgb, var(--warning) 7%, var(--panel-2))
-  );
+  background: color-mix(in srgb, var(--warning) 9%, var(--panel));
   cursor: pointer;
   transition:
     transform 0.14s ease,
@@ -3002,11 +2954,7 @@ a {
 
 .settings-row.settings-row-admin:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--warning) 52%, var(--border));
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--warning) 16%, var(--panel)),
-    color-mix(in srgb, var(--warning) 9%, var(--panel-2))
-  );
+  background: color-mix(in srgb, var(--warning) 13%, var(--panel));
 }
 
 .settings-row.settings-row-admin:active:not(:disabled) {
@@ -3016,9 +2964,7 @@ a {
 .settings-row.settings-row-admin:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--warning) 58%, var(--border));
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--warning) 24%, transparent),
-    inset 0 1px 0 var(--inset-highlight);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 24%, transparent);
 }
 
 .settings-row.settings-row-admin > svg:first-child {
@@ -3227,9 +3173,8 @@ a {
   gap: 10px;
   align-items: center;
   width: 100%;
-  border-color: color-mix(in srgb, #ff4b4b 46%, var(--border));
-  background:
-    linear-gradient(135deg, rgba(255, 75, 75, 0.11), rgba(0, 254, 122, 0.05)), var(--panel);
+  border-color: var(--danger-border);
+  background: color-mix(in srgb, var(--danger) 7%, var(--panel));
 }
 
 .home-layout > .telegram-notifications-card {
@@ -3298,8 +3243,12 @@ a {
 }
 
 .nav-attention-dot {
-  top: 6px;
-  right: 10px;
+  top: 8px;
+  right: calc(50% - 15px);
+  width: 9px;
+  min-width: 9px;
+  height: 9px;
+  outline: 2px solid var(--panel);
   transform: none;
 }
 
@@ -3325,11 +3274,15 @@ a {
   gap: 2px;
   min-height: var(--bottom-nav-height);
   overflow: hidden;
+  padding: 4px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--nav-bg);
+  /* The nav floats over scrolling content; an opaque base keeps it legible
+     without a per-frame backdrop blur. */
+  background:
+    linear-gradient(var(--nav-bg), var(--nav-bg)),
+    var(--bg);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(16px);
 }
 
 /* A focused editor opens the on-screen keyboard in mobile webviews. Keeping
@@ -3371,7 +3324,7 @@ a {
   background: transparent;
   color: var(--muted);
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   overflow: hidden;
   padding: 6px 2px;
   line-height: 1;
@@ -3385,6 +3338,8 @@ a {
 
 .bottom-nav button.active {
   color: var(--accent);
+  border-radius: max(0px, calc(var(--radius) - 3px));
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .bottom-nav .bottom-nav-label {
@@ -3559,7 +3514,7 @@ a {
   overflow-wrap: anywhere;
   color: var(--accent);
   font-size: 32px;
-  font-weight: 900;
+  font-weight: 700;
   font-family: var(--font-logo);
   line-height: 1.04;
 }
@@ -3593,7 +3548,7 @@ a {
   gap: 2px;
   color: var(--text);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .dev-login-heading small,
@@ -3688,7 +3643,7 @@ a {
 .auth-card .field-label {
   color: var(--text);
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 700;
 }
 
 .auth-bottom {
@@ -3888,7 +3843,7 @@ a {
   border-radius: var(--radius);
   background: var(--surface-muted);
   font-size: 25px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .otp-slots span.filled {
@@ -3943,9 +3898,8 @@ a {
   color: var(--text);
   padding: 12px 14px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.35;
-  backdrop-filter: blur(16px);
 }
 
 .app-toast [data-content] {
@@ -4107,7 +4061,7 @@ a {
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: var(--radius-card);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.015)), #071017;
+    #071017;
   box-shadow:
     0 28px 80px rgba(0, 0, 0, 0.54),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -4507,8 +4461,7 @@ a {
     border-right: 1px solid var(--border) !important;
     border-radius: 0 !important;
     background: var(--rail-bg) !important;
-    backdrop-filter: blur(14px) !important;
-    box-shadow: inset -1px 0 0 var(--border) !important;
+    box-shadow: none !important;
     z-index: 40;
   }
 
@@ -4559,6 +4512,13 @@ a {
     color: var(--text);
   }
 
+  /* When a settings sub-page is open, only that sub-item is selected; the parent
+     just stays bright to show where it lives. */
+  .bottom-nav button.active.has-active-child {
+    background: transparent;
+    border-color: transparent;
+  }
+
   .bottom-nav .nav-attention-dot,
   .bottom-nav .nav-badge-floating {
     top: 50%;
@@ -4590,7 +4550,6 @@ a {
   }
 
   .security-screen > .security-back,
-  .security-screen > .security-heading,
   .security-screen > .security-status {
     grid-column: 1 / -1;
   }
@@ -4649,6 +4608,17 @@ a {
     min-height: 48px;
   }
 
+  .settings-links-block.settings-group,
+  .settings-list.settings-group {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .settings-group > .settings-row {
+    grid-column: auto;
+    min-height: 52px;
+  }
+
   .settings-row-language,
   .settings-row-partner,
   .settings-row-status,
@@ -4694,6 +4664,30 @@ a {
   .device-card .device-card-head {
     grid-template-columns: 46px minmax(0, 1fr);
     gap: 12px;
+    /* Room for the corner disconnect button. */
+    padding-right: 48px;
+  }
+
+  /* Desktop: disconnect is a square trash button in the card's top-right
+     corner; the label stays for screen readers and the tooltip. */
+  .device-card .device-disconnect-button {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0;
+  }
+
+  .device-card .device-disconnect-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .device-card .device-icon {
@@ -4737,10 +4731,6 @@ a {
     background: var(--surface-subtle);
   }
 
-  .device-card .device-disconnect-button {
-    min-height: 42px;
-    font-size: 13px;
-  }
 
   /* Empty/inactive states keep their generous vertical spacing while spanning
      the same desktop content width as the surrounding device cards. */
@@ -4796,7 +4786,7 @@ a {
   .bottom-nav .rail-brand strong {
     color: var(--accent);
     font-size: 14px;
-    font-weight: 800;
+    font-weight: 700;
     font-family: var(--font-logo);
     letter-spacing: 0;
     overflow: hidden;

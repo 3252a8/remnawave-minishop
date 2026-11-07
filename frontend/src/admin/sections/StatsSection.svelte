@@ -596,7 +596,7 @@
           </div>
           <div class="admin-revenue-kpi">
             <div class="admin-revenue-kpi-label">
-              {at("stats_trend_payments", { count: fin.today_payments_count ?? 0 }, "")}
+              {at("stats_today_payments_label", {}, "Payments today")}
             </div>
             <div class="admin-revenue-kpi-value">{fin.today_payments_count ?? 0}</div>
           </div>

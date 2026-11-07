@@ -154,14 +154,12 @@
   border-radius: 12px;
   overflow: hidden;
   background: var(--admin-surface);
-  opacity: 0.5;
-  transition:
-    opacity 160ms ease,
-    border-color 160ms ease;
+  /* Inactive themes are choices, not disabled items: full contrast, and only the
+     accent border marks the active one. */
+  transition: border-color 160ms ease;
 }
-.appearance-library .library-theme-card:hover,
-.appearance-library .library-theme-card.active {
-  opacity: 1;
+.appearance-library .library-theme-card:hover {
+  border-color: var(--admin-border-strong);
 }
 .appearance-library .library-theme-card.active {
   border-color: color-mix(in srgb, var(--accent) 65%, var(--admin-border));
@@ -184,7 +182,7 @@
   border-radius: 6px;
   box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 28%, transparent);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
 }
 .appearance-library .preview-active svg {
   color: currentColor;

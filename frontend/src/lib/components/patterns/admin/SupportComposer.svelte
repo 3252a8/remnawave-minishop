@@ -304,7 +304,7 @@
   }
 
   .support-admin-composer-actions {
-    --message-image-compact-height: 34px;
+    --message-image-compact-height: 36px;
 
     display: flex;
     min-width: 0;

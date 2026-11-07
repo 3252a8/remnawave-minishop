@@ -326,7 +326,7 @@
     margin: 1.7em 0 0.65em;
     color: var(--text);
     line-height: 1.22;
-    font-weight: 800;
+    font-weight: 700;
   }
   .information-markdown :global(h1) {
     font-size: clamp(1.7rem, 3vw, 2.15rem);

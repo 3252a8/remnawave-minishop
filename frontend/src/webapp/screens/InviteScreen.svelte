@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import GiftEntry from "../gifts/GiftEntry.svelte";
   import { ChevronDown, CircleQuestionMark, Gift } from "$components/ui/icons.js";
@@ -172,15 +173,13 @@
     {#if referralProgramEnabled}<section class="referral-program-shell">
         <div class="referral-program-content">
           <Card class="bonus-card">
-            <div class="bonus-card-head">
-              <Gift size={42} />
-              <div>
-                <strong>{t("wa_referral_bonus_overview_title")}</strong>
-                {#if referralOneBonusPerReferee}
-                  <p>{t("wa_referral_bonus_once_note")}</p>
-                {/if}
-              </div>
-            </div>
+            <ScreenHeading
+              level={2}
+              title={t("wa_referral_bonus_overview_title")}
+              subtitle={referralOneBonusPerReferee ? t("wa_referral_bonus_once_note") : ""}
+            >
+              {#snippet icon()}<Gift />{/snippet}
+            </ScreenHeading>
             <dl class="referral-stats">
               <div class="referral-stat">
                 <dt>{t("wa_referral_stats_invited")}</dt>

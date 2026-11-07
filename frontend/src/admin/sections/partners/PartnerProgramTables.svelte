@@ -27,6 +27,7 @@
     WithdrawalRow,
   } from "$lib/admin/previewMock/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
+  import { fmtDateTime } from "$lib/admin/format.js";
   import type { AdminPartnerListQuery } from "$lib/admin/partnerProgramApi.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -252,7 +253,7 @@
         />
       {/snippet}
       {#snippet searchActions()}
-        <AdminButton type="submit" variant="primary">{at("find", {}, "Find")}</AdminButton>
+        <AdminButton type="submit" variant="default">{at("find", {}, "Find")}</AdminButton>
       {/snippet}
       {#snippet filters()}
         <AdminField label={at("partners_col_status", {}, "Status")}>
@@ -423,7 +424,7 @@
         />
       {/snippet}
       {#snippet searchActions()}
-        <AdminButton type="submit" variant="primary">{at("find", {}, "Find")}</AdminButton>
+        <AdminButton type="submit" variant="default">{at("find", {}, "Find")}</AdminButton>
       {/snippet}
       {#snippet filters()}
         <AdminField label={at("partners_col_status", {}, "Status")}>
@@ -535,7 +536,9 @@
               data-label={at("partners_application_message", {}, "Application message")}
               >{at(application.messageKey, {}, application.messageKey)}</td
             >
-            <td data-label={at("partners_submitted", {}, "Submitted")}>{application.submitted}</td>
+            <td data-label={at("partners_submitted", {}, "Submitted")}
+              >{fmtDateTime(application.submitted)}</td
+            >
             <td data-label={at("partners_col_status", {}, "Status")}>
               <AdminBadge variant={partnerStatusVariant(application.status)}
                 >{statusLabel(application.status)}</AdminBadge
@@ -606,7 +609,7 @@
         />
       {/snippet}
       {#snippet searchActions()}
-        <AdminButton type="submit" variant="primary">{at("find", {}, "Find")}</AdminButton>
+        <AdminButton type="submit" variant="default">{at("find", {}, "Find")}</AdminButton>
       {/snippet}
       {#snippet filters()}
         <AdminField label={at("partners_col_status", {}, "Status")}>

@@ -151,7 +151,7 @@
     color: var(--text);
     font-size: 15px;
     font-variant-numeric: tabular-nums;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: -0.035em;
     overflow-wrap: anywhere;
   }

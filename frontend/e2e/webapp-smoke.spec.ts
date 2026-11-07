@@ -1793,7 +1793,8 @@ test("partner account stays compact, table-driven, and keeps the tour ring local
   expect(fieldBox!.x + fieldBox!.width).toBeLessThanOrEqual(copyBox!.x + 1);
 
   const firstTableRow = statistics.locator(".partner-data-table tbody tr").first();
-  await expect(firstTableRow).toHaveCSS("display", "block");
+  // Phone records lay their facts out as a compact two-column grid.
+  await expect(firstTableRow).toHaveCSS("display", "grid");
   await statistics.getByRole("tab", { name: /Комиссии/ }).click();
   await expect(statistics.locator(".partner-data-table tbody tr")).toHaveCount(20);
   await expect(statistics.locator(".partner-data-table thead th")).toHaveCount(5);

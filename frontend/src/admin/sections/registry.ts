@@ -328,7 +328,7 @@ const CORE_ADMIN_SECTIONS: AdminSectionDescriptor[] = [
     titleI18nKey: "section_settings_title",
     fallbackTitle: "App Settings",
     subtitleI18nKey: "section_settings_subtitle",
-    fallbackSubtitle: "Overrides for .env, applied instantly",
+    fallbackSubtitle: "Values on top of .env, applied instantly",
     icon: Sliders,
     loadComponent: () => import("./SettingsSection.svelte").then((module) => module.default),
   },

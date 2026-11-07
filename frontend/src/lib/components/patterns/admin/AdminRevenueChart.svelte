@@ -160,6 +160,23 @@
     return new Intl.DateTimeFormat(locale.replaceAll("_", "-") || "en", options).format(parsed);
   }
 
+  /** Short x-axis labels in the admin locale (dd.MM, "май 2026", "2026") instead of uPlot's US default. */
+  function xAxisTickLabels(ticks: number[]): string[] {
+    const language = locale.replaceAll("_", "-") || "en";
+    let options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit" };
+    if (granularity === "month") options = { month: "short", year: "2-digit" };
+    if (granularity === "year") options = { year: "numeric" };
+    const formatter = new Intl.DateTimeFormat(language, options);
+    let previous = "";
+    return ticks.map((tick) => {
+      const label = formatter.format(new Date(tick * 1000));
+      // Sub-day ticks on a short range would repeat the same day; keep only the first.
+      if (label === previous) return "";
+      previous = label;
+      return label;
+    });
+  }
+
   function formatDelta(value: number): string {
     const sign = value > 0 ? "+" : value < 0 ? "−" : "";
     return `${sign}${fmtMoney(Math.abs(value), currency)}`;
@@ -630,6 +647,7 @@
           grid: { show: true, stroke: border, width: 1 },
           ticks: { stroke: border },
           font: "11px system-ui,Segoe UI,sans-serif",
+          values: (_u: uPlot, ticks: number[]) => xAxisTickLabels(ticks),
         },
         {
           stroke: muted,

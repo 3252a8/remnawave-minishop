@@ -28,6 +28,7 @@ export {
   Database,
   DollarSign,
   Download,
+  Ellipsis,
   ExternalLink,
   Eye,
   EyeOff,

@@ -257,7 +257,7 @@
       </button>
     </div>
   {/if}
-  <div class="settings-links-block">
+  <div class="settings-links-block settings-group">
     <button
       data-webapp-action="open-payment-history"
       class="settings-row settings-row-payments"
@@ -342,7 +342,7 @@
       />
     {/if}
   </UserExtensionPoint>
-  <div class="settings-list" class:settings-list--language-open={languageMenuOpen}>
+  <div class="settings-list settings-group" class:settings-list--language-open={languageMenuOpen}>
     {#if partnerSettingsVisible}
       <button
         data-webapp-action="open-partner-program"
@@ -455,7 +455,7 @@
     {/if}
   </div>
   {#if menuButtons.length}
-    <div class="settings-list settings-menu-buttons">
+    <div class="settings-list settings-menu-buttons settings-group">
       {#each menuButtons as button (button.id)}
         <button
           data-webapp-action={`menu-button-${button.id}`}

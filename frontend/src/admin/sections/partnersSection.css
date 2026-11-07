@@ -81,9 +81,7 @@
   padding: 17px;
   border: 1px solid color-mix(in srgb, var(--warning) 38%, var(--admin-border));
   border-radius: 14px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--warning) 9%, transparent), transparent 58%),
-    var(--admin-card-bg);
+  background: color-mix(in srgb, var(--warning) 6%, var(--admin-surface));
   box-shadow: var(--admin-card-shadow);
 }
 .partners-referral-import-banner[hidden] {
@@ -284,7 +282,11 @@
   padding: 5px 9px;
 }
 .partners-dashboard-table thead th:first-child {
-  width: 42%;
+  width: 36%;
+}
+/* Status chips need a fixed slot; percentage columns let the header labels collide. */
+.partners-dashboard-table thead th:last-child {
+  width: 108px;
 }
 .partners-dashboard-table tbody tr {
   height: 40px;
@@ -626,6 +628,15 @@
     width: 100%;
     flex: 1 1 100%;
   }
+  /* Four tabs do not fit one 390px row; a 2x2 grid keeps every tab and badge visible. */
+  .partners-toolbar-tabs .admin-tabs-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .partners-toolbar-tabs .admin-tabs-trigger {
+    justify-content: center;
+  }
   .partners-toolbar-actions {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -669,9 +680,15 @@
     width: 100%;
     justify-content: center;
   }
-  .partners-kpi-grid,
-  .partners-kpi-detail {
-    grid-template-columns: 1fr;
+  /* Two compact KPIs per row: one per row pushed the content ~700px down. */
+  .partners-kpi-card {
+    padding: 12px;
+  }
+  .partners-kpi-card > span {
+    display: none;
+  }
+  .partners-kpi-card strong {
+    font-size: 17px;
   }
   .partners-import-preview {
     grid-template-columns: 1fr;

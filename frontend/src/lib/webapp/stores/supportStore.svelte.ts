@@ -492,8 +492,13 @@ export function createSupportStore({
         }
         if (currentOpenedTicketId() === id) await markRead(id);
       } else {
+        // A missing or foreign ticket answers with a bare error code; show the
+        // translated message instead of the raw code.
+        const code = stringField(asRecord(res).error);
         showToast(
-          stringField(asRecord(res).message) || stringField(asRecord(res).error) || "not_found"
+          code === "not_found" || !code
+            ? t("wa_support_not_found")
+            : supportErrorMessage(res, t, "wa_support_not_found")
         );
       }
     } catch (error) {
