@@ -112,6 +112,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   button_url_required: "error_button_url_invalid",
   duplicate_code: "error_duplicate_code",
   email_not_configured: "error_email_not_configured",
+  advertiser_not_found: "error_advertiser_not_found",
   duplicate_start_param: "error_duplicate_start_param",
   empty_text: "error_empty_text",
   fulfillment_snapshot_invalid: "error_fulfillment_snapshot_invalid",

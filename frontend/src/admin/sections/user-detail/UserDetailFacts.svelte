@@ -65,6 +65,17 @@
     </li>
   {/if}
   <li>
+    <span>{at("user_internal_id")}</span>
+    <strong>
+      <AdminCopyableValue
+        wrap
+        value={openedUser.user_id}
+        copyLabel={copyLabel(openedUser.user_id)}
+        oncopy={copyValue}
+      />
+    </strong>
+  </li>
+  <li>
     <span>{at("user_telegram_id", {}, "Telegram ID")}</span>
     <strong>
       {#if openedUser.telegram_id}

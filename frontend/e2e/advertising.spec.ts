@@ -38,6 +38,9 @@ for (const width of [1440, 1024, 390]) {
     await page.locator('[data-admin-action="create-ad"]').click();
     const createDialog = page.getByRole("dialog");
     await expect(createDialog.getByText("Данные кампании", { exact: true })).toBeVisible();
+    await expect(
+      createDialog.getByRole("spinbutton", { name: /Внутренний ID рекламодателя/ })
+    ).toBeVisible();
     await page.screenshot({ path: `test-results/advertising-${width}-create.png`, fullPage: true });
     const createWidth = await createDialog
       .locator(".admin-ad-dialog")
@@ -65,6 +68,9 @@ for (const width of [1440, 1024, 390]) {
       );
       await expect(workspace.getByRole("alert")).toHaveCount(0);
       if (section === "Настройки") {
+        await expect(
+          workspace.getByRole("spinbutton", { name: /Внутренний ID рекламодателя/ })
+        ).toBeVisible();
         const heights = await workspace
           .locator(".admin-form-grid .input, .admin-form-grid .admin-select-trigger")
           .evaluateAll((fields) =>
@@ -98,6 +104,10 @@ for (const width of [1440, 1024, 390]) {
       () => document.documentElement.scrollWidth > window.innerWidth + 1
     );
     expect(overflow).toBe(false);
+
+    await page.goto("/demo/runtime/admin/users/910370");
+    const internalId = page.locator(".admin-user-facts li").filter({ hasText: "Внутренний ID" });
+    await expect(internalId.getByRole("button")).toHaveText("910370");
   });
 }
 

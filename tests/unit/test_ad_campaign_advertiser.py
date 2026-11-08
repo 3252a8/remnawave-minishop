@@ -161,7 +161,7 @@ class AdminAdsAdvertiserRouteTests(IsolatedAsyncioTestCase):
 
         advertiser_user = User(
             user_id=999,
-            telegram_id=999,
+            telegram_id=123456789,
             first_name="Advertiser",
         )
 
@@ -176,9 +176,10 @@ class AdminAdsAdvertiserRouteTests(IsolatedAsyncioTestCase):
             patch(
                 "bot.app.web.admin_api_impl.ads.user_dal.get_user_by_id",
                 AsyncMock(return_value=advertiser_user),
-            ),
+            ) as get_user,
         ):
             resp = await admin_ads.admin_ad_assign_route(request)
+            get_user.assert_awaited_once_with(session, 999)
             assert resp.status == 200
             assert campaign.advertiser_id == 999
             assert session.committed is True
