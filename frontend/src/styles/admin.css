@@ -4669,6 +4669,9 @@
     z-index: 80;
     transform: translateX(-100%);
     transition: transform 0.22s ease;
+    /* The desktop rail tint is translucent; as a drawer over the page it must be
+       opaque, otherwise the content shows through the menu. Skins keep their own. */
+    background: var(--admin-bg);
     box-shadow: var(--shadow-strong);
   }
 

@@ -384,6 +384,14 @@ body {
   letter-spacing: 0;
 }
 
+/* `bolder` inside a semibold parent resolves to 900, which Windows renders with
+   the Segoe UI Black face. Cap emphasis at bold; component rules keep their own
+   weights because any class selector outranks this element rule. */
+b,
+strong {
+  font-weight: 700;
+}
+
 /* Background scroll lock (see lib/webapp/scrollLock.ts). Only one scroller may
    be live at a time, so an open dialog or drawer freezes the document and every
    app-level scroller behind it: `overflow: hidden` keeps each container's
