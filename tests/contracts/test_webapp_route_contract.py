@@ -186,6 +186,10 @@ class WebAppRouteContractTests(unittest.TestCase):
             ): "admin_user_message_preview_route",
             ("POST", "/api/admin/users/{user_id}/reset-trial"): "admin_user_reset_trial_route",
             (
+                "POST",
+                "/api/admin/users/{user_id}/hwid-devices/reset",
+            ): "admin_user_hwid_devices_reset_route",
+            (
                 "PATCH",
                 "/api/admin/users/{user_id}/squad-overrides",
             ): "admin_user_squad_overrides_route",

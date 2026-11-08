@@ -153,6 +153,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   not_found: "error_not_found",
   promo_code_inactive: "error_promo_code_inactive",
   promo_code_not_found: "error_promo_code_not_found",
+  panel_hwid_reset_failed: "user_hwid_reset_failed",
   panel_delete_failed: "error_panel_delete_failed",
   panel_update_failed: "error_panel_request_failed",
   panel_request_failed: "error_panel_request_failed",

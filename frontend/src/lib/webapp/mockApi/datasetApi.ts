@@ -275,6 +275,13 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
+      if (parts[4] === "hwid-devices" && parts[5] === "reset" && method === "POST") {
+        detail.hwid_devices = {
+          current_devices: 0,
+          max_devices: decoratedDetail.hwid_devices?.max_devices ?? null,
+        };
+        return { ok: true };
+      }
       if (parts[4] === "tariff" && method === "POST") {
         const tariffKey = String(jsonBody(options).tariff_key || "");
         const tariff = ((demoTariffs().tariffs || []) as DemoRecord[]).find(

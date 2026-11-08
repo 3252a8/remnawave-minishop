@@ -177,6 +177,7 @@ from .users import (
     admin_user_detail_route,
     admin_user_extend_route,
     admin_user_hwid_device_limit_route,
+    admin_user_hwid_devices_reset_route,
     admin_user_message_preview_route,
     admin_user_message_route,
     admin_user_notification_preferences_route,
@@ -338,6 +339,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/gifts", admin_gift_create_route)
     router.add_get("/api/admin/gifts/{gift_id}", admin_gift_detail_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/hwid-devices/reset",
+        admin_user_hwid_devices_reset_route,
+    )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/subscription-reissue",
         admin_user_subscription_reissue_route,

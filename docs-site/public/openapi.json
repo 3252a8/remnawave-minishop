@@ -32148,6 +32148,55 @@
         ]
       }
     },
+    "/api/admin/users/{user_id}/hwid-devices/reset": {
+      "post": {
+        "operationId": "post_admin_user_hwid_devices_reset_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Hwid Devices Reset",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users/{user_id}/merge": {
       "post": {
         "operationId": "post_admin_user_merge_route",

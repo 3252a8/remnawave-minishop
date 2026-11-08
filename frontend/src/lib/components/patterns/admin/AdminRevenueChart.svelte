@@ -160,7 +160,7 @@
     return new Intl.DateTimeFormat(locale.replaceAll("_", "-") || "en", options).format(parsed);
   }
 
-  /** Short x-axis labels in the admin locale (dd.MM, "май 2026", "2026") instead of uPlot's US default. */
+  /** Format x-axis labels in the admin locale at the selected granularity. */
   function xAxisTickLabels(ticks: number[]): string[] {
     const language = locale.replaceAll("_", "-") || "en";
     let options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit" };

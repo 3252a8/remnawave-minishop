@@ -6460,5 +6460,11 @@
   "admin_settings_field_subscription_days_min_remaining_description": "Days that must remain after an add-on purchase. Minimum: 1 day.",
   "wa_hwid_devices_package_one": "+{count} device",
   "wa_hwid_devices_package_few": "+{count} devices",
-  "wa_hwid_devices_package_many": "+{count} devices"
+  "wa_hwid_devices_package_many": "+{count} devices",
+  "admin_user_hwid_reset": "Reset devices",
+  "admin_user_hwid_reset_hint": "Clear recorded devices to free slots after changing VPN clients.",
+  "admin_user_hwid_reset_confirm_title": "Reset recorded devices?",
+  "admin_user_hwid_reset_confirm_description": "All recorded HWIDs will be removed. Devices can register again when they reconnect. The device limit, purchased slots and subscription link will stay the same.",
+  "admin_user_hwid_reset_success": "Recorded devices cleared",
+  "admin_user_hwid_reset_failed": "Could not clear all recorded devices. Some may already be cleared. Refresh and try again."
 }
