@@ -46,7 +46,16 @@ const editUrl =
         return;
       }
 
-      document.documentElement.classList.add('dark-mode');
+      // Swagger UI ships its own dark palette behind `html.dark-mode`; follow the docs theme.
+      const root = document.documentElement;
+      const syncSwaggerTheme = () => {
+        root.classList.toggle('dark-mode', root.dataset.theme !== 'light');
+      };
+      syncSwaggerTheme();
+      new MutationObserver(syncSwaggerTheme).observe(root, {
+        attributes: true,
+        attributeFilter: ['data-theme'],
+      });
 
       window.SwaggerUIBundle({
         url: target.dataset.openapiUrl || '/openapi.json',
@@ -76,8 +85,8 @@ const editUrl =
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 2.35rem;
-    border: 1px solid color-mix(in srgb, #00fe7a 44%, var(--sl-color-gray-5));
+    min-height: 2.5rem;
+    border: 1px solid color-mix(in srgb, var(--minishop-brand) 44%, var(--sl-color-gray-5));
     border-radius: 7px;
     padding: 0.48rem 0.75rem;
     color: var(--sl-color-white);
@@ -89,8 +98,8 @@ const editUrl =
 
   .api-reference-button:hover,
   .api-reference-button:focus-visible {
-    border-color: #00fe7a;
-    color: #00fe7a;
+    border-color: var(--minishop-brand);
+    color: var(--minishop-brand);
   }
 
   :root[data-theme='light'] .api-reference-button {
@@ -105,6 +114,15 @@ const editUrl =
     --api-reference-text: #dbe7f3;
     --api-reference-muted: #98a8ba;
     --api-reference-accent: #00fe7a;
+    --api-reference-title: #f8fafc;
+    --api-reference-op-bg: rgb(15 23 42 / 62%);
+    --api-reference-summary-bg: rgb(7 16 24 / 76%);
+    --api-reference-inset: rgb(7 16 24 / 62%);
+    --api-reference-code-bg: #050b13;
+    --api-reference-code-text: #c7f9d8;
+    --api-reference-constraint-text: #d8ffe6;
+    --api-reference-icon-filter: brightness(0) invert(1);
+    --api-reference-scheme: dark;
 
     overflow: hidden;
     min-height: 42rem;
@@ -113,7 +131,26 @@ const editUrl =
     margin-top: 1.25rem;
     background: var(--api-reference-bg);
     color: var(--api-reference-text);
-    color-scheme: dark;
+    color-scheme: var(--api-reference-scheme);
+  }
+
+  :root[data-theme='light'] .api-reference-shell {
+    --api-reference-bg: #ffffff;
+    --api-reference-panel: #f8fafc;
+    --api-reference-panel-soft: #f1f5f9;
+    --api-reference-border: rgb(15 23 42 / 12%);
+    --api-reference-text: #0f172a;
+    --api-reference-muted: #475569;
+    --api-reference-accent: #007a3d;
+    --api-reference-title: #0f172a;
+    --api-reference-op-bg: #ffffff;
+    --api-reference-summary-bg: rgb(255 255 255 / 55%);
+    --api-reference-inset: #f8fafc;
+    --api-reference-code-bg: #f1f5f9;
+    --api-reference-code-text: #14532d;
+    --api-reference-constraint-text: #14532d;
+    --api-reference-icon-filter: none;
+    --api-reference-scheme: light;
   }
 
   .api-reference-shell .swagger-ui {
@@ -157,7 +194,7 @@ const editUrl =
   }
 
   .api-reference-shell .swagger-ui .info .title {
-    color: #f8fafc;
+    color: var(--api-reference-title);
     font-size: clamp(1.45rem, 3vw, 2rem);
     line-height: 1.15;
   }
@@ -190,7 +227,7 @@ const editUrl =
 
   .api-reference-shell .swagger-ui .opblock {
     border-color: var(--api-reference-border);
-    background: rgb(15 23 42 / 62%);
+    background: var(--api-reference-op-bg);
     box-shadow: none;
   }
 
@@ -218,7 +255,7 @@ const editUrl =
   .api-reference-shell .swagger-ui .opblock .opblock-summary,
   .api-reference-shell .swagger-ui .opblock-section-header {
     border-color: var(--api-reference-border);
-    background: rgb(7 16 24 / 76%);
+    background: var(--api-reference-summary-bg);
     box-shadow: none;
   }
 
@@ -269,7 +306,7 @@ const editUrl =
   .api-reference-shell .swagger-ui .parameters,
   .api-reference-shell .swagger-ui .table-container {
     border-color: var(--api-reference-border);
-    background: rgb(7 16 24 / 62%);
+    background: var(--api-reference-inset);
   }
 
   .api-reference-shell .swagger-ui section.models {
@@ -297,8 +334,8 @@ const editUrl =
   .api-reference-shell .swagger-ui pre,
   .api-reference-shell .swagger-ui textarea.curl {
     border-color: rgb(148 163 184 / 18%);
-    background: #050b13;
-    color: #c7f9d8;
+    background: var(--api-reference-code-bg);
+    color: var(--api-reference-code-text);
   }
 
   .api-reference-shell .swagger-ui .copy-to-clipboard,
@@ -340,7 +377,7 @@ const editUrl =
   .api-reference-shell .swagger-ui .models-control svg,
   .api-reference-shell .swagger-ui .opblock-summary-control svg,
   .api-reference-shell .swagger-ui .expand-operation svg {
-    filter: brightness(0) invert(1);
+    filter: var(--api-reference-icon-filter);
   }
 
   .api-reference-shell .swagger-ui .json-schema-2020-12,
@@ -351,7 +388,7 @@ const editUrl =
   .api-reference-shell .swagger-ui .json-schema-2020-12-accordion,
   .api-reference-shell .swagger-ui .json-schema-2020-12-keyword {
     border-color: var(--api-reference-border);
-    background: #050b13;
+    background: var(--api-reference-code-bg);
     color: var(--api-reference-text);
   }
 
@@ -373,7 +410,7 @@ const editUrl =
 
   .api-reference-shell .swagger-ui .json-schema-2020-12__constraint {
     background: rgb(0 254 122 / 18%);
-    color: #d8ffe6;
+    color: var(--api-reference-constraint-text);
   }
 
   .api-reference-shell .swagger-ui .dialog-ux .modal-ux {

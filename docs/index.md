@@ -61,7 +61,26 @@
       <p>Внешняя страница статуса или встроенные данные Uptime Kuma и xray-checker с кэшированием и показом последних доступных данных при сбое.</p>
       <span class="minishop-card-link">Настроить статус серверов <span aria-hidden="true">→</span></span>
     </a>
+    <a class="minishop-feature-card" href="/features/advertising/">
+      <span class="minishop-feature-index">10</span>
+      <h3>Реклама и источники покупателей</h3>
+      <p>Кампании с отдельными ссылками и UTM, импорт расходов Telegram Ads и отчёты по обороту, ROAS и когортам — видно, какая реклама приводит покупателей.</p>
+      <span class="minishop-card-link">Настроить рекламу <span aria-hidden="true">→</span></span>
+    </a>
+    <a class="minishop-feature-card" href="/features/gifts/">
+      <span class="minishop-feature-index">11</span>
+      <h3>Подарочные подписки</h3>
+      <p>Покупатель оплачивает подписку в подарок и отправляет ссылку. Срок начинается при активации, а у неактивированного подарка нет срока годности.</p>
+      <span class="minishop-card-link">Как работают подарки <span aria-hidden="true">→</span></span>
+    </a>
+    <a class="minishop-feature-card" href="/features/webapp-themes/">
+      <span class="minishop-feature-index">12</span>
+      <h3>Темы и внешний вид</h3>
+      <p>Настройка без кода: пресеты, тёмный и светлый варианты, палитра, шрифты и логотип. Готовые темы устанавливаются из ZIP-архива или публичного репозитория.</p>
+      <span class="minishop-card-link">Настроить внешний вид <span aria-hidden="true">→</span></span>
+    </a>
   </div>
+  <div class="minishop-panel-row">
   <a class="minishop-provider-panel" href="/features/payments/">
     <span class="minishop-provider-copy">
       <span class="minishop-eyebrow">16 платежных интеграций</span>
@@ -73,6 +92,18 @@
     </span>
     <span class="minishop-provider-link">Все платежные сценарии <span aria-hidden="true">→</span></span>
   </a>
+  <a class="minishop-provider-panel" href="/migrations/">
+    <span class="minishop-provider-copy">
+      <span class="minishop-eyebrow">Переезд с другого бота</span>
+      <strong>Уже продаёте через другой бот? Переходите без потери клиентов</strong>
+      <span>Готовые инструкции переносят пользователей, подписки и платежи, а в зависимости от источника — рефералов, промокоды и подарки.</span>
+    </span>
+    <span class="minishop-provider-list" aria-label="Поддерживаемые источники миграции">
+      <span>remnawave-tg-shop</span><span>Remnashop</span><span>Bedolaga</span>
+    </span>
+    <span class="minishop-provider-link">Все сценарии миграции <span aria-hidden="true">→</span></span>
+  </a>
+  </div>
 </section>
 
 <section class="minishop-start" aria-labelledby="minishop-start-title">
@@ -101,4 +132,22 @@
       <a href="/getting-started/configuration/">Перейти к настройке <span aria-hidden="true">→</span></a>
     </li>
   </ol>
+</section>
+
+<section class="minishop-pro-home" aria-labelledby="minishop-pro-title">
+  <div class="minishop-pro-home-copy">
+    <span class="minishop-pro-kicker">Расширение minishop PRO</span>
+    <h2 id="minishop-pro-title">Когда магазин растёт: аналитика, автоцепочки и AI&#8209;помощник</h2>
+    <p>PRO добавляет разделы в ту же админку и подключается к работающей установке. Бесплатный Minishop остаётся самостоятельным продуктом и не зависит от PRO.</p>
+    <span class="minishop-pro-home-actions">
+      <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">Купить PRO <span aria-hidden="true">→</span></a>
+      <a class="minishop-pro-more" href="/features/minishop-pro/">Что входит в PRO</a>
+    </span>
+  </div>
+  <ul class="minishop-pro-home-list">
+    <li><strong>Бизнес-аналитика</strong><span>MRR, ARPPU, LTV, отток и когорты удержания по валютам</span></li>
+    <li><strong>Лиды и воронка</strong><span>Намерение покупки, риск непродления и история событий клиента</span></li>
+    <li><strong>Автоцепочки</strong><span>Сообщения по событиям и расписанию с персональными промокодами и выручкой по шагам</span></li>
+    <li><strong>AI-помощник для поддержки</strong><span>Подключение ChatGPT или другой модели, которая помогает с ответами пользователям. Сама модель в PRO не входит</span></li>
+  </ul>
 </section>

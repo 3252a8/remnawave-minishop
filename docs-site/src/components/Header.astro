@@ -66,6 +66,25 @@ function isDocsVersionLink(href: string) {
   )
 }
 
+const navItems = nav.map((item) => {
+  const href = getI18nText(item.href, route)
+  return {
+    href,
+    label: getI18nText(item.label, route),
+    icon: navIcon(href),
+    pro: isProLink(href),
+    docsVersion: isDocsVersionLink(href),
+  }
+})
+// Text links first and the PRO pill last, community links as icon buttons next to the
+// search, and the stable/dev switch as a compact link on the right.
+const textNavItems = [
+  ...navItems.filter((item) => !item.icon && !item.pro && !item.docsVersion),
+  ...navItems.filter((item) => item.pro),
+]
+const iconNavItems = navItems.filter((item) => item.icon)
+const docsVersionItem = navItems.find((item) => item.docsVersion)
+
 ---
 
 <div class="box-border flex h-full items-center gap-2">
@@ -78,43 +97,51 @@ function isDocsVersionLink(href: string) {
     <SiteTitle />
   </div>
   <nav
-    class="minishop-desktop-nav hidden flex-1 flex-row gap-4 overflow-x-auto py-3 pr-4 pl-4 text-sm font-medium md:flex xl:gap-6 xl:pl-6"
+    class="minishop-desktop-nav hidden flex-1 flex-row gap-1 overflow-x-auto py-3 pr-2 pl-3 text-sm font-medium md:flex xl:pl-5"
   >
     {
-      nav.map((item) => {
-        const href = getI18nText(item.href, route)
-        const label = getI18nText(item.label, route)
-        const icon = navIcon(href)
-        const proLink = isProLink(href)
-        const docsVersionLink = isDocsVersionLink(href)
-
-        return (
-          <a
-            class:list={[
-              'minishop-nav-item -m-1.5 rounded-md p-1.5 text-(--sl-color-gray-3) no-underline hover:text-(--sl-color-white) focus-visible:outline-offset-0',
-              (icon || proLink || docsVersionLink) &&
-                'minishop-header-link inline-flex items-center',
-              proLink && 'minishop-pro-link',
-            ]}
-            href={href}
-          >
-            {proLink && (
-              <svg
-                class="minishop-pro-diamond"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d="M3.5 9 8 3.75h8L20.5 9 12 20.25 3.5 9Z" />
-                <path d="m8 3.75 4 5.25 4-5.25M3.5 9h17M8.25 9 12 20.25 15.75 9" />
-              </svg>
-            )}
-            {icon && <Icon name={icon} size="1rem" color="currentColor" />}
-            <span>{label}</span>
-          </a>
-        )
-      })
+      textNavItems.map((item) => (
+        <a
+          class:list={[
+            'minishop-nav-item no-underline focus-visible:outline-offset-0',
+            item.pro && 'minishop-header-link minishop-pro-link',
+          ]}
+          href={item.href}
+        >
+          {item.pro && (
+            <svg class="minishop-pro-diamond" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 9 8 3.75h8L20.5 9 12 20.25 3.5 9Z" />
+              <path d="m8 3.75 4 5.25 4-5.25M3.5 9h17M8.25 9 12 20.25 15.75 9" />
+            </svg>
+          )}
+          <span>{item.label}</span>
+        </a>
+      ))
     }
   </nav>
+  {
+    (docsVersionItem || iconNavItems.length > 0) && (
+      <div class="minishop-header-links hidden items-center md:flex print:hidden">
+        {docsVersionItem && (
+          <a class="minishop-version-link" href={docsVersionItem.href}>
+            {docsVersionItem.label}
+          </a>
+        )}
+        {iconNavItems.map((item) => (
+          <a
+            class="minishop-icon-link"
+            href={item.href}
+            aria-label={item.label}
+            title={item.label}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Icon name={item.icon!} size="1.05rem" color="currentColor" />
+          </a>
+        ))}
+      </div>
+    )
+  }
   <div class="minishop-header-search ml-auto flex md:max-w-60 md:flex-1 print:hidden">
     <Search />
   </div>
@@ -125,38 +152,25 @@ function isDocsVersionLink(href: string) {
           <span aria-hidden="true" />
         </summary>
         <div class="minishop-mobile-nav-panel">
-          {nav.map((item) => {
-            const href = getI18nText(item.href, route)
-            const label = getI18nText(item.label, route)
-            const icon = navIcon(href)
-            const proLink = isProLink(href)
-            const docsVersionLink = isDocsVersionLink(href)
-
-            return (
-              <a
-                class:list={[
-                  'minishop-mobile-nav-link',
-                  (icon || proLink || docsVersionLink) &&
-                    'minishop-header-link inline-flex items-center',
-                  proLink && 'minishop-pro-link',
-                ]}
-                href={href}
-              >
-                {proLink && (
-                  <svg
-                    class="minishop-pro-diamond"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path d="M3.5 9 8 3.75h8L20.5 9 12 20.25 3.5 9Z" />
-                    <path d="m8 3.75 4 5.25 4-5.25M3.5 9h17M8.25 9 12 20.25 15.75 9" />
-                  </svg>
-                )}
-                {icon && <Icon name={icon} size="1rem" color="currentColor" />}
-                <span>{label}</span>
-              </a>
-            )
-          })}
+          {navItems.map((item) => (
+            <a
+              class:list={[
+                'minishop-mobile-nav-link',
+                (item.icon || item.pro) && 'minishop-header-link',
+                item.pro && 'minishop-pro-link',
+              ]}
+              href={item.href}
+            >
+              {item.pro && (
+                <svg class="minishop-pro-diamond" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3.5 9 8 3.75h8L20.5 9 12 20.25 3.5 9Z" />
+                  <path d="m8 3.75 4 5.25 4-5.25M3.5 9h17M8.25 9 12 20.25 15.75 9" />
+                </svg>
+              )}
+              {item.icon && <Icon name={item.icon} size="1rem" color="currentColor" />}
+              <span>{item.label}</span>
+            </a>
+          ))}
         </div>
       </details>
     )
@@ -178,6 +192,7 @@ function isDocsVersionLink(href: string) {
 <style>
   .minishop-desktop-nav {
     min-width: 0;
+    align-items: center;
     scrollbar-width: none;
   }
 
@@ -188,35 +203,94 @@ function isDocsVersionLink(href: string) {
   .minishop-nav-item {
     display: inline-flex;
     flex: 0 0 auto;
+    height: 2rem;
     align-items: center;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0 0.625rem;
+    color: var(--sl-color-gray-3);
     white-space: nowrap;
+  }
+
+  .minishop-nav-item:hover {
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-6);
+  }
+
+  .minishop-nav-item.minishop-pro-link {
+    margin-left: 0.375rem;
+  }
+
+  .minishop-header-links {
+    flex: 0 0 auto;
+    gap: 0.125rem;
+  }
+
+  .minishop-version-link {
+    display: inline-flex;
+    height: 2rem;
+    align-items: center;
+    margin-right: 0.375rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 8px;
+    padding: 0 0.625rem;
+    color: var(--sl-color-gray-3);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .minishop-icon-link {
+    display: inline-grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 8px;
+    color: var(--sl-color-gray-3);
+  }
+
+  .minishop-version-link:hover,
+  .minishop-icon-link:hover {
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-6);
   }
 
   @media (min-width: 48rem) and (max-width: 90rem) {
     .minishop-desktop-nav {
-      column-gap: 0.75rem;
       font-size: 0.8125rem;
+    }
+
+    .minishop-nav-item {
+      padding: 0 0.5rem;
     }
 
     .minishop-header-search {
       flex: 0 0 auto;
-      width: 2.25rem;
+      width: 2rem;
     }
 
     .minishop-header-search :global(site-search) {
       display: block;
-      width: 2.25rem;
+      width: 2rem;
     }
 
+    /* Same 32px square as the theme toggle and the community icon links. */
     .minishop-header-search :global(button[data-open-modal]) {
-      width: 2.25rem;
-      height: 2.25rem;
+      width: 2rem;
+      height: 2rem;
       border-color: transparent;
       padding: 0.5rem;
     }
 
     .minishop-header-search :global(button[data-open-modal] > :is(span, kbd)) {
       display: none !important;
+    }
+  }
+
+  @media (min-width: 48rem) and (max-width: 64rem) {
+    .minishop-version-link {
+      display: none;
     }
   }
 </style>
