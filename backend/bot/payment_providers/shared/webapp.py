@@ -101,7 +101,7 @@ async def finalize_webapp_link_payment(
             api_success,
             bool(payment_url),
             bool(provider_payment_id),
-            _short_repr(provider_response),
+            _short_repr(None if payment_url else provider_response),
         )
         try:
             failure_metadata = payment_creation_failure_metadata(

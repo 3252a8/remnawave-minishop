@@ -756,7 +756,7 @@ async def render_link_or_fail(
         api_success,
         bool(payment_url),
         bool(provider_payment_id),
-        _short_repr(provider_response),
+        _short_repr(None if payment_url else provider_response),
     )
     failure_metadata = payment_creation_failure_metadata(
         provider_response,

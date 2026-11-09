@@ -37,6 +37,7 @@ RECONCILABLE_PROVIDER_KEYS = (
     "overpay",
     "oxapay",
     "pally",
+    "payhot",
     "paykilla",
     "platega",
     "platega_card",
@@ -63,6 +64,7 @@ _FAILED_STATUSES = {
     "lava": {"cancel", "cancelled", "error", "expired", "failed"},
     "oxapay": {"expired", "refunded"},
     "pally": {"cancelled", "canceled", "fail", "failed"},
+    "payhot": {"cancelled", "failed", "refunded"},
     "paykilla": {
         "cancelled",
         "canceled",
@@ -86,6 +88,7 @@ _SUCCESS_STATUSES = {
     "oxapay": {"manual_accept", "paid"},
     "lava": {"success"},
     "pally": {"overpaid", "success"},
+    "payhot": {"succeeded"},
     "paykilla": {"completed", "paid", "success"},
     "platega": {"confirmed"},
     "rollypay": {"paid"},
@@ -101,6 +104,14 @@ _PENDING_STATUSES = {
     "oxapay": {"new", "paying", "refunding", "underpaid", "waiting"},
     "lava": {"created", "pending", "processing"},
     "pally": {"new", "process", "underpaid"},
+    "payhot": {
+        "requires_payment_method",
+        "requires_action",
+        "processing",
+        "authorized",
+        "partially_captured",
+        "manual_reconciliation",
+    },
     "paykilla": {"created", "new", "pending", "processing"},
     "platega": {"pending"},
     "rollypay": {"created", "processing"},
@@ -243,7 +254,7 @@ async def _inspect_provider_payment(service: Any, payment: Payment) -> ProviderL
     state_provider = provider
 
     payment_verified = False
-    if provider in {"anore", "cryptomus", "cispay"}:
+    if provider in {"anore", "cryptomus", "cispay", "payhot"}:
         success, data = await service.get_payment(provider_id)
         if not success or str(data.get("id") or "") != provider_id:
             return ProviderLifecycle("unknown")

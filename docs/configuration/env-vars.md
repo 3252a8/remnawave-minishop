@@ -753,6 +753,19 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `ROLLYPAY_RECONCILE_INTERVAL_SECONDS` | Период сверки состояний мандатов, по умолчанию `300`. |
 | `ROLLYPAY_RECONCILE_BATCH_SIZE` | Максимум мандатов за одну сверку, по умолчанию `100`. |
 
+### PayHot
+
+| Переменная | Назначение |
+| --- | --- |
+| `PAYHOT_ENABLED` | Показывает PayHot при выборе оплаты. По умолчанию `false`. |
+| `PAYHOT_ADMIN_ONLY_ENABLED` | Показывает PayHot администраторам при выключенном публичном способе. По умолчанию `false`. |
+| `PAYHOT_API_KEY` | Рабочий API-ключ проекта с правами создания и чтения платежей. |
+| `PAYHOT_WEBHOOK_SECRET` | Полный секрет подписи вебхука из кабинета PayHot. |
+| `PAYHOT_PAYMENT_METHOD` | Способ оплаты в кассе. По умолчанию `card`. Допустимы `card`, `sbp`, `sberpay`, `applepay`, `googlepay`, `crypto`. |
+
+В PayHot укажите `<WEBHOOK_BASE_URL>/webhook/payhot` и выберите событие
+`payment.succeeded`. [Инструкция по настройке](../features/payments.md#payhot)
+
 ### SeverPay
 
 | Переменная | Назначение |

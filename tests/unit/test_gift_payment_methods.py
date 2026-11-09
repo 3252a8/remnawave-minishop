@@ -23,6 +23,7 @@ GIFT_PAYMENT_METHODS = (
     ("cispay", True),
     ("cispay_subscription_card", False),
     ("cispay_subscription_sbp", False),
+    ("payhot", True),
     ("freekassa", True),
     ("platega_sbp", True),
     ("platega_card", True),

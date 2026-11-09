@@ -191,6 +191,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "paykilla_service",
             "lava_service",
             "pally_service",
+            "payhot_service",
             "cloudpayments_service",
             "overpay_service",
             "oxapay_service",
