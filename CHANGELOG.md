@@ -75,11 +75,13 @@
   [7bc74c20](https://gitlab.com/3252a8/remnawave-minishop/-/commit/7bc74c200af2ffee3ab63d5fcf74edbfe817d329))
 - Обновлён встроенный список одноразовых почтовых доменов для проверки email.
   При работе приложения внешние списки не загружаются.
-  ([4b926cdc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4b926cdcffc3e205137411e107dc14feb08b8e28))
+  ([4b926cdc](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4b926cdcffc3e205137411e107dc14feb08b8e28),
+  [fc3ffd76](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fc3ffd766cebf67b46273abe751f785b6c3f00d5))
 
 - Обновлены редактор Tiptap до 3.33.0, разбор Markdown в Mini App и
   зависимости сборки интерфейса и сайта документации.
-  ([74596567](https://gitlab.com/3252a8/remnawave-minishop/-/commit/74596567183320879761f1cdb59bc3bef56e641e))
+  ([74596567](https://gitlab.com/3252a8/remnawave-minishop/-/commit/74596567183320879761f1cdb59bc3bef56e641e),
+  [476e1815](https://gitlab.com/3252a8/remnawave-minishop/-/commit/476e1815af8d285aa6fc45324b5054ed181fb3b8))
 
 ### Исправлено
 
