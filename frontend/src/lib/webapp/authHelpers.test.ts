@@ -4,10 +4,12 @@ import {
   accountMergeErrorMessage,
   authProviderName,
   buildExternalOAuthStartUrl,
+  buildPluginLoginStartUrl,
   buildTelegramOAuthStartUrl,
   clearAuthQuery,
   emailError,
   orderAuthProviders,
+  pluginLoginCabinetPath,
   readReferralParam,
   readRegistrationInviteParam,
   shouldShowInviteOnlyHint,
@@ -46,6 +48,16 @@ describe("provider presentation", () => {
     ).toEqual(["email", "google", "discord", "future-provider"]);
     expect(authProviderName("future-provider", (key) => key)).toBe("future-provider");
     expect(authProviderName("yandex", (key) => key)).toBe("Yandex");
+  });
+
+  it("starts plugin login only on a same-origin provider route and keeps the cabinet prefix", () => {
+    expect(buildPluginLoginStartUrl("/cabinet/auth/plugins/work/sso/start", "en")).toBe(
+      "/cabinet/auth/plugins/work/sso/start?lang=en"
+    );
+    expect(buildPluginLoginStartUrl("//other.example/auth/plugins/work/sso/start", "en")).toBe("");
+    expect(buildPluginLoginStartUrl("/auth/plugins/work/../start", "en")).toBe("");
+    expect(pluginLoginCabinetPath("/cabinet/auth/plugins/work/sso/start")).toBe("/cabinet/");
+    expect(pluginLoginCabinetPath("/auth/plugins/work/sso/start")).toBe("/");
   });
 });
 

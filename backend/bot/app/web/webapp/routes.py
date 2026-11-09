@@ -6,6 +6,7 @@ from bot.app.web.admin_api_impl.plugin_packages import _active_frontends
 from bot.app.web.admin_api_impl.routes import (
     setup_admin_routes,
 )
+from bot.plugins.extensions.auth import LOGIN_PROVIDER_START_ROUTE, login_provider_start_route
 from bot.plugins.packages import package_root
 
 from .account import (
@@ -285,6 +286,7 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
     app.router.add_get(
         r"/auth/{provider:discord|google|yandex}/callback", external_oauth_callback_route
     )
+    app.router.add_get(LOGIN_PROVIDER_START_ROUTE, login_provider_start_route, allow_head=False)
     app.router.add_get("/health", health_route)
     app.router.add_get("/favicon.ico", webapp_current_favicon_route)
     app.router.add_get("/apple-touch-icon.png", webapp_current_favicon_route)

@@ -39,6 +39,16 @@ describe("external OAuth in Telegram", () => {
     expect(open).not.toHaveBeenCalled();
   });
 
+  it("opens the prefixed cabinet without accepting external or credential URLs", () => {
+    const { openLink } = installBrowser("telegram-signed-data");
+    openOAuthCabinetInBrowser("//other.example/");
+    openOAuthCabinetInBrowser("/cabinet/?login_token=secret");
+    openOAuthCabinetInBrowser("/cabinet/");
+    expect(openLink).toHaveBeenCalledExactlyOnceWith("https://shop.example/cabinet/", {
+      try_instant_view: false,
+    });
+  });
+
   it("never falls back to replacing the WebView when Telegram rejects openLink", () => {
     const { openLink, assign, open } = installBrowser("telegram-signed-data");
     openLink.mockImplementation(() => {

@@ -219,6 +219,20 @@ export function buildExternalOAuthStartUrl(
   return `/auth/${provider}/start?${params.toString()}`;
 }
 
+const PLUGIN_LOGIN_PATH =
+  /^((?:\/[A-Za-z0-9_-]+)*)\/auth\/plugins\/[a-z][a-z0-9_-]{0,63}\/[a-z][a-z0-9_-]{0,63}\/start$/;
+
+export function pluginLoginCabinetPath(startPath: string): string {
+  const match = startPath.match(PLUGIN_LOGIN_PATH);
+  return match ? `${match[1]}/` : "";
+}
+
+export function buildPluginLoginStartUrl(startPath: string, language: string): string {
+  if (!PLUGIN_LOGIN_PATH.test(startPath)) return "";
+  rememberInstallAuthDestination("login", true);
+  return `${startPath}?${new URLSearchParams({ lang: language })}`;
+}
+
 export function emailError(error: unknown, fallback: string, t: TranslateFn): string {
   const err: AuthErrorLike = error && typeof error === "object" ? (error as AuthErrorLike) : null;
   if (err?.error === "rate_limited")

@@ -28,6 +28,9 @@ from .contracts import (
     JobHandler as JobHandler,
 )
 from .contracts import (
+    LoginProvider as LoginProvider,
+)
+from .contracts import (
     MessageShortcode as MessageShortcode,
 )
 from .contracts import (
@@ -56,4 +59,4 @@ from .contracts import (
 )
 
 # Import operational APIs from these stable submodules to keep contract imports cycle-free:
-# extensions.jobs, extensions.commerce, extensions.rewards, extensions.backups.
+# extensions.jobs, extensions.commerce, extensions.rewards, extensions.backups, extensions.auth.

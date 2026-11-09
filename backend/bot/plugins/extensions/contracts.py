@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
+    from aiohttp import web
+
     from bot.plugins.spec import PluginContext
     from config.settings import Settings
 
@@ -181,6 +183,15 @@ class MessageShortcode:
 
 
 @dataclass(frozen=True)
+class LoginProvider:
+    """Plain-text cabinet sign-in action backed by a trusted server-side handler."""
+
+    id: str
+    name: str
+    start: Callable[[web.Request], Awaitable[web.StreamResponse]]
+
+
+@dataclass(frozen=True)
 class ExtensionContributions:
     guides: tuple[GuideProvider, ...] = ()
     resources: tuple[ResourceProvider, ...] = ()
@@ -193,3 +204,4 @@ class ExtensionContributions:
     view_policy: ViewPolicy | None = None
     # Supported core commands, explicitly requested by the trusted plugin.
     permissions: frozenset[str] = field(default_factory=frozenset)
+    login_providers: tuple[LoginProvider, ...] = ()

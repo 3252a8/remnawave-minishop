@@ -45,6 +45,65 @@ Plugin API, frontend host API и schema version остаются 1: новые �
 - Разделы «Бонусы» и «Поддержка» остаются в навигации при наличии вкладов плагина,
   даже если встроенная реферальная программа или тикеты выключены.
 
+## ЛК: провайдер на странице входа
+
+Плагин может добавить кнопку входа, вернув `LoginProvider` в `ExtensionContributions.login_providers`.
+Для подписанного пакета укажите `"login_providers": 1` в `core_compatibility.requires`.
+Core добавляет кнопку рядом со штатными способами входа. В Telegram Mini App кабинет предлагает
+открыть страницу входа в браузере. В публичную конфигурацию попадают только идентификатор,
+название и локальный путь запуска. JavaScript и стили пакета загружаются после входа на обычных
+экранах расширений.
+
+```python
+from aiohttp import web
+
+from bot.plugins import Plugin, PluginContext, WEB_SCOPE_WEBAPP
+from bot.plugins.extensions import ExtensionContributions, LoginProvider
+from bot.plugins.extensions.auth import complete_login
+
+from .sso import begin_authorization, verify_and_resolve_account
+
+
+class WorkLogin(Plugin):
+    name = "work-login"
+    version = "1.0.0"
+
+    def extensions(self, ctx: PluginContext) -> ExtensionContributions:
+        return ExtensionContributions(
+            login_providers=(LoginProvider("sso", "Work SSO", begin_authorization),),
+        )
+
+    def setup_web(self, ctx: PluginContext, app: web.Application, *, scope: str) -> None:
+        if scope == WEB_SCOPE_WEBAPP:
+            app.router.add_get(
+                "/auth/plugins/work-login/sso/callback", self.callback, allow_head=False
+            )
+
+    async def callback(self, request: web.Request) -> web.Response:
+        user_id = await verify_and_resolve_account(request)
+        if user_id is None:
+            raise web.HTTPForbidden()
+        return await complete_login(request, owner=self.name, provider="sso", user_id=user_id)
+```
+
+Core вызывает `begin_authorization(request)` по адресу `/auth/plugins/<owner>/<id>/start`.
+Параметр `lang` позволяет выбрать язык страницы провайдера. Название отображается как текст
+в локализованной кнопке Core. ID уникален внутри плагина и использует строчные латинские буквы,
+цифры, дефис и подчёркивание. Первый символ должен быть буквой.
+
+Плагин отвечает за протокол и хранение привязок. Для OAuth сохраните короткоживущий одноразовый
+`state`, привязанный к браузеру, и используйте PKCE S256. При OIDC также проверяйте подпись,
+issuer, audience, срок действия и `nonce`. Обмен кода выполняется на сервере. По подтверждённой
+паре issuer/subject найдите заранее привязанный внутренний ID Core. Не используйте ID из
+запроса браузера или совпадение неподтверждённого email. `complete_login` принимает только ID
+существующего незаблокированного пользователя и выдаёт штатные cookie сессии и CSRF.
+Создание, привязка и восстановление аккаунтов остаются отдельными действиями.
+
+Регистрируйте callback у провайдера по публичному HTTPS URL кабинета. При установке в подкаталоге
+укажите этот префикс в `SUBSCRIPTION_MINI_APP_URL` и настройте прокси так, чтобы он передавал
+запросы `<префикс>/auth/…` в backend без префикса. Core отправляет браузер на фиксированный
+локальный корень кабинета после входа. Произвольный `return_to` из браузера не используется.
+
 ## Экраны в кнопках и данные в сообщениях
 
 В `core_compatibility.requires` пакет может объявить `"message_composition": 1`.

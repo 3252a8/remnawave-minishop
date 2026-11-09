@@ -19395,6 +19395,13 @@
             "title": "Notificationpreferencesenabled",
             "type": "boolean"
           },
+          "pluginLoginProviders": {
+            "items": {
+              "$ref": "#/components/schemas/WebappPluginLoginProviderOut"
+            },
+            "title": "Pluginloginproviders",
+            "type": "array"
+          },
           "primaryColor": {
             "anyOf": [
               {
@@ -19597,6 +19604,29 @@
           "i18n"
         ],
         "title": "WebappI18nOut",
+        "type": "object"
+      },
+      "WebappPluginLoginProviderOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "startPath": {
+            "title": "Startpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "startPath"
+        ],
+        "title": "WebappPluginLoginProviderOut",
         "type": "object"
       },
       "WebappTheme": {

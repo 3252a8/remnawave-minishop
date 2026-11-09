@@ -25,6 +25,7 @@ from bot.middlewares.i18n import (
     locale_language_options,
     normalize_locale_language_code,
 )
+from bot.plugins.extensions.auth import public_login_providers
 from bot.services.legal_document_links import legal_document_links
 from bot.utils.invite_links import invitation_link_prefix
 from config.settings import Settings
@@ -583,6 +584,7 @@ def _build_webapp_bootstrap_payload(request: web.Request) -> dict[str, Any]:
             "notificationPreferencesEnabled": cached["notification_preferences_enabled"],
             "devMode": bool(settings.qa_auth_enabled),
             "authProviders": cached["auth_providers"],
+            "pluginLoginProviders": public_login_providers(settings),
             "recommendedAuthProviders": cached["recommended_auth_providers"],
             "wideAuthProviders": cached["wide_auth_providers"],
             "registrationInviteOnlyEnabled": cached["registration_invite_only_enabled"],

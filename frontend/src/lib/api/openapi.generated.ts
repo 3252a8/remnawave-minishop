@@ -13337,6 +13337,8 @@ export interface components {
       maintenanceModeEnabled: boolean;
       /** Notificationpreferencesenabled */
       notificationPreferencesEnabled: boolean;
+      /** Pluginloginproviders */
+      pluginLoginProviders?: components["schemas"]["WebappPluginLoginProviderOut"][];
       /**
        * Primarycolor
        * @default null
@@ -13414,6 +13416,15 @@ export interface components {
       };
       /** Scope */
       scope: string;
+    };
+    /** WebappPluginLoginProviderOut */
+    WebappPluginLoginProviderOut: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Startpath */
+      startPath: string;
     };
     /**
      * WebappTheme

@@ -39,6 +39,12 @@ class WebappBootstrapLanguageOut(HttpResponseModel):
     base: bool
 
 
+class WebappPluginLoginProviderOut(HttpResponseModel):
+    id: str
+    name: str
+    start_path: str = Field(alias="startPath")
+
+
 class WebappBootstrapConfigOut(HttpResponseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
@@ -79,6 +85,9 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     notification_preferences_enabled: bool = Field(alias="notificationPreferencesEnabled")
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
+    plugin_login_providers: list[WebappPluginLoginProviderOut] = Field(
+        default_factory=list, alias="pluginLoginProviders"
+    )
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
     wide_auth_providers: list[str] = Field(alias="wideAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
