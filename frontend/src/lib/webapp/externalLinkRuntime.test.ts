@@ -15,6 +15,7 @@ function makeRuntime(overrides: TestOverrides = {}) {
     assignLocation: vi.fn(),
     getCurrentLang: () => state.currentLang,
     hasTelegramLaunchParams: vi.fn(() => false),
+    locationRef: { href: "https://shop.example.test/plans" },
     openHiddenAnchor: vi.fn(),
     openLaunchTarget: vi.fn(),
     refreshTelegram: vi.fn(() => state.telegram),
@@ -84,6 +85,39 @@ describe("createExternalLinkRuntime", () => {
     runtime.openExternalLink("https://example.test/page");
 
     expect(deps.assignLocation).toHaveBeenCalledWith("https://example.test/page");
+  });
+
+  it("passes a payment destination to the browser gateway only in the Mini App", () => {
+    const target = "https://bank.example.test/pay?id=123#step";
+    const { deps, runtime } = makeRuntime();
+
+    runtime.openExternalLink(target, "payment");
+    expect(deps.assignLocation).toHaveBeenLastCalledWith(target);
+
+    deps.hasTelegramLaunchParams.mockReturnValue(true);
+    runtime.openExternalLink(target, "payment");
+    const gateway = new URL(String(deps.assignLocation.mock.lastCall?.[0]));
+    const fragment = new URLSearchParams(gateway.hash.slice(1));
+    expect(gateway.origin + gateway.pathname).toBe("https://shop.example.test/open-app");
+    expect(gateway.search).toBe("?lang=ru");
+    expect(fragment.get("url")).toBe(target);
+    expect(fragment.get("kind")).toBe("payment");
+  });
+
+  it("asks the Telegram bridge to open the gateway and preserves native Telegram links", () => {
+    const telegram = { openLink: vi.fn(), openTelegramLink: vi.fn() };
+    const { deps, runtime } = makeRuntime({ telegram });
+    deps.hasTelegramLaunchParams.mockReturnValue(true);
+
+    runtime.openExternalLink("https://bank.example.test/pay", "payment");
+    expect(telegram.openLink).toHaveBeenCalledWith(
+      expect.stringMatching(/^https:\/\/shop\.example\.test\/open-app\?lang=ru#.*kind=payment$/),
+      { try_instant_view: false }
+    );
+
+    runtime.openExternalLink("https://t.me/tribute", "payment");
+    expect(telegram.openTelegramLink).toHaveBeenCalledWith("https://t.me/tribute");
+    expect(deps.assignLocation).not.toHaveBeenCalled();
   });
 
   it("delegates app links to the app link opener", () => {

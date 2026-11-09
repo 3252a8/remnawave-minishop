@@ -878,7 +878,7 @@ describe("billingStore", () => {
       sale_mode: "subscription@pro",
     } as Parameters<typeof store.resumePendingPayment>[0]);
 
-    expect(deps.openExternalLink).toHaveBeenCalledWith("https://pay.example/17");
+    expect(deps.openExternalLink).toHaveBeenCalledWith("https://pay.example/17", "payment");
     expect(deps.showToast).toHaveBeenCalledWith("wa_pending_payment_opened");
     expect(store.paymentModalOpen).toBe(false);
 

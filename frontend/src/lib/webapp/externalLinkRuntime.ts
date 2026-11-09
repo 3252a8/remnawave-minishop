@@ -1,5 +1,7 @@
 import { createAppLaunchActions } from "./appLaunchActions.js";
 import { openAppLinkTarget } from "./appLinkActions.js";
+import { buildExternalAppLaunchUrl } from "./appLinks.js";
+import type { OpenLinkAction } from "./types.js";
 import { shellState } from "./shellState.svelte";
 
 type TelegramWebApp = Record<string, unknown> & {
@@ -9,6 +11,7 @@ type TelegramWebApp = Record<string, unknown> & {
 
 type ExternalLinkRuntimeDeps = {
   assignLocation: (url: string) => void;
+  locationRef?: Pick<Location, "href">;
   getCurrentLang: () => string;
   hasTelegramLaunchParams: () => boolean;
   openHiddenAnchor?: (url: string) => void;
@@ -21,12 +24,13 @@ export function createExternalLinkRuntime({
   assignLocation,
   getCurrentLang,
   hasTelegramLaunchParams,
+  locationRef,
   openHiddenAnchor,
   openLaunchTarget,
   refreshTelegram,
   readLaunchTarget,
 }: ExternalLinkRuntimeDeps) {
-  function openExternalLink(url: string) {
+  const openExternalLink: OpenLinkAction = (url, kind) => {
     if (!url) return;
     // Public documents belong to the current Mini App. Telegram.openLink only
     // accepts absolute external URLs and throws for these application paths.
@@ -34,8 +38,25 @@ export function createExternalLinkRuntime({
       assignLocation(url);
       return;
     }
+    const isTelegramLink = /^https:\/\/(?:t|telegram)\.me\//i.test(url);
+    if (kind === "payment" && !isTelegramLink && hasTelegramLaunchParams()) {
+      const gateway = buildExternalAppLaunchUrl(url, locationRef, getCurrentLang(), "payment");
+      if (gateway) {
+        const telegram = shellState.tg || refreshTelegram();
+        try {
+          if (telegram?.openLink) {
+            telegram.openLink(gateway, { try_instant_view: false });
+            return;
+          }
+        } catch {
+          // Keep a usable continuation when the Telegram bridge is unavailable.
+        }
+        assignLocation(gateway);
+        return;
+      }
+    }
     const telegram = shellState.tg;
-    if (/^https:\/\/(?:t|telegram)\.me\//i.test(url) && telegram?.openTelegramLink) {
+    if (isTelegramLink && telegram?.openTelegramLink) {
       try {
         telegram.openTelegramLink(url);
         return;
@@ -48,7 +69,7 @@ export function createExternalLinkRuntime({
       return;
     }
     assignLocation(url);
-  }
+  };
 
   function openAppLink(url: string) {
     openAppLinkTarget(url, {

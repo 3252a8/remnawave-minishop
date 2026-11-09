@@ -182,6 +182,10 @@ WEBAPP_BOOTSTRAP_I18N_PREFIXES = ("wa_",)
 WEBAPP_BOOTSTRAP_I18N_KEYS = {"menu_support_button"}
 WEBAPP_I18N_SCOPES = {"webapp", "admin"}
 APP_DEEPLINK_I18N_KEYS = {
+    "paymentTitle": "wa_payment_launch_title",
+    "paymentButton": "wa_payment_launch_button",
+    "paymentDestination": "wa_payment_launch_destination",
+    "paymentExternalBrowserHint": "wa_payment_launch_external_browser_hint",
     "title": "wa_app_launch_title",
     "hint": "wa_app_launch_opening_hint",
     "manualHint": "wa_app_launch_hint",
@@ -197,6 +201,12 @@ APP_DEEPLINK_I18N_KEYS = {
     "unavailableHint": "wa_app_launch_unavailable_hint",
 }
 APP_DEEPLINK_I18N_FALLBACKS = {
+    "wa_payment_launch_title": "Payment page",
+    "wa_payment_launch_button": "Continue to payment",
+    "wa_payment_launch_destination": "Payment provider: {host}",
+    "wa_payment_launch_external_browser_hint": (
+        "Use Telegram’s menu to open this page in your browser."
+    ),
     "wa_app_launch_title": "Opening app",
     "wa_app_launch_opening_hint": "Opening the app on this device...",
     "wa_app_launch_hint": "If the app did not open automatically, tap the button below.",
