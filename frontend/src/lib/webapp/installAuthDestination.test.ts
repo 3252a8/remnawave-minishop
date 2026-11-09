@@ -31,6 +31,45 @@ afterEach(() => {
 
 describe("install destination through authentication", () => {
   it.each([
+    "google",
+    "yandex",
+    "vk",
+    "github",
+    "discord",
+    "telegram",
+    "password",
+    "email",
+    "passkey",
+  ])("retains a plugin request through %s login, including the password screen", (provider) => {
+    const request = "12".repeat(16);
+    const { browser } = installBrowser(`/extensions/sample-client/connect?request=${request}`);
+    rememberInstallAuthDestination("login");
+    browser.location = new URL("https://shop.test/login/password");
+    if (provider === "telegram") buildTelegramOAuthStartUrl();
+    else if (!["password", "email", "passkey"].includes(provider))
+      buildExternalOAuthStartUrl(provider, "login", "ru");
+    browser.location = new URL(`https://shop.test/?external_auth=${provider}:success`);
+    expect(restoreInstallAuthDestination(true)).toBe(true);
+    expect(browser.location.pathname).toBe("/extensions/sample-client/connect");
+    expect(browser.location.searchParams.get("request")).toBe(request);
+    expect(browser.location.searchParams.get("external_auth")).toBe(`${provider}:success`);
+    expect(restoreInstallAuthDestination(true)).toBe(false);
+  });
+
+  it("does not replay stale authentication parameters from a plugin URL", () => {
+    const { browser } = installBrowser(
+      "/extensions/sample-client/connect?request=pending&code=old&state=old&external_auth=old"
+    );
+    rememberInstallAuthDestination("login");
+    browser.location = new URL("https://shop.test/?telegram_auth=success");
+    expect(restoreInstallAuthDestination()).toBe(true);
+    expect(browser.location.searchParams.get("request")).toBe("pending");
+    expect(browser.location.searchParams.has("code")).toBe(false);
+    expect(browser.location.searchParams.has("state")).toBe(false);
+    expect(browser.location.searchParams.has("external_auth")).toBe(false);
+  });
+
+  it.each([
     "?external_auth=google:success",
     "?external_auth=google:cancelled",
     "?telegram_auth=success",
