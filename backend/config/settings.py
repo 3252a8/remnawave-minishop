@@ -804,6 +804,31 @@ class Settings(
         default=None, description="Thread ID for support ticket log messages"
     )
 
+    LOG_NEW_USERS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for user registration and account changes"
+    )
+    LOG_PAYMENTS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for payments"
+    )
+    LOG_PROMO_ACTIVATIONS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for activation codes"
+    )
+    LOG_TRIAL_ACTIVATIONS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for trial activations"
+    )
+    LOG_SUSPICIOUS_ACTIVITY_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for suspicious activity"
+    )
+    LOG_PARTNER_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for partner program"
+    )
+    LOG_PANEL_SYNC_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for panel synchronization"
+    )
+    LOG_DEBUG_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for debug message logs"
+    )
+
     # Notification types
     LOG_NEW_USERS: bool = Field(
         default=True, description="Send notifications for new user registrations"

@@ -14,6 +14,7 @@ def _settings(**overrides):
         "LOG_LEVEL": "DEBUG",
         "LOG_CHAT_ID": -100123,
         "LOG_THREAD_ID": 77,
+        "LOG_DEBUG_THREAD_ID": None,
     }
     values.update(overrides)
     return SimpleNamespace(**values)

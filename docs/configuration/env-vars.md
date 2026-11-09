@@ -1117,6 +1117,14 @@ openssl rand -base64 32 | tr '+/' '-_'
 | `LOG_CHAT_ID` | Telegram chat/group ID для служебных уведомлений. |
 | `LOG_THREAD_ID` | Topic/thread ID общего лог-чата. |
 | `LOG_SUPPORT_THREAD_ID` | Topic/thread ID поддержки. |
+| `LOG_NEW_USERS_THREAD_ID` | Отдельная тема. Регистрации и изменения аккаунтов. |
+| `LOG_PAYMENTS_THREAD_ID` | Отдельная тема. Платежи. |
+| `LOG_PROMO_ACTIVATIONS_THREAD_ID` | Отдельная тема. Активации кодов. |
+| `LOG_TRIAL_ACTIVATIONS_THREAD_ID` | Отдельная тема. Активации пробного периода. |
+| `LOG_SUSPICIOUS_ACTIVITY_THREAD_ID` | Отдельная тема. Подозрительная активность. |
+| `LOG_PARTNER_THREAD_ID` | Отдельная тема. Партнёрская программа. |
+| `LOG_PANEL_SYNC_THREAD_ID` | Отдельная тема. Синхронизация панели. |
+| `LOG_DEBUG_THREAD_ID` | Отдельная тема. Отладочные логи сообщений. |
 | `LOG_NEW_USERS` | Логировать новые регистрации. |
 | `LOG_PAYMENTS` | Логировать платежи. |
 | `LOG_SUPPORT` | Логировать тикеты поддержки. |
@@ -1124,6 +1132,9 @@ openssl rand -base64 32 | tr '+/' '-_'
 | `LOG_TRIAL_ACTIVATIONS` | Логировать активации trial. |
 | `LOG_SUSPICIOUS_ACTIVITY` | Логировать подозрительную активность. |
 | `LOG_ADMIN_ACTIONS` | Логировать действия администраторов. |
+
+Уведомления идут в один `LOG_CHAT_ID`. Если тема категории не задана,
+используется `LOG_THREAD_ID`, а при его отсутствии — общая тема чата.
 
 ## Чеки, ссылки подключения и inline
 

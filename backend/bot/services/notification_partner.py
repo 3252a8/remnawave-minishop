@@ -181,7 +181,11 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
             application_id=application_id,
             timestamp=submitted_at.strftime("%Y-%m-%d %H:%M:%S"),
         )
-        await self._send_to_log_channel(message, reply_markup=keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_PARTNER_THREAD_ID,
+            reply_markup=keyboard,
+        )
 
     async def notify_partner_application_decided(
         self,
@@ -207,7 +211,11 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
                 application_id=application_id,
                 timestamp=decided_at.strftime("%Y-%m-%d %H:%M:%S"),
             )
-            await self._send_to_log_channel(admin_message, reply_markup=keyboard)
+            await self._send_to_log_channel(
+                admin_message,
+                thread_id=self.settings.LOG_PARTNER_THREAD_ID,
+                reply_markup=keyboard,
+            )
             key = "partner_application_approved_notification"
             fallback = (
                 "✅ <b>Your partner application was approved</b>\n\n"
@@ -250,7 +258,11 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
                 partner_id=partner_id,
                 timestamp=changed_at.strftime("%Y-%m-%d %H:%M:%S"),
             )
-            await self._send_to_log_channel(admin_message, reply_markup=keyboard)
+            await self._send_to_log_channel(
+                admin_message,
+                thread_id=self.settings.LOG_PARTNER_THREAD_ID,
+                reply_markup=keyboard,
+            )
             key = "partner_profile_activated_notification"
             fallback = (
                 "✅ <b>Your partner profile is active</b>\n\n"
@@ -300,7 +312,11 @@ class NotificationPartnerMixin(NotificationUserContextMixin):
             withdrawal_id=withdrawal_id,
             timestamp=requested_at.strftime("%Y-%m-%d %H:%M:%S"),
         )
-        await self._send_to_log_channel(message, reply_markup=keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_PARTNER_THREAD_ID,
+            reply_markup=keyboard,
+        )
 
     async def notify_partner_withdrawal_status_changed(
         self,

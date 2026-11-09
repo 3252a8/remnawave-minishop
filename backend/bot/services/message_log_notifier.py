@@ -130,8 +130,9 @@ async def notify_message_log(
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
     }
-    if resolved_settings.LOG_THREAD_ID:
-        kwargs["message_thread_id"] = resolved_settings.LOG_THREAD_ID
+    thread_id = resolved_settings.LOG_DEBUG_THREAD_ID or resolved_settings.LOG_THREAD_ID
+    if thread_id:
+        kwargs["message_thread_id"] = thread_id
 
     queue_manager = get_queue_manager()
     try:

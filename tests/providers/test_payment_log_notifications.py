@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from typing import ClassVar
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from bot.infra.payment_events import PaymentPurchase
 from bot.services.notification_service import NotificationService
@@ -72,21 +72,42 @@ class _I18n:
         return self.messages.get(key, key).format(**kwargs)
 
 
-def _service() -> NotificationService:
+def _service(*, mock_log_channel: bool = True) -> NotificationService:
     service = NotificationService(
         bot=SimpleNamespace(send_message=AsyncMock()),
         settings=SimpleNamespace(
+            LOG_CHAT_ID=-100123,
+            LOG_THREAD_ID=42,
             LOG_PAYMENTS=True,
+            LOG_PAYMENTS_THREAD_ID=None,
             DEFAULT_LANGUAGE="en",
             DEFAULT_CURRENCY="RUB",
         ),
         i18n=_I18n(),
     )
-    service._send_to_log_channel = AsyncMock()
+    if mock_log_channel:
+        service._send_to_log_channel = AsyncMock()
     return service
 
 
 class PaymentLogNotificationTests(IsolatedAsyncioTestCase):
+    async def test_payment_topic_overrides_the_default_log_topic(self):
+        for topic, expected in ((101, 101), (None, 42)):
+            for queued in (True, False):
+                with self.subTest(topic=topic, queued=queued):
+                    service = _service(mock_log_channel=False)
+                    service.settings.LOG_PAYMENTS_THREAD_ID = topic
+                    queue = SimpleNamespace(send_message=AsyncMock()) if queued else None
+                    with patch(
+                        "bot.services.notification_service.get_queue_manager", return_value=queue
+                    ):
+                        await service.notify_payment_received(
+                            user_id=42, amount=45, currency="RUB", months=1, payment_provider="wata"
+                        )
+                    sender = queue.send_message if queue else service.bot.send_message
+                    sender.assert_awaited_once()
+                    self.assertEqual(sender.await_args.kwargs["message_thread_id"], expected)
+
     async def test_tariff_upgrade_log_reports_operation_and_addons_without_period(self):
         service = _service()
         await service.notify_payment_received(
