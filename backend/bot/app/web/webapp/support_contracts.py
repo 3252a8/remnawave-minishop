@@ -44,7 +44,7 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         models=(SupportCountsOut, SupportTicketOut),
     ),
     "support_create_ticket_route": user_contract(
-        request_content=message_image_request_content(CreateTicketPayload),
+        request_content=message_image_request_content(CreateTicketPayload, multiple=True),
         response_schema=ok_envelope_with({"ticket": schema_ref(SupportTicketOut)}),
         models=(CreateTicketPayload, SupportTicketOut),
     ),
@@ -65,7 +65,7 @@ SUPPORT_ROUTE_CONTRACTS: dict[str, RouteContract] = {
         models=(SupportMessageButtonOut, SupportMessageOut, SupportTicketOut),
     ),
     "support_ticket_reply_route": user_contract(
-        request_content=message_image_request_content(TicketReplyPayload),
+        request_content=message_image_request_content(TicketReplyPayload, multiple=True),
         response_schema=ok_envelope_with(
             {
                 "ticket": schema_ref(SupportTicketOut),

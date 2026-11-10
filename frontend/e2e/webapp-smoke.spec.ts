@@ -620,7 +620,7 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   );
   expect(counterInsideSurface, "admin-support: counter must stay inside the editor").toBe(true);
   const actionsShareRow = await Promise.all([
-    attachment.boundingBox(),
+    uploadButton.boundingBox(),
     sendButton.boundingBox(),
   ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.y - send.y) <= 4));
   expect(actionsShareRow, "admin-support: image and send actions must share one row").toBe(true);

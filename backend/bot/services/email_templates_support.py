@@ -42,6 +42,7 @@ def _support_email(
     ticket_url: str | None,
     cta_label: str,
     image: EmailInlineImage | None = None,
+    images: Sequence[EmailInlineImage] = (),
     body_preview_html: str | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -65,9 +66,10 @@ def _support_email(
         f'white-space:pre-wrap;">{preview_html}</div>'
     )
     body_parts = [_info_rows_html(localized_rows), preview_block]
-    if image is not None:
+    all_images = (*((image,) if image is not None else ()), *images)
+    for attachment in all_images:
         image_alt = _t_text(i18n, lang, "email_message_image_alt")
-        safe_cid = html.escape(image.content_id, quote=True)
+        safe_cid = html.escape(attachment.content_id, quote=True)
         body_parts.append(
             f'<img src="cid:{safe_cid}" alt="{html.escape(image_alt, quote=True)}" '
             f'style="display:block;width:100%;height:auto;margin:0 0 16px 0;'
@@ -94,8 +96,8 @@ def _support_email(
     ]
     if safe_url:
         text_lines.extend(["", safe_url])
-    if image is not None:
-        rendered = replace(rendered, inline_images=(*rendered.inline_images, image))
+    if all_images:
+        rendered = replace(rendered, inline_images=(*rendered.inline_images, *all_images))
     return _email_content(subject=subject, text="\n".join(text_lines), layout=rendered)
 
 
@@ -111,6 +113,7 @@ def render_support_new_ticket_admin(
     snapshot_rows: Sequence[tuple[str, str]],
     ticket_url: str | None,
     image: EmailInlineImage | None = None,
+    images: Sequence[EmailInlineImage] = (),
     body_preview_html: str | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -134,6 +137,7 @@ def render_support_new_ticket_admin(
         ticket_url=ticket_url,
         cta_label=_t_text(i18n, lang, "email_support_cta_open_ticket"),
         image=image,
+        images=images,
     )
 
 
@@ -149,6 +153,7 @@ def render_support_user_reply_admin(
     snapshot_rows: Sequence[tuple[str, str]],
     ticket_url: str | None,
     image: EmailInlineImage | None = None,
+    images: Sequence[EmailInlineImage] = (),
     body_preview_html: str | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -172,6 +177,7 @@ def render_support_user_reply_admin(
         ticket_url=ticket_url,
         cta_label=_t_text(i18n, lang, "email_support_cta_open_ticket"),
         image=image,
+        images=images,
     )
 
 
@@ -185,6 +191,7 @@ def render_support_admin_reply_user(
     body_preview: str,
     ticket_url: str | None,
     image: EmailInlineImage | None = None,
+    images: Sequence[EmailInlineImage] = (),
     body_preview_html: str | None = None,
 ) -> EmailContent:
     i18n = _resolve_i18n(i18n)
@@ -205,6 +212,7 @@ def render_support_admin_reply_user(
         ticket_url=ticket_url,
         cta_label=_t_text(i18n, lang, "email_support_cta_open_mini_app"),
         image=image,
+        images=images,
     )
 
 

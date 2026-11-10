@@ -35,6 +35,7 @@ PAYMENT_DETAIL_MODAL = REPO_ROOT / "frontend/src/admin/sections/PaymentDetailMod
 TICKET_MESSAGE_BUBBLE = (
     REPO_ROOT / "frontend/src/lib/components/patterns/webapp/TicketMessageBubble.svelte"
 )
+TICKET_MESSAGE_IMAGE = TICKET_MESSAGE_BUBBLE.with_name("TicketMessageImage.svelte")
 IMAGE_VIEWER = REPO_ROOT / "frontend/src/lib/components/ui/image-viewer.svelte"
 STATS_SECTION = REPO_ROOT / "frontend/src/admin/sections/StatsSection.svelte"
 ADMIN_PANEL = REPO_ROOT / "frontend/src/admin/AdminPanel.svelte"
@@ -388,12 +389,14 @@ def test_payment_detail_highlights_flexible_limits_and_addons():
 
 def test_ticket_images_and_user_avatars_share_zoomable_viewer():
     bubble = TICKET_MESSAGE_BUBBLE.read_text(encoding="utf-8")
+    ticket_image = TICKET_MESSAGE_IMAGE.read_text(encoding="utf-8")
     dialogs = USER_DIALOGS.read_text(encoding="utf-8")
     modal = USER_DETAIL.read_text(encoding="utf-8")
     viewer = IMAGE_VIEWER.read_text(encoding="utf-8")
 
-    assert "<ImageViewer" in bubble
-    assert "ticket-message-image-trigger" in bubble
+    assert "<TicketMessageImage" in bubble
+    assert "<ImageViewer" in ticket_image
+    assert "ticket-message-image-trigger" in ticket_image
     assert "<ImageViewer" in dialogs
     assert "quality=full" in modal
     assert "handleWheel" in viewer

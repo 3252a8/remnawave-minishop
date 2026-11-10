@@ -42,6 +42,7 @@ from .chain_0110_telegram_birthdays import CHAIN_0110_TELEGRAM_BIRTHDAYS
 from .chain_0111_payment_provider_method import CHAIN_0111_PAYMENT_PROVIDER_METHOD
 from .chain_0112_payment_provider_fee_amount import CHAIN_0112_PAYMENT_PROVIDER_FEE_AMOUNT
 from .chain_0113_promo_subscription_restrictions import CHAIN_0113_PROMO_SUBSCRIPTION_RESTRICTIONS
+from .chain_0114_support_message_images import CHAIN_0114_SUPPORT_MESSAGE_IMAGES
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -85,4 +86,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0111_PAYMENT_PROVIDER_METHOD,
     *CHAIN_0112_PAYMENT_PROVIDER_FEE_AMOUNT,
     *CHAIN_0113_PROMO_SUBSCRIPTION_RESTRICTIONS,
+    *CHAIN_0114_SUPPORT_MESSAGE_IMAGES,
 ]

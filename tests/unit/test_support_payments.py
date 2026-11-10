@@ -221,10 +221,10 @@ def test_create_route_passes_payment_id_and_returns_stale_selection_error():
         patch.object(support, "_require_user_id", return_value=42),
         patch.object(
             support,
-            "parse_body_with_optional_image_or_400",
+            "parse_body_with_images_or_400",
             AsyncMock(return_value=(payload, None)),
         ),
-        patch.object(support, "prepare_message_image", AsyncMock(return_value=None)),
+        patch.object(support, "prepare_support_message_images", AsyncMock(return_value=[])),
         patch.object(support, "get_support_service", return_value=service),
     ):
         response = asyncio.run(support.support_create_ticket_route(request))

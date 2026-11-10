@@ -34,6 +34,7 @@ from bot.services.user_notification_policy import (
 from bot.utils import MessageContent, send_message_via_queue
 from bot.utils.message_queue import get_queue_manager
 from bot.utils.mini_app_url import subscription_main_mini_app_deep_link
+from db.activity_models import support_message_image_ids
 from db.dal import app_settings_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage, User
 
@@ -318,22 +319,22 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         *,
         admin_markup: InlineKeyboardMarkup,
         log_markup: InlineKeyboardMarkup,
-        image: StoredMessageImage | None = None,
+        images: tuple[StoredMessageImage, ...] = (),
     ) -> None:
         if not await self.support_admin_telegram_notifications_enabled():
             return
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
-            if image is not None:
+            if images:
                 for admin_id in await self._admin_telegram_ids():
-                    await self._send_support_photo(int(admin_id), image)
+                    for image in images:
+                        await self._send_support_photo(int(admin_id), image)
             await self._send_to_admins(message, reply_markup=admin_markup)
-        if image is not None and self.settings.LOG_CHAT_ID:
-            await self._send_support_photo(
-                int(self.settings.LOG_CHAT_ID),
-                image,
-                thread_id=thread_id,
-            )
+        if self.settings.LOG_CHAT_ID:
+            for image in images:
+                await self._send_support_photo(
+                    int(self.settings.LOG_CHAT_ID), image, thread_id=thread_id
+                )
         await self._send_to_log_channel(
             message,
             thread_id=thread_id,
@@ -367,11 +368,12 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         except Exception:
             logger.exception("Failed to send support image to chat %s.", chat_id)
 
-    async def _stored_support_image(self, image_id: str | None) -> StoredMessageImage | None:
-        if not image_id or not self.session_factory:
-            return None
+    async def _stored_support_images(self, image_ids: list[str]) -> tuple[StoredMessageImage, ...]:
+        if not image_ids or not self.session_factory:
+            return ()
         async with self.session_factory() as session:
-            return await load_message_image(session, image_id)
+            images = [await load_message_image(session, image_id) for image_id in image_ids]
+        return tuple(image for image in images if image is not None)
 
     def _support_user_keyboard(
         self,
@@ -445,6 +447,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         *,
         body_format: str = BODY_FORMAT_TEXT,
         image_id: str | None = None,
+        additional_image_ids: list[str] | None = None,
     ) -> None:
         if not getattr(self.settings, "LOG_SUPPORT", True):
             return
@@ -486,14 +489,18 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         )
         admin_keyboard = self._support_keyboard(ticket, user, admin=True)
         log_keyboard = self._support_keyboard(ticket, user, admin=True, web_app_buttons=False)
-        image = await self._stored_support_image(image_id)
+        images = await self._stored_support_images(
+            ([image_id] if image_id else []) + (additional_image_ids or [])
+        )
         await self._send_admin_support_telegram(
             message,
             admin_markup=admin_keyboard,
             log_markup=log_keyboard,
-            image=image,
+            images=images,
         )
-        email_image = await image.email_inline() if image is not None else None
+        email_images = [
+            await image.email_inline(f"message-image-{index}") for index, image in enumerate(images)
+        ]
         await self._send_admin_support_email(
             render_support_new_ticket_admin,
             ticket_id=ticket.ticket_id,
@@ -503,7 +510,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
             body_preview_html=preview_html,
             snapshot_rows=self._support_snapshot_rows(snapshot),
             ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
-            image=email_image,
+            images=email_images,
         )
 
     async def notify_support_user_reply(
@@ -522,7 +529,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         body_format = str(getattr(message, "body_format", BODY_FORMAT_TEXT) or BODY_FORMAT_TEXT)
         preview = self._support_preview(message.body, body_format)
         preview_html = self._support_preview_html(message.body, body_format)
-        image = await self._stored_support_image(getattr(message, "image_id", None))
+        images = await self._stored_support_images(support_message_image_ids(message))
         user_display = self._support_user_display(user)
         unread_line = (
             "\n"
@@ -558,10 +565,13 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                 text,
                 admin_markup=admin_keyboard,
                 log_markup=log_keyboard,
-                image=image,
+                images=images,
             )
         if send_email:
-            email_image = await image.email_inline() if image is not None else None
+            email_images = [
+                await image.email_inline(f"message-image-{index}")
+                for index, image in enumerate(images)
+            ]
             await self._send_admin_support_email(
                 render_support_user_reply_admin,
                 ticket_id=ticket.ticket_id,
@@ -571,7 +581,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                 body_preview_html=preview_html,
                 snapshot_rows=self._support_snapshot_rows(snapshot),
                 ticket_url=self._support_ticket_url(ticket.ticket_id, admin=True),
-                image=email_image,
+                images=email_images,
             )
 
     async def notify_support_admin_reply(
@@ -588,7 +598,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
             message=self._support_preview_html(message.body, body_format, limit=500),
         )
         keyboard = self._support_user_keyboard(ticket, user, message=message)
-        image = await self._stored_support_image(getattr(message, "image_id", None))
+        images = await self._stored_support_images(support_message_image_ids(message))
         chat_id = telegram_recipient(user, user.user_id)
         recipient_email = email_recipient(self.settings, user)
         plan = user_notification_delivery_plan(
@@ -600,9 +610,9 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         )
         if plan.telegram and chat_id is not None and self.bot is not None:
             queue_manager = get_queue_manager()
+            for image in images:
+                await self._send_support_photo(chat_id, image)
             if queue_manager:
-                if image is not None:
-                    await self._send_support_photo(chat_id, image)
                 await send_message_via_queue(
                     queue_manager,
                     chat_id,
@@ -612,8 +622,6 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                     reply_markup=keyboard,
                 )
             else:
-                if image is not None:
-                    await self._send_support_photo(chat_id, image)
                 await self.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -622,7 +630,10 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                     reply_markup=keyboard,
                 )
         if plan.email and self.email_auth_service and recipient_email:
-            email_image = await image.email_inline() if image is not None else None
+            email_images = [
+                await image.email_inline(f"message-image-{index}")
+                for index, image in enumerate(images)
+            ]
             content = render_support_admin_reply_user(
                 self.settings,
                 self.i18n,
@@ -632,7 +643,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
                 body_preview=preview,
                 body_preview_html=self._support_preview_html(message.body, body_format, limit=500),
                 ticket_url=url,
-                image=email_image,
+                images=email_images,
             )
             await self.email_auth_service.send_rendered_email(
                 email=recipient_email, content=content

@@ -45,6 +45,7 @@ type MessageRecord = Record<string, unknown> & {
   created_at?: string;
   is_internal_note?: boolean;
   image_id?: string | null;
+  image_ids?: string[];
   message_id?: number;
   read_by_admin_at?: string | null;
   read_by_user_at?: string | null;
@@ -86,11 +87,11 @@ export type SupportStore = SupportState & {
   hydrateUnread(value: unknown): void;
   createTicket(
     payload: PostPayload<"/api/support/tickets">,
-    image?: File | null
+    image?: File | File[] | null
   ): Promise<TicketRecord | null>;
   openTicket(ticketId: number | string, opts?: TicketViewOptions): Promise<void>;
   closeTicketView(opts?: TicketViewOptions): void;
-  sendReply(body: string, image?: File | null): Promise<boolean>;
+  sendReply(body: string, image?: File | File[] | null): Promise<boolean>;
   notifyTyping(typing: boolean): void;
   markRead(ticketId?: number | null, options?: RefreshUnreadOptions): Promise<void>;
   refreshUnread(options?: RefreshUnreadOptions): Promise<unknown>;
@@ -147,6 +148,8 @@ function supportErrorMessage(error: unknown, t: Translate, fallbackKey: string):
   const code = stringField(payload.error);
   const keys: Record<string, string> = {
     animated_image: "wa_message_image_animated",
+    too_many_support_images: "wa_support_images_too_many",
+    images_too_large: "wa_support_images_too_large",
     empty_image: "wa_message_image_invalid",
     image_dimensions: "wa_message_image_dimensions",
     image_too_large: "wa_message_image_too_large",
@@ -263,7 +266,7 @@ export function createSupportStore({
 
   function postCreateTicket(
     payload: PostPayload<"/api/support/tickets">,
-    image?: File | null
+    image?: File | File[] | null
   ): Promise<SupportTicketCreateResponse> {
     return api(buildSupportTicketsPath(), {
       method: "POST",
@@ -274,7 +277,7 @@ export function createSupportStore({
   function postTicketReply(
     id: number,
     payload: PostPayload<"/api/support/tickets/{id}/messages">,
-    image?: File | null
+    image?: File | File[] | null
   ): Promise<SupportTicketReplyResponse> {
     return api(buildSupportTicketMessagesPath(id), {
       method: "POST",
@@ -439,7 +442,7 @@ export function createSupportStore({
 
   async function createTicket(
     payload: PostPayload<"/api/support/tickets">,
-    image: File | null = null
+    image: File | File[] | null = null
   ) {
     state.creating = true;
     try {
@@ -528,7 +531,7 @@ export function createSupportStore({
     }
   }
 
-  async function sendReply(body: string, image: File | null = null) {
+  async function sendReply(body: string, image: File | File[] | null = null) {
     if (state.sending) return false;
     const ticketId = state.openedTicketId;
     state.sending = true;

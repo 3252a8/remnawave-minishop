@@ -10,6 +10,7 @@ from pydantic import ConfigDict, Field
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.services.support_message_body import normalize_body_format
 from bot.services.support_message_buttons import support_buttons_payload
+from db.activity_models import support_message_image_ids
 from db.models import Payment
 from db.payment_history import PaymentHistoryState, payment_history_state
 
@@ -157,6 +158,7 @@ class SupportMessageOut(HttpResponseModel):
     body_format: str = "text"
     buttons: list[SupportMessageButtonOut] = Field(default_factory=list)
     image_id: str | None = None
+    image_ids: list[str] = Field(default_factory=list)
     is_internal_note: bool
     created_at: datetime | None = None
     read_by_user_at: datetime | None = None
@@ -180,6 +182,7 @@ class SupportMessageOut(HttpResponseModel):
                 for button in support_buttons_payload(message.__dict__.get("buttons"))
             ],
             image_id=str(message.image_id) if message.__dict__.get("image_id") else None,
+            image_ids=support_message_image_ids(message),
             is_internal_note=bool(message.is_internal_note),
             created_at=message.created_at,
             read_by_user_at=message.read_by_user_at,

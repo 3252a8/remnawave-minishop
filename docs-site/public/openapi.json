@@ -6233,6 +6233,13 @@
             "default": null,
             "title": "Image Id"
           },
+          "image_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Ids",
+            "type": "array"
+          },
           "is_internal_note": {
             "title": "Is Internal Note",
             "type": "boolean"
@@ -15682,6 +15689,13 @@
             ],
             "default": null,
             "title": "Image Id"
+          },
+          "image_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Ids",
+            "type": "array"
           },
           "is_internal_note": {
             "title": "Is Internal Note",
@@ -29017,8 +29031,12 @@
                   {
                     "properties": {
                       "image": {
-                        "format": "binary",
-                        "type": "string"
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "type": "array"
                       }
                     },
                     "type": "object"
@@ -40388,8 +40406,12 @@
                   {
                     "properties": {
                       "image": {
-                        "format": "binary",
-                        "type": "string"
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "type": "array"
                       }
                     },
                     "type": "object"
@@ -40588,8 +40610,12 @@
                   {
                     "properties": {
                       "image": {
-                        "format": "binary",
-                        "type": "string"
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "type": "array"
                       }
                     },
                     "type": "object"

@@ -22,6 +22,8 @@ from bot.services.email_templates_common import EmailInlineImage
 from db.models import MessageImage
 
 MESSAGE_IMAGE_INPUT_MAX_BYTES = 8 * 1024 * 1024
+SUPPORT_MESSAGE_IMAGE_MAX_COUNT = 5
+SUPPORT_MESSAGE_IMAGE_TOTAL_MAX_BYTES = 16 * 1024 * 1024
 MESSAGE_IMAGE_REQUEST_MAX_BYTES = MESSAGE_IMAGE_INPUT_MAX_BYTES + 512 * 1024
 MESSAGE_IMAGE_OUTPUT_MAX_BYTES = 5 * 1024 * 1024
 MESSAGE_IMAGE_MAX_DIMENSION = 2560
@@ -194,6 +196,12 @@ def _image_path(digest: str) -> Path:
     if not _DIGEST_RE.fullmatch(digest):
         raise MessageImageError("invalid_image", "Stored image identifier is invalid")
     return MESSAGE_IMAGE_DIR / digest[:2] / f"{digest}.webp"
+
+
+async def prepare_support_message_images(
+    uploads: list[UploadedMessageImage],
+) -> list[PreparedMessageImage]:
+    return [await asyncio.to_thread(_prepare_message_image, upload) for upload in uploads]
 
 
 def _write_image_atomically(prepared: PreparedMessageImage) -> Path:

@@ -11,7 +11,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, relationship
 from sqlalchemy.sql import func
 
 from db.base import Base
@@ -119,6 +119,42 @@ class SupportTicketMessage(Base):
 
     ticket = relationship("SupportTicket", back_populates="messages")
     author_user = relationship("User")
+    additional_images: Mapped[list["SupportMessageImage"]] = relationship(
+        lazy="selectin",
+        order_by="SupportMessageImage.position",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    @property
+    def image_ids(self) -> list[str]:
+        return support_message_image_ids(self)
+
+
+class SupportMessageImage(Base):
+    __tablename__ = "support_message_images"
+
+    message_id = Column(
+        Integer,
+        ForeignKey("support_ticket_messages.message_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    position = Column(Integer, primary_key=True)
+    image_id = Column(
+        String(32),
+        ForeignKey("message_images.image_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+
+def support_message_image_ids(message: object) -> list[str]:
+    fields = vars(message)
+    first = fields.get("image_id")
+    return [
+        *([str(first)] if first else []),
+        *(str(image.image_id) for image in fields.get("additional_images", ())),
+    ]
 
 
 class SupportChangeClock(Base):

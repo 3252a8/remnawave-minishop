@@ -6,7 +6,7 @@
     supportReplyButtonsFromDescriptors,
     supportReplyTextForInsertion,
   } from "$lib/admin/supportReplyDraft";
-  import { supportMessageImageUrl } from "$lib/messageImage";
+  import { supportMessageImageUrls } from "$lib/messageImage";
   import { escapeHtml } from "$lib/richtext/escape";
   import { onMount, tick } from "svelte";
   import {
@@ -55,7 +55,7 @@
   // so the reply composer offers exactly what the broadcast screen offers.
   const broadcastStore = getBroadcastStore();
   let reply = $state("");
-  let replyImage = $state<File | null>(null);
+  let replyImages = $state<File[]>([]);
   let replyButtons = $state<BroadcastButtonDraft[]>([]);
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let filtersOpen = $state(false);
@@ -100,7 +100,7 @@
     void supportStore.patchTicket(updates)) as ComponentCallback;
   const openSupportUser = ((userId: number | string | undefined) =>
     onOpenUserCard(userId)) as ComponentCallback;
-  const sendComposerReply = (body: string, image: File | null) => void send(body, image);
+  const sendComposerReply = (body: string, images: File[]) => void send(body, images);
   const maxBodyLength = 4000;
   const imageViewerLabels = $derived({
     open: at("image_viewer_open", {}, "Open image"),
@@ -207,7 +207,7 @@
   $effect(() => {
     if (!openedTicketId) {
       reply = "";
-      replyImage = null;
+      replyImages = [];
       replyButtons = [];
       lastMessageScrollKey = "";
     }
@@ -221,15 +221,15 @@
     if (initialTicketId) supportStore.openTicket(initialTicketId, { skipPush: true });
   });
 
-  async function send(body: string, image: File | null): Promise<void> {
+  async function send(body: string, images: File[]): Promise<void> {
     const sent = await supportStore.sendReply(body, {
       bodyFormat: "html",
       buttons: buttonsForPayload(replyButtons),
-      image,
+      image: images,
     });
     if (!sent) return;
     reply = "";
-    replyImage = null;
+    replyImages = [];
     replyButtons = [];
   }
 
@@ -247,7 +247,7 @@
 
   function closeTicketModal(): void {
     reply = "";
-    replyImage = null;
+    replyImages = [];
     replyButtons = [];
     supportStore.closeTicketView();
   }
@@ -511,7 +511,7 @@
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
-                imageUrl={message.image_id ? supportMessageImageUrl(message.image_id, true) : ""}
+                imageUrls={supportMessageImageUrls(message, true)}
                 loadImage={supportStore.loadImage}
                 loadCustomEmojiMedia={supportStore.loadCustomEmojiMedia}
                 buttons={message.buttons}
@@ -541,7 +541,7 @@
       <AdminExtensionPoint target="admin.support.ticket.content" context={ticketExtensionContext} />
       <SupportComposer
         bind:value={reply}
-        bind:image={replyImage}
+        bind:images={replyImages}
         bind:buttons={replyButtons}
         internal={composerInternalNote}
         {sending}

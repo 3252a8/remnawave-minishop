@@ -1,6 +1,8 @@
 import { buildApiUrl } from "$lib/webapp/publicApi";
 
 export const MESSAGE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+export const SUPPORT_IMAGE_MAX_COUNT = 5;
+export const SUPPORT_IMAGE_TOTAL_MAX_BYTES = 16 * 1024 * 1024;
 export const MESSAGE_IMAGE_ACCEPT = ["image/*", "image/heic", "image/heif", ".heic", ".heif"].join(
   ","
 );
@@ -27,16 +29,29 @@ export function isAcceptedMessageImage(file: Pick<File, "name" | "type">): boole
 
 export function messageRequestBody(
   payload: Record<string, unknown>,
-  image: File | null | undefined
+  image: File | File[] | null | undefined
 ): BodyInit {
-  if (!image) return JSON.stringify(payload);
+  const images = Array.isArray(image) ? image : image ? [image] : [];
+  if (!images.length) return JSON.stringify(payload);
   const form = new FormData();
   for (const [key, value] of Object.entries(payload)) {
     if (value === undefined) continue;
     form.append(key, typeof value === "string" ? value : JSON.stringify(value));
   }
-  form.append("image", image, image.name);
+  for (const file of images) form.append("image", file, file.name);
   return form;
+}
+
+export function supportMessageImageUrls(
+  message: { image_id?: string | null; image_ids?: string[] },
+  admin = false
+): string[] {
+  const ids = message.image_ids?.length
+    ? message.image_ids
+    : message.image_id
+      ? [message.image_id]
+      : [];
+  return ids.map((id) => supportMessageImageUrl(id, admin));
 }
 
 export function supportMessageImageUrl(imageId: string, admin = false): string {

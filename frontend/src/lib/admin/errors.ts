@@ -154,6 +154,8 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   not_found: "error_not_found",
   invalid_subscription_tariff_key: "error_invalid_subscription_tariff_key",
   invalid_exact_subscription_days: "error_invalid_exact_subscription_days",
+  images_too_large: "support_images_too_large",
+  too_many_support_images: "support_images_too_many",
   promo_code_inactive: "error_promo_code_inactive",
   promo_code_not_found: "error_promo_code_not_found",
   panel_hwid_reset_failed: "user_hwid_reset_failed",

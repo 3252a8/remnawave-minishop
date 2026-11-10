@@ -7516,6 +7516,8 @@ export interface components {
        * @default null
        */
       image_id: string | null;
+      /** Image Ids */
+      image_ids?: string[];
       /** Is Internal Note */
       is_internal_note: boolean;
       /** Message Id */
@@ -11652,6 +11654,8 @@ export interface components {
        * @default null
        */
       image_id: string | null;
+      /** Image Ids */
+      image_ids?: string[];
       /** Is Internal Note */
       is_internal_note: boolean;
       /** Message Id */
@@ -17882,8 +17886,7 @@ export interface operations {
       content: {
         "application/json": components["schemas"]["AdminTicketReplyPayload"];
         "multipart/form-data": components["schemas"]["AdminTicketReplyPayload"] & {
-          /** Format: binary */
-          image?: string;
+          image?: string[];
         };
       };
     };
@@ -22542,8 +22545,7 @@ export interface operations {
       content: {
         "application/json": components["schemas"]["CreateTicketPayload"];
         "multipart/form-data": components["schemas"]["CreateTicketPayload"] & {
-          /** Format: binary */
-          image?: string;
+          image?: string[];
         };
       };
     };
@@ -22629,8 +22631,7 @@ export interface operations {
       content: {
         "application/json": components["schemas"]["TicketReplyPayload"];
         "multipart/form-data": components["schemas"]["TicketReplyPayload"] & {
-          /** Format: binary */
-          image?: string;
+          image?: string[];
         };
       };
     };
