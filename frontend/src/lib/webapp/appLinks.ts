@@ -41,11 +41,10 @@ export function readExternalAppLaunchTarget(locationRef: LocationLike | null = n
 export function buildExternalAppLaunchUrl(
   value: unknown,
   locationRef: LocationLike | null = null,
-  language: unknown = "",
-  kind: "app" | "payment" = "app"
+  language: unknown = ""
 ): string {
   const target = String(value || "").trim();
-  if (isUnsafeAppUrl(target) || isHttpUrl(target) !== (kind === "payment")) return "";
+  if (isUnsafeAppUrl(target) || isHttpUrl(target)) return "";
 
   const ref = locationRef || (typeof window === "undefined" ? null : window.location);
   if (!ref?.href) return "";
@@ -57,9 +56,7 @@ export function buildExternalAppLaunchUrl(
   if (/^[a-z]{2}(?:-[a-z0-9]{2,8})?$/.test(lang)) {
     url.searchParams.set("lang", lang);
   }
-  const fragment = new URLSearchParams({ url: target });
-  if (kind === "payment") fragment.set("kind", kind);
-  url.hash = fragment.toString();
+  url.hash = new URLSearchParams({ url: target }).toString();
   return url.href;
 }
 

@@ -1,6 +1,6 @@
 import { createAppLaunchActions } from "./appLaunchActions.js";
 import { openAppLinkTarget } from "./appLinkActions.js";
-import { buildExternalAppLaunchUrl } from "./appLinks.js";
+import { isUnsafeAppUrl } from "./appLinks.js";
 import type { OpenLinkAction } from "./types.js";
 import { shellState } from "./shellState.svelte";
 
@@ -11,7 +11,6 @@ type TelegramWebApp = Record<string, unknown> & {
 
 type ExternalLinkRuntimeDeps = {
   assignLocation: (url: string) => void;
-  locationRef?: Pick<Location, "href">;
   getCurrentLang: () => string;
   hasTelegramLaunchParams: () => boolean;
   openHiddenAnchor?: (url: string) => void;
@@ -24,14 +23,14 @@ export function createExternalLinkRuntime({
   assignLocation,
   getCurrentLang,
   hasTelegramLaunchParams,
-  locationRef,
   openHiddenAnchor,
   openLaunchTarget,
   refreshTelegram,
   readLaunchTarget,
 }: ExternalLinkRuntimeDeps) {
   const openExternalLink: OpenLinkAction = (url, kind) => {
-    if (!url) return;
+    const isPayment = kind === "payment";
+    if (!url || (isPayment && isUnsafeAppUrl(url))) return;
     // Public documents belong to the current Mini App. Telegram.openLink only
     // accepts absolute external URLs and throws for these application paths.
     if (/^\/(?![/\\])/.test(url)) {
@@ -39,23 +38,10 @@ export function createExternalLinkRuntime({
       return;
     }
     const isTelegramLink = /^https:\/\/(?:t|telegram)\.me\//i.test(url);
-    if (kind === "payment" && !isTelegramLink && hasTelegramLaunchParams()) {
-      const gateway = buildExternalAppLaunchUrl(url, locationRef, getCurrentLang(), "payment");
-      if (gateway) {
-        const telegram = shellState.tg || refreshTelegram();
-        try {
-          if (telegram?.openLink) {
-            telegram.openLink(gateway, { try_instant_view: false });
-            return;
-          }
-        } catch {
-          // Keep a usable continuation when the Telegram bridge is unavailable.
-        }
-        assignLocation(gateway);
-        return;
-      }
+    let telegram = shellState.tg;
+    if (isPayment) {
+      telegram = hasTelegramLaunchParams() ? telegram || refreshTelegram() : null;
     }
-    const telegram = shellState.tg;
     if (isTelegramLink && telegram?.openTelegramLink) {
       try {
         telegram.openTelegramLink(url);
@@ -65,8 +51,12 @@ export function createExternalLinkRuntime({
       }
     }
     if (telegram?.openLink) {
-      telegram.openLink(url, { try_instant_view: false });
-      return;
+      try {
+        telegram.openLink(url, { try_instant_view: false });
+        return;
+      } catch (error) {
+        if (!isPayment) throw error;
+      }
     }
     assignLocation(url);
   };
