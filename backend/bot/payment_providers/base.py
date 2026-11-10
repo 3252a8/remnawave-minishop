@@ -166,6 +166,8 @@ class WebAppPaymentContext:
     promo_applies_to: str | None = None
     promo_min_subscription_months: int | None = None
     promo_min_subscription_days: int | None = None
+    promo_subscription_tariff_key: str | None = None
+    promo_exact_subscription_days: int | None = None
     promo_min_traffic_gb: float | None = None
     checkout_base_amount: float | None = None
     checkout_discount_amount: float | None = None

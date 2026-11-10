@@ -13,6 +13,8 @@ export type PromoEffectSource = {
   traffic_multiplier?: number | string | null;
   bonus_requires_payment?: boolean | null;
   min_subscription_days?: number | string | null;
+  subscription_tariff_key?: string | null;
+  exact_subscription_days?: number | null;
   min_subscription_months?: number | string | null;
   min_traffic_gb?: number | string | null;
   effect_summary?: string | null;
@@ -180,13 +182,24 @@ export function formatAdminPromoEffect(
   return `${text} · ${mode}`;
 }
 
-export function formatAdminPromoEligibility(source: PromoEffectSource, at: AdminTranslate): string {
+export function formatAdminPromoEligibility(
+  source: PromoEffectSource,
+  at: AdminTranslate,
+  tariffName?: string
+): string {
   const parts: string[] = [];
   const days = positiveNumber(source.min_subscription_days);
   const months = positiveNumber(source.min_subscription_months);
   const trafficGb = positiveNumber(source.min_traffic_gb);
 
-  if (days !== null) {
+  if (source.subscription_tariff_key) {
+    parts.push(tariffName ?? source.subscription_tariff_key);
+  }
+  if (source.exact_subscription_days != null) {
+    parts.push(
+      at("promo_threshold_exact_days", { days: numberText(source.exact_subscription_days) })
+    );
+  } else if (days !== null) {
     parts.push(at("promo_threshold_days", { days: numberText(days) }, "from {days} d"));
   } else if (months !== null) {
     parts.push(at("promo_threshold_months", { months: numberText(months) }, "from {months} mo"));

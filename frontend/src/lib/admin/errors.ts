@@ -152,6 +152,8 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   no_channels: "error_no_channels",
   no_telegram_account: "error_no_telegram_account",
   not_found: "error_not_found",
+  invalid_subscription_tariff_key: "error_invalid_subscription_tariff_key",
+  invalid_exact_subscription_days: "error_invalid_exact_subscription_days",
   promo_code_inactive: "error_promo_code_inactive",
   promo_code_not_found: "error_promo_code_not_found",
   panel_hwid_reset_failed: "user_hwid_reset_failed",

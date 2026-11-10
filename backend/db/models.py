@@ -409,6 +409,8 @@ class Payment(Base):
     promo_applies_to = Column(String(32), nullable=True)
     promo_min_subscription_months = Column(Integer, nullable=True)
     promo_min_subscription_days = Column(Integer, nullable=True)
+    promo_subscription_tariff_key = Column(String, nullable=True)
+    promo_exact_subscription_days = Column(Integer, nullable=True)
     promo_min_traffic_gb = Column(Numeric(10, 2), nullable=True)
     checkout_base_amount = Column(Float, nullable=True)
     checkout_discount_amount = Column(Float, nullable=True)
@@ -438,7 +440,6 @@ class Payment(Base):
     promo_usage_restored = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-
     user = relationship("User", back_populates="payments")
     promo_code_used = relationship("PromoCode", back_populates="payments_where_used")
     auto_renew_cycle = relationship("AutoRenewCycle")
@@ -873,7 +874,6 @@ class RollyPaySubscription(Base):
 
 class PromoCode(Base):
     __tablename__ = "promo_codes"
-
     promo_code_id = Column(Integer, primary_key=True, autoincrement=True)
     code = Column(String, unique=True, nullable=False, index=True)
     bonus_days = Column(Integer, nullable=False)
@@ -886,6 +886,8 @@ class PromoCode(Base):
     applies_to = Column(String(32), nullable=False, default="all")
     min_subscription_months = Column(Integer, nullable=True)
     min_subscription_days = Column(Integer, nullable=True)
+    subscription_tariff_key = Column(String, nullable=True)
+    exact_subscription_days = Column(Integer, nullable=True)
     min_traffic_gb = Column(Numeric(10, 2), nullable=True)
     origin = Column(String(32), nullable=False, default="admin")
     owner_plugin_id = Column(String(64), nullable=True)

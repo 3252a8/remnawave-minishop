@@ -2,6 +2,7 @@
   import { Input } from "$components/ui/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { AdminButton, AdminField, AdminSelect } from "$components/patterns/admin/index.js";
+  import PromoSubscriptionRestrictions from "./PromoSubscriptionRestrictions.svelte";
   import PromoEffectSelector from "./PromoEffectSelector.svelte";
   import type { components } from "$lib/api/openapi.generated";
 
@@ -41,6 +42,10 @@
     onScopeChange: (scope: string) => void;
     open: boolean;
     scopeItems: ScopeItem[];
+    tariffItems: ScopeItem[];
+    onRestrictionsChange: (
+      patch: Partial<Pick<PromoDraft, "subscription_tariff_key" | "exact_subscription_days">>
+    ) => void;
     usesCheckout: boolean;
   };
 
@@ -56,6 +61,8 @@
     onScopeChange,
     open,
     scopeItems,
+    tariffItems,
+    onRestrictionsChange,
     usesCheckout,
   }: Props = $props();
 
@@ -157,7 +164,7 @@
                 ? at(
                     "promo_conditions_hint",
                     {},
-                    "Optional minimum purchase requirements checked before the code can be applied."
+                    "Optional purchase requirements checked before the code can be applied."
                   )
                 : at(
                     "promo_conditions_disabled_for_instant_bonus",
@@ -168,6 +175,17 @@
           </div>
         </header>
         <div class="admin-promo-fields-grid admin-promo-eligibility-grid">
+          <PromoSubscriptionRestrictions
+            {at}
+            {tariffItems}
+            tariffKey={draft.subscription_tariff_key}
+            durationDays={draft.exact_subscription_days}
+            disabled={!usesCheckout || !["all", "subscription"].includes(draft.applies_to ?? "all")}
+            onTariffChange={(subscription_tariff_key) =>
+              onRestrictionsChange({ subscription_tariff_key })}
+            onDurationChange={(exact_subscription_days) =>
+              onRestrictionsChange({ exact_subscription_days })}
+          />
           <div class="admin-promo-field-shell">
             <AdminField label={at("promo_label_min_days", {}, "Minimum duration, days")}>
               <Input

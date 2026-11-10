@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.promo_policies import PromoRedemptionContext, evaluate_promo_access
 from bot.services.promo_effects import PromoEffects, summarize_effects
+from config.subscription_periods import legacy_months_to_days
 from db.dal import promo_code_dal
 
 logger = logging.getLogger(__name__)
@@ -96,15 +97,23 @@ async def consume_payment_promo(
         if not allow_existing_user:
             raise PaymentPromoRedemptionError("Attached code was consumed by another payment")
 
+    duration_days = (
+        getattr(payment, "subscription_duration_days", None)
+        if getattr(payment, "period_semantics", None) == "fixed_days"
+        else None
+    )
     if (
-        (effects.has_fixed_grant and sale_mode_base != "subscription")
+        not effects.matches_subscription(
+            sale_mode_base,
+            getattr(payment, "tariff_key", None),
+            duration_days or (legacy_months_to_days(months) if months else None),
+        )
+        or (effects.has_fixed_grant and sale_mode_base != "subscription")
         or not effects.applies_to_sale_mode(sale_mode_base)
         or not effects.meets_threshold(
             sale_mode_base=sale_mode_base,
             months=months,
-            duration_days=getattr(payment, "subscription_duration_days", None)
-            if getattr(payment, "period_semantics", None) == "fixed_days"
-            else None,
+            duration_days=duration_days,
             traffic_gb=traffic_gb,
         )
     ):

@@ -313,8 +313,10 @@ export function createBillingStore({
           checkoutPromoAppliedCode: "",
           checkoutPromoIsError: true,
           checkoutPromoStatus:
-            stringField(payload.reason) ||
-            t("wa_promo_activation_failed", {}, "Code does not apply here"),
+            payload.reason_key === "promo_code_not_applicable"
+              ? t("wa_promo_not_applicable")
+              : stringField(payload.reason) ||
+                t("wa_promo_activation_failed", {}, "Code does not apply here"),
           checkoutPromoPriceText: "",
           ...emptyCheckoutPromoQuote(),
         }));

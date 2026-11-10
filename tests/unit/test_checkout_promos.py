@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
+from bot.infra.promo_policies import PromoRedemptionDecision
 from bot.services.checkout_promos import (
     CheckoutPromoResult,
     checkout_promo_payment_fields,
@@ -103,6 +104,52 @@ class CheckoutPromoTests(IsolatedAsyncioTestCase):
         self.assertIsNotNone(error)
         assert error is not None
         self.assertEqual(error.code, "promo_code_premium_traffic_unavailable")
+
+    async def test_restricted_code_requires_both_tariff_and_exact_duration(self):
+        promo = SimpleNamespace(
+            promo_code_id=10,
+            code="STANDARD30",
+            discount_percent=50,
+            subscription_tariff_key="standard",
+            exact_subscription_days=30,
+        )
+        settings = SimpleNamespace(
+            PROMO_DURATION_MULTIPLIER_MAX=12, PROMO_TRAFFIC_MULTIPLIER_MAX=12
+        )
+        with (
+            patch("bot.services.checkout_promos._promo_model", AsyncMock(return_value=promo)),
+            patch(
+                "bot.services.checkout_promos.evaluate_promo_redemption",
+                AsyncMock(return_value=PromoRedemptionDecision.allow()),
+            ),
+        ):
+            for sale_mode in (
+                "subscription@standard|d30",
+                "subscription@standard|d90",
+                "subscription@premium|d30",
+            ):
+                result, error = await resolve_checkout_promo(
+                    session=AsyncMock(),
+                    settings=settings,
+                    user_id=42,
+                    sale_mode=sale_mode,
+                    payment_units=1,
+                    traffic_gb=None,
+                    method="stars",
+                    base_amount=100,
+                    base_stars=100,
+                    code_input="STANDARD30",
+                )
+                if sale_mode == "subscription@standard|d30":
+                    assert result is not None
+                    self.assertEqual(result.effective_stars, 50)
+                    snapshot = checkout_promo_payment_fields(result)
+                    self.assertEqual(snapshot["promo_subscription_tariff_key"], "standard")
+                    self.assertEqual(snapshot["promo_exact_subscription_days"], 30)
+                else:
+                    assert error is not None
+                    self.assertEqual(error.code, "promo_code_not_applicable")
+                    self.assertIsNone(result)
 
     async def test_best_candidate_uses_largest_discount_for_selected_period(self):
         quotes = {

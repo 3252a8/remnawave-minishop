@@ -10892,6 +10892,11 @@ export interface components {
        * @default null
        */
       duration_multiplier: number | null;
+      /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
       /** Max Activations */
       max_activations: number;
       /**
@@ -10924,6 +10929,11 @@ export interface components {
        * @default 0
        */
       regular_traffic_gb: number;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
       /**
        * Traffic Multiplier
        * @default null
@@ -10963,6 +10973,11 @@ export interface components {
        */
       duration_multiplier: number;
       /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
+      /**
        * Min Subscription Days
        * @default null
        */
@@ -10987,6 +11002,11 @@ export interface components {
        * @default 0
        */
       regular_traffic_gb: number;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
       /**
        * Traffic Multiplier
        * @default 1
@@ -11049,6 +11069,11 @@ export interface components {
       duration_multiplier: number | null;
       /** Effect Summary */
       effect_summary: string;
+      /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
       /** Id */
       id: number;
       /** Is Active */
@@ -11082,6 +11107,11 @@ export interface components {
        * @default 0
        */
       regular_traffic_gb: number;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
       /**
        * Traffic Multiplier
        * @default null
@@ -11164,6 +11194,11 @@ export interface components {
        */
       duration_multiplier: number | null;
       /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
+      /**
        * Is Active
        * @default null
        */
@@ -11203,6 +11238,11 @@ export interface components {
        * @default null
        */
       regular_traffic_gb: number | null;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
       /**
        * Traffic Multiplier
        * @default null

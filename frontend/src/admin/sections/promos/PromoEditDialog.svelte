@@ -9,6 +9,7 @@
     AdminSelect,
   } from "$components/patterns/admin/index.js";
   import PromoActivationsPanel from "./PromoActivationsPanel.svelte";
+  import PromoSubscriptionRestrictions from "./PromoSubscriptionRestrictions.svelte";
   import PromoEffectSelector from "./PromoEffectSelector.svelte";
   import type { components } from "$lib/api/openapi.generated";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
@@ -39,6 +40,8 @@
     | "duration_multiplier"
     | "traffic_multiplier"
     | "min_subscription_days"
+    | "subscription_tariff_key"
+    | "exact_subscription_days"
     | "min_traffic_gb";
   type PromoStatus = { label: string; variant: "success" | "warning" | "muted" };
   type PromosStoreBridge = {
@@ -79,7 +82,9 @@
     promoStatus,
     promosStore,
     scopeItems,
+    tariffItems,
     onEffectEnabledChange,
+    onScopeChange,
     selectPromoEditTab,
     setEditBonusRequiresPayment,
     updateEditNumber,
@@ -114,7 +119,9 @@
     promoStatus: (promo: Promo) => PromoStatus;
     promosStore: PromosStoreBridge;
     scopeItems: Array<{ value: string; label: string }>;
+    tariffItems: Array<{ value: string; label: string }>;
     onEffectEnabledChange: (kind: PromoEffectKind, checked: boolean) => void;
+    onScopeChange: (scope: string) => void;
     selectPromoEditTab: (value: string) => void;
     setEditBonusRequiresPayment: (checked: boolean) => void;
     updateEditNumber: (field: keyof PromoPatch, value: string) => void;
@@ -227,8 +234,7 @@
                       value={promoEditDraft.applies_to || "all"}
                       items={scopeItems}
                       placeholder={at("promo_label_scope", {}, "Scope")}
-                      onValueChange={(value: string) =>
-                        promosStore.updateEditDraft({ applies_to: value })}
+                      onValueChange={onScopeChange}
                     />
                   </AdminField>
                   {#if editFieldDirty("applies_to")}
@@ -362,7 +368,7 @@
                       ? at(
                           "promo_conditions_hint",
                           {},
-                          "Optional minimum purchase requirements checked before the code can be applied."
+                          "Optional purchase requirements checked before the code can be applied."
                         )
                       : at(
                           "promo_conditions_disabled_for_instant_bonus",
@@ -382,6 +388,19 @@
                 {/if}
               </header>
               <div class="admin-promo-fields-grid admin-promo-eligibility-grid">
+                <PromoSubscriptionRestrictions
+                  {at}
+                  {tariffItems}
+                  tariffKey={promoEditDraft.subscription_tariff_key}
+                  durationDays={promoEditDraft.exact_subscription_days}
+                  disabled={!promoEditUsesCheckout ||
+                    !["all", "subscription"].includes(promoEditDraft.applies_to ?? "all")}
+                  dirty={editFieldDirty}
+                  onTariffChange={(subscription_tariff_key) =>
+                    promosStore.updateEditDraft({ subscription_tariff_key })}
+                  onDurationChange={(exact_subscription_days) =>
+                    promosStore.updateEditDraft({ exact_subscription_days })}
+                />
                 <div
                   class="admin-promo-field-shell"
                   class:is-dirty={editFieldDirty("min_subscription_days")}

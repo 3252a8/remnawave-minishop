@@ -56,6 +56,8 @@
     applies_to: "all",
     bonus_requires_payment: false,
     min_subscription_days: null,
+    subscription_tariff_key: null,
+    exact_subscription_days: null,
     min_subscription_months: null,
     min_traffic_gb: null,
   };

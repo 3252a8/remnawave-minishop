@@ -68,6 +68,8 @@ def _promo_grant_modifier(ctx: GrantContext) -> Iterable[GrantAdjustment]:
         return ()
     if not promo.applies_to_sale_mode(ctx.sale_mode_base):
         return ()
+    if not promo.matches_subscription(ctx.sale_mode_base, ctx.tariff_key, ctx.duration_days):
+        return ()
     if not promo.meets_threshold(
         sale_mode_base=ctx.sale_mode_base,
         months=ctx.months,

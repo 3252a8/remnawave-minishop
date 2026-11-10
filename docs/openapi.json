@@ -13947,6 +13947,20 @@
             "default": null,
             "title": "Duration Multiplier"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "max_activations": {
             "exclusiveMinimum": 0,
             "title": "Max Activations",
@@ -14011,6 +14025,20 @@
             "title": "Regular Traffic Gb",
             "type": "number"
           },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
+          },
           "traffic_multiplier": {
             "anyOf": [
               {
@@ -14069,6 +14097,18 @@
             "title": "Duration Multiplier",
             "type": "number"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "min_subscription_days": {
             "anyOf": [
               {
@@ -14114,6 +14154,18 @@
             "default": 0.0,
             "title": "Regular Traffic Gb",
             "type": "number"
+          },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
           },
           "traffic_multiplier": {
             "default": 1.0,
@@ -14247,6 +14299,18 @@
             "title": "Effect Summary",
             "type": "string"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -14308,6 +14372,18 @@
             "default": 0,
             "title": "Regular Traffic Gb",
             "type": "number"
+          },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
           },
           "traffic_multiplier": {
             "anyOf": [
@@ -14516,6 +14592,20 @@
             "default": null,
             "title": "Duration Multiplier"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "is_active": {
             "default": null,
             "title": "Is Active"
@@ -14612,6 +14702,20 @@
             ],
             "default": null,
             "title": "Regular Traffic Gb"
+          },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
           },
           "traffic_multiplier": {
             "anyOf": [

@@ -1,7 +1,8 @@
 ﻿<script lang="ts">
-  import { getPromosStore } from "$lib/admin/context";
+  import { getPromosStore, getTariffsStore } from "$lib/admin/context";
   import { FileText, RefreshCw, Sliders, Trash2, User } from "$components/ui/icons.js";
   import { onMount } from "svelte";
+  import { tariffDisplayName } from "$lib/admin/tariffDisplay";
   import {
     AdminBadge,
     AdminButton,
@@ -74,6 +75,8 @@
     | "duration_multiplier"
     | "traffic_multiplier"
     | "min_subscription_days"
+    | "subscription_tariff_key"
+    | "exact_subscription_days"
     | "min_traffic_gb";
   const BASIC_EDIT_FIELDS: readonly PromoEditField[] = [
     "is_active",
@@ -92,6 +95,8 @@
   ];
   const ELIGIBILITY_EDIT_FIELDS: readonly PromoEditField[] = [
     "min_subscription_days",
+    "subscription_tariff_key",
+    "exact_subscription_days",
     "min_traffic_gb",
   ];
 
@@ -112,6 +117,12 @@
   } = $props();
 
   const promosStore = getPromosStore();
+  const tariffsStore = getTariffsStore();
+  const subscriptionTariffs = $derived(
+    tariffsStore.tariffsCatalog.tariffs
+      .filter((tariff) => tariff.billing_model !== "traffic")
+      .map((tariff) => ({ value: tariff.key, label: tariffDisplayName(tariff) }))
+  );
   const promosTable = new TableHandler<Promo>();
 
   const promos = $derived(promosStore.promos as Promo[]);
@@ -239,6 +250,7 @@
     ...scopeItems,
   ]);
   onMount(() => {
+    void tariffsStore.loadTariffs();
     if (window.location.hash === "#birthday-activation-settings") {
       openBirthdaySettings = true;
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -349,6 +361,8 @@
     if (hasFixedGrant(next)) patch.min_traffic_gb = null;
     if (!effectUsesCheckout(next)) {
       patch.min_subscription_days = null;
+      patch.subscription_tariff_key = null;
+      patch.exact_subscription_days = null;
       patch.min_traffic_gb = null;
     }
     promosStore.updateDraft(patch);
@@ -361,6 +375,8 @@
     if (hasFixedGrant(next)) patch.min_traffic_gb = null;
     if (!effectUsesCheckout(next)) {
       patch.min_subscription_days = null;
+      patch.subscription_tariff_key = null;
+      patch.exact_subscription_days = null;
       patch.min_traffic_gb = null;
     }
     promosStore.updateEditDraft(patch as Partial<PromoPatch>);
@@ -418,7 +434,8 @@
   }
 
   function thresholdText(promo: Promo | PromoPatch): string {
-    return formatAdminPromoEligibility(promo, at);
+    const tariff = subscriptionTariffs.find((item) => item.value === promo.subscription_tariff_key);
+    return formatAdminPromoEligibility(promo, at, tariff?.label);
   }
 
   /** Who a personal code was issued for, in whatever form the profile has. */
@@ -490,6 +507,16 @@
 
   function inputValue(event: Event): string {
     return (event.currentTarget as HTMLInputElement).value;
+  }
+
+  function promoScopePatch(applies_to: string): Partial<PromoPatch> {
+    if (applies_to === "all" || applies_to === "subscription") return { applies_to };
+    return {
+      applies_to,
+      min_subscription_days: null,
+      subscription_tariff_key: null,
+      exact_subscription_days: null,
+    };
   }
 
   function updateCreateNumber(field: CreateNumberField, value: string): void {
@@ -814,10 +841,12 @@
   draft={promoDraft}
   usesCheckout={promoCreateUsesCheckout}
   {scopeItems}
+  tariffItems={subscriptionTariffs}
   onClose={() => promosStore.setCreateOpen(false)}
   onCreate={promosStore.createPromo}
   onCodeInput={(code) => promosStore.updateDraft({ code })}
-  onScopeChange={(applies_to) => promosStore.updateDraft({ applies_to })}
+  onScopeChange={(scope) => promosStore.updateDraft(promoScopePatch(scope) as Partial<PromoDraft>)}
+  onRestrictionsChange={(patch) => promosStore.updateDraft(patch)}
   onEffectEnabledChange={toggleCreateEffect}
   onNumberInput={updateCreateNumber}
   onBonusRequiresPaymentChange={setCreateBonusRequiresPayment}
@@ -850,7 +879,9 @@
   {promoSettingsDirtyCount}
   {promoStatus}
   {promosStore}
+  onScopeChange={(scope) => promosStore.updateEditDraft(promoScopePatch(scope))}
   {scopeItems}
+  tariffItems={subscriptionTariffs}
   onEffectEnabledChange={toggleEditEffect}
   {selectPromoEditTab}
   {setEditBonusRequiresPayment}

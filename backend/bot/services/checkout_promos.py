@@ -178,15 +178,14 @@ async def resolve_checkout_promo(
     sale_base = _sale_mode_base(sale_mode)
     months = int(payment_units) if sale_base == "subscription" else None
     traffic_units = traffic_gb if _sale_mode_is_traffic(sale_mode) else None
+    tariff_key = _sale_mode_tariff_key(sale_mode)
     if effects.premium_traffic_gb > 0 and sale_base == "subscription":
         tariffs_config = settings.tariffs_config
-        tariff_key = _sale_mode_tariff_key(sale_mode) or getattr(
-            tariffs_config, "default_tariff", None
-        )
+        grant_tariff_key = tariff_key or getattr(tariffs_config, "default_tariff", None)
         try:
             tariff = (
-                tariffs_config.require_configured(tariff_key)
-                if tariffs_config and tariff_key
+                tariffs_config.require_configured(grant_tariff_key)
+                if tariffs_config and grant_tariff_key
                 else None
             )
         except (KeyError, ValueError):
@@ -210,6 +209,11 @@ async def resolve_checkout_promo(
             "Code does not apply to this purchase",
         )
 
+    duration_days = checkout_duration_days(settings, payment_units, sale_mode)
+    if not effects.matches_subscription(sale_base, tariff_key, duration_days):
+        return None, CheckoutPromoError(
+            400, "promo_code_not_applicable", "Code does not apply to this purchase"
+        )
     decision = await evaluate_promo_redemption(
         PromoRedemptionContext(
             session=session,
@@ -218,7 +222,7 @@ async def resolve_checkout_promo(
             effects=effects,
             sale_mode_base=sale_base,
             months=months,
-            duration_days=checkout_duration_days(settings, payment_units, sale_mode),
+            duration_days=duration_days,
             traffic_gb=traffic_units,
         )
     )
@@ -248,7 +252,7 @@ async def resolve_checkout_promo(
         PriceContext(
             sale_mode=sale_mode,
             sale_mode_base=sale_base,
-            tariff_key=_sale_mode_tariff_key(sale_mode),
+            tariff_key=tariff_key,
             units=payment_units,
             currency=(
                 "XTR" if method == "stars" else default_payment_currency_code_for_settings(settings)
@@ -260,7 +264,7 @@ async def resolve_checkout_promo(
             promo=effects,
             promo_code_id=int(promo.promo_code_id),
             months=months,
-            duration_days=checkout_duration_days(settings, payment_units, sale_mode),
+            duration_days=duration_days,
             traffic_gb=traffic_units,
         )
     )
@@ -354,6 +358,8 @@ def checkout_promo_payment_fields(promo: CheckoutPromoResult | None) -> Mapping[
         "checkout_charged_months": promo.charged_months,
         "checkout_charged_days": promo.charged_days,
         "promo_min_subscription_days": promo.effects.min_subscription_days,
+        "promo_subscription_tariff_key": promo.effects.subscription_tariff_key,
+        "promo_exact_subscription_days": promo.effects.exact_subscription_days,
         "checkout_charged_gb": promo.charged_gb,
         "checkout_quoted_at": promo.quoted_at,
     }

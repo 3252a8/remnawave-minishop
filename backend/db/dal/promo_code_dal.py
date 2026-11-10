@@ -294,6 +294,8 @@ async def get_all_promo_codes_with_details(
         ),
         "scope": (PromoCode.applies_to,),
         "eligibility": (
+            PromoCode.subscription_tariff_key,
+            PromoCode.exact_subscription_days,
             PromoCode.min_subscription_days,
             PromoCode.min_subscription_months,
             PromoCode.min_traffic_gb,
