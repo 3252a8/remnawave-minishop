@@ -372,7 +372,7 @@ def test_email_locale_keys_have_dedicated_user_visible_group():
 
 def test_torrent_blocker_locale_keys_have_dedicated_user_visible_group():
     for key in (
-        "torrent_blocker_notification",
+        "torrent_blocker_notification_duration",
         "torrent_blocker_notification_ip",
         "torrent_blocker_email_subject",
     ):

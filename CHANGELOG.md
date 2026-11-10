@@ -72,6 +72,10 @@
 
 ### Изменено
 
+- Уведомления Torrent Blocker в Telegram и по почте показывают длительность
+  блокировки, если она передана в вебхуке.
+  ([#167](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/167))
+
 - Mini App открывает ссылку платёжного провайдера сразу после создания или
   повторного открытия платежа. Браузер выбирает клиент Telegram.
   ([#165](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/165),
