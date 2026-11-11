@@ -319,6 +319,80 @@
         "updated_at": null
       },
       {
+        "key": "TELEGRAM_CHAT_MENU_MODE",
+        "type": "string",
+        "section": "general",
+        "section_order": 1,
+        "subsection": "telegram",
+        "label": "Telegram chat menu button",
+        "description": "Choose the button beside the message input. In the Mini App mode, enter a label and URL.",
+        "i18n_label_key": "admin_settings_field_telegram_chat_menu_mode_label",
+        "i18n_description_key": "admin_settings_field_telegram_chat_menu_mode_description",
+        "i18n_subsection_key": "admin_settings_subsection_telegram",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": false,
+        "secret": false,
+        "choices": [
+          {
+            "value": "keep",
+            "label": "Do not change (BotFather)",
+            "i18n_label_key": "admin_settings_field_telegram_chat_menu_mode_choice_keep"
+          },
+          {
+            "value": "web_app",
+            "label": "Open Mini App",
+            "i18n_label_key": "admin_settings_field_telegram_chat_menu_mode_choice_web_app"
+          },
+          {
+            "value": "commands",
+            "label": "Show command list",
+            "i18n_label_key": "admin_settings_field_telegram_chat_menu_mode_choice_commands"
+          }
+        ],
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
+        "key": "TELEGRAM_CHAT_MENU_TEXT",
+        "type": "string",
+        "section": "general",
+        "section_order": 1,
+        "subsection": "telegram",
+        "label": "Mini App button label",
+        "description": "",
+        "i18n_label_key": "admin_settings_field_telegram_chat_menu_text_label",
+        "i18n_description_key": null,
+        "i18n_subsection_key": "admin_settings_subsection_telegram",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
+        "key": "TELEGRAM_CHAT_MENU_URL",
+        "type": "url",
+        "section": "general",
+        "section_order": 1,
+        "subsection": "telegram",
+        "label": "Mini App button HTTPS URL",
+        "description": "",
+        "i18n_label_key": "admin_settings_field_telegram_chat_menu_url_label",
+        "i18n_description_key": null,
+        "i18n_subsection_key": "admin_settings_subsection_telegram",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "REQUIRED_CHANNEL_ID",
         "type": "int",
         "section": "general",

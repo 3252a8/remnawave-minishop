@@ -7,6 +7,35 @@ from bot.app.web.admin_api_impl import settings as settings_api
 
 
 class AdminSettingsBotCommandsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_chat_menu_changes_are_synced_without_restarting(self):
+        bot = SimpleNamespace(set_chat_menu_button=AsyncMock())
+        request = SimpleNamespace(app={"bot": bot})
+        settings = SimpleNamespace(TELEGRAM_CHAT_MENU_MODE="commands")
+        changed = {"TELEGRAM_CHAT_MENU_MODE"}
+
+        self.assertEqual(
+            await settings_api._sync_chat_menu_after_settings_change(request, settings, changed),
+            set(),
+        )
+        self.assertEqual(bot.set_chat_menu_button.await_args.kwargs["menu_button"].type, "commands")
+        settings.TELEGRAM_CHAT_MENU_MODE = "keep"
+        self.assertEqual(
+            await settings_api._sync_chat_menu_after_settings_change(request, settings, changed),
+            set(),
+        )
+        self.assertEqual(bot.set_chat_menu_button.await_count, 1)
+
+    async def test_chat_menu_sync_failure_reports_the_saved_field(self):
+        bot = SimpleNamespace(set_chat_menu_button=AsyncMock(side_effect=RuntimeError))
+        request = SimpleNamespace(app={"bot": bot})
+        settings = SimpleNamespace(TELEGRAM_CHAT_MENU_MODE="commands")
+        changed = {"TELEGRAM_CHAT_MENU_MODE"}
+
+        self.assertEqual(
+            await settings_api._sync_chat_menu_after_settings_change(request, settings, changed),
+            changed,
+        )
+
     async def test_patch_reports_command_sync_failure_as_not_applied(self):
         request = SimpleNamespace()
         runtime_settings = SimpleNamespace(TELEGRAM_BOT_MENU_DISABLED=True)

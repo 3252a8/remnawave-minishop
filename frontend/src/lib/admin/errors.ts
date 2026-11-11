@@ -11,6 +11,9 @@ type AdminTranslate = (key: string, vars?: Record<string, unknown>, fallback?: s
 
 const ADMIN_ERROR_KEYS: Record<string, string> = {
   unapproved_payment_api_origin: "error_payment_api_origin",
+  telegram_chat_menu_text_required: "error_telegram_chat_menu_text_required",
+  telegram_chat_menu_url_invalid: "error_telegram_chat_menu_url_invalid",
+  telegram_chat_menu_value_invalid: "error_telegram_chat_menu_value_invalid",
   invalid_archive: "error_theme_archive",
   empty_archive: "error_theme_archive",
   zip_required: "error_theme_archive",

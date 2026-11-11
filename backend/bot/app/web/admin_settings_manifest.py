@@ -16,6 +16,7 @@ from bot.app.web.admin_settings_maintenance_manifest_fields import MAINTENANCE_S
 from bot.app.web.admin_settings_manifest_fields import SETTINGS_MANIFEST, SettingField
 from config.menu_buttons import normalize_menu_buttons_json
 from config.server_status import KumaStatusPageUrlError, parse_kuma_status_page_url
+from config.settings_telegram import TELEGRAM_CHAT_MENU_KEYS
 from config.support_links import normalize_support_link
 
 
@@ -62,6 +63,14 @@ def manifest_keys() -> list[str]:
 
 def coerce_value(field: SettingField, raw: Any) -> Any:
     """Coerce a value coming from JSON to the type declared by the field."""
+
+    if field.key in TELEGRAM_CHAT_MENU_KEYS:
+        if not isinstance(raw, str):
+            raise ValueError("telegram_chat_menu_value_invalid")
+        text_value = raw.strip()
+        if field.choices and text_value not in dict(field.choices):
+            raise ValueError("telegram_chat_menu_value_invalid")
+        return text_value
 
     if field.key == "INVITE_LINK_PREFIX" and raw is not None:
         from config.settings_invites import InvitationSettings
