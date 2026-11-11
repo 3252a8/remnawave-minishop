@@ -661,6 +661,56 @@ for (const [device, viewport] of devices) {
     await expect(page.locator('[data-admin-action="request-user-merge"]')).toBeFocused();
   });
 
+  test(`personal messages can be scheduled from the user card on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(userRoute + query);
+    await page.getByRole("tab", { name: ru.admin_user_tab_message }).click();
+
+    const composer = page.locator(".admin-user-action-sheet--message");
+    const send = composer.locator('[data-admin-action="send-user-message"]');
+    const schedule = composer.getByRole("checkbox", { name: ru.admin_broadcast_schedule_later });
+    await composer.locator(".ProseMirror").fill("Happy birthday!");
+    await expect(send).toHaveText(ru.admin_btn_send_msg);
+    await expect(send).toBeEnabled();
+
+    await schedule.click();
+    await expect(send).toHaveText(ru.admin_user_message_schedule);
+    await expect(send).toBeDisabled();
+    const picker = composer.locator(".date-input-shell");
+    const trigger = picker.getByRole("button", { name: ru.admin_broadcast_schedule_label });
+    await trigger.click();
+    const calendar = page.locator(".date-input-popover");
+    await expect(calendar).toBeVisible();
+    await expect(calendar).toBeInViewport();
+    await noOverflow(page);
+    await snapshot(page, `personal-message-calendar-${device}`);
+    await page.keyboard.press("Escape");
+    await expect(calendar).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    for (const [part, digits] of Object.entries({
+      year: "2099",
+      month: "05",
+      day: "20",
+      hour: "14",
+      minute: "30",
+    })) {
+      await picker.locator(`[data-segment="${part}"]`).pressSequentially(digits);
+    }
+    await expect(send).toBeEnabled();
+    await schedule.click();
+    await expect(send).toHaveText(ru.admin_btn_send_msg);
+    await expect(picker).toHaveCount(0);
+    await schedule.click();
+    await expect(send).toHaveText(ru.admin_user_message_schedule);
+    await expect(send).toBeEnabled();
+    await send.click();
+    await expect(composer.getByRole("status")).toHaveText(ru.admin_user_message_scheduled);
+    await expect(schedule).not.toBeChecked();
+    await expect(send).toHaveText(ru.admin_btn_send_msg);
+    await expect(send).toBeDisabled();
+  });
+
   test(`plugin pages and shortcodes appear in message and menu editors on ${device}`, async ({
     page,
   }) => {

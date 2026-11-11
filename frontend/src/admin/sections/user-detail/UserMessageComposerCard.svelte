@@ -1,6 +1,6 @@
 <script lang="ts">
   import { AdminButton, AdminSectionHeader } from "$components/patterns/admin/index.js";
-  import { Checkbox, ImageAttachment, Input } from "$components/ui/index.js";
+  import { Checkbox, DateInput, ImageAttachment, Input } from "$components/ui/index.js";
   import { Send } from "$components/ui/icons.js";
   import MessageButtonsEditor from "$lib/admin/components/MessageButtonsEditor.svelte";
   import MessageComposer from "$lib/admin/components/MessageComposer.svelte";
@@ -33,6 +33,9 @@
   let telegramEnabled = $state(false);
   let emailEnabled = $state(false);
   let buttons = $state<BroadcastButtonDraft[]>([]);
+  let scheduleEnabled = $state(false);
+  let scheduledAt = $state("");
+  let scheduleNow = $state(Date.now());
   let busy = $state(false);
   let result = $state<{ kind: "ok" | "error"; message: string } | null>(null);
 
@@ -49,9 +52,29 @@
   const buttonsValid = $derived(
     buttons.every((button) => button.label.trim() && Boolean(buttonTarget(button)))
   );
+  const minimumScheduledAt = $derived.by(() => {
+    const nextMinute = new Date((Math.floor(scheduleNow / 60_000) + 1) * 60_000);
+    return new Date(nextMinute.getTime() - nextMinute.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 16);
+  });
+  const scheduleValid = $derived(new Date(scheduledAt).getTime() > scheduleNow);
+  const scheduleInvalid = $derived(Boolean(scheduledAt) && !scheduleValid);
   const canSend = $derived(
-    !busy && userId !== null && Boolean(text.trim() || image) && channels.length > 0 && buttonsValid
+    !busy &&
+      userId !== null &&
+      Boolean(text.trim() || image) &&
+      channels.length > 0 &&
+      buttonsValid &&
+      (!scheduleEnabled || scheduleValid)
   );
+
+  $effect(() => {
+    if (!scheduleEnabled) return;
+    scheduleNow = Date.now();
+    const timer = window.setInterval(() => (scheduleNow = Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  });
 
   // Unavailable delivery channels stay off instead of reporting a successful
   // zero-recipient send. Email becomes the default for email-only accounts.
@@ -94,7 +117,8 @@
   }
 
   async function send(): Promise<void> {
-    if (userId === null) return;
+    if (!canSend || userId === null) return;
+    const schedule = scheduleEnabled;
     busy = true;
     result = null;
     const error = await broadcastStore.sendToUser({
@@ -104,13 +128,21 @@
       emailSubject,
       buttons,
       image,
+      scheduledAt: schedule ? scheduledAt : undefined,
     });
     if (error === null) {
       text = "";
       emailSubject = "";
       buttons = [];
       image = null;
-      result = { kind: "ok", message: at("user_message_sent", {}, "Message sent") };
+      scheduleEnabled = false;
+      scheduledAt = "";
+      result = {
+        kind: "ok",
+        message: schedule
+          ? at("user_message_scheduled", {}, "Message scheduled")
+          : at("user_message_sent", {}, "Message sent"),
+      };
     } else {
       result = { kind: "error", message: error };
     }
@@ -210,6 +242,38 @@
         {/if}
       </div>
       <div class="admin-field-label">
+        <label class="admin-check">
+          <Checkbox
+            id="user-message-schedule"
+            name="user-message-schedule"
+            ariaLabel={at("broadcast_schedule_later", {}, "Schedule for later")}
+            bind:checked={scheduleEnabled}
+            disabled={busy}
+          />
+          {at("broadcast_schedule_later", {}, "Schedule for later")}
+        </label>
+        {#if scheduleEnabled}
+          <DateInput
+            id="user-message-scheduled-at"
+            withTime
+            value={scheduledAt}
+            min={minimumScheduledAt}
+            disabled={busy}
+            ariaLabel={at("broadcast_schedule_label", {}, "Send time")}
+            invalid={scheduleInvalid}
+            describedBy={scheduleInvalid ? "user-message-schedule-error" : undefined}
+            locale={at("calendar_locale", {}, "en")}
+            clearLabel={at("clear_date", {}, "Clear date")}
+            onValueChange={(value) => (scheduledAt = value)}
+          />
+          {#if scheduleInvalid}
+            <small id="user-message-schedule-error" class="admin-field-error" role="alert">
+              {at("broadcast_schedule_future", {}, "The send time must be in the future")}
+            </small>
+          {/if}
+        {/if}
+      </div>
+      <div class="admin-field-label">
         <span>{at("message_image_label", {}, "Image")}</span>
         <ImageAttachment
           bind:file={image}
@@ -238,7 +302,15 @@
         onclick={() => void send()}
       >
         <Send size={14} />
-        {busy ? at("user_message_sending", {}, "Sending…") : at("btn_send_msg", {}, "Send message")}
+        {#if scheduleEnabled}
+          {busy
+            ? at("user_message_scheduling", {}, "Scheduling…")
+            : at("user_message_schedule", {}, "Schedule message")}
+        {:else}
+          {busy
+            ? at("user_message_sending", {}, "Sending…")
+            : at("btn_send_msg", {}, "Send message")}
+        {/if}
       </AdminButton>
       {#if result}<p class={result.kind === "ok" ? "admin-success" : "admin-error"} role="status">
           {result.message}

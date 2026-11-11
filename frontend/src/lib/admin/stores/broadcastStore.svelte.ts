@@ -72,6 +72,7 @@ export type SingleUserMessage = {
   emailSubject: string;
   buttons: BroadcastButtonDraft[];
   image?: File | null;
+  scheduledAt?: string;
 };
 /** Kept as the broadcast-flavoured name of the shared composer type. */
 export type BroadcastShortcodeInfo = MessageShortcodeInfo;
@@ -480,6 +481,10 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
    */
   async function sendToUser(input: SingleUserMessage): Promise<string | null> {
     const failure = at("user_message_failed", {}, "Message was not sent");
+    const scheduledAt = input.scheduledAt === undefined ? null : new Date(input.scheduledAt);
+    if (scheduledAt && !(scheduledAt.getTime() > Date.now())) {
+      return at("broadcast_schedule_future", {}, "The send time must be in the future");
+    }
     try {
       const body = {
         target: `user:${Math.trunc(input.userId)}`,
@@ -488,7 +493,7 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
         exclude_blocked_telegram: false,
         email_subject: input.emailSubject.trim(),
         buttons: buttonsForPayload(input.buttons),
-        scheduled_at: null,
+        scheduled_at: scheduledAt?.toISOString() ?? null,
       } satisfies PostPayload<"/api/admin/broadcast">;
       const res = await api(buildAdminBroadcastPath(), {
         method: "POST",
