@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Switch } from "$components/ui/primitives.js";
+  import NotificationPreferenceSwitch from "./NotificationPreferenceSwitch.svelte";
   import type { NotificationPreferences } from "$lib/webapp/notificationPreferences.js";
 
   type Props = {
@@ -79,28 +79,22 @@
       </div>
       {#if !telegramOnly}
         <div class="notification-preferences__control" data-channel-label={emailLabel}>
-          <Switch.Root
+          <NotificationPreferenceSwitch
             checked={preferences[preferenceKey(row.id, "email")]}
             {disabled}
-            aria-label={`${row.label} · ${emailLabel}`}
+            ariaLabel={`${row.label} · ${emailLabel}`}
             onCheckedChange={(checked) => toggle(row.id, "email", checked)}
-            class="notification-preferences__switch"
-          >
-            <Switch.Thumb class="notification-preferences__thumb" />
-          </Switch.Root>
+          />
         </div>
       {/if}
       {#if !emailOnly}
         <div class="notification-preferences__control" data-channel-label={telegramLabel}>
-          <Switch.Root
+          <NotificationPreferenceSwitch
             checked={preferences[preferenceKey(row.id, "telegram")]}
             {disabled}
-            aria-label={`${row.label} · ${telegramLabel}`}
+            ariaLabel={`${row.label} · ${telegramLabel}`}
             onCheckedChange={(checked) => toggle(row.id, "telegram", checked)}
-            class="notification-preferences__switch"
-          >
-            <Switch.Thumb class="notification-preferences__thumb" />
-          </Switch.Root>
+          />
         </div>
       {/if}
     {/each}
@@ -193,43 +187,6 @@
   .notification-preferences__copy:nth-last-child(-n + 3),
   .notification-preferences__control:nth-last-child(-n + 2) {
     border-bottom: 0;
-  }
-
-  :global(.notification-preferences__switch) {
-    position: relative;
-    width: 42px;
-    height: 24px;
-    padding: 2px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--panel-3);
-    cursor: pointer;
-    transition: background 160ms ease;
-  }
-
-  :global(.notification-preferences__switch[data-state="checked"]) {
-    background: var(--accent);
-  }
-
-  :global(.notification-preferences__switch:disabled) {
-    cursor: wait;
-    opacity: 0.58;
-  }
-
-  :global(.notification-preferences__thumb) {
-    display: block;
-    width: 20px;
-    height: 20px;
-    border-radius: 999px;
-    /* White knob in both themes; a text-coloured knob turned near-black in light. */
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-    transform: translateX(0);
-    transition: transform 160ms ease;
-  }
-
-  :global(.notification-preferences__thumb[data-state="checked"]) {
-    transform: translateX(18px);
   }
 
   .notification-preferences__note {

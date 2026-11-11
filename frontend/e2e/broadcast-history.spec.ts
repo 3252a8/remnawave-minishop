@@ -72,17 +72,20 @@ for (const width of [1440, 768, 390]) {
 }
 
 for (const width of [1440, 390]) {
-  test(`user broadcast exclusions can be cleared and reset at ${width}px`, async ({ page }) => {
+  test(`user broadcast groups can be toggled and reset at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/demo/runtime/admin/users/910001?theme_preview=dark");
     await page.locator(".admin-user-notifications-summary").getByRole("button").click();
     const dialog = page.getByRole("dialog", { name: "Настройки уведомлений" });
-    const all = dialog.getByRole("checkbox", { name: "Все активные", exact: true });
+    await expect(
+      dialog.getByRole("switch", { name: "Новости и предложения · Telegram" })
+    ).toBeChecked();
+    const all = dialog.getByRole("switch", { name: "Все активные", exact: true });
     await expect(all).toBeChecked();
-    await all.click();
+    await all.press("Space");
     await expect(all).not.toBeChecked();
-    await dialog.getByRole("button", { name: "Снять все галочки" }).click();
-    await expect(dialog.getByRole("button", { name: "Снять все галочки" })).toBeDisabled();
+    await dialog.getByRole("button", { name: "Выключить все" }).click();
+    await expect(dialog.getByRole("button", { name: "Выключить все" })).toBeDisabled();
     await dialog.getByRole("button", { name: "Восстановить по умолчанию" }).click();
     await expect(all).toBeChecked();
   });
