@@ -45,6 +45,7 @@ from .start_common import (
     router,
 )
 from .start_menus import send_main_menu
+from .subscription_widget import CONNECT_START, RENEW_START
 
 logger = logging.getLogger(__name__)
 
@@ -538,6 +539,27 @@ async def start_command_handler(
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
     ):
+        return
+
+    if (
+        start_param in {CONNECT_START, RENEW_START}
+        and message.chat.type == "private"
+        and settings.TELEGRAM_SUBSCRIPTION_WIDGET_ENABLED
+    ):
+        from .subscription import display_subscription_options, my_subscription_command_handler
+
+        if start_param == CONNECT_START:
+            await my_subscription_command_handler(
+                message,
+                i18n_data,
+                settings,
+                subscription_service.panel_service,
+                subscription_service,
+                session,
+                message_bot(message),
+            )
+        else:
+            await display_subscription_options(message, i18n_data, settings, session)
         return
 
     if gift_token:

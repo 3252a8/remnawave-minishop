@@ -724,6 +724,10 @@ class Settings(
             "User renewal prompts should open the Mini App."
         ),
     )
+    TELEGRAM_SUBSCRIPTION_WIDGET_ENABLED: bool = Field(
+        default=False,
+        description="Enable the /widget subscription card in private Telegram chats.",
+    )
     MENU_BUTTONS_JSON: str = Field(
         default="[]",
         description=(

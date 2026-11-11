@@ -106,6 +106,14 @@ SETTINGS_MANIFEST: list[SettingField] = [
         "Disable bot menu",
         ("Hide the in-bot user interface and /tg command. Renewal prompts open the Mini App."),
     ),
+    SettingField(
+        "TELEGRAM_SUBSCRIPTION_WIDGET_ENABLED",
+        "bool",
+        "general",
+        "Subscription widget in Telegram",
+        "Allow users to open the subscription card with /widget in a private chat.",
+        optional=False,
+    ),
     *TELEGRAM_CHAT_MENU_FIELDS,
     SettingField(
         "MENU_BUTTONS_JSON",
