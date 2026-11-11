@@ -1,6 +1,7 @@
 import asyncio
 import json
 from collections.abc import Callable, Coroutine
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -14,7 +15,11 @@ from bot.app.web.webapp.payloads import (
     WebAppSubscriptionQuotePayload,
 )
 from bot.payment_providers import iter_provider_specs
+from bot.payment_providers.base import PaymentProviderSpec
+from bot.services.checkout_promos import CheckoutPromoResult
+from bot.services.promo_effects import PromoEffects
 from bot.services.subscription_gifts import gift_payment_method_available
+from config.subscription_periods import MAX_DURATION_DAYS
 
 GIFT_PAYMENT_METHODS = (
     ("anore", True),
@@ -78,6 +83,83 @@ class _SessionContext:
 def _error_code(response: web.Response) -> str:
     assert response.text is not None
     return str(json.loads(response.text)["error"])
+
+
+@pytest.mark.parametrize("bonus_days", [7, MAX_DURATION_DAYS])
+def test_gift_checkout_validates_adjusted_duration_and_charges_adjusted_price(
+    bonus_days: int,
+) -> None:
+    provider_response = web.json_response({"ok": True})
+    create_payment = AsyncMock(return_value=provider_response)
+    provider_spec = PaymentProviderSpec(
+        id="platega_sbp",
+        provider_key="platega",
+        label="SBP",
+        pending_status="pending_provider",
+        enabled=lambda _settings: True,
+        requires_configured_service=False,
+        create_webapp_payment=create_payment,
+    )
+    promo_result = CheckoutPromoResult(
+        promo_code_id=91,
+        code="GIFT50",
+        effects=PromoEffects(discount_percent=50, bonus_days=bonus_days),
+        base_amount=500.0,
+        effective_amount=250.0,
+        effective_stars=None,
+        discount_percent=50.0,
+        discount_amount=250.0,
+        effect_summary="discount:50",
+        charged_months=3,
+        charged_gb=None,
+        quoted_at=datetime.now(UTC),
+    )
+    settings = SimpleNamespace(user_traffic_limit_bytes=None, USER_HWID_DEVICE_LIMIT=0)
+
+    with (
+        patch.object(billing_payments, "get_settings", return_value=settings),
+        patch.object(billing_payments, "get_i18n", return_value=None),
+        patch.object(
+            billing_payments,
+            "_resolve_checkout_promo",
+            AsyncMock(return_value=(promo_result, None)),
+        ),
+        patch.object(
+            billing_payments.subscription_dal, "get_active_subscription_by_user_id", AsyncMock()
+        ) as get_active_subscription,
+        patch("bot.payment_providers.get_provider_spec", return_value=provider_spec),
+    ):
+        response = asyncio.run(
+            billing_payments._create_subscription_payment(
+                request=SimpleNamespace(app={}),
+                session=AsyncMock(),
+                user_id=42,
+                method="platega_sbp",
+                months=3,
+                price=500.0,
+                stars_price=None,
+                lang="en",
+                currency="RUB",
+                sale_mode="subscription@standard|gift",
+                promo_code="GIFT50",
+            )
+        )
+
+    get_active_subscription.assert_not_awaited()
+    if bonus_days == MAX_DURATION_DAYS:
+        assert response.status == 400
+        assert _error_code(response) == "invalid_plan"
+        create_payment.assert_not_awaited()
+    else:
+        assert response is provider_response
+        create_payment.assert_awaited_once()
+        awaited_call = create_payment.await_args
+        assert awaited_call is not None
+        context = awaited_call.args[0]
+        assert context.price == 250.0
+        assert context.duration_days == 90
+        assert context.promo_code_id == 91
+        assert context.promo_bonus_days == 7
 
 
 def test_gift_payment_matrix_covers_every_registered_method() -> None:
