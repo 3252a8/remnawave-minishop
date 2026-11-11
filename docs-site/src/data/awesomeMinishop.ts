@@ -129,6 +129,20 @@ export const communityCategories: CommunityCategory[] = [
         details: ['Ночной и дневной мегаполис; интерфейс реагирует на состояние подписки и трафика.', 'Дрон-талисман и необязательные эффекты помех. Требуется Minishop 3.8.0 или новее.'],
         install: { repository: 'https://gitlab.com/wormy09/minishop-theme-cyberpunk2077', branch: 'main' },
       },
+      {
+        id: 'luna',
+        name: 'Luna',
+        author: 'not-omibranch',
+        authorUrl: 'https://github.com/not-omibranch',
+        repository: 'https://github.com/not-omibranch/minishop-theme-luna',
+        forge: 'GitHub',
+        preview: '/awesome/luna.webp',
+        previewAlt: 'Luna: светлый интерфейс Minishop на фоне зелёных холмов и тёмный Royale Noir с луной',
+        description: 'Оформление кабинета в стиле Windows XP со светлым режимом Luna и тёмным Royale Noir.',
+        tags: ['Windows XP', 'Светлая и тёмная'],
+        details: ['Оконные заголовки, зелёные кнопки в стиле «Пуск» и полосы трафика из отдельных блоков.', 'Котик-помощник включается отдельно через параметр JavaScript при установке.'],
+        install: { repository: 'https://github.com/not-omibranch/minishop-theme-luna', branch: 'main' },
+      },
     ],
   },
   {
@@ -180,13 +194,14 @@ export const communityCategories: CommunityCategory[] = [
 ];
 
 // Public API snapshot, used until the browser refreshes the count or when offline.
-export const starsVerifiedAt = '2026-10-02';
+export const starsVerifiedAt = '2026-11-11';
 export const repositoryStars: Record<string, number> = {
-  'austnv/minishop-themes': 1,
-  'BADtochka/liquid-glass-minishop-theme': 0,
+  'austnv/minishop-themes': 2,
+  'BADtochka/liquid-glass-minishop-theme': 2,
   'drobyazkome/avio-soft-minishop-theme': 1,
   'drobyazkome/avio-minishop-theme': 0,
   'kiroproject/kiro-wheel': 0,
-  'tagashi666/ai-support': 25,
-  'wormy09/minishop-theme-cyberpunk2077': 0,
+  'not-omibranch/minishop-theme-luna': 0,
+  'tagashi666/ai-support': 30,
+  'wormy09/minishop-theme-cyberpunk2077': 1,
 };
