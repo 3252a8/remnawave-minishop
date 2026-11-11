@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "fingerprint": "b1a131c33b3eaca86b852e2a082adaca2f8e114655c8b089e22ff734de9d658e",
+  "fingerprint": "61ed6e3f4a42395c0a374fd59f4b442fe045827f3c8ac86156e9b809da50421a",
   "platform": "linux/amd64",
-  "image": "docker.io/3252a8/remnawave-minishop-test-runtime@sha256:17be917e614f697612a40ee724b524caeccfd675bacd8ac5de448573d922a0ec",
-  "tag": "docker.io/3252a8/remnawave-minishop-test-runtime:amd64-b1a131c33b3eaca86b852e2a082adaca-2dc31f6a4d36f1327cdc8094e319943004eca34957014300d361bb5aa4fa5379",
-  "built_at": "2026-10-21T13:34:51.143Z"
+  "image": "docker.io/3252a8/remnawave-minishop-test-runtime@sha256:57a7d757a783e110865416e4dbe8d33f9c0917f60624701935a7288ed123ff7d",
+  "tag": "docker.io/3252a8/remnawave-minishop-test-runtime:amd64-61ed6e3f4a42395c0a374fd59f4b442f-7d730f2db40f88dd61a5f0668a567869f45b9ac8af6e6ae2f46aa1d9ba77cbdb",
+  "built_at": "2026-11-11T10:27:49.334Z"
 }
