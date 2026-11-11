@@ -2955,6 +2955,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/broadcast-audiences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Broadcast Audiences Get */
+    get: operations["get_admin_user_broadcast_audiences_get_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin User Broadcast Audiences Patch */
+    patch: operations["patch_admin_user_broadcast_audiences_patch_route"];
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/extend": {
     parameters: {
       query?: never;
@@ -5739,6 +5757,8 @@ export interface components {
        * @default all
        */
       target: unknown;
+      /** Targets */
+      targets?: string[];
       /**
        * Text
        * @default
@@ -5985,6 +6005,8 @@ export interface components {
       successful_deliveries: number;
       /** Target */
       target: string;
+      /** Targets */
+      targets?: string[];
       /**
        * Telegram Failed
        * @default 0
@@ -12624,6 +12646,31 @@ export interface components {
         [key: string]: components["schemas"]["TributeProductConfig"];
       };
     };
+    /** UserBroadcastAudiencesOut */
+    UserBroadcastAudiencesOut: {
+      /** Excluded */
+      excluded: string[];
+      /** Targets */
+      targets: string[];
+    };
+    /** UserBroadcastExclusionsBody */
+    UserBroadcastExclusionsBody: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "exclude" | "include" | "exclude_all" | "reset";
+      /**
+       * Target
+       * @default null
+       */
+      target: string | null;
+    };
+    /** UserBroadcastExclusionsOut */
+    UserBroadcastExclusionsOut: {
+      /** Excluded */
+      excluded: string[];
+    };
     /** WebAppAccountMergePayload */
     WebAppAccountMergePayload: {
       /**
@@ -19227,6 +19274,60 @@ export interface operations {
             ok: true;
             user: components["schemas"]["AdminUserOut"];
           };
+        };
+      };
+    };
+  };
+  get_admin_user_broadcast_audiences_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["UserBroadcastAudiencesOut"];
+        };
+      };
+    };
+  };
+  patch_admin_user_broadcast_audiences_patch_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserBroadcastExclusionsBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["UserBroadcastExclusionsOut"];
         };
       };
     };

@@ -521,6 +521,12 @@ export function buildAdminUserActionPath(
   );
 }
 
+export function buildAdminUserBroadcastAudiencesPath(userId: number | string) {
+  return builtApiPath<"/api/admin/users/{user_id}/broadcast-audiences">(
+    `/admin/users/${encodeURIComponent(String(userId))}/broadcast-audiences`
+  );
+}
+
 export type AdminSupportTicketsPath = "/admin/support/tickets" | `/admin/support/tickets?${string}`;
 export function buildAdminSupportTicketsPath(params: URLSearchParams): AdminSupportTicketsPath {
   return `/admin/support/tickets?${params.toString()}` as AdminSupportTicketsPath;

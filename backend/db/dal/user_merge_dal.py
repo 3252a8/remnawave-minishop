@@ -41,6 +41,7 @@ from ..partner_models import (
     PartnerProfile,
     PartnerWithdrawal,
 )
+from .broadcast_audience_dal import merge_user_exclusions
 from .user_merge_entitlements import (
     _merged_subscription_end as _merged_subscription_end,
 )
@@ -743,6 +744,7 @@ async def merge_users(
     from .gift_dal import merge_owner
 
     await merge_owner(session, source_user_id, target_user_id)
+    await merge_user_exclusions(session, source_user_id, target_user_id)
     await session.execute(
         update(AccountAlias)
         .where(AccountAlias.new_user_id == source_user_id)

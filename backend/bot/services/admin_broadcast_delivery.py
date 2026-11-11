@@ -91,12 +91,12 @@ class AdminBroadcastDeliveryService:
         try:
             resolved_user_ids = user_ids
             if resolved_user_ids is None:
-                resolved_user_ids = [
-                    int(user_id)
-                    for user_id in await self.audience_service.resolve_user_ids(
-                        str(broadcast.target)
-                    )
-                ]
+                targets = getattr(broadcast, "targets", None)
+                resolved_user_ids = (
+                    await self.audience_service.resolve_targets(targets)
+                    if targets
+                    else await self.audience_service.resolve_user_ids(str(broadcast.target))
+                )
             deliveries = await self._prepare_deliveries(broadcast, resolved_user_ids, channels)
             if not deliveries:
                 async with self.session_factory() as session:

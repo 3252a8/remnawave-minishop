@@ -65,7 +65,7 @@
       asc: "audience_asc",
       desc: "audience_desc",
       defaultDirection: "asc",
-      value: (item) => targetLabel(item.target),
+      value: (item) => targetLabel(item),
     },
     {
       asc: "channels_asc",
@@ -121,6 +121,7 @@
   });
 
   onMount(() => {
+    void broadcastStore.loadCounts();
     void broadcastStore.loadHistory();
     const timer = window.setInterval(() => {
       scheduleNow = Date.now();
@@ -217,11 +218,14 @@
     }
   }
 
-  function targetLabel(target: string): string {
-    return (
-      broadcastStore.BROADCAST_TARGET_OPTIONS.find((option) => option.value === target)?.label ||
-      target
-    );
+  function targetLabel(item: BroadcastHistoryItem): string {
+    return (item.targets || [item.target])
+      .map(
+        (target) =>
+          broadcastStore.BROADCAST_TARGET_OPTIONS.find((option) => option.value === target)
+            ?.label || target
+      )
+      .join(", ");
   }
 
   function buttonLabel(button: BroadcastHistoryItem["buttons"][number]): string {
@@ -402,7 +406,7 @@
                   title={messagePreview(item)}>{messagePreview(item)}</td
                 >
                 <td data-label={at("broadcast_label_audience", {}, "Audience")}
-                  >{targetLabel(item.target)}</td
+                  >{targetLabel(item)}</td
                 >
                 <td data-label={at("broadcast_channels_label", {}, "Delivery channels")}
                   >{item.channels.join(" · ") || "—"}</td
@@ -448,7 +452,7 @@
       )
     : ""}
   description={selectedBroadcast
-    ? `${statusLabel(selectedBroadcast.status)} · ${targetLabel(selectedBroadcast.target)}`
+    ? `${statusLabel(selectedBroadcast.status)} · ${targetLabel(selectedBroadcast)}`
     : ""}
   closeLabel={at("close", {}, "Close")}
   onclose={closeDetails}
@@ -481,7 +485,7 @@
       <dl class="broadcast-detail-meta">
         <div>
           <dt>{at("broadcast_label_audience", {}, "Audience")}</dt>
-          <dd>{targetLabel(selectedBroadcast.target)}</dd>
+          <dd>{targetLabel(selectedBroadcast)}</dd>
         </div>
         <div>
           <dt>{at("broadcast_channels_label", {}, "Delivery channels")}</dt>

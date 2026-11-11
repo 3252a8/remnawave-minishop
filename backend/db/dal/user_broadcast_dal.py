@@ -19,8 +19,12 @@ from .user_subscription_segments import (
 )
 
 
-async def get_all_active_user_ids_for_broadcast(session: AsyncSession) -> list[int]:
+async def get_all_active_user_ids_for_broadcast(
+    session: AsyncSession, *, user_id: int | None = None
+) -> list[int]:
     stmt = select(User.user_id).where(User.is_banned == False)
+    if user_id is not None:
+        stmt = stmt.where(User.user_id == user_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -196,7 +200,9 @@ async def get_enhanced_user_statistics(
     }
 
 
-async def get_user_ids_with_active_subscription(session: AsyncSession) -> list[int]:
+async def get_user_ids_with_active_subscription(
+    session: AsyncSession, *, user_id: int | None = None
+) -> list[int]:
     """Return non-banned user IDs who have any active subscription."""
     from datetime import datetime
 
@@ -213,6 +219,8 @@ async def get_user_ids_with_active_subscription(session: AsyncSession) -> list[i
             )
         )
     )
+    if user_id is not None:
+        stmt = stmt.where(User.user_id == user_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -238,7 +246,9 @@ async def count_users_with_active_subscription_for_broadcast(session: AsyncSessi
     return int(result.scalar_one() or 0)
 
 
-async def get_user_ids_without_active_subscription(session: AsyncSession) -> list[int]:
+async def get_user_ids_without_active_subscription(
+    session: AsyncSession, *, user_id: int | None = None
+) -> list[int]:
     """Return non-banned user IDs who do NOT have any active subscription."""
     from datetime import datetime
 
@@ -263,6 +273,8 @@ async def get_user_ids_without_active_subscription(session: AsyncSession) -> lis
             )
         )
     )
+    if user_id is not None:
+        stmt = stmt.where(User.user_id == user_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -281,7 +293,9 @@ async def count_users_without_active_subscription_for_broadcast(session: AsyncSe
     return int(result.scalar_one() or 0)
 
 
-async def get_user_ids_without_any_subscription(session: AsyncSession) -> list[int]:
+async def get_user_ids_without_any_subscription(
+    session: AsyncSession, *, user_id: int | None = None
+) -> list[int]:
     """Return non-banned user IDs who never had any subscription or trial.
 
     These are users who registered but have no ``Subscription`` rows at all —
@@ -300,6 +314,8 @@ async def get_user_ids_without_any_subscription(session: AsyncSession) -> list[i
             )
         )
     )
+    if user_id is not None:
+        stmt = stmt.where(User.user_id == user_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -349,7 +365,9 @@ async def count_users_with_expired_subscription_for_broadcast(session: AsyncSess
     return int(result.scalar_one() or 0)
 
 
-async def get_user_ids_with_expired_subscription(session: AsyncSession) -> list[int]:
+async def get_user_ids_with_expired_subscription(
+    session: AsyncSession, *, user_id: int | None = None
+) -> list[int]:
     """Return non-banned user IDs with an expired subscription and no active one."""
     from datetime import datetime
 
@@ -359,6 +377,8 @@ async def get_user_ids_with_expired_subscription(session: AsyncSession) -> list[
         expired_subscription_exists_for_user(now),
         ~active_subscription_exists_for_user(now),
     )
+    if user_id is not None:
+        stmt = stmt.where(User.user_id == user_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -484,7 +504,7 @@ async def get_top_users_by_referral_revenue(
 
 
 async def get_user_ids_with_active_subscription_on_tariff(
-    session: AsyncSession, tariff_key: str
+    session: AsyncSession, tariff_key: str, *, user_id: int | None = None
 ) -> list[int]:
     """Return non-banned user IDs holding an active subscription on one tariff."""
     now = datetime.now(UTC)
@@ -501,6 +521,8 @@ async def get_user_ids_with_active_subscription_on_tariff(
             )
         )
     )
+    if user_id is not None:
+        stmt = stmt.where(User.user_id == user_id)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 

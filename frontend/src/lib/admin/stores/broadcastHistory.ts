@@ -15,6 +15,7 @@ export type BroadcastHistoryItem = {
   broadcastId: number;
   status: string;
   target: string;
+  targets?: string[];
   channels: string[];
   excludeBlockedTelegram: boolean;
   texts: Record<string, string>;
@@ -79,6 +80,9 @@ export function historyItemFromWire(value: unknown): BroadcastHistoryItem | null
     broadcastId,
     status: String(item.status || "queued"),
     target: String(item.target || "all"),
+    ...(Array.isArray(item.targets) && item.targets.length
+      ? { targets: item.targets.map(String) }
+      : {}),
     channels: Array.isArray(item.channels) ? item.channels.map(String) : [],
     excludeBlockedTelegram: Boolean(item.exclude_blocked_telegram),
     texts: record(item.texts),

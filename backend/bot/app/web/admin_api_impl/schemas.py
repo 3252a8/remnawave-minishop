@@ -445,6 +445,7 @@ class AdminBroadcastBody(HttpBodyModel):
     texts: dict[str, str] = Field(default_factory=dict)
     email_subjects: dict[str, str] = Field(default_factory=dict)
     target: Any = "all"
+    targets: list[str] = Field(default_factory=list, min_length=1)
 
     @field_validator("texts", "email_subjects", mode="before")
     @classmethod

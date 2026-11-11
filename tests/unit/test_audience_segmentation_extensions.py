@@ -15,7 +15,7 @@ from bot.services.audience_segmentation import (
 
 class _SessionContext:
     async def __aenter__(self) -> object:
-        return object()
+        return AsyncMock(execute=AsyncMock(return_value=[]))
 
     async def __aexit__(self, *_args: object) -> None:
         return None
@@ -57,6 +57,30 @@ class AudienceSegmentationExtensionsTest(unittest.IsolatedAsyncioTestCase):
                 )
             ],
         )
+
+    async def test_union_respects_per_group_exclusions_and_deduplicates(self) -> None:
+        service = self.service()
+        for target, user_ids in (("segment:first", [1, 2, 3]), ("segment:second", [1, 2, 4])):
+            service.register_provider(
+                AudienceProvider(target, target, target, AsyncMock(return_value=user_ids))
+            )
+        with patch(
+            "bot.services.audience_segmentation.broadcast_audience_dal.excluded_ids_by_target",
+            AsyncMock(
+                side_effect=[
+                    {"segment:first": {1, 3}},
+                    {"segment:second": set()},
+                ]
+            ),
+        ) as exclusions:
+            self.assertEqual(
+                await service.resolve_targets(["segment:first", "segment:second", "segment:first"]),
+                [2, 1, 4],
+            )
+            self.assertEqual(exclusions.await_count, 2)
+        for invalid in ("", "user:42", "segment:unknown"):
+            with self.assertRaises(AudienceNotFoundError):
+                await service.resolve_targets(["segment:first", invalid])
 
     async def test_unavailable_provider_is_hidden_and_rejected(self) -> None:
         service = self.service()

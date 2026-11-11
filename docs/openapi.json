@@ -2192,6 +2192,14 @@
             "default": "all",
             "title": "Target"
           },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
           "text": {
             "default": "",
             "title": "Text"
@@ -2596,6 +2604,13 @@
           "target": {
             "title": "Target",
             "type": "string"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targets",
+            "type": "array"
           },
           "telegram_failed": {
             "default": 0,
@@ -17883,6 +17898,79 @@
         "title": "TributeTariffConfig",
         "type": "object"
       },
+      "UserBroadcastAudiencesOut": {
+        "properties": {
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded",
+          "targets"
+        ],
+        "title": "UserBroadcastAudiencesOut",
+        "type": "object"
+      },
+      "UserBroadcastExclusionsBody": {
+        "properties": {
+          "action": {
+            "enum": [
+              "exclude",
+              "include",
+              "exclude_all",
+              "reset"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "UserBroadcastExclusionsBody",
+        "type": "object"
+      },
+      "UserBroadcastExclusionsOut": {
+        "properties": {
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded"
+        ],
+        "title": "UserBroadcastExclusionsOut",
+        "type": "object"
+      },
       "WebAppAccountMergePayload": {
         "additionalProperties": false,
         "properties": {
@@ -32184,6 +32272,126 @@
           }
         ],
         "summary": "Admin User Ban",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/broadcast-audiences": {
+      "get": {
+        "operationId": "get_admin_user_broadcast_audiences_get_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserBroadcastAudiencesOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Broadcast Audiences Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_admin_user_broadcast_audiences_patch_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserBroadcastExclusionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserBroadcastExclusionsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Broadcast Audiences Patch",
         "tags": [
           "admin"
         ]

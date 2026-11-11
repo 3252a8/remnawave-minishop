@@ -298,6 +298,23 @@ export function demoApiResponse(
         }
         return { ok: true, subscription: clone(subscription) };
       }
+      if (parts[4] === "broadcast-audiences") {
+        const targets = user?.is_banned
+          ? []
+          : ["all", detail.active_subscription ? "active" : "inactive"];
+        const existing = detail.broadcast_audience_exclusions;
+        const excluded = new Set(Array.isArray(existing) ? existing.map(String) : []);
+        if (method === "PATCH") {
+          const { action, target } = jsonBody(options);
+          if (action === "exclude" && typeof target === "string") excluded.add(target);
+          if (action === "include" && typeof target === "string") excluded.delete(target);
+          if (action === "exclude_all") targets.forEach((name) => excluded.add(name));
+          if (action === "reset") excluded.clear();
+          detail.broadcast_audience_exclusions = [...excluded];
+          return { ok: true, excluded: [...excluded] };
+        }
+        return { ok: true, targets, excluded: [...excluded] };
+      }
       if (parts[4] === "notification-preferences" && method === "PATCH") {
         const notificationPreferences = jsonBody(options);
         detail.notification_preferences = notificationPreferences;

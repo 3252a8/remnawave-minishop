@@ -167,6 +167,10 @@ from .translations import (
     admin_translations_get_route,
     admin_translations_patch_route,
 )
+from .user_broadcast_audiences import (
+    admin_user_broadcast_audiences_get_route,
+    admin_user_broadcast_audiences_patch_route,
+)
 from .user_relationships import admin_user_relationships_route
 from .users import (
     admin_user_avatar_route,
@@ -323,6 +327,14 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_user_balance_conversion_route,
     )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/message", admin_user_message_route)
+    router.add_get(
+        "/api/admin/users/{user_id:-?\\d+}/broadcast-audiences",
+        admin_user_broadcast_audiences_get_route,
+    )
+    router.add_patch(
+        "/api/admin/users/{user_id:-?\\d+}/broadcast-audiences",
+        admin_user_broadcast_audiences_patch_route,
+    )
     router.add_patch(
         "/api/admin/users/{user_id:-?\\d+}/notification-preferences",
         admin_user_notification_preferences_route,

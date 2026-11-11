@@ -17,6 +17,8 @@
   };
   type Props = {
     value?: string;
+    multipleValues?: string[];
+    onMultipleValuesChange?: (values: string[]) => void;
     items?: SelectItem[];
     ariaLabel?: string;
     placeholder?: string;
@@ -33,6 +35,8 @@
 
   let {
     value = $bindable(""),
+    multipleValues,
+    onMultipleValuesChange,
     items = [],
     ariaLabel = "",
     placeholder = "",
@@ -53,7 +57,14 @@
     return name ? SELECT_ITEM_ICONS[name] : undefined;
   }
 
-  const selectedIcon = $derived(iconFor(selected?.icon));
+  const selectedIcon = $derived(multipleValues ? undefined : iconFor(selected?.icon));
+  const triggerLabel = $derived(
+    (multipleValues
+      ? multipleValues
+          .map((entry) => items.find((item) => item.value === entry)?.label || entry)
+          .join(", ")
+      : selected?.label) || placeholder
+  );
   let safeAreaPadding = $state<{
     top: number;
     right: number;
@@ -90,14 +101,31 @@
   }
 </script>
 
-<Select.Root
-  type="single"
-  {value}
-  {items}
-  {disabled}
-  onOpenChange={updateCollisionPadding}
-  onValueChange={handleValueChange}
->
+{#if multipleValues !== undefined}
+  <Select.Root
+    type="multiple"
+    value={multipleValues}
+    {items}
+    {disabled}
+    onOpenChange={updateCollisionPadding}
+    onValueChange={onMultipleValuesChange}
+  >
+    {@render selectParts()}
+  </Select.Root>
+{:else}
+  <Select.Root
+    type="single"
+    {value}
+    {items}
+    {disabled}
+    onOpenChange={updateCollisionPadding}
+    onValueChange={handleValueChange}
+  >
+    {@render selectParts()}
+  </Select.Root>
+{/if}
+
+{#snippet selectParts()}
   <Select.Trigger
     class={cn("admin-select-trigger", controlSizeClass(controlSize), className)}
     data-control-size={controlSize}
@@ -107,7 +135,7 @@
       {@const SelectedIcon = dynamicComponent(selectedIcon)}
       <SelectedIcon size={14} class="admin-select-item-icon" />
     {/if}
-    <span>{selected?.label || placeholder}</span>
+    <span title={multipleValues ? triggerLabel : undefined}>{triggerLabel}</span>
     <ChevronDown size={14} class="admin-select-icon" />
   </Select.Trigger>
   <Select.Portal>
@@ -144,7 +172,7 @@
       </Select.Viewport>
     </Select.Content>
   </Select.Portal>
-</Select.Root>
+{/snippet}
 
 <style>
   /* A group reads as a section: the caption is paired with a hairline that

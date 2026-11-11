@@ -72,6 +72,7 @@ def build_core_services(
     audience_segmentation_service = AudienceSegmentationService(
         async_session_factory,
         panel_service=panel_service,
+        settings=settings,
         tariffs=_broadcast_tariff_audiences(settings),
     )
     outbound_messaging_service = OutboundMessagingService(bot)

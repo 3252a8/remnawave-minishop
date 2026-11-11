@@ -108,7 +108,10 @@ export function adminBroadcastDemoResponse({
   if (cleanPath === "/admin/broadcast" && method === "POST") {
     const body = jsonBody(options);
     const channels = Array.isArray(body.channels) ? body.channels : ["telegram"];
-    const target = String(body.target || "all");
+    const targets = Array.isArray(body.targets)
+      ? body.targets.map(String)
+      : [String(body.target || "all")];
+    const target = targets[0] || "all";
     const queued = channels.includes("telegram") ? (target === "admins" ? 2 : 1280) : 0;
     const emailQueued = channels.includes("email") ? (target === "admins" ? 1 : 486) : 0;
     const scheduledAt = body.scheduled_at ? new Date(String(body.scheduled_at)) : new Date();
@@ -121,6 +124,7 @@ export function adminBroadcastDemoResponse({
       broadcast_id: broadcastId,
       status: scheduled ? "scheduled" : "running",
       target,
+      targets,
       channels,
       texts:
         body.texts && typeof body.texts === "object" ? body.texts : { ru: String(body.text || "") },
