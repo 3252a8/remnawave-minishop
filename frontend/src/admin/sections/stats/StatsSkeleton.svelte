@@ -44,6 +44,11 @@
   <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
     <Card.Content>
       <AdminDashboardGrid class="admin-revenue-summary" aria-hidden="true">
+        <div class="admin-revenue-kpi admin-revenue-kpi--mrr">
+          <span class="admin-skeleton admin-skeleton-line" style="width:55%"></span>
+          <span class="admin-skeleton admin-skeleton-line" style="width:42%"></span>
+          <span class="admin-skeleton admin-skeleton-line" style="width:75%"></span>
+        </div>
         {#each [2, 3] as rows (rows)}
           <div class="admin-revenue-kpi">
             <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span>

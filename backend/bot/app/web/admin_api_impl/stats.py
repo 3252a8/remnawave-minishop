@@ -19,7 +19,7 @@ from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
 from datetime import datetime, timedelta, timezone, UTC
 from db.dal import panel_sync_dal, payment_dal, user_dal
-from db.dal.payment_reporting_dal import load_reporting_fee_rates
+from db.dal.payment_reporting_dal import get_active_subscription_mrr, load_reporting_fee_rates
 from db.dal import user_subscription_plans
 from .payment_schemas import PaymentOut
 from .schemas import AdminMeOut, AdminPanelSyncOut, AdminStatsOut
@@ -107,7 +107,7 @@ async def _load_admin_db_stats(
     return cast(
         dict[str, Any],
         await cache.get_or_load(
-            f"db:provider-fees-v3:{currency}:{json.dumps(rates, sort_keys=True)}",
+            f"db:subscription-mrr-v4:{currency}:{json.dumps(rates, sort_keys=True)}",
             lambda: _load_admin_db_stats_uncached(async_session_factory, currency, rates),
         ),
     )
@@ -125,6 +125,7 @@ async def _load_admin_db_stats_uncached(
         financial_stats = await payment_dal.get_financial_statistics(
             session, currency=currency, provider_fee_rates=rates
         )
+        subscription_mrr = await get_active_subscription_mrr(session, currency=currency, now=now)
         sync_status = await panel_sync_dal.get_panel_sync_status(session)
         recent_payments = await payment_dal.get_recent_payment_logs_with_user(session, limit=10)
 
@@ -132,6 +133,7 @@ async def _load_admin_db_stats_uncached(
         "users": user_stats,
         "active_tariff_counts": active_tariff_counts,
         "financial": financial_stats,
+        "subscription_mrr": subscription_mrr,
         "panel_sync": AdminPanelSyncOut.from_sync_status(sync_status).model_dump(mode="json"),
         "recent_payments": [_serialize_payment(p) for p in recent_payments],
     }

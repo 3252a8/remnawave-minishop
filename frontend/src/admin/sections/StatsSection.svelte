@@ -473,6 +473,17 @@
     <Card.Root>
       <Card.Content>
         <AdminDashboardGrid class="admin-revenue-summary">
+          <div class="admin-revenue-kpi admin-revenue-kpi--mrr">
+            <div class="admin-revenue-kpi-label">{at("stats_subscription_mrr_label")}</div>
+            <div class="admin-revenue-kpi-value">
+              {stats.subscription_mrr == null
+                ? "—"
+                : at("stats_subscription_mrr_value", {
+                    value: fmtMoney(stats.subscription_mrr, currency),
+                  })}
+            </div>
+            <div class="admin-revenue-kpi-sub">{at("stats_subscription_mrr_hint")}</div>
+          </div>
           {@render revenueKpi(
             at("stats_revenue_selected_period"),
             revenueDailyFiltered.length ? chartRangeSum : null,

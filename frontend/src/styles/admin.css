@@ -731,6 +731,23 @@
   }
 }
 
+@media (640px <= width < 1040px) {
+  .admin-revenue-summary > .admin-revenue-kpi--mrr {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1040px) {
+  .admin-cn-dashboard-grid.admin-revenue-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.admin-revenue-kpi--mrr .admin-revenue-kpi-value {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 .admin-revenue-summary > .admin-revenue-kpi {
   align-content: start;
   gap: 8px;

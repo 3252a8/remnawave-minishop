@@ -4,13 +4,14 @@ from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, Date, and_, case, cast, func, literal, select
+from sqlalchemy import ColumnElement, Date, and_, case, cast, func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.gift_models import SubscriptionGift
-from db.models import Payment, User
+from db.models import Payment, Subscription, User
 
 from .app_settings_dal import get_override_values
+from .user_subscription_plans import user_subscription_plans_sq
 
 
 async def load_reporting_fee_rates(
@@ -193,6 +194,77 @@ async def get_financial_statistics(
     }
 
 
+async def get_active_subscription_mrr(
+    session: AsyncSession, *, currency: str, now: datetime
+) -> float:
+    """Monthly run rate from the latest settled period purchase per live plan."""
+    plans = user_subscription_plans_sq(now, active_only=True)
+    paid_at = func.coalesce(Payment.fulfilled_at, Payment.updated_at, Payment.created_at)
+    amount = func.coalesce(Payment.checkout_total_amount, Payment.amount)
+    months = func.coalesce(
+        func.nullif(Payment.checkout_charged_months, 0), Payment.subscription_duration_months
+    )
+    days = func.coalesce(
+        func.nullif(Payment.checkout_charged_days, 0), Payment.subscription_duration_days
+    )
+    fixed_days = or_(Payment.period_semantics == "fixed_days", months.is_(None), months <= 0)
+    monthly_amount = case(
+        (fixed_days, amount * 30.0 / func.nullif(days, 0)),
+        else_=amount / func.nullif(months, 0),
+    )
+    mode = func.coalesce(Payment.sale_mode, "subscription")
+    linked = Payment.renewal_subscription_id == Subscription.subscription_id
+    # Older orders have no fulfillment timestamp. A status update can predate
+    # the subscription start within the same transaction, so use the matching
+    # provider and start day as a fallback for those records only.
+    legacy_start = and_(
+        Payment.fulfilled_at.is_(None),
+        Payment.provider == Subscription.provider,
+        func.date(paid_at) == func.date(Subscription.start_date),
+    )
+    purchases = (
+        select(
+            Payment.currency.label("currency"),
+            monthly_amount.label("monthly_amount"),
+            func.row_number()
+            .over(
+                partition_by=Subscription.subscription_id,
+                order_by=(paid_at.desc(), Payment.payment_id.desc()),
+            )
+            .label("rank"),
+        )
+        .select_from(plans)
+        .join(Subscription, Subscription.subscription_id == plans.c.subscription_id)
+        .join(Payment, Payment.user_id == Subscription.user_id)
+        .where(
+            plans.c.is_trial.is_(False),
+            Payment.status == "succeeded",
+            Payment.funding_source.in_(
+                ("external", "internal_user_balance", "internal_partner_balance")
+            ),
+            or_(mode == "subscription", mode.like("subscription@%"), mode.like("subscription|%")),
+            or_(linked, Payment.renewal_subscription_id.is_(None)),
+            or_(
+                paid_at >= Subscription.start_date,
+                legacy_start,
+                and_(linked, Subscription.start_date.is_(None)),
+            ),
+            paid_at <= now,
+            amount > 0,
+            case((fixed_days, days > 0), else_=months > 0),
+        )
+        .subquery()
+    )
+    # Rank before filtering currencies so an older payment in the reporting
+    # currency cannot replace the current purchase made in another currency.
+    result = await session.scalar(
+        select(func.sum(purchases.c.monthly_amount)).where(
+            purchases.c.rank == 1, purchases.c.currency == currency
+        )
+    )
+    return float(result or 0)
+
+
 async def get_user_total_paid(session: AsyncSession, user_id: int) -> float:
     result = await session.execute(
         select(func.sum(Payment.amount)).where(
@@ -218,6 +290,7 @@ async def get_referral_revenue(session: AsyncSession, referrer_id: int) -> float
 
 
 __all__ = [
+    "get_active_subscription_mrr",
     "get_financial_statistics",
     "get_referral_revenue",
     "get_user_total_paid",

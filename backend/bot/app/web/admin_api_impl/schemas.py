@@ -854,6 +854,12 @@ class PromoActivationOut(HttpResponseModel):
 class AdminStatsOut(HttpResponseModel):
     users: dict[str, Any]
     financial: dict[str, Any]
+    subscription_mrr: float | None = Field(
+        default=None,
+        description=(
+            "Monthly run rate of active subscriptions in the reporting currency, before fees."
+        ),
+    )
     panel_sync: AdminPanelSyncOut
     recent_payments: list[PaymentOut]
     currency_symbol: str

@@ -7286,6 +7286,12 @@ export interface components {
       } | null;
       /** Recent Payments */
       recent_payments: components["schemas"]["PaymentOut"][];
+      /**
+       * Subscription Mrr
+       * @description Monthly run rate of active subscriptions in the reporting currency, before fees.
+       * @default null
+       */
+      subscription_mrr: number | null;
       /** Users */
       users: {
         [key: string]: unknown;

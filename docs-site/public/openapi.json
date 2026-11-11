@@ -5676,6 +5676,19 @@
             "title": "Recent Payments",
             "type": "array"
           },
+          "subscription_mrr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Monthly run rate of active subscriptions in the reporting currency, before fees.",
+            "title": "Subscription Mrr"
+          },
           "users": {
             "additionalProperties": true,
             "title": "Users",

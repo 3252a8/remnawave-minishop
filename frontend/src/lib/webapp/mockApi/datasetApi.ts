@@ -83,6 +83,7 @@ export function demoApiResponse(
     return {
       ...stats,
       users,
+      subscription_mrr: 42_750,
       active_tariffs: demoActiveTariffs(),
       financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() },
     };

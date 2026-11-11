@@ -207,6 +207,9 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=[]),
             ),
             patch.object(stats_module.payment_dal, "get_financial_statistics", financial_stats),
+            patch.object(
+                stats_module, "get_active_subscription_mrr", AsyncMock(return_value=100)
+            ) as subscription_mrr,
             patch.object(stats_module.panel_sync_dal, "get_panel_sync_status", sync_status),
             patch.object(
                 stats_module.payment_dal,
@@ -221,8 +224,10 @@ class AdminDbStatsCacheTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(first["recent_payments"][0]["payment_id"], 1)
+        self.assertEqual(first["subscription_mrr"], 100)
         user_stats.assert_awaited_once()
         financial_stats.assert_awaited_once()
+        subscription_mrr.assert_awaited_once()
         sync_status.assert_awaited_once()
         recent_payments.assert_awaited_once()
 

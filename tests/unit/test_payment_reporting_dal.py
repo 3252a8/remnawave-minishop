@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 from sqlalchemy.dialects import postgresql
@@ -67,6 +67,103 @@ def test_first_subscription_count_excludes_other_purchase_kinds():
                     )
                     == 1
                 )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_subscription_mrr_uses_one_paid_period_per_live_plan_and_keeps_currencies_separate():
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from db.models import Subscription, User
+
+    now = datetime(2026, 11, 11, tzinfo=UTC)
+
+    async def scenario() -> None:
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(
+                    lambda c: User.metadata.create_all(
+                        c, tables=[User.__table__, Payment.__table__, Subscription.__table__]
+                    )
+                )
+            async with async_sessionmaker(engine)() as session:
+                for user_id in range(1, 10):
+                    session.add(User(user_id=user_id))
+                    session.add(
+                        Subscription(
+                            subscription_id=user_id,
+                            user_id=user_id,
+                            panel_user_uuid=f"panel-{user_id}",
+                            start_date=now - timedelta(days=90),
+                            end_date=now + timedelta(days=300 if user_id != 4 else 0),
+                            provider="trial" if user_id == 5 else "test",
+                            is_active=user_id != 6,
+                        )
+                    )
+                session.add(
+                    Subscription(
+                        subscription_id=11,
+                        user_id=1,
+                        panel_user_uuid="panel-overlap",
+                        start_date=now - timedelta(days=120),
+                        end_date=now + timedelta(days=100),
+                        provider="test",
+                        is_active=True,
+                    )
+                )
+
+                def payment(user_id: int, age: int, **fields: object) -> Payment:
+                    defaults: dict[str, object] = {
+                        "user_id": user_id,
+                        "provider": "test",
+                        "status": "succeeded",
+                        "sale_mode": "subscription@standard",
+                        "amount": 1200,
+                        "subscription_duration_months": 12,
+                        "currency": "RUB",
+                        "created_at": now - timedelta(days=age),
+                    }
+                    return Payment(**(defaults | fields))
+
+                session.add_all(
+                    [
+                        payment(1, 60, amount=3600),
+                        payment(1, 45),  # Annual prepayment still contributes 100/month.
+                        payment(1, 20, renewal_subscription_id=11, amount=6000),
+                        payment(1, 2, status="refunded"),
+                        payment(1, 1, sale_mode="traffic"),
+                        payment(
+                            2,
+                            45,
+                            amount=300,
+                            funding_source="internal_user_balance",
+                            period_semantics="fixed_days",
+                            subscription_duration_months=1,
+                            subscription_duration_days=60,
+                        ),
+                        payment(3, 45),
+                        payment(3, 20, amount=240, currency="USD"),
+                        payment(4, 5),  # Expired at the reporting instant.
+                        payment(5, 5),  # Trial.
+                        payment(6, 5),  # Disabled despite its future end date.
+                        payment(7, 92),  # From before the active subscription.
+                        payment(8, 5, funding_source="admin_grant"),
+                        payment(9, 5, subscription_duration_months=None),
+                        payment(9, -1),  # Not yet settled at the reporting instant.
+                    ]
+                )
+                await session.flush()
+
+                for currency, expected in (("RUB", 250), ("USD", 20), ("EUR", 0)):
+                    assert (
+                        await payment_reporting_dal.get_active_subscription_mrr(
+                            session, currency=currency, now=now
+                        )
+                        == expected
+                    )
         finally:
             await engine.dispose()
 
