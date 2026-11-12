@@ -88,6 +88,7 @@ async def admin_stats_route(request: web.Request) -> web.Response:
             payload["queue"] = None
 
     payload["currency_symbol"] = currency
+    payload["manual_maintenance_enabled"] = settings.MAINTENANCE_MODE_ENABLED
     stats = AdminStatsOut.model_validate(payload)
     response = stats.model_dump(mode="json", exclude_none=True)
     response["active_tariffs"] = [row.model_dump(mode="json") for row in stats.active_tariffs]

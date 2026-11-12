@@ -2,7 +2,7 @@
   import { getSettingsStore, getTranslationsStore } from "$lib/admin/context";
   import * as UiIcons from "$components/ui/icons.js";
   import SettingsContent from "./settings/SettingsContent.svelte";
-  import SettingsMaintenanceStatus from "./settings/SettingsMaintenanceStatus.svelte";
+  import MaintenanceStatus from "./MaintenanceStatus.svelte";
   import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
   import { onDestroy, onMount, tick } from "svelte";
   import { prefersReducedMotion } from "svelte/motion";
@@ -80,6 +80,13 @@
 
   const rawSettingsSections = $derived((settingsStore.settingsSections || []) as SettingsSection[]);
   const settingsSections = $derived(rawSettingsSections as AdminSettingsSection[]);
+  const maintenanceEnabled = $derived(
+    settingsSections.some((section) =>
+      section.fields.some(
+        (field) => field.key === "MAINTENANCE_MODE_ENABLED" && field.value === true
+      )
+    )
+  );
   const settingsLoading = $derived(Boolean(settingsStore.settingsLoading));
   const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
@@ -836,7 +843,7 @@
   }
 </script>
 
-<SettingsMaintenanceStatus {at} sections={settingsSections} />
+<MaintenanceStatus {at} enabled={maintenanceEnabled} />
 <SettingsContent
   {at}
   {currentLang}

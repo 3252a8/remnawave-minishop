@@ -7292,6 +7292,11 @@ export interface components {
         [key: string]: unknown;
       };
       /**
+       * Manual Maintenance Enabled
+       * @default false
+       */
+      manual_maintenance_enabled: boolean;
+      /**
        * Panel
        * @default null
        */

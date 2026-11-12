@@ -61,5 +61,50 @@ for (const width of [1280, 390]) {
         path: testInfo.outputPath(`automatic-maintenance-${width}-${language}.png`),
       });
     });
+
+    test(`dashboard reflects saved manual maintenance at ${width}px in ${language}`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript((lang) => {
+        localStorage.setItem("rw_minishop_demo_language", lang);
+      }, language);
+      await page.goto("/demo/runtime/admin/stats?theme_preview=dark");
+
+      const copy = locales[language];
+      const dashboard = page.locator('[data-admin-active-section="stats"]');
+      const warning = dashboard
+        .getByRole("status")
+        .filter({ hasText: copy.admin_settings_maintenance_active });
+      await expect(dashboard.locator(".admin-stats-audience-card").first()).toBeVisible();
+      await expect(warning).toHaveCount(0);
+
+      for (const enabled of [true, false]) {
+        const menu = page.locator(".admin-mobile-toggle");
+        if (await menu.isVisible()) await menu.click();
+        await page.locator('[data-admin-section="settings"]').click();
+        await page.locator('[data-settings-anchor="settings-section:general"]').click();
+        const manual = page.locator(
+          '[data-settings-anchor="settings-field:MAINTENANCE_MODE_ENABLED"]'
+        );
+        await manual.getByRole("switch").or(manual.getByRole("checkbox")).click();
+        const save = page
+          .locator("header")
+          .getByRole("button", { name: copy.admin_save, exact: true });
+        await save.click();
+        await expect(save).toBeDisabled();
+
+        if (await menu.isVisible()) await menu.click();
+        await page.locator('[data-admin-section="stats"]').click();
+        if (enabled) {
+          await expect(warning).toBeInViewport();
+          await page.screenshot({
+            path: testInfo.outputPath(`dashboard-maintenance-${width}-${language}.png`),
+          });
+        } else {
+          await expect(warning).toHaveCount(0);
+        }
+      }
+    });
   }
 }

@@ -84,6 +84,8 @@ export function demoApiResponse(
       ...stats,
       users,
       subscription_mrr: 42_750,
+      manual_maintenance_enabled:
+        demoSettingsChanges.get("MAINTENANCE_MODE_ENABLED")?.value === true,
       active_tariffs: demoActiveTariffs(),
       financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() },
     };

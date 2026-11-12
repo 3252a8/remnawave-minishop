@@ -24,11 +24,10 @@ class AdminStatsSerializationTests(unittest.IsolatedAsyncioTestCase):
                 {"is_trial": False, "tariff_key": "removed", "active_users": 1},
             ],
         }
+        settings = SimpleNamespace(tariffs_config=None, MAINTENANCE_MODE_ENABLED=True)
         with (
             patch.object(stats_module, "_require_admin_user_id", return_value=42),
-            patch.object(
-                stats_module, "get_settings", return_value=SimpleNamespace(tariffs_config=None)
-            ),
+            patch.object(stats_module, "get_settings", return_value=settings),
             patch.object(stats_module, "get_session_factory", return_value=object()),
             patch.object(stats_module, "_load_admin_db_stats", AsyncMock(return_value=payload)),
             patch.object(stats_module, "get_panel_service", return_value=None),
@@ -38,9 +37,15 @@ class AdminStatsSerializationTests(unittest.IsolatedAsyncioTestCase):
             ),
         ):
             response = await stats_module.admin_stats_route(cast(web.Request, object()))
+            settings.MAINTENANCE_MODE_ENABLED = False
+            disabled_response = await stats_module.admin_stats_route(cast(web.Request, object()))
         self.assertEqual(response.status, 200)
         body = json.loads(response.text or "{}")
         self.assertTrue(body["ok"])
+        self.assertIs(body["manual_maintenance_enabled"], True)
+        self.assertIs(
+            json.loads(disabled_response.text or "{}")["manual_maintenance_enabled"], False
+        )
         self.assertNotIn("panel", body)
         self.assertNotIn("queue", body)
         self.assertNotIn("last_sync_time", body["panel_sync"])

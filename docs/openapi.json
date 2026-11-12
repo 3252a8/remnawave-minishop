@@ -5655,6 +5655,11 @@
             "title": "Financial",
             "type": "object"
           },
+          "manual_maintenance_enabled": {
+            "default": false,
+            "title": "Manual Maintenance Enabled",
+            "type": "boolean"
+          },
           "panel": {
             "anyOf": [
               {

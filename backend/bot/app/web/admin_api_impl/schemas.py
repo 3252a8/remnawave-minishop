@@ -855,6 +855,7 @@ class PromoActivationOut(HttpResponseModel):
 class AdminStatsOut(HttpResponseModel):
     users: dict[str, Any]
     financial: dict[str, Any]
+    manual_maintenance_enabled: bool = False
     subscription_mrr: float | None = Field(
         default=None,
         description=(

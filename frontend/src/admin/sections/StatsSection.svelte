@@ -14,6 +14,7 @@
     AdminRevenueCustomRangePopover,
     AdminRevenueTabs,
   } from "$components/patterns/admin/index.js";
+  import MaintenanceStatus from "./MaintenanceStatus.svelte";
   import PaymentTable from "./PaymentTable.svelte";
   import StatsPanelDashboard from "./stats/StatsPanelDashboard.svelte";
   import StatsTariffDistribution from "./stats/StatsTariffDistribution.svelte";
@@ -274,7 +275,7 @@
   }
 
   onMount(() => {
-    void statsStore.loadStats();
+    void statsStore.loadStats({ refresh: true });
   });
 </script>
 
@@ -303,6 +304,8 @@
     {/if}
   </dl>
 {/snippet}
+
+<MaintenanceStatus {at} enabled={stats?.manual_maintenance_enabled === true} banner />
 
 {#if statsError}
   <AdminEmptyState>{at("stats_error", { error: statsError }, "")}</AdminEmptyState>
