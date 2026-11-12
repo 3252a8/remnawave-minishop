@@ -23,7 +23,7 @@ function createSnapshot(userId: number, rich = false, enabled = true): BalanceSn
   return {
     ok: true,
     enabled,
-    recurring_enabled: false,
+    recurring_enabled: true,
     currency: "RUB",
     currency_scale: 2,
     amount_minor: amountMinor,

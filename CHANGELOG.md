@@ -104,6 +104,9 @@
 
 ### Изменено
 
+- Автопродление по умолчанию разрешено для доступных источников баланса.
+  Личный баланс по умолчанию выключен, а для списания требуется согласие
+  пользователя при оплате. ([#177](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/177))
 - Уведомления Torrent Blocker в Telegram и по почте показывают длительность
   блокировки, если она передана в вебхуке.
   ([#167](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/167),
@@ -144,7 +147,8 @@
 - Автопродление с выбранного баланса срабатывает перед окончанием подписки,
   даже если вебхук панели не пришёл. Воркер учитывает настройки из админки
   и выполняет первую попытку в том же платёжном цикле, что и вебхук.
-  ([#175](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/175))
+  ([#175](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/175),
+  [c850dbda](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c850dbdaa3e584591eb523b46ca6b941c88029b1))
 - При покупке подарочной подписки в Mini App код активации применяется без
   ошибки сервера. Провайдер получает скорректированную сумму, а дополнительные
   дни учитываются в сроке подарка. ([#174](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/174),
@@ -208,8 +212,8 @@
   в подписку PRO не входит.
 - В Awesome Minishop добавлены тема сообщества Luna в стиле Windows XP
   с тёмным режимом Royale Noir и плагин KIRO Push для автоматических
-  поздравлений в Telegram. ([2adc07e7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/2adc07e78f356634c9101822dd5d84c980ca3987))
-  [2adc07e7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/2adc07e78f356634c9101822dd5d84c980ca3987)
+  поздравлений в Telegram. ([2adc07e7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/2adc07e78f356634c9101822dd5d84c980ca3987),
+  [75432ed4](https://gitlab.com/3252a8/remnawave-minishop/-/commit/75432ed4aff0e69bbfd7f1a9ba44889588c3787c))
 
 ### При обновлении
 

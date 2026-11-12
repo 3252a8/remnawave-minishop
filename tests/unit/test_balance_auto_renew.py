@@ -46,12 +46,27 @@ def _settings(**overrides) -> Settings:
     )
 
 
-def test_balance_consent_defaults_off_and_internal_sources_are_not_provider_buttons():
+def test_balance_recurrence_is_allowed_by_default_without_enabling_sources_or_consent():
     assert WebAppPaymentCreatePayload().balance_auto_renew is False
-    assert Settings(_env_file=None).USER_BALANCE_RECURRING_ENABLED is False
+    settings = Settings(_env_file=None)
+    assert settings.USER_BALANCE_RECURRING_ENABLED is True
+    assert settings.USER_BALANCE_ENABLED is False
     for provider in ("user_balance", "partner_balance"):
+        assert not balance_recurring_available(settings, provider)
         assert provider_supports_recurring(provider)
         assert get_provider_spec(provider) is None
+
+
+def test_balance_recurrence_can_be_disabled_with_sources_enabled():
+    settings = Settings(
+        _env_file=None,
+        USER_BALANCE_RECURRING_ENABLED=False,
+        USER_BALANCE_ENABLED=True,
+        PARTNER_PROGRAM_ENABLED=True,
+        PARTNER_BALANCE_PAYMENT_ENABLED=True,
+    )
+    assert not balance_recurring_available(settings, "user_balance")
+    assert not balance_recurring_available(settings, "partner_balance")
 
 
 def test_partner_only_recurrence_requires_its_own_payment_permission():

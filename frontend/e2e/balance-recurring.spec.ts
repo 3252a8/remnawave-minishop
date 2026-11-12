@@ -25,7 +25,7 @@ for (const [device, viewport] of [
     await expect(body).toBeVisible();
     await expect(body.getByRole("switch", { name: "Автопродление с баланса" })).toHaveAttribute(
       "aria-checked",
-      "false"
+      "true"
     );
     await expect(provider).toContainText("💸");
     const balanceIcon = provider.locator(".admin-provider-logo-emoji");

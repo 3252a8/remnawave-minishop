@@ -144,8 +144,8 @@ export function applyDemoDataset(): void {
     },
   });
   setUserBalanceScenario(false);
-  DEV_MOCK.data.balance.recurring_enabled = false;
-  currentDemoBalance().recurring_enabled = false;
+  DEV_MOCK.data.balance.recurring_enabled = true;
+  currentDemoBalance().recurring_enabled = true;
 }
 
 function applyDemoTariffScenario(subscriptionPatch: Record<string, unknown> = {}): void {

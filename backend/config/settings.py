@@ -212,7 +212,7 @@ class Settings(
     SUBSCRIPTION_DAYS_DEVICES_ENABLED: bool = Field(default=False)
     SUBSCRIPTION_DAYS_TRAFFIC_ENABLED: bool = Field(default=False)
     SUBSCRIPTION_DAYS_MIN_REMAINING: int = Field(default=1, ge=1, le=3650)
-    USER_BALANCE_RECURRING_ENABLED: bool = Field(default=False)
+    USER_BALANCE_RECURRING_ENABLED: bool = Field(default=True)
     USER_BALANCE_CURRENCY: str = Field(
         default="",
         description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",
