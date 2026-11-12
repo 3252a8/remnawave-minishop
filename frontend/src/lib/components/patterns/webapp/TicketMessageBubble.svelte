@@ -1,5 +1,6 @@
 <script lang="ts">
   import BrandMark from "$lib/webapp/BrandMark.svelte";
+  import AvatarImage from "./AvatarImage.svelte";
   import TicketMessageImage from "./TicketMessageImage.svelte";
   import {
     Check,
@@ -37,6 +38,7 @@
     isInternalNote?: boolean;
     perspective?: "admin" | "user";
     userAvatarUrl?: string;
+    userAvatarFallbackUrl?: string;
     userInitials?: string;
     authorName?: string;
     readByUserAt?: string | null;
@@ -58,6 +60,7 @@
     isInternalNote = false,
     perspective = "user",
     userAvatarUrl = "",
+    userAvatarFallbackUrl = "",
     userInitials = "",
     authorName = "",
     readByUserAt = null,
@@ -127,14 +130,18 @@
       <Lock size={15} />
     {:else if showSupportAvatar}
       <BrandMark brand={supportBrand} size="sm" />
-    {:else if showUserAvatar && userAvatarUrl}
-      <img src={userAvatarUrl} alt="" loading="lazy" referrerpolicy="no-referrer" />
-    {:else if showUserAvatar && userInitials}
-      <strong>{userInitials}</strong>
+    {:else if showUserAvatar}
+      <AvatarImage src={userAvatarUrl} fallbackSrc={userAvatarFallbackUrl}>
+        {#snippet placeholder()}
+          {#if userInitials}
+            <strong>{userInitials}</strong>
+          {:else}
+            <UserRound size={15} />
+          {/if}
+        {/snippet}
+      </AvatarImage>
     {:else if messageRole === "admin"}
       <LifeBuoy size={15} />
-    {:else if messageRole === "user"}
-      <UserRound size={15} />
     {:else}
       <MessageSquare size={15} />
     {/if}

@@ -132,6 +132,7 @@
     primaryPayActionLabel: () => string;
     privacyPolicyUrl?: string;
     profileAvatarUrl?: string;
+    profileAvatarFallbackUrl?: string;
     profileEmail?: string;
     profileTelegramId?: string;
     promoBusy?: boolean;
@@ -264,6 +265,7 @@
     primaryPayActionLabel,
     privacyPolicyUrl = "",
     profileAvatarUrl = "",
+    profileAvatarFallbackUrl = "",
     profileEmail = "",
     profileTelegramId = "",
     promoBusy = false,
@@ -606,6 +608,7 @@
             {brand}
             {user}
             userAvatarUrl={profileAvatarUrl}
+            userAvatarFallbackUrl={profileAvatarFallbackUrl}
             userInitials={telegramProfileName ? telegramProfileName.slice(0, 2).toUpperCase() : "U"}
             {t}
           />
@@ -645,6 +648,7 @@
         {menuButtons}
         {privacyPolicyUrl}
         {profileAvatarUrl}
+        {profileAvatarFallbackUrl}
         {profileEmail}
         {profileTelegramId}
         {balance}

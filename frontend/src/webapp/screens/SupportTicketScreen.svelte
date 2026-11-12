@@ -41,6 +41,7 @@
     brand?: Record<string, unknown>;
     user?: Record<string, unknown>;
     userAvatarUrl?: string;
+    userAvatarFallbackUrl?: string;
     userInitials?: string;
   };
 
@@ -50,6 +51,7 @@
     brand = {},
     user = {},
     userAvatarUrl = "",
+    userAvatarFallbackUrl = "",
     userInitials = "",
   }: Props = $props();
 
@@ -289,6 +291,7 @@
                 supportBrand={brand}
                 {imageViewerLabels}
                 {userAvatarUrl}
+                {userAvatarFallbackUrl}
                 {userInitials}
                 authorName={messageAuthorName(message)}
                 readByUserAt={message.read_by_user_at}

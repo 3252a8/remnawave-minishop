@@ -21735,6 +21735,7 @@ export interface operations {
               telegram_notifications_need_prompt?: boolean;
               telegram_notifications_start_link?: string | null;
               telegram_notifications_status?: string;
+              telegram_photo_fallback_url?: string;
               telegram_photo_url?: string;
               username?: string | null;
             };

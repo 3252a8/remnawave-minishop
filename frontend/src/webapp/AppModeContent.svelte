@@ -206,6 +206,7 @@
   const hasUnlinkedIdentity = $derived(accountView.hasUnlinkedIdentity);
   const privacyPolicyUrl = $derived(accountView.privacyPolicyUrl);
   const profileAvatarUrl = $derived(accountView.profileAvatarUrl);
+  const profileAvatarFallbackUrl = $derived(accountView.profileAvatarFallbackUrl);
   const profileEmail = $derived(accountView.profileEmail);
   const profileTelegramId = $derived(accountView.profileTelegramId);
   const serverStatusInternal = $derived(cfg.serverStatusInternal === true);
@@ -674,6 +675,7 @@
       {primaryPayActionLabel}
       {privacyPolicyUrl}
       {profileAvatarUrl}
+      {profileAvatarFallbackUrl}
       {profileEmail}
       {profileTelegramId}
       {promoBusy}

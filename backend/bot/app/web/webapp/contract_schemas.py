@@ -587,6 +587,7 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "telegram_notifications_need_prompt": BOOLEAN_SCHEMA,
         "telegram_notifications_start_link": NULLABLE_STRING_SCHEMA,
         "telegram_photo_url": STRING_SCHEMA,
+        "telegram_photo_fallback_url": STRING_SCHEMA,
         "first_name": NULLABLE_STRING_SCHEMA,
         "language_code": STRING_SCHEMA,
         "is_admin": BOOLEAN_SCHEMA,

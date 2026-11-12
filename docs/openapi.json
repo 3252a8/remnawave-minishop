@@ -38624,6 +38624,9 @@
                         "telegram_notifications_status": {
                           "type": "string"
                         },
+                        "telegram_photo_fallback_url": {
+                          "type": "string"
+                        },
                         "telegram_photo_url": {
                           "type": "string"
                         },

@@ -8,6 +8,7 @@ type UserProfile = WebappRecord & {
   email?: string | null;
   telegram_id?: number | string | null;
   telegram_linked?: boolean;
+  telegram_photo_fallback_url?: string;
   telegram_notifications_need_prompt?: boolean;
   telegram_notifications_start_link?: string | null;
   telegram_notifications_status?: string;
@@ -20,6 +21,7 @@ export interface AccountView {
   hasUnlinkedIdentity: boolean;
   privacyPolicyUrl: string;
   profileAvatarUrl: string;
+  profileAvatarFallbackUrl: string;
   profileEmail: string;
   profileTelegramId: string;
   serverStatusUrl: string;
@@ -87,6 +89,7 @@ export function computeAccountView({
     hasUnlinkedIdentity,
     privacyPolicyUrl: String(cfg.privacyPolicyUrl || "").trim(),
     profileAvatarUrl: resolveProfileAvatarUrl(user, emailAvatarUrl),
+    profileAvatarFallbackUrl: user.telegram_linked ? user.telegram_photo_fallback_url || "" : "",
     profileEmail: user?.email || t("wa_settings_email_not_linked"),
     profileTelegramId: user?.telegram_id ? `TG ID ${user.telegram_id}` : t("wa_tg_id_not_linked"),
     serverStatusUrl: String(appSettings?.server_status_url || cfg.serverStatusUrl || "").trim(),
