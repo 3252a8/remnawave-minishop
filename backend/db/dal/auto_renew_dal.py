@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import exists, func, or_, select, update
+from sqlalchemy import Date, cast, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -576,6 +576,7 @@ async def list_due_subscriptions(
     providers: tuple[str, ...],
     hours_ahead: int,
     limit: int,
+    initial_only: bool = False,
 ) -> list[AutoRenewSubscriptionCandidate]:
     provider_keys = tuple(
         dict.fromkeys(str(provider or "").strip().lower() for provider in providers)
@@ -585,20 +586,25 @@ async def list_due_subscriptions(
         return []
     now = datetime.now(UTC)
     cutoff = now + timedelta(hours=max(1, int(hours_ahead)))
-    rows = (
-        await session.execute(
-            select(Subscription.subscription_id, Subscription.user_id)
-            .where(
-                Subscription.is_active.is_(True),
-                Subscription.auto_renew_enabled.is_(True),
-                func.lower(Subscription.provider).in_(provider_keys),
-                Subscription.end_date > now,
-                Subscription.end_date <= cutoff,
+    query = select(Subscription.subscription_id, Subscription.user_id).where(
+        Subscription.is_active.is_(True),
+        Subscription.auto_renew_enabled.is_(True),
+        func.lower(Subscription.provider).in_(provider_keys),
+        Subscription.end_date > now,
+        Subscription.end_date <= cutoff,
+    )
+    if initial_only:
+        query = query.where(
+            ~exists().where(
+                AutoRenewCycle.subscription_id == Subscription.subscription_id,
+                AutoRenewCycle.cycle_anchor
+                == cast(func.timezone("UTC", Subscription.end_date), Date),
             )
-            .order_by(Subscription.end_date.asc(), Subscription.subscription_id.asc())
-            .limit(max(1, int(limit)))
         )
-    ).all()
+    query = query.order_by(Subscription.end_date.asc(), Subscription.subscription_id.asc()).limit(
+        max(1, int(limit))
+    )
+    rows = (await session.execute(query)).all()
     return [
         AutoRenewSubscriptionCandidate(
             subscription_id=int(subscription_id),

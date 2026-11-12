@@ -691,7 +691,7 @@ PAYMENT_TRIBUTE_TELEGRAM_EMOJI
 | `AUTO_RENEW_WORKER_TICK_SECONDS` | Период опроса очереди повторов. |
 | `AUTO_RENEW_WORKER_BATCH_SIZE` | Максимальное число циклов за один проход воркера. |
 | `AUTO_RENEW_RETRY_GRACE_HOURS` | Дополнительное окно после окончания подписки, в котором разрешен финансовый повтор. |
-| `AUTO_RENEW_SCHEDULER_ENABLED` | Включить резервный поиск подписок к продлению без panel webhook. По умолчанию выключен. |
+| `AUTO_RENEW_SCHEDULER_ENABLED` | Включить резервный поиск подписок к продлению через внешних провайдеров без вебхука панели. По умолчанию выключен. |
 | `AUTO_RENEW_SCHEDULER_LEAD_HOURS` | За сколько часов резервный планировщик начинает рассматривать подписку. |
 
 ### FreeKassa

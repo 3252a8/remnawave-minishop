@@ -476,10 +476,16 @@ async def refresh_overrides_from_db(
 
 
 def outbound_runtime_setting_keys() -> set[str]:
-    """Keep SMTP and provider settings consistent in the separate worker process."""
+    """Keep delivery and payment settings consistent in the separate worker process."""
     from bot.payment_providers import find_manifest_owner
 
-    keys = set()
+    keys = {
+        "PARTNER_BALANCE_PAYMENT_ENABLED",
+        "PARTNER_PROGRAM_ENABLED",
+        "USER_BALANCE_CURRENCY",
+        "USER_BALANCE_ENABLED",
+        "USER_BALANCE_RECURRING_ENABLED",
+    }
     for key in manifest_keys():
         owner = find_manifest_owner(key)
         if key.startswith("SMTP_") or (owner is not None and owner[1].target == "config"):

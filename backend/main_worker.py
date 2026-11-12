@@ -584,9 +584,6 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
         WorkerTaskSpec(
             name="AutoRenewRetryWorker",
             factory=_auto_renew_retry_task,
-            enabled=lambda settings: bool(
-                settings.AUTO_RENEW_RETRY_ENABLED or settings.AUTO_RENEW_SCHEDULER_ENABLED
-            ),
         ),
         WorkerTaskSpec(
             name="WataReconciliationWorker",
