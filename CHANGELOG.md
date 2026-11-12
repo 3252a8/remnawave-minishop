@@ -143,7 +143,8 @@
 
 - При покупке подарочной подписки в Mini App код активации применяется без
   ошибки сервера. Провайдер получает скорректированную сумму, а дополнительные
-  дни учитываются в сроке подарка. ([#174](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/174))
+  дни учитываются в сроке подарка. ([#174](https://gitlab.com/3252a8/remnawave-minishop/-/work_items/174),
+  [3ef04a2d](https://gitlab.com/3252a8/remnawave-minishop/-/commit/3ef04a2d37fd67b740639a47de9e3d371cffa3e5))
 
 - Перезапуск бота сохраняет кнопку меню, настроенную через BotFather. В админке
   можно выбрать, чтобы кнопка открывала Mini App с заданным названием и URL или
@@ -201,8 +202,9 @@
   и тем, блок миграции с других ботов и краткое описание minishop PRO. На странице
   PRO описан AI-помощник для поддержки: к нему подключается своя модель, которая
   в подписку PRO не входит.
-- В Awesome Minishop добавлена тема сообщества Luna в стиле Windows XP
-  с тёмным режимом Royale Noir.
+- В Awesome Minishop добавлены тема сообщества Luna в стиле Windows XP
+  с тёмным режимом Royale Noir и плагин KIRO Push для автоматических
+  поздравлений в Telegram. ([2adc07e7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/2adc07e78f356634c9101822dd5d84c980ca3987))
   [2adc07e7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/2adc07e78f356634c9101822dd5d84c980ca3987)
 
 ### При обновлении

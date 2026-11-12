@@ -3,8 +3,8 @@
 Данные каталога: `docs-site/src/data/awesomeMinishop.ts`. Страница: `/awesome-minishop/`.
 Изображения хранятся локально, чтобы каталог не зависел от внешнего хостинга картинок.
 
-Превью тем взяты из публичных репозиториев авторов и оптимизированы в WebP
-без изменения содержания. Автор и ссылка на проект показаны на каждой карточке.
+Превью проектов взяты из публичных репозиториев авторов и сохранены в WebP.
+Автор и ссылка на проект показаны на каждой карточке.
 
 | Файл | Оригинал |
 | --- | --- |
@@ -16,6 +16,7 @@
 | `avio.webp` | <https://github.com/drobyazkome/avio-minishop-theme/blob/main/preview.webp> |
 | `cyberpunk2077.webp` | <https://gitlab.com/wormy09/minishop-theme-cyberpunk2077/-/blob/main/cyberpunk2077/preview.webp> |
 | `luna.webp` | <https://github.com/not-omibranch/minishop-theme-luna/blob/b9226b9e1bf0b1837815a985ddaccbcf304f6126/preview-desktop.png> |
+| `kiro-push.webp` | <https://github.com/kiroproject/kiro-push/blob/78eac6b6bf5df86d82c6314f9e70df1b4dc0e8d8/docs/overview.webp> |
 
 `kiro-wheel.svg` и `ai-support.svg` — оригинальные иллюстративные обложки этого каталога,
 а не скриншоты проектов. Это также указано в альтернативном тексте изображений.
