@@ -94,6 +94,11 @@ Mini App предлагает в отдельном окне другой дос
 
 ## Выбор способа оплаты в Mini App
 
+После создания платежа Mini App сразу открывает страницу провайдера через Telegram.
+Выбор внешнего или встроенного браузера зависит от клиента и его настроек.
+Если Telegram открыл страницу во встроенном браузере, её можно открыть во внешнем
+через пункт «Открыть в браузере» в меню Telegram.
+
 `PAYMENT_METHODS_DISPLAY_MODE=dropdown` используется по умолчанию и показывает компактный
 выпадающий список. Значение `buttons` возвращает отдельные кнопки. В обоих режимах сохраняются
 порядок из `PAYMENT_METHODS_ORDER`, название и иконка провайдера; настройка находится в
@@ -167,6 +172,22 @@ worker, повторные уведомления не начисляют пок
 
 Публичный API Anore не описывает рекуррентные списания: этот способ оформляет
 только разовые покупки. [Документация Anore](https://anore.cc/docs).
+
+## PayHot
+
+1. Создайте рабочий API-ключ PayHot с правами создания и чтения платежей.
+2. В кабинете PayHot добавьте HTTPS-вебхук `<WEBHOOK_BASE_URL>/webhook/payhot`
+   и подпишитесь на `payment.succeeded`. Скопируйте полный секрет подписи,
+   включая префикс `whsec_v2_`.
+3. В разделе «Платежи → PayHot» задайте ключ, секрет, способ оплаты и включите
+   провайдера. Те же настройки доступны через [переменные окружения](../configuration/env-vars.md#payhot).
+
+Покупатель оплачивает заказ на странице PayHot. Для карт, Apple Pay и Google Pay
+поддерживаются цены в RUB, USD и EUR. Для СБП, SberPay и криптооплаты цена заказа
+задаётся в RUB. Способ и валюта должны быть подключены к кассе PayHot.
+Интеграция принимает разовые рабочие платежи. Для подтверждения Core сверяет
+идентификаторы, сумму и валюту заказа по подписанному вебхуку или статусу из API.
+[Документация PayHot](https://docs.pay.hot/overview)
 
 ## Cryptomus
 
@@ -288,6 +309,7 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | Platega | `WEBHOOK_BASE_URL` + `/webhook/platega` | Один общий webhook для всех разовых методов и рекуррентной подписки Platega. |
 | RollyPay | `WEBHOOK_BASE_URL` + `/webhook/rollypay` | Один подписанный webhook для разовых и всех регулярных списаний RollyPay. |
 | SeverPay | `WEBHOOK_BASE_URL` + `/webhook/severpay` | Укажите как callback/webhook URL, если поле есть в кабинете мерчанта. |
+| PayHot | `WEBHOOK_BASE_URL` + `/webhook/payhot` | Подпишитесь на `payment.succeeded` и задайте отдельный секрет подписи. |
 | Wata | `WEBHOOK_BASE_URL` + `/webhook/wata` | Если включена проверка подписи, настройте `WATA_WEBHOOK_VERIFY_SIGNATURE` и `WATA_PUBLIC_KEY`. |
 | CryptoPay | `WEBHOOK_BASE_URL` + `/webhook/cryptopay` | Указывается в настройках Crypto Bot / CryptoPay webhook. |
 | Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |

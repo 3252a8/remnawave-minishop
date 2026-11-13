@@ -212,7 +212,7 @@ class Settings(
     SUBSCRIPTION_DAYS_DEVICES_ENABLED: bool = Field(default=False)
     SUBSCRIPTION_DAYS_TRAFFIC_ENABLED: bool = Field(default=False)
     SUBSCRIPTION_DAYS_MIN_REMAINING: int = Field(default=1, ge=1, le=3650)
-    USER_BALANCE_RECURRING_ENABLED: bool = Field(default=False)
+    USER_BALANCE_RECURRING_ENABLED: bool = Field(default=True)
     USER_BALANCE_CURRENCY: str = Field(
         default="",
         description="Currency code for user balances; blank follows DEFAULT_CURRENCY_SYMBOL.",
@@ -347,6 +347,7 @@ class Settings(
     )
 
     SUBSCRIPTION_NOTIFICATIONS_ENABLED: bool = Field(default=True)
+    BIRTHDAY_ACTIVATION_CODE_DAYS: int = Field(default=0, ge=0, le=365)
     SUBSCRIPTION_EMAIL_NOTIFICATIONS_ENABLED: bool = Field(default=True)
     SUBSCRIPTION_NOTIFY_ON_EXPIRE: bool = Field(default=True)
     SUBSCRIPTION_NOTIFY_AFTER_EXPIRE: bool = Field(default=True)
@@ -723,6 +724,10 @@ class Settings(
             "User renewal prompts should open the Mini App."
         ),
     )
+    TELEGRAM_SUBSCRIPTION_WIDGET_ENABLED: bool = Field(
+        default=False,
+        description="Enable the /widget subscription card in private Telegram chats.",
+    )
     MENU_BUTTONS_JSON: str = Field(
         default="[]",
         description=(
@@ -801,6 +806,31 @@ class Settings(
     )
     LOG_SUPPORT_THREAD_ID: int | None = Field(
         default=None, description="Thread ID for support ticket log messages"
+    )
+
+    LOG_NEW_USERS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for user registration and account changes"
+    )
+    LOG_PAYMENTS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for payments"
+    )
+    LOG_PROMO_ACTIVATIONS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for activation codes"
+    )
+    LOG_TRIAL_ACTIVATIONS_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for trial activations"
+    )
+    LOG_SUSPICIOUS_ACTIVITY_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for suspicious activity"
+    )
+    LOG_PARTNER_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for partner program"
+    )
+    LOG_PANEL_SYNC_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for panel synchronization"
+    )
+    LOG_DEBUG_THREAD_ID: int | None = Field(
+        default=None, description="Log chat thread for debug message logs"
     )
 
     # Notification types

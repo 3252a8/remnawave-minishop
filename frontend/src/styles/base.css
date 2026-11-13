@@ -144,8 +144,8 @@
 }
 
 .theme-light .btn-primary,
-.theme-light .admin-btn.admin-btn-primary,
-.theme-light .admin-extend-control .admin-btn.admin-btn-primary {
+.theme-light .admin-btn.admin-btn-primary:not(:disabled),
+.theme-light .admin-extend-control .admin-btn.admin-btn-primary:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 50%, #000000);
   border-color: color-mix(in srgb, var(--accent) 42%, #000000);
   color: #ffffff;
@@ -201,9 +201,7 @@
 }
 
 .theme-light .settings-profile {
-  box-shadow:
-    0 10px 24px rgba(15, 23, 42, 0.1),
-    inset 0 1px 0 var(--inset-highlight);
+  box-shadow: none;
 }
 
 .theme-light .settings-links-block {
@@ -216,7 +214,7 @@
 .theme-light .activation-success-dialog {
   border-color: color-mix(in srgb, var(--accent) 24%, var(--border));
   background: var(--panel);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 .theme-light .trial-card-head > svg,
@@ -238,12 +236,7 @@
   color: var(--text);
 }
 
-.theme-light .bonus-card-head strong,
 .theme-light .card-heading-accent {
-  color: color-mix(in srgb, var(--accent) 50%, #000000);
-}
-
-.theme-light .bonus-card-head > svg {
   color: color-mix(in srgb, var(--accent) 50%, #000000);
 }
 
@@ -254,13 +247,13 @@
 .theme-light .install-qr-wrap {
   background: var(--panel);
   border-color: rgba(15, 23, 42, 0.12);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.055);
+  box-shadow: none;
 }
 
 .theme-light .install-app-button.active {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 .theme-light .install-platform-trigger:focus-visible,
@@ -347,7 +340,7 @@ body:has(.theme-light) .install-platform-item[data-selected] {
 .theme-light .admin-config-alerts {
   border-color: color-mix(in srgb, var(--warning) 38%, var(--admin-border));
   background: color-mix(in srgb, var(--warning) 9%, var(--admin-surface));
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
 }
 
 .theme-light .admin-config-alerts-error {
@@ -364,7 +357,7 @@ body:has(.theme-light) .install-platform-item[data-selected] {
 }
 
 .theme-light .telegram-notifications-card {
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+  box-shadow: none;
 }
 
 * {
@@ -389,6 +382,14 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   letter-spacing: 0;
+}
+
+/* `bolder` inside a semibold parent resolves to 900, which Windows renders with
+   the Segoe UI Black face. Cap emphasis at bold; component rules keep their own
+   weights because any class selector outranks this element rule. */
+b,
+strong {
+  font-weight: 700;
 }
 
 /* Background scroll lock (see lib/webapp/scrollLock.ts). Only one scroller may

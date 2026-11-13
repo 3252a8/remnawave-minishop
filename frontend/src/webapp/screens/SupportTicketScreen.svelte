@@ -9,7 +9,7 @@
   import type { TicketMessageButtonLike } from "$components/patterns/webapp/types";
   import { webappRichTextLabels } from "$lib/webapp/richTextLabels.js";
   import { wireTextLength } from "$lib/richtext/telegramHtml";
-  import { supportMessageImageUrl } from "$lib/messageImage";
+  import { supportMessageImageUrls } from "$lib/messageImage";
   import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
   import {
     clearSupportDraft,
@@ -29,6 +29,7 @@
     created_at?: string;
     is_internal_note?: boolean;
     image_id?: string | null;
+    image_ids?: string[];
     message_id?: number;
     read_by_admin_at?: string | null;
     read_by_user_at?: string | null;
@@ -40,6 +41,7 @@
     brand?: Record<string, unknown>;
     user?: Record<string, unknown>;
     userAvatarUrl?: string;
+    userAvatarFallbackUrl?: string;
     userInitials?: string;
   };
 
@@ -49,6 +51,7 @@
     brand = {},
     user = {},
     userAvatarUrl = "",
+    userAvatarFallbackUrl = "",
     userInitials = "",
   }: Props = $props();
 
@@ -56,7 +59,7 @@
   const loadCustomEmojiMedia: CustomEmojiMediaLoader = (id, signal) =>
     supportStore.loadCustomEmojiMedia(ticketId, id, signal);
   let reply = $state("");
-  let replyImage = $state<File | null>(null);
+  let replyImages = $state<File[]>([]);
   let messagesScrollEl = $state<HTMLElement | null>(null);
   let lastMessageKey = $state("");
   let replyDraftKey = $state("");
@@ -90,6 +93,8 @@
     invalidType: t("wa_message_image_invalid_type"),
     tooLarge: t("wa_message_image_too_large"),
     previewAlt: t("wa_message_image_preview_alt"),
+    tooMany: t("wa_support_images_too_many"),
+    totalTooLarge: t("wa_support_images_too_large"),
   });
   const imageViewerLabels = $derived({
     open: t("wa_image_viewer_open", {}, "Open image"),
@@ -126,14 +131,14 @@
     else clearSupportDraft("reply", draftScope, ticketId);
   });
 
-  async function send(body: string, image: File | null) {
+  async function send(body: string, images: File[]) {
     const currentTicketId = ticketId;
     const currentDraftScope = draftScope;
-    const sent = await supportStore.sendReply(body, image);
+    const sent = await supportStore.sendReply(body, images);
     if (!sent) return;
     if (currentTicketId) clearSupportDraft("reply", currentDraftScope, currentTicketId);
     reply = "";
-    replyImage = null;
+    replyImages = [];
   }
 
   function scrollMessagesToBottom() {
@@ -277,7 +282,7 @@
                 role={message.author_role}
                 body={message.body}
                 bodyFormat={message.body_format}
-                imageUrl={message.image_id ? supportMessageImageUrl(message.image_id) : ""}
+                imageUrls={supportMessageImageUrls(message)}
                 loadImage={supportStore.loadImage}
                 {loadCustomEmojiMedia}
                 buttons={message.buttons}
@@ -286,6 +291,7 @@
                 supportBrand={brand}
                 {imageViewerLabels}
                 {userAvatarUrl}
+                {userAvatarFallbackUrl}
                 {userInitials}
                 authorName={messageAuthorName(message)}
                 readByUserAt={message.read_by_user_at}
@@ -311,7 +317,7 @@
       {:else}
         <TicketComposer
           bind:value={reply}
-          bind:image={replyImage}
+          bind:images={replyImages}
           {labels}
           {imageLabels}
           maxLength={maxBodyLength}

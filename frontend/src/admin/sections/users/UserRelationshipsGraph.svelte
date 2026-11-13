@@ -35,7 +35,7 @@
   type Graph = GetResponse<"/api/admin/users/relationships">;
   type Edge = Graph["edges"][number];
   const cardWidth = 360;
-  const cardHeight = 112;
+  const cardHeight = 160;
   let {
     at,
     focus = "",

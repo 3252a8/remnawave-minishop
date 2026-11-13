@@ -68,6 +68,9 @@ def test_serialize_device_matches_contract():
         "can_disconnect": True,
         "default_name": "iPhone 15",
         "custom_name": None,
+        "device_model": "iPhone 15",
+        "device_type": "phone",
+        "router_platform": None,
     }
     assert result == expected
     assert list(result.keys()) == list(expected.keys())
@@ -127,6 +130,31 @@ def test_serialize_device_without_hwid_ignores_saved_names():
 
     assert result["display_name"] == "Android"
     assert result["custom_name"] is None
+
+
+def test_router_metadata_uses_panel_identity_even_after_a_misleading_rename():
+    result = _serialize_device(
+        {
+            "hwid": "router-hwid-with-a-long-identity",
+            "deviceModel": "Keenetic Giga",
+            "platform": "Linux",
+        },
+        1,
+        {_device_hwid_token("router-hwid-with-a-long-identity"): "iPhone"},
+    )
+    assert result["display_name"] == "iPhone"
+    assert result["device_model"] == "Keenetic Giga"
+    assert result["device_type"] == "router"
+    assert result["router_platform"] == "keenetic"
+    assert "router-hwid-with-a-long-identity" not in json.dumps(result)
+
+    phone = _serialize_device(
+        {"hwid": "phone-hwid", "deviceModel": "iPhone", "platform": "iOS"},
+        2,
+        {_device_hwid_token("phone-hwid"): "OpenWrt router"},
+    )
+    assert phone["device_type"] == "phone"
+    assert phone["router_platform"] is None
 
 
 class WebAppDevicesPayloadTests(IsolatedAsyncioTestCase):

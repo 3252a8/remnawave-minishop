@@ -213,7 +213,7 @@
   .admin-payment-purchase-detail-copy small {
     color: color-mix(in srgb, var(--purchase-color) 76%, var(--admin-muted));
     font-size: 9px;
-    font-weight: 750;
+    font-weight: 700;
     letter-spacing: 0.055em;
     text-transform: uppercase;
   }

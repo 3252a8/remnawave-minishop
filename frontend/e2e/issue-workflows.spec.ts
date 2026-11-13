@@ -11,6 +11,39 @@ const devices = [
   ["desktop", { width: 1440, height: 1000 }],
   ["mobile", { width: 390, height: 844 }],
 ] as const;
+
+for (const [device, viewport] of devices) {
+  test(`referral deep links reach the referral block on ${device}`, async ({ page }) => {
+    await page.setViewportSize({ ...viewport, height: 500 });
+    for (const destination of [
+      "/demo/runtime/invite/referrals",
+      "/demo/runtime/home#tgWebAppStartParam=page_ref",
+    ]) {
+      const url = new URL(destination, "https://minishop.test");
+      url.searchParams.set("theme_preview", "dark");
+      url.searchParams.set("mock", "checkout-addons");
+      await page.goto(url.pathname + url.search + url.hash);
+      await expect(page).toHaveURL(/\/invite\/referrals(?:[?#]|$)/);
+      const heading = page.locator("#invite-referrals").getByRole("heading").first();
+      await expect(page.locator("#invite-codes")).toBeAttached();
+      await expect(page.locator("#invite-gifts .gift-card").first()).toBeAttached();
+      await expect(heading, destination).toBeInViewport();
+    }
+  });
+}
+
+test("a Mini App deep link selects the requested partner activity", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto(
+    "/demo/runtime/home?partner_scenario=active_populated&theme_preview=dark&startapp=page_partner-commissions"
+  );
+  await expect(page).toHaveURL(/\/partner\/commissions\?/);
+  const activity = page.locator("#partner-activity");
+  const commissions = activity.getByRole("tab", { name: /комиссии/i });
+  await expect(commissions).toHaveAttribute("aria-selected", "true");
+  await expect(commissions).toBeInViewport();
+});
+
 async function snapshot(page: Page, name: string) {
   if (!process.env.ISSUE_REVIEW_DIR) return;
   await settleAnimations(page);
@@ -315,7 +348,10 @@ for (const [device, viewport] of devices) {
     await page.setViewportSize(viewport);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.goto(`/demo/runtime/app/${query}&mock=checkout-addons&path=/invite`);
-    const gift = page.locator(".gift-entry .copy-link-field").first();
+    const giftCard = page.locator(".gift-entry .gift-card").first();
+    const gift = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: ru.wa_gift_link_webapp, exact: true }),
+    });
     await expect(gift).toBeVisible();
     await expect(page.locator(".referral-tariff-dropdown")).toHaveCount(2);
     await expect(page.locator(".referral-tariff-dropdown").first()).toContainText(
@@ -367,6 +403,21 @@ for (const [device, viewport] of devices) {
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(gift.getByRole("button", { name: ru.wa_gift_qr_show })).toBeFocused();
+    const telegram = giftCard.locator(".copy-link-field").filter({
+      has: page.getByRole("textbox", { name: ru.wa_gift_link_telegram, exact: true }),
+    });
+    const telegramLink = await telegram.locator("input").inputValue();
+    expect(telegramLink).toBe(`https://t.me/minishop_demo_bot?start=gift_${"R".repeat(43)}`);
+    const telegramQr = telegram.getByRole("button", { name: ru.wa_gift_qr_show });
+    await expect(telegramQr).toBeVisible();
+    await telegramQr.click();
+    await expect(dialog.locator(".link-qr-tile img")).toBeVisible();
+    const telegramImage = await dialog.locator(".link-qr-tile img").getAttribute("src");
+    expect(await decodeQr(Buffer.from(telegramImage!.split(",")[1], "base64"))).toBe(telegramLink);
+    await snapshot(page, `gift-telegram-qr-${device}`);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(telegramQr).toBeFocused();
     const referral = page.locator(".bonus-card .copy-link-field").first();
     const referralLink = await referral.locator("input").inputValue();
     await referral.getByRole("button", { name: /QR/ }).click();
@@ -641,6 +692,56 @@ for (const [device, viewport] of devices) {
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('[data-admin-action="request-user-merge"]')).toBeFocused();
+  });
+
+  test(`personal messages can be scheduled from the user card on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(userRoute + query);
+    await page.getByRole("tab", { name: ru.admin_user_tab_message }).click();
+
+    const composer = page.locator(".admin-user-action-sheet--message");
+    const send = composer.locator('[data-admin-action="send-user-message"]');
+    const schedule = composer.getByRole("checkbox", { name: ru.admin_broadcast_schedule_later });
+    await composer.locator(".ProseMirror").fill("Happy birthday!");
+    await expect(send).toHaveText(ru.admin_btn_send_msg);
+    await expect(send).toBeEnabled();
+
+    await schedule.click();
+    await expect(send).toHaveText(ru.admin_user_message_schedule);
+    await expect(send).toBeDisabled();
+    const picker = composer.locator(".date-input-shell");
+    const trigger = picker.getByRole("button", { name: ru.admin_broadcast_schedule_label });
+    await trigger.click();
+    const calendar = page.locator(".date-input-popover");
+    await expect(calendar).toBeVisible();
+    await expect(calendar).toBeInViewport();
+    await noOverflow(page);
+    await snapshot(page, `personal-message-calendar-${device}`);
+    await page.keyboard.press("Escape");
+    await expect(calendar).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    for (const [part, digits] of Object.entries({
+      year: "2099",
+      month: "05",
+      day: "20",
+      hour: "14",
+      minute: "30",
+    })) {
+      await picker.locator(`[data-segment="${part}"]`).pressSequentially(digits);
+    }
+    await expect(send).toBeEnabled();
+    await schedule.click();
+    await expect(send).toHaveText(ru.admin_btn_send_msg);
+    await expect(picker).toHaveCount(0);
+    await schedule.click();
+    await expect(send).toHaveText(ru.admin_user_message_schedule);
+    await expect(send).toBeEnabled();
+    await send.click();
+    await expect(composer.getByRole("status")).toHaveText(ru.admin_user_message_scheduled);
+    await expect(schedule).not.toBeChecked();
+    await expect(send).toHaveText(ru.admin_btn_send_msg);
+    await expect(send).toBeDisabled();
   });
 
   test(`plugin pages and shortcodes appear in message and menu editors on ${device}`, async ({

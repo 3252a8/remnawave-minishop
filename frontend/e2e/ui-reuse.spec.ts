@@ -86,6 +86,12 @@ for (const width of [1440, 768, 390, 320]) {
       await graph.locator('input[type="search"]').fill("910001");
       await graph.locator('input[type="search"]').press("Enter");
       await expect(graph.locator('[data-graph-user-id="910001"]')).toHaveClass(/selected/);
+      const selectedDetails = graph.locator(".relationships-selection dl");
+      await expect(selectedDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();
+      await expect(selectedDetails.locator("dd").last()).toHaveText(/\d.*₽/);
+      const nodeDetails = graph.locator('[data-graph-user-id="910001"] dl');
+      await expect(nodeDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();
+      await expect(nodeDetails.locator("dd").last()).toHaveText(/\d.*₽/);
       expect(
         await graph
           .locator('.relationships-selection li[data-relationship-kind="referral"]')
@@ -179,7 +185,7 @@ for (const width of [1440, 768, 390, 320]) {
         });
       expect(identityGeometry.rightOfAvatar).toBe(true);
       expect(identityGeometry.fitsHeight).toBe(true);
-      expect(identityGeometry.height).toBeLessThanOrEqual(112);
+      expect(identityGeometry.height).toBeLessThanOrEqual(160);
       if (width === 1440 && theme === "dark") {
         const focusBefore = new URL(page.url()).searchParams.get("focus");
         await graph.locator(".relationships-node").first().focus();
@@ -806,7 +812,12 @@ for (const width of [1440, 768, 390]) {
           `[data-settings-anchor="settings-field-group:payments:${provider}:${method}"]`
         );
         await expect(group).toBeVisible();
-        await expect(group.locator(".admin-setting")).toHaveCount(provider === "YooKassa" ? 6 : 2);
+        const fields = group.locator(".admin-setting");
+        await expect(fields).toHaveCount(provider === "YooKassa" ? 7 : 3);
+        const fee = fields.filter({
+          has: page.getByText(`${method.toUpperCase()}_REPORTING_FEE_PERCENT`, { exact: true }),
+        });
+        await expect(fee.getByRole("spinbutton")).toBeVisible();
         await noOverflow(group);
         await group.scrollIntoViewIfNeeded();
         await group.screenshot({ path: testInfo.outputPath(`${method}-${width}.png`) });

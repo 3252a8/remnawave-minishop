@@ -389,7 +389,7 @@
 
   .change-email-field > span {
     font-size: 13px;
-    font-weight: 750;
+    font-weight: 700;
   }
 
   .change-email-step {
@@ -399,7 +399,7 @@
     color: var(--accent);
     background: color-mix(in srgb, var(--accent) 11%, transparent);
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .change-email-loading {

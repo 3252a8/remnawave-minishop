@@ -144,6 +144,8 @@ const defaultPromoDraft = (): PromoDraft => ({
   applies_to: "all",
   min_subscription_months: null,
   min_subscription_days: null,
+  subscription_tariff_key: null,
+  exact_subscription_days: null,
   min_traffic_gb: null,
   origin: "admin",
   max_activations: 1,
@@ -162,6 +164,8 @@ const defaultPromoPatchDraft = (): PromoPatch => ({
   applies_to: null,
   min_subscription_months: null,
   min_subscription_days: null,
+  subscription_tariff_key: null,
+  exact_subscription_days: null,
   min_traffic_gb: null,
   origin: null,
   max_activations: null,
@@ -183,6 +187,8 @@ function promoToPatchDraft(promo: Promo): PromoPatch {
     min_subscription_months: null,
     min_subscription_days:
       promo.min_subscription_days ?? legacyMonthsToDays(promo.min_subscription_months),
+    subscription_tariff_key: promo.subscription_tariff_key ?? null,
+    exact_subscription_days: promo.exact_subscription_days ?? null,
     min_traffic_gb: promo.min_traffic_gb,
     origin: promo.origin,
     max_activations: promo.max_activations,
@@ -401,13 +407,6 @@ export function createPromosStore({
       promos = payload.promos || [];
       state.promosTotal = payload.total || 0;
       state.promoOwnedTotal = payload.owned_total || 0;
-      // Nothing issues codes for a named customer here, so drop back to the
-      // plain single list instead of stranding the admin on an empty tab.
-      if (!state.promoOwnedTotal && currentKind !== "shared") {
-        state.promoKind = "shared";
-        state.promosPage = 0;
-        void loadPromos({ refresh });
-      }
     } catch (error) {
       if (requestSeq !== promosRequestSeq) return;
       if (error instanceof AdminPromosError) {

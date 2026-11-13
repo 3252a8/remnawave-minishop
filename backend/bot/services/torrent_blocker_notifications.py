@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 
 TELEGRAM_TORRENT_NOTIFICATION_EVENT = "telegram_torrent_blocker_notification_sent"
 EMAIL_TORRENT_NOTIFICATION_EVENT = "email_torrent_blocker_notification_sent"
+_DURATION_MESSAGE_KEY = "torrent_blocker_notification_duration"
 _FINGERPRINT_DOMAIN = b"minishop:torrent-blocker-report:v1\0"
 
 
@@ -336,12 +337,21 @@ class TorrentBlockerNotificationService:
         return None
 
     def _message_text(self, language: str, report: TorrentBlockerReport) -> str:
-        if report.will_unblock_at is not None:
-            message = self.i18n.gettext(
-                language,
-                "torrent_blocker_notification",
-                unblock_at=report.will_unblock_at.strftime("%Y-%m-%d %H:%M UTC"),
+        if report.block_duration_seconds > 0:
+            minutes, seconds = divmod(report.block_duration_seconds, 60)
+            hours, minutes = divmod(minutes, 60)
+            days, hours = divmod(hours, 24)
+            duration = " ".join(
+                self.i18n.gettext(language, key, count=count)
+                for key, count in (
+                    ("torrent_blocker_duration_days", days),
+                    ("torrent_blocker_duration_hours", hours),
+                    ("torrent_blocker_duration_minutes", minutes),
+                    ("torrent_blocker_duration_seconds", seconds),
+                )
+                if count
             )
+            message = self.i18n.gettext(language, _DURATION_MESSAGE_KEY, duration=duration)
         else:
             message = self.i18n.gettext(
                 language,
@@ -438,7 +448,7 @@ class TorrentBlockerNotificationService:
             event_type=TELEGRAM_TORRENT_NOTIFICATION_EVENT,
             channel="telegram",
             recipient=str(chat_id),
-            content=f"fingerprint={report.fingerprint} message_key=torrent_blocker_notification",
+            content=f"fingerprint={report.fingerprint} message_key={_DURATION_MESSAGE_KEY}",
             timestamp=sent_at,
         )
         if status != TELEGRAM_NOTIFICATIONS_ENABLED:
@@ -510,9 +520,7 @@ class TorrentBlockerNotificationService:
             dashboard_url=dashboard_url,
             session=session,
             audit_event_type=EMAIL_TORRENT_NOTIFICATION_EVENT,
-            audit_content=(
-                f"fingerprint={report.fingerprint} message_key=torrent_blocker_notification"
-            ),
+            audit_content=(f"fingerprint={report.fingerprint} message_key={_DURATION_MESSAGE_KEY}"),
             raise_on_error=True,
         )
         self._log_outcome(

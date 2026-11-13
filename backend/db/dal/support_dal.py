@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
-from db.activity_models import SupportChangeClock
+from db.activity_models import SupportChangeClock, SupportMessageImage
 from db.support_contracts import SupportTicketChange
 
 from ..models import SupportTicket, SupportTicketMessage, User
@@ -105,6 +106,7 @@ async def create_ticket(
     first_message_body: str,
     first_message_format: str = "text",
     image_id: str | None = None,
+    additional_image_ids: Sequence[str] = (),
 ) -> SupportTicket:
     now = datetime.now(UTC)
     ticket = SupportTicket(
@@ -129,6 +131,10 @@ async def create_ticket(
         body=first_message_body,
         body_format=first_message_format,
         image_id=image_id,
+        additional_images=[
+            SupportMessageImage(position=position, image_id=attachment_id)
+            for position, attachment_id in enumerate(additional_image_ids)
+        ],
         is_internal_note=False,
         created_at=now,
     )
@@ -152,6 +158,7 @@ async def add_message(
     connector_source: str | None = None,
     author_label: str | None = None,
     idempotency_key: str | None = None,
+    additional_image_ids: Sequence[str] = (),
 ) -> SupportTicketMessage | None:
     stmt = (
         select(SupportTicket)
@@ -173,6 +180,10 @@ async def add_message(
         body_format=body_format,
         buttons=buttons,
         image_id=image_id,
+        additional_images=[
+            SupportMessageImage(position=position, image_id=attachment_id)
+            for position, attachment_id in enumerate(additional_image_ids)
+        ],
         is_internal_note=bool(is_internal_note),
         created_at=now,
         connector_source=connector_source,
@@ -503,11 +514,20 @@ async def count_recent_messages_for_user(
         SupportTicketMessage.author_user_id == user_id,
         SupportTicketMessage.created_at >= cutoff,
     ]
-    if images_only:
-        conditions.append(SupportTicketMessage.image_id.is_not(None))
     stmt = select(func.count()).select_from(SupportTicketMessage).where(*conditions)
-    result = await session.execute(stmt)
-    return int(result.scalar_one() or 0)
+    if not images_only:
+        return int((await session.execute(stmt)).scalar_one() or 0)
+    first_images = stmt.where(SupportTicketMessage.image_id.is_not(None)).scalar_subquery()
+    extra_images = (
+        select(func.count())
+        .select_from(SupportMessageImage)
+        .join(
+            SupportTicketMessage, SupportTicketMessage.message_id == SupportMessageImage.message_id
+        )
+        .where(*conditions)
+        .scalar_subquery()
+    )
+    return int((await session.execute(select(first_images + extra_images))).scalar_one() or 0)
 
 
 async def user_can_access_image(session: AsyncSession, user_id: int, image_id: str) -> bool:
@@ -516,7 +536,12 @@ async def user_can_access_image(session: AsyncSession, user_id: int, image_id: s
         .join(SupportTicket, SupportTicket.ticket_id == SupportTicketMessage.ticket_id)
         .where(
             SupportTicket.user_id == user_id,
-            SupportTicketMessage.image_id == image_id,
+            or_(
+                SupportTicketMessage.image_id == image_id,
+                SupportTicketMessage.additional_images.any(
+                    SupportMessageImage.image_id == image_id
+                ),
+            ),
             SupportTicketMessage.is_internal_note.is_(False),
         )
         .limit(1)

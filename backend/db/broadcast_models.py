@@ -31,6 +31,7 @@ class AdminBroadcast(Base):
     status = Column(String(24), nullable=False, default="queued", index=True)
     is_visible = Column(Boolean, nullable=False, default=True, index=True)
     target = Column(String(128), nullable=False, default="all")
+    targets = Column(JSON, nullable=True)
     channels = Column(JSON, nullable=False, default=list)
     exclude_blocked_telegram = Column(Boolean, nullable=False, default=False)
     texts = Column(JSON, nullable=False, default=dict)
@@ -69,6 +70,13 @@ class AdminBroadcast(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+
+class BroadcastAudienceExclusion(Base):
+    __tablename__ = "broadcast_audience_exclusions"
+
+    user_id = Column(BigInteger, ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True)
+    target = Column(String(64), primary_key=True, index=True)
 
 
 class AdminBroadcastDelivery(Base):

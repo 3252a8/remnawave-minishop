@@ -30,6 +30,10 @@ USER_CARD_TARGETS = frozenset(
         "user.home.status",
         "user.settings.profile",
         "user.settings.codes",
+        "user.devices.card",
+        "user.devices.card.header",
+        "user.devices.card.details",
+        "user.devices.card.actions",
     }
 )
 USER_TARGETS = (

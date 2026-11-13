@@ -1,9 +1,9 @@
 import { fmtTrafficBytes } from "./format.js";
+import type { RevenuePoint } from "./revenueSeriesAgg.js";
 import type { PaymentOut } from "./stores/paymentsStore";
 import type { StatsState } from "./stores/statsStore";
 
 export type BadgeVariant = "default" | "outline" | "destructive" | "success" | "muted";
-export type RevenuePoint = { date: string; amount: number };
 export type DynamicRecord = Record<string, unknown>;
 export type PanelStats = DynamicRecord & {
   error?: unknown;
@@ -53,6 +53,10 @@ export type AdminStats = NonNullable<StatsState["stats"]> & {
     week_revenue?: unknown;
     month_revenue?: unknown;
     all_time_revenue?: unknown;
+    today_fees?: number;
+    week_fees?: number;
+    month_fees?: number;
+    all_time_fees?: number;
   };
   panel: PanelStats | null;
   recent_payments: PaymentOut[];
@@ -139,7 +143,27 @@ export function parsePanelBandwidth(panel: PanelStats): { week: unknown; month: 
   const week = bw.bandwidthLastSevenDays?.current;
   const month = bw.bandwidthLast30Days?.current ?? bw.bandwidthLastThirtyDays?.current;
   if (week == null && month == null) return null;
-  return { week, month };
+  return { week: panelTrafficValue(week), month: panelTrafficValue(month) };
+}
+
+/** Remnawave reports bandwidth either as preformatted text or as a raw byte count. */
+export function panelTrafficValue(value: unknown): unknown {
+  if (value == null) return value;
+  const raw = typeof value === "string" ? value.trim() : value;
+  if (typeof raw === "number" || (typeof raw === "string" && /^\d+(\.\d+)?$/.test(raw))) {
+    const bytes = Number(raw);
+    if (!Number.isFinite(bytes)) return value;
+    const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    let amount = bytes;
+    let unit = 0;
+    while (amount >= 1024 && unit < units.length - 1) {
+      amount /= 1024;
+      unit += 1;
+    }
+    const digits = amount >= 100 || unit === 0 ? 0 : amount >= 10 ? 1 : 2;
+    return `${Number(amount.toFixed(digits))} ${units[unit]}`;
+  }
+  return value;
 }
 
 function panelRowBytes(row: DynamicRecord | null | undefined): number {

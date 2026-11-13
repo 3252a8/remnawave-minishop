@@ -88,7 +88,7 @@
       {/each}
     </div>
   {:else if !documents.length}
-    <AdminEmptyState tone="card" class="documents-empty">
+    <AdminEmptyState class="documents-empty">
       <FileText size={24} />
       <strong>{at("documents_empty", {}, "No documents yet")}</strong>
       <p>

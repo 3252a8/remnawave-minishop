@@ -45,6 +45,8 @@ from .start_common import (
     router,
 )
 from .start_menus import send_main_menu
+from .start_pages import BOT_PAGES, open_start_page
+from .subscription_widget import CONNECT_START, RENEW_START
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +102,7 @@ def _bot_started_source(
 @router.message(
     CommandStart(
         magic=F.args.regexp(
-            r"^(?!gift_|ref_|p_|promo_|admin_user_|ticket_|notifications$|page_ref$|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
+            r"^(?!gift_|ref_|p_|promo_|admin_user_|ticket_|notifications$|(?i:page_)|webapp_auth_)([A-Za-z0-9_\-]{2,64})$"
         ).as_("ad_param_match")
     )
 )
@@ -130,6 +132,10 @@ async def start_command_handler(
     telegram_user_id = user.id
     user_id: int | None = None
     start_param = _start_argument(message)
+    page_param = (start_param or "").lower()
+    page = page_param[5:] if page_param.startswith("page_") else ""
+    if page not in BOT_PAGES or message.chat.type != "private":
+        page = ""
     decoded_invite = decode_invitation_payload(start_param, invitation_link_prefix(settings))
     if decoded_invite != (start_param or ""):
         ref_match = re.fullmatch(r"ref_([A-Za-z0-9_-]{1,64})", decoded_invite)
@@ -233,7 +239,6 @@ async def start_command_handler(
     partner_user_id: int | None = None
     raw_ref_value: str | None = None
     promo_code_to_apply: str | None = None
-    should_open_referral_from_start = False
     ad_start_param: str | None = None
     notifications_start_requested = bool(notifications_match)
 
@@ -247,9 +252,6 @@ async def start_command_handler(
         logger.info("User %s started with promo code: %s", user_id, promo_code_to_apply)
     elif notifications_start_requested:
         logger.info("User %s started bot from notifications deep-link.", user_id)
-    elif page_ref_match:
-        should_open_referral_from_start = True
-        logger.info("User %s started with page_ref deep-link.", user_id)
     elif ad_param_match:
         ad_start_param = ad_param_match.group(1)
         logger.info("User %s started with ad start param: %s", user_id, ad_start_param)
@@ -535,9 +537,34 @@ async def start_command_handler(
         start_param=start_param,
     )
 
+    if page:
+        await state.update_data(pending_start_page=page)
     if not await ensure_required_channel_subscription(
         message, settings, i18n, current_lang, session, db_user
     ):
+        return
+    if page:
+        await state.update_data(pending_start_page=None)
+
+    if (
+        start_param in {CONNECT_START, RENEW_START}
+        and message.chat.type == "private"
+        and settings.TELEGRAM_SUBSCRIPTION_WIDGET_ENABLED
+    ):
+        from .subscription import display_subscription_options, my_subscription_command_handler
+
+        if start_param == CONNECT_START:
+            await my_subscription_command_handler(
+                message,
+                i18n_data,
+                settings,
+                subscription_service.panel_service,
+                subscription_service,
+                session,
+                message_bot(message),
+            )
+        else:
+            await display_subscription_options(message, i18n_data, settings, session)
         return
 
     if gift_token:
@@ -553,14 +580,13 @@ async def start_command_handler(
         )
         return
 
-    open_referral_page_for_existing_user = should_open_referral_from_start and is_existing_user
+    if page and await open_start_page(
+        page, message, state, settings, i18n_data, subscription_service, referral_service, session
+    ):
+        return
 
     # Send welcome message if not disabled
-    if (
-        not settings.DISABLE_WELCOME_MESSAGE
-        and not open_referral_page_for_existing_user
-        and not notifications_start_requested
-    ):
+    if not settings.DISABLE_WELCOME_MESSAGE and not notifications_start_requested:
         await message.answer(_(key="welcome", user_name=hd.quote(user.full_name)))
 
     if notifications_start_requested:
@@ -691,13 +717,5 @@ async def start_command_handler(
                 e,
             )
             await session.rollback()
-
-    if open_referral_page_for_existing_user:
-        from . import referral as user_referral_handlers
-
-        await user_referral_handlers.referral_command_handler(
-            message, settings, i18n_data, referral_service, message_bot(message), session
-        )
-        return
 
     await send_main_menu(message, settings, i18n_data, subscription_service, session, is_edit=False)

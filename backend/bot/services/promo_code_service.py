@@ -166,6 +166,8 @@ class PromoCodeService:
                 "applies_to": effects.applies_to,
                 "min_subscription_months": effects.min_subscription_months,
                 "min_subscription_days": effects.min_subscription_days,
+                "subscription_tariff_key": effects.subscription_tariff_key,
+                "exact_subscription_days": effects.exact_subscription_days,
                 "min_traffic_gb": effects.min_traffic_gb,
                 "origin": normalized_origin,
                 "owner_plugin_id": owner_plugin_id,

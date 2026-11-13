@@ -148,6 +148,7 @@ class LinkPaymentDescriptor[ServiceT: LinkFlowService]:
     # common case). Providers whose webapp resolution differs supply their own.
     webapp_currency: Callable[[WebAppPaymentContext, Settings, ServiceT], str] | None = None
     checkout_ttl_seconds: Callable[[ServiceT, CreatePaymentRequest], int | None] | None = None
+    provider_method: str | None = None
 
 
 def _resolve_callback_currency[ServiceT: LinkFlowService](
@@ -274,6 +275,7 @@ async def run_callback_payment[ServiceT: LinkFlowService](
         subscription_terms_snapshot=freeze_subscription_terms(settings, parts.sale_mode),
         provider=descriptor.provider_key,
         sale_mode=parts.sale_mode,
+        provider_method=descriptor.provider_method,
         hwid_quote=hwid_quote,
         entitlement_context_snapshot=entitlement_context_snapshot,
         checkout_promo=getattr(parts, "checkout_promo", None),
@@ -411,6 +413,7 @@ async def run_webapp_payment[ServiceT: LinkFlowService](
             currency=currency,
             status=descriptor.pending_status,
             provider=descriptor.provider_key,
+            provider_method=descriptor.provider_method,
         )
         create_request = CreatePaymentRequest(
             payment=payment,

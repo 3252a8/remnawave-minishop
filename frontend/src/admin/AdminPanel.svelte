@@ -167,7 +167,6 @@
     settingsStore,
     statsStore,
     supportStore,
-    tariffsStore,
     translationsStore,
     usersStore,
   } = createAdminStores({
@@ -891,7 +890,6 @@
     {statsStore}
     {supportStore}
     {syncBusy}
-    {tariffsStore}
     {translationsDirtyCount}
     {translationsSaving}
     {translationsStore}

@@ -31,6 +31,7 @@ def _serialize_plans(
         default_currency = default_currency_key_for_settings(settings)
         default_currency_code = payment_currency_code(default_currency)
         access_tariff = tariffs_config.tariff_for_access_code(tariff_access_code)
+        shop_premium_enabled = any(tariff.premium_squad_uuids for tariff in tariffs_config.tariffs)
         plans = []
         for tariff in tariffs_config.available_tariffs_for_user(
             assigned_tariff_key,
@@ -38,6 +39,7 @@ def _serialize_plans(
         ):
             common = {
                 **serialize_tariff_limits(settings, tariff, lang),
+                "shop_premium_enabled": shop_premium_enabled,
                 "tariff_key": tariff.key,
                 "is_default_tariff": tariff.key == tariffs_config.default_tariff,
                 "tariff_name": tariff.name(lang),

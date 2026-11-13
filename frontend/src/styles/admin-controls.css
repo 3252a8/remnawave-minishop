@@ -98,13 +98,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
+  height: 36px;
   padding: 0 14px;
   border-radius: 8px;
   border: 1px solid var(--admin-border);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.014)),
-    var(--admin-surface-2);
+  background: var(--admin-surface-2);
   color: var(--admin-text);
   font-size: 13px;
   font-weight: 500;
@@ -116,16 +114,29 @@
     color 0.12s ease;
 }
 
+/* Link-styled buttons (<a class="admin-btn">) must look like their <button> siblings. */
+a.admin-btn {
+  text-decoration: none;
+}
+
 .admin-btn:hover:not(:disabled) {
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.068), rgba(255, 255, 255, 0.018)),
-    var(--admin-elev);
+  background: var(--admin-elev);
   border-color: var(--admin-border-strong);
 }
 
 .admin-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* A dimmed accent fill reads as a second, darker primary style rather than an
+   unavailable action, so filled variants fall back to the neutral surface. */
+.admin-btn.admin-btn-primary:disabled,
+.admin-btn.admin-btn-danger:disabled {
+  opacity: 1;
+  border-color: var(--admin-border);
+  background: var(--admin-surface-2);
+  color: var(--admin-dim);
 }
 
 .admin-btn.admin-btn-primary {
@@ -162,6 +173,18 @@
   border-color: var(--danger);
 }
 
+/* Inline row deletes repeat down a list; filled red is kept for confirm dialogs. */
+.admin-btn.admin-btn-danger.admin-btn-icon {
+  color: var(--danger-text);
+  background: var(--admin-surface-2);
+  border-color: var(--danger-border);
+}
+
+.admin-btn.admin-btn-danger.admin-btn-icon:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+}
+
 .admin-btn.admin-btn-danger-soft {
   color: var(--danger-text);
   background: var(--admin-surface-2);
@@ -178,8 +201,9 @@
   padding: 0;
 }
 
+/* Small buttons share the 30px icon-button height so mixed rows line up. */
 .admin-btn.admin-btn-sm {
-  height: 28px;
+  height: 30px;
   padding: 0 10px;
   font-size: 12px;
   border-radius: 6px;

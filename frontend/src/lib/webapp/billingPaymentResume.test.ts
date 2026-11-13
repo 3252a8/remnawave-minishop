@@ -3,6 +3,24 @@ import { describe, expect, it, vi } from "vitest";
 import { createPaymentResponseHandler } from "./billingPaymentResume.js";
 
 describe("createPaymentResponseHandler", () => {
+  it("opens a pending provider payment through the payment link action", async () => {
+    const openExternalLink = vi.fn();
+    const startPaymentStatusPolling = vi.fn();
+    const handlePaymentResponse = createPaymentResponseHandler({
+      notifyOpened: vi.fn(),
+      openExternalLink,
+      openQaPaymentLink: vi.fn(),
+      openTelegramInvoice: vi.fn(),
+      startPaymentStatusPolling,
+    });
+
+    const paymentUrl = "https://bank.example.test/pay?id=123";
+    await handlePaymentResponse({ ok: true, payment_id: "123", payment_url: paymentUrl });
+
+    expect(openExternalLink).toHaveBeenCalledWith(paymentUrl, "payment");
+    expect(startPaymentStatusPolling).toHaveBeenCalledWith("123", {});
+  });
+
   it("keeps checkout open until Telegram returns control from the invoice", async () => {
     let finishInvoice = (_opened: boolean): void => {
       throw new Error("invoice resolver was not initialized");

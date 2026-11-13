@@ -10,8 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   refresh:
@@ -23,6 +22,7 @@ jobs:
         with:
           ref: dev
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -30,19 +30,33 @@ jobs:
           python-version: "3.12"
 
       - name: Refresh blocklist
+        id: refresh
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/update_disposable_email_blocklist.py
-
-      - name: Create or update review pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
+          python scripts/update_disposable_email_blocklist.py
           if git diff --quiet -- backend/config/disposable_email_blocklist.conf; then
             echo "The snapshot is already current."
-            exit 0
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Install the app on this repository only. Its PRs trigger checks without manual approval.
+      - name: Create the blocklist app token
+        id: blocklist-app
+        if: steps.refresh.outputs.changed == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.BLOCKLIST_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BLOCKLIST_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create or update review pull request
+        if: steps.refresh.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.blocklist-app.outputs.token }}
+        run: |
           branch="automation/disposable-email-blocklist"
           git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch" || true
           git config user.name "github-actions[bot]"
@@ -50,7 +64,8 @@ jobs:
           git checkout -B "$branch"
           git add backend/config/disposable_email_blocklist.conf
           git commit -m "chore: refresh disposable email domains"
-          git push --force-with-lease origin "HEAD:$branch"
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+            push --force-with-lease origin "HEAD:$branch"
 
           existing_pr="$(gh pr list --base dev --head "$branch" --state open --json number --jq '.[0].number // empty')"
           if [ -z "$existing_pr" ]; then

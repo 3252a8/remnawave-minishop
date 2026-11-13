@@ -29,7 +29,6 @@
   z-index: 0;
   border: 0;
   background: var(--overlay-scrim);
-  backdrop-filter: blur(10px);
   cursor: pointer;
 }
 
@@ -226,7 +225,7 @@
   border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
   color: var(--text);
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .checkout-promo-row.is-error .input.checkout-promo-input {
@@ -282,20 +281,15 @@
   background: color-mix(in srgb, var(--accent) 12%, var(--panel));
   color: var(--accent);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 700;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Same accent gradient as every primary button in the cabinet. */
 .payment-submit-button {
-  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 94%, white), var(--accent));
   color: var(--accent-contrast);
-  box-shadow:
-    0 16px 38px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
-    0 0 26px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
 .email-code-fullscreen {

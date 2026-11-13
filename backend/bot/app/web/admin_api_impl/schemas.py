@@ -124,6 +124,8 @@ class PromoCreateBody(HttpBodyModel):
     applies_to: str = "all"
     min_subscription_months: int | None = Field(default=None, gt=0)
     min_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
+    subscription_tariff_key: str | None = Field(default=None, min_length=1, max_length=128)
+    exact_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int = Field(gt=0)
     valid_days: Any = None
@@ -161,6 +163,8 @@ class PromoCreateBody(HttpBodyModel):
             applies_to=self.applies_to or "all",
             min_subscription_months=self.min_subscription_months,
             min_subscription_days=self.min_subscription_days,
+            subscription_tariff_key=self.subscription_tariff_key,
+            exact_subscription_days=self.exact_subscription_days,
             min_traffic_gb=self.min_traffic_gb,
         )
 
@@ -177,6 +181,8 @@ class PromoUpdateBody(HttpBodyModel):
     applies_to: str | None = None
     min_subscription_months: int | None = Field(default=None, gt=0)
     min_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
+    subscription_tariff_key: str | None = Field(default=None, min_length=1, max_length=128)
+    exact_subscription_days: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     min_traffic_gb: float | None = Field(default=None, gt=0)
     max_activations: int | None = Field(default=None, gt=0)
     origin: str | None = None
@@ -439,6 +445,7 @@ class AdminBroadcastBody(HttpBodyModel):
     texts: dict[str, str] = Field(default_factory=dict)
     email_subjects: dict[str, str] = Field(default_factory=dict)
     target: Any = "all"
+    targets: list[str] = Field(default_factory=list, min_length=1)
 
     @field_validator("texts", "email_subjects", mode="before")
     @classmethod
@@ -617,6 +624,8 @@ class PromoOut(HttpResponseModel):
     applies_to: str
     min_subscription_months: int | None = None
     min_subscription_days: int | None = None
+    subscription_tariff_key: str | None = None
+    exact_subscription_days: int | None = None
     min_traffic_gb: float | None = None
     origin: str
     effect_summary: str
@@ -661,6 +670,8 @@ class PromoOut(HttpResponseModel):
             applies_to=effects.applies_to,
             min_subscription_months=effects.min_subscription_months,
             min_subscription_days=effects.min_subscription_days,
+            subscription_tariff_key=effects.subscription_tariff_key,
+            exact_subscription_days=effects.exact_subscription_days,
             min_traffic_gb=effects.min_traffic_gb,
             origin=str(getattr(promo, "origin", None) or "admin"),
             effect_summary=summarize_effects(effects),
@@ -844,6 +855,13 @@ class PromoActivationOut(HttpResponseModel):
 class AdminStatsOut(HttpResponseModel):
     users: dict[str, Any]
     financial: dict[str, Any]
+    manual_maintenance_enabled: bool = False
+    subscription_mrr: float | None = Field(
+        default=None,
+        description=(
+            "Monthly run rate of active subscriptions in the reporting currency, before fees."
+        ),
+    )
     panel_sync: AdminPanelSyncOut
     recent_payments: list[PaymentOut]
     currency_symbol: str

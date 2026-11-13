@@ -5,6 +5,7 @@ from pydantic_settings import SettingsConfigDict
 
 from ..base import (
     ProviderEnvConfig,
+    ReportingFeePercent,
     provider_env_file,
 )
 
@@ -28,6 +29,8 @@ class YooKassaConfig(ProviderEnvConfig):
     AUTOPAYMENTS_ENABLED: bool = Field(default=False)
     AUTOPAYMENTS_REQUIRE_CARD_BINDING: bool = Field(default=True)
     PAYMENT_METHODS: str = ""
+    SBP_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    BANK_CARD_REPORTING_FEE_PERCENT: ReportingFeePercent = None
 
     @field_validator("PAYMENT_METHODS", mode="before")
     @classmethod

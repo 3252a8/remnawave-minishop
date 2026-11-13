@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
 
-from ..base import ProviderEnvConfig, provider_env_file
+from ..base import ProviderEnvConfig, ReportingFeePercent, provider_env_file
 
 
 class RollyPayConfig(ProviderEnvConfig):
@@ -19,6 +19,11 @@ class RollyPayConfig(ProviderEnvConfig):
     )
 
     ENABLED: bool = Field(default=False)
+    SBP_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    CARD_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    CRYPTO_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    INTERNATIONAL_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    SUBSCRIPTION_REPORTING_FEE_PERCENT: ReportingFeePercent = None
     BASE_URL: str = Field(default="https://rollypay.io/api/v1")
     API_KEY: str | None = None
     SIGNING_SECRET: str | None = None

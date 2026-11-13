@@ -18,6 +18,7 @@ from bot.app.web.route_contracts import (
 )
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.promo_effects import PromoEffects, validate_effects
+from config.tariffs_config import TariffsConfig
 from db.dal import promo_code_dal, user_reads_dal
 
 from .auth import (
@@ -246,6 +247,11 @@ async def admin_promo_options_route(request: web.Request) -> web.Response:
     )
 
 
+def _valid_subscription_tariff(config: TariffsConfig, key: str) -> bool:
+    tariff = config.get(key)
+    return tariff is not None and tariff.key == key and tariff.billing_model == "period"
+
+
 async def admin_promo_create_route(request: web.Request) -> web.Response:
     actor_id = _require_admin_user_id(request)
     body = await parse_body_or_400(request, PromoCreateBody)
@@ -259,6 +265,10 @@ async def admin_promo_create_route(request: web.Request) -> web.Response:
             return _error(400, "invalid_valid_days")
 
     settings = get_settings(request)
+    if body.subscription_tariff_key and not _valid_subscription_tariff(
+        settings.tariffs_config, body.subscription_tariff_key
+    ):
+        return _error(400, "invalid_subscription_tariff_key")
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         try:
@@ -304,6 +314,8 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         "applies_to",
         "min_subscription_months",
         "min_subscription_days",
+        "subscription_tariff_key",
+        "exact_subscription_days",
         "min_traffic_gb",
         "origin",
     ):
@@ -324,6 +336,9 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
         return _error(400, "no_changes")
 
     settings = get_settings(request)
+    tariff_key = update_data.get("subscription_tariff_key")
+    if tariff_key and not _valid_subscription_tariff(settings.tariffs_config, tariff_key):
+        return _error(400, "invalid_subscription_tariff_key")
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         current = await promo_code_dal.get_promo_code_by_id(session, promo_id)
@@ -344,6 +359,8 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
             "applies_to",
             "min_subscription_months",
             "min_subscription_days",
+            "subscription_tariff_key",
+            "exact_subscription_days",
             "min_traffic_gb",
         }
         should_validate_effects = bool(effect_fields & update_data.keys()) or (
@@ -361,6 +378,8 @@ async def admin_promo_update_route(request: web.Request) -> web.Response:
                 "applies_to": getattr(current, "applies_to", "all"),
                 "min_subscription_months": getattr(current, "min_subscription_months", None),
                 "min_subscription_days": getattr(current, "min_subscription_days", None),
+                "subscription_tariff_key": getattr(current, "subscription_tariff_key", None),
+                "exact_subscription_days": getattr(current, "exact_subscription_days", None),
                 "min_traffic_gb": getattr(current, "min_traffic_gb", None),
             }
             merged.update({key: value for key, value in update_data.items() if key in merged})

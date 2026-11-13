@@ -126,7 +126,7 @@ def test_user_message_rate_limit_is_persistent_database_count(monkeypatch):
     )
 
     with pytest.raises(TicketRateLimited, match="support_message_rate_limited"):
-        asyncio.run(service._enforce_user_message_limits(object(), 42, has_image=False))
+        asyncio.run(service._enforce_user_message_limits(object(), 42, image_count=0))
 
 
 def test_user_daily_image_limit_does_not_apply_to_text(monkeypatch):
@@ -146,9 +146,9 @@ def test_user_daily_image_limit_does_not_apply_to_text(monkeypatch):
         count_messages,
     )
 
-    asyncio.run(service._enforce_user_message_limits(object(), 42, has_image=False))
+    asyncio.run(service._enforce_user_message_limits(object(), 42, image_count=0))
     with pytest.raises(TicketRateLimited, match="support_image_rate_limited"):
-        asyncio.run(service._enforce_user_message_limits(object(), 42, has_image=True))
+        asyncio.run(service._enforce_user_message_limits(object(), 42, image_count=2))
 
 
 def test_user_reply_refreshes_ticket_after_notification_update(monkeypatch):
@@ -191,8 +191,8 @@ def test_user_reply_refreshes_ticket_after_notification_update(monkeypatch):
     async def ensure_user_allowed(_session, _user_id):
         return user
 
-    async def enforce_limits(_session, _user_id, *, has_image):
-        del has_image
+    async def enforce_limits(_session, _user_id, *, image_count):
+        del image_count
 
     async def get_ticket(_session, _ticket_id):
         return ticket, []

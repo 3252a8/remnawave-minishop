@@ -598,12 +598,11 @@
       />
     </label>
     <div class="admin-translations-actions">
-      <AdminButton size="sm" variant="ghost" onclick={toggleAllGroups}>
+      <AdminButton variant="ghost" onclick={toggleAllGroups}>
         {allOpen ? at("collapse_all", {}, "Collapse all") : at("expand_all", {}, "Expand all")}
       </AdminButton>
       {#if Object.keys(translationsDirty).length > 0}
         <AdminButton
-          size="sm"
           variant="primary"
           onclick={() => translationsStore.saveTranslations(onTranslationsSaved)}
           disabled={translationsSaving}
@@ -642,7 +641,7 @@
         inputmode="latin"
         placeholder={at("translations_language_placeholder", {}, "de, uk, pt-BR")}
       />
-      <AdminButton type="submit" size="sm" disabled={!canAddLanguage(newLanguageCode)}>
+      <AdminButton type="submit" disabled={!canAddLanguage(newLanguageCode)}>
         <Plus size={14} />
         {at("add", {}, "Add")}
       </AdminButton>

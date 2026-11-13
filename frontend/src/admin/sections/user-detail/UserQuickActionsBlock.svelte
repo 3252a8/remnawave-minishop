@@ -72,21 +72,17 @@
       >
         <AdminButton
           size="sm"
-          variant={usersStore.userExtendMode === "days" ? "primary" : "default"}
           aria-pressed={usersStore.userExtendMode === "days"}
           onclick={() => selectExtendMode("days")}
         >
-          <Plus size={14} />
           {at("user_extend_mode_days", {}, "Adjust days")}
         </AdminButton>
         <AdminButton
           size="sm"
-          variant={usersStore.userExtendMode === "date" ? "primary" : "default"}
           aria-pressed={usersStore.userExtendMode === "date"}
           disabled={!activeSubscriptionEndDate}
           onclick={() => selectExtendMode("date")}
         >
-          <CalendarDays size={14} />
           {at("user_extend_mode_date", {}, "Set date")}
         </AdminButton>
       </div>
@@ -97,7 +93,7 @@
             <div class="admin-user-extend-days-control">
               <AdminButton
                 size="icon"
-                variant={Number(usersStore.userExtendDays) < 0 ? "primary" : "default"}
+                aria-pressed={Number(usersStore.userExtendDays) < 0}
                 aria-label={at("user_extend_subtract", {}, "Subtract days")}
                 onclick={() => setDaysSign(-1)}><Minus size={14} /></AdminButton
               >
@@ -112,7 +108,7 @@
               />
               <AdminButton
                 size="icon"
-                variant={Number(usersStore.userExtendDays) > 0 ? "primary" : "default"}
+                aria-pressed={Number(usersStore.userExtendDays) > 0}
                 aria-label={at("user_extend_add", {}, "Add days")}
                 onclick={() => setDaysSign(1)}><Plus size={14} /></AdminButton
               >

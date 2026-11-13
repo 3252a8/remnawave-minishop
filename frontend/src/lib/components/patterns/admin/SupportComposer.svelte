@@ -20,7 +20,7 @@
 
   type Props = {
     value?: string;
-    image?: File | null;
+    images?: File[];
     buttons?: BroadcastButtonDraft[];
     internal?: boolean;
     sending?: boolean;
@@ -33,13 +33,13 @@
     onRequestShortcodes?: () => void;
     onRequestPromoOptions?: () => void;
     onToggleInternal?: (checked: boolean) => void;
-    onSend?: (body: string, image: File | null) => void;
+    onSend?: (body: string, images: File[]) => void;
     onTyping?: (typing: boolean) => void;
   };
 
   let {
     value = $bindable(""),
-    image = $bindable(null),
+    images = $bindable([]),
     buttons = $bindable([]),
     internal = false,
     sending = false,
@@ -117,7 +117,8 @@
   }
 
   const buttonsValid = $derived(buttons.every((button) => Boolean(buttonTarget(button))));
-  const canSend = $derived(!sending && (!empty || image !== null) && !overLimit && buttonsValid);
+  let pasteTarget = $state<HTMLElement | null>(null);
+  const canSend = $derived(!sending && (!empty || images.length > 0) && !overLimit && buttonsValid);
 
   // A note never reaches the customer, so the buttons it would have carried are
   // dropped rather than silently sent with the next reply.
@@ -127,7 +128,7 @@
 
   function submit(): void {
     if (!canSend) return;
-    onSend(value, image);
+    onSend(value, images);
   }
 
   function addButton(): void {
@@ -164,7 +165,7 @@
   }
 </script>
 
-<div class="support-admin-composer">
+<div class="support-admin-composer" bind:this={pasteTarget}>
   <div class="support-admin-composer-editor">
     <RichTextEditor
       {value}
@@ -234,7 +235,9 @@
 
     <div class="support-admin-composer-actions">
       <ImageAttachment
-        bind:file={image}
+        bind:files={images}
+        multiple
+        {pasteTarget}
         disabled={sending}
         compact
         globalDropzone
@@ -251,9 +254,11 @@
           ),
           tooLarge: at("message_image_too_large", {}, "The image must be no larger than 8 MB"),
           previewAlt: at("message_image_preview_alt", {}, "Image preview"),
+          tooMany: at("support_images_too_many"),
+          totalTooLarge: at("support_images_too_large"),
+          paste: at("support_images_paste_hint"),
         }}
       />
-
       <AdminButton variant="primary" disabled={!canSend} onclick={submit}>
         {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
         {at("send", {}, "Send")}
@@ -304,19 +309,46 @@
   }
 
   .support-admin-composer-actions {
-    --message-image-compact-height: 34px;
+    --message-image-compact-height: 36px;
 
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 6px 10px;
+    flex: 1;
     min-width: 0;
-    align-items: stretch;
-    gap: 8px;
-    margin-left: auto;
   }
 
-  @media (max-width: 720px) {
+  .support-admin-composer-actions :global(.message-image-attachment) {
+    display: contents;
+  }
+
+  .support-admin-composer-actions :global(.message-image-dropzone) {
+    grid-area: 1 / 1;
+    width: auto;
+  }
+
+  .support-admin-composer-actions :global(.admin-btn) {
+    grid-area: 1 / 3;
+  }
+
+  .support-admin-composer-actions :global(.message-image-paste-hint) {
+    grid-area: 1 / 2;
+    align-self: center;
+  }
+
+  .support-admin-composer-actions :global(.message-image-previews),
+  .support-admin-composer-actions :global(.message-image-error) {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 520px) {
     .support-admin-composer-actions {
-      width: 100%;
-      margin-left: 0;
+      flex-basis: 100%;
+    }
+
+    .support-admin-composer-actions :global(.message-image-paste-hint) {
+      grid-area: 2 / 1 / auto / -1;
     }
   }
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { components } from "$lib/api/openapi.generated";
   import type { LanguageOption } from "$lib/webapp/languageView.js";
   import {
     Check,
@@ -20,14 +21,16 @@
   import {
     authProviderName,
     buildExternalOAuthStartUrl,
+    buildPluginLoginStartUrl,
     orderAuthProviders,
+    pluginLoginCabinetPath,
     shouldShowInviteOnlyHint,
   } from "$lib/webapp/authHelpers.js";
   import { loginWithPasskey, passkeysSupported } from "$lib/webapp/passkeys.js";
   import ProviderLogo from "./ProviderLogo.svelte";
   import QrLoginDialog from "./QrLoginDialog.svelte";
   import { parseQrLoginCode } from "$lib/webapp/qrLogin.js";
-  import { externalOAuthNeedsBrowser } from "$lib/webapp/externalOAuthBrowser.js";
+  import { externalOAuthNeedsBrowser, isOAuthWebview } from "$lib/webapp/externalOAuthBrowser.js";
   import ExternalOAuthBrowserHint from "./ExternalOAuthBrowserHint.svelte";
 
   type WebappConfig = Record<string, unknown> & {
@@ -35,6 +38,7 @@
     compactLoginEnabled?: boolean;
     devMode?: boolean;
     emailAuthEnabled?: boolean;
+    pluginLoginProviders?: components["schemas"]["WebappPluginLoginProviderOut"][];
     registrationInviteOnlyEnabled?: boolean;
     wideAuthProviders?: string[];
   };
@@ -165,8 +169,13 @@
       .sort((left, right) => Number(isCompact(left)) - Number(isCompact(right)))
   );
   const showEmailForm = $derived(emailAuthEnabled && (!compactEmail || emailFormOpen));
+  const pluginLoginProviders = $derived(CFG.pluginLoginProviders ?? []);
+  const pluginCabinetPath = $derived(
+    isOAuthWebview() ? pluginLoginCabinetPath(pluginLoginProviders[0]?.startPath ?? "") : ""
+  );
   const externalBrowserRequired = $derived(
-    authProviders.some((provider) => externalOAuthNeedsBrowser(provider))
+    Boolean(pluginCabinetPath) ||
+      authProviders.some((provider) => externalOAuthNeedsBrowser(provider))
   );
   const passwordModeActive = $derived(Boolean(passwordLoginMode && emailAuthEnabled));
   const authCardHeight = $derived(authPanelHeight ? `${authPanelHeight}px` : undefined);
@@ -187,6 +196,12 @@
   function openProvider(provider: string): void {
     if (externalOAuthNeedsBrowser(provider)) return;
     window.location.assign(buildExternalOAuthStartUrl(provider, "login", currentLang));
+  }
+
+  function openPluginProvider(startPath: string): void {
+    if (isOAuthWebview()) return;
+    const url = buildPluginLoginStartUrl(startPath, currentLang);
+    if (url) window.location.assign(url);
   }
 
   async function openPasskeyLogin(): Promise<void> {
@@ -505,9 +520,22 @@
                     </Button>
                   {/if}
                 {/each}
+                {#if !pluginCabinetPath}
+                  {#each pluginLoginProviders as provider (provider.id)}
+                    <Button
+                      class="wide auth-provider-button"
+                      variant="secondary"
+                      onclick={() => openPluginProvider(provider.startPath)}
+                      disabled={authBusy || externalLoginBusy}
+                      data-auth-provider={provider.id}
+                    >
+                      {t("wa_login_provider", { provider: provider.name })}
+                    </Button>
+                  {/each}
+                {/if}
               </div>
               {#if externalBrowserRequired}
-                <ExternalOAuthBrowserHint {t} />
+                <ExternalOAuthBrowserHint {t} {pluginCabinetPath} />
               {/if}
               {#if qrApprovalPending}
                 <StatusMessage class="auth-login-status">

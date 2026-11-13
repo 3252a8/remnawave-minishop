@@ -86,6 +86,55 @@ describe("createExternalLinkRuntime", () => {
     expect(deps.assignLocation).toHaveBeenCalledWith("https://example.test/page");
   });
 
+  it("opens a payment directly in a regular browser even when the SDK is loaded", () => {
+    const target = "https://bank.example.test/pay?id=123#step";
+    const telegram = { openLink: vi.fn() };
+    const { deps, runtime } = makeRuntime({ telegram });
+
+    runtime.openExternalLink(target, "payment");
+
+    expect(deps.assignLocation).toHaveBeenCalledExactlyOnceWith(target);
+    expect(telegram.openLink).not.toHaveBeenCalled();
+  });
+
+  it.each(["ios", "android"])("passes the original checkout URL to the %s bridge", (platform) => {
+    const target = "https://bank.example.test/pay?id=123#step";
+    const telegram = { platform, openLink: vi.fn() };
+    const { deps, runtime } = makeRuntime({ telegram });
+    deps.hasTelegramLaunchParams.mockReturnValue(true);
+
+    runtime.openExternalLink(target, "payment");
+
+    expect(telegram.openLink).toHaveBeenCalledExactlyOnceWith(target, { try_instant_view: false });
+    expect(deps.assignLocation).not.toHaveBeenCalled();
+  });
+
+  it("uses the original payment URL when the Telegram bridge fails", () => {
+    const target = "https://bank.example.test/pay?id=123#step";
+    const telegram = {
+      openLink: vi.fn(() => {
+        throw new Error("bridge unavailable");
+      }),
+    };
+    const { deps, runtime } = makeRuntime({ telegram });
+    deps.hasTelegramLaunchParams.mockReturnValue(true);
+
+    runtime.openExternalLink(target, "payment");
+
+    expect(deps.assignLocation).toHaveBeenCalledExactlyOnceWith(target);
+  });
+
+  it("preserves native Telegram payment links", () => {
+    const telegram = { openLink: vi.fn(), openTelegramLink: vi.fn() };
+    const { deps, runtime } = makeRuntime({ telegram });
+    deps.hasTelegramLaunchParams.mockReturnValue(true);
+
+    runtime.openExternalLink("https://t.me/tribute", "payment");
+    expect(telegram.openTelegramLink).toHaveBeenCalledWith("https://t.me/tribute");
+    expect(telegram.openLink).not.toHaveBeenCalled();
+    expect(deps.assignLocation).not.toHaveBeenCalled();
+  });
+
   it("delegates app links to the app link opener", () => {
     const { deps, runtime } = makeRuntime();
 

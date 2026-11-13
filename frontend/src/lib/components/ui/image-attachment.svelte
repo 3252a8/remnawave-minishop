@@ -6,6 +6,8 @@
     isAcceptedMessageImage,
     MESSAGE_IMAGE_ACCEPT,
     MESSAGE_IMAGE_MAX_BYTES,
+    SUPPORT_IMAGE_MAX_COUNT,
+    SUPPORT_IMAGE_TOTAL_MAX_BYTES,
   } from "$lib/messageImage";
 
   export type ImageAttachmentLabels = {
@@ -17,10 +19,16 @@
     invalidType: string;
     tooLarge: string;
     previewAlt: string;
+    tooMany?: string;
+    totalTooLarge?: string;
+    paste?: string;
   };
 
   let {
     file = $bindable(null),
+    files = $bindable([]),
+    multiple = false,
+    pasteTarget = null,
     disabled = false,
     compact = false,
     iconOnly = false,
@@ -28,6 +36,9 @@
     labels,
   }: {
     file?: File | null;
+    files?: File[];
+    multiple?: boolean;
+    pasteTarget?: HTMLElement | null;
     disabled?: boolean;
     compact?: boolean;
     /** A quiet attachment trigger; the selected image keeps its readable preview. */
@@ -40,31 +51,59 @@
   let dragging = $state(false);
   let dragDepth = 0;
   let error = $state("");
-  let previewUrl = $state("");
+  const selected = $derived(multiple ? files : file ? [file] : []);
+  let previewUrls = $state<string[]>([]);
 
   $effect(() => {
-    const selected = file;
-    if (!selected) {
-      previewUrl = "";
-      return;
-    }
-    const url = URL.createObjectURL(selected);
-    previewUrl = url;
-    return () => URL.revokeObjectURL(url);
+    const urls = selected.map((item) => URL.createObjectURL(item));
+    previewUrls = urls;
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
   });
 
-  function selectFile(candidate: File | null): void {
+  function selectFiles(candidates: File[]): void {
+    if (!candidates.length || disabled) return;
     error = "";
-    if (!candidate) return;
-    if (!isAcceptedMessageImage(candidate)) {
+    const added = multiple ? candidates : candidates.slice(0, 1);
+    if (added.some((candidate) => !isAcceptedMessageImage(candidate))) {
       error = labels.invalidType;
       return;
     }
-    if (candidate.size > MESSAGE_IMAGE_MAX_BYTES) {
+    if (added.some((candidate) => candidate.size > MESSAGE_IMAGE_MAX_BYTES)) {
       error = labels.tooLarge;
       return;
     }
-    file = candidate;
+    if (!multiple) {
+      file = added[0];
+      return;
+    }
+    const next = [...files, ...added];
+    if (next.length > SUPPORT_IMAGE_MAX_COUNT) {
+      error = labels.tooMany ?? labels.invalidType;
+      return;
+    }
+    if (
+      next.reduce((total, candidate) => total + candidate.size, 0) > SUPPORT_IMAGE_TOTAL_MAX_BYTES
+    ) {
+      error = labels.totalTooLarge ?? labels.tooLarge;
+      return;
+    }
+    files = next;
+  }
+
+  function onWindowPaste(event: ClipboardEvent): void {
+    if (
+      !pasteTarget ||
+      disabled ||
+      !(event.target instanceof Node) ||
+      !pasteTarget.contains(event.target)
+    )
+      return;
+    const images = Array.from(event.clipboardData?.files ?? []).filter(
+      (candidate) => candidate.type.startsWith("image/") || isAcceptedMessageImage(candidate)
+    );
+    if (!images.length) return;
+    event.preventDefault();
+    selectFiles(images);
   }
 
   function choose(): void {
@@ -73,7 +112,7 @@
 
   function onChange(event: Event): void {
     const input = event.currentTarget as HTMLInputElement;
-    selectFile(input.files?.[0] ?? null);
+    selectFiles(Array.from(input.files ?? []));
     input.value = "";
   }
 
@@ -97,12 +136,13 @@
     if (globalDropzone) return;
     event.preventDefault();
     dragging = false;
-    if (!disabled) selectFile(event.dataTransfer?.files?.[0] ?? null);
+    if (!disabled) selectFiles(Array.from(event.dataTransfer?.files ?? []));
   }
 
-  function remove(): void {
+  function remove(index: number): void {
     if (disabled) return;
-    file = null;
+    if (multiple) files = files.filter((_, position) => position !== index);
+    else file = null;
     error = "";
   }
 
@@ -135,7 +175,7 @@
     event.preventDefault();
     dragDepth = 0;
     dragging = false;
-    selectFile(event.dataTransfer?.files?.[0] ?? null);
+    selectFiles(Array.from(event.dataTransfer?.files ?? []));
   }
 
   function resetWindowDrag(): void {
@@ -145,6 +185,7 @@
 </script>
 
 <svelte:window
+  onpastecapture={onWindowPaste}
   ondragenter={onWindowDragEnter}
   ondragover={onWindowDragOver}
   ondragleave={onWindowDragLeave}
@@ -159,6 +200,7 @@
 
 <div
   class="message-image-attachment"
+  class:is-multiple={multiple}
   class:is-dragging={dragging}
   class:is-compact={compact}
   class:is-icon-only={iconOnly}
@@ -171,6 +213,7 @@
     <FileInput
       bind:element={inputElement}
       accept={MESSAGE_IMAGE_ACCEPT}
+      {multiple}
       {disabled}
       onchange={onChange}
     />
@@ -191,26 +234,31 @@
     </Button>
   {/if}
 
-  {#if file && previewUrl}
-    <div class="message-image-preview">
-      <img src={previewUrl} alt={labels.previewAlt} />
-      <div class="message-image-meta">
-        <strong>{file.name}</strong>
-        <small>{Math.max(1, Math.ceil(file.size / 1024))} KB</small>
-      </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label={labels.remove}
-        title={labels.remove}
-        {disabled}
-        onclick={remove}
-      >
-        <X size={16} />
-      </Button>
+  {#if selected.length}
+    <div class="message-image-previews">
+      {#each selected as file, index (file)}
+        <div class="message-image-preview">
+          {#if previewUrls[index]}<img src={previewUrls[index]} alt={labels.previewAlt} />{/if}
+          <div class="message-image-meta">
+            <strong>{file.name}</strong>
+            <small>{Math.max(1, Math.ceil(file.size / 1024))} KB</small>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={multiple ? `${labels.remove}: ${file.name}` : labels.remove}
+            title={labels.remove}
+            {disabled}
+            onclick={() => remove(index)}
+          >
+            <X size={16} />
+          </Button>
+        </div>
+      {/each}
     </div>
-  {:else if !iconOnly}
+  {/if}
+  {#if !iconOnly && (multiple || !selected.length)}
     <button type="button" class="message-image-dropzone" {disabled} onclick={choose}>
       <Upload size={18} />
       {#if compact}
@@ -222,6 +270,7 @@
     </button>
   {/if}
 
+  {#if labels.paste}<small class="message-image-paste-hint">{labels.paste}</small>{/if}
   {#if error}<small class="message-image-error" role="alert">{error}</small>{/if}
 </div>
 
@@ -274,6 +323,29 @@
     background: color-mix(in srgb, var(--accent, var(--admin-accent, #6d7cff)) 12%, transparent);
   }
 
+  .message-image-previews {
+    min-width: 0;
+  }
+
+  .is-multiple .message-image-previews {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+    gap: 6px;
+  }
+
+  .is-multiple .message-image-preview {
+    width: 100%;
+    min-height: 42px;
+    padding: 4px 6px;
+    gap: 6px;
+    border-style: solid;
+  }
+
+  .is-multiple .message-image-preview img {
+    width: 32px;
+    height: 32px;
+  }
+
   .message-image-preview {
     display: flex;
     align-items: center;
@@ -304,6 +376,7 @@
   }
 
   .message-image-meta small,
+  .message-image-paste-hint,
   .message-image-error {
     font-size: 11px;
     color: var(--muted, var(--admin-muted, #6b7280));
@@ -330,7 +403,7 @@
     white-space: nowrap;
   }
 
-  .message-image-attachment.is-compact .message-image-preview {
+  .message-image-attachment.is-compact:not(.is-multiple) .message-image-preview {
     width: min(320px, 42vw);
     height: var(--message-image-compact-height, 46px);
     min-height: var(--message-image-compact-height, 46px);
@@ -366,7 +439,7 @@
     }
 
     .message-image-attachment.is-compact .message-image-dropzone,
-    .message-image-attachment.is-compact .message-image-preview {
+    .message-image-attachment.is-compact:not(.is-multiple) .message-image-preview {
       width: 100%;
       max-width: none;
     }

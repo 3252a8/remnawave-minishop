@@ -11,9 +11,8 @@
     type ChartAlignedData,
   } from "$lib/admin/chartMotion.js";
   import { revenueChartGradientFallbacks } from "$lib/admin/revenueChartColors.js";
+  import type { RevenueGranularity, RevenuePoint } from "$lib/admin/revenueSeriesAgg.js";
 
-  type RevenuePoint = { date: string; amount: number };
-  type RevenueGranularity = "day" | "week" | "month" | "year";
   type TooltipGeometry = {
     left: number;
     arrowLeft: number;
@@ -48,6 +47,9 @@
     legendTimeLabel?: string;
     /** Readout: column header for the value (y) series */
     legendValueLabel?: string;
+    /** When provided, amount is net and fees are added back for the gross readout. */
+    legendGrossLabel?: string;
+    legendFeeLabel?: string;
     /** Readout: column header for the change against the previous point */
     legendDeltaLabel?: string;
     /** Line/area for revenue, bars for payout-like series. */
@@ -63,6 +65,8 @@
     granularity = "day",
     legendTimeLabel = "Time",
     legendValueLabel = "Value",
+    legendGrossLabel,
+    legendFeeLabel,
     legendDeltaLabel = "Change",
     variant = "area",
   }: Props = $props();
@@ -154,6 +158,23 @@
     if (granularity === "month") options = { month: "short", year: "numeric" };
     if (granularity === "year") options = { year: "numeric" };
     return new Intl.DateTimeFormat(locale.replaceAll("_", "-") || "en", options).format(parsed);
+  }
+
+  /** Format x-axis labels in the admin locale at the selected granularity. */
+  function xAxisTickLabels(ticks: number[]): string[] {
+    const language = locale.replaceAll("_", "-") || "en";
+    let options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit" };
+    if (granularity === "month") options = { month: "short", year: "2-digit" };
+    if (granularity === "year") options = { year: "numeric" };
+    const formatter = new Intl.DateTimeFormat(language, options);
+    let previous = "";
+    return ticks.map((tick) => {
+      const label = formatter.format(new Date(tick * 1000));
+      // Sub-day ticks on a short range would repeat the same day; keep only the first.
+      if (label === previous) return "";
+      previous = label;
+      return label;
+    });
   }
 
   function formatDelta(value: number): string {
@@ -626,6 +647,7 @@
           grid: { show: true, stroke: border, width: 1 },
           ticks: { stroke: border },
           font: "11px system-ui,Segoe UI,sans-serif",
+          values: (_u: uPlot, ticks: number[]) => xAxisTickLabels(ticks),
         },
         {
           stroke: muted,
@@ -773,7 +795,7 @@
 
   <!-- A fixed-height lane keeps the layout stable. The card follows the active
        period only horizontally; its arrow remains aligned when clamped. -->
-  <div class="admin-chart-tooltip-lane">
+  <div class="admin-chart-tooltip-lane" class:admin-chart-tooltip-lane--with-fees={legendFeeLabel}>
     <Plate
       bind:ref={tooltipEl}
       class="admin-chart-tooltip"
@@ -798,6 +820,16 @@
         <small>{legendValueLabel}</small>
         <strong>{activePoint ? fmtMoney(Number(activePoint.amount), currency) : "—"}</strong>
       </div>
+      {#if legendGrossLabel && legendFeeLabel && activePoint}
+        <div class="admin-chart-tooltip-value admin-chart-tooltip-breakdown">
+          <small>{legendGrossLabel}</small>
+          <span>{fmtMoney(activePoint.amount + (activePoint.fees ?? 0), currency)}</span>
+        </div>
+        <div class="admin-chart-tooltip-value admin-chart-tooltip-breakdown">
+          <small>{legendFeeLabel}</small>
+          <span>{fmtMoney(activePoint.fees ?? 0, currency)}</span>
+        </div>
+      {/if}
       <span class="sr-only">{legendTimeLabel}</span>
     </Plate>
   </div>

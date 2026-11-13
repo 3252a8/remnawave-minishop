@@ -88,6 +88,19 @@ from .serializers_plans import _serialize_plans
 from .serializers_subscription import serialize_inactive_subscription
 
 logger = logging.getLogger(__name__)
+
+
+def _telegram_photo_fallback_url(value: str | None) -> str:
+    url = (value or "").strip()
+    try:
+        parts = urlsplit(url)
+        if parts.scheme == "https" and parts.hostname and parts.username is None:
+            return url
+    except ValueError:
+        pass
+    return ""
+
+
 _MAX_PENDING_PROMO_REFRESHES = 10
 
 __all__ = [
@@ -411,6 +424,9 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             "telegram_photo_url": (
                 _telegram_avatar_url(avatar)
                 or ("/api/account/avatar" if db_user.telegram_id else "")
+            ),
+            "telegram_photo_fallback_url": (
+                _telegram_photo_fallback_url(db_user.telegram_photo_url) if telegram_linked else ""
             ),
             "first_name": db_user.first_name,
             "language_code": lang,

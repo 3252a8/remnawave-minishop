@@ -98,6 +98,8 @@ async def _initiate_yk_payment(
         "entitlement_context_snapshot": entitlement_context_snapshot,
     }
     payment_record_data.update(checkout_promo_payment_fields(checkout_promo))
+    if payment_method_type and not payment_method_id:
+        payment_record_data["provider_method"] = payment_method_type
 
     db_payment_record = None
     try:

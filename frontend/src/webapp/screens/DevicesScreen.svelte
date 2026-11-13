@@ -2,6 +2,7 @@
   import {
     ArrowRight,
     CircleX,
+    Trash2,
     Pencil,
     Plus,
     RefreshCw,
@@ -9,7 +10,9 @@
   } from "$components/ui/icons.js";
 
   import Button from "$components/ui/button.svelte";
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import Card from "$components/ui/card.svelte";
+  import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import {
     DeviceGlyph,
     EmptyCard,
@@ -101,7 +104,12 @@
 
   // A renamed device keeps its model visible next to the platform.
   function deviceSubtitle(device: DeviceView): string {
-    const platform = String(device.platform_label || "");
+    const platform = [
+      device.device_type === "router" ? t("wa_devices_type_router") : "",
+      String(device.platform_label || ""),
+    ]
+      .filter(Boolean)
+      .join(" · ");
     if (device.custom_name) return [device.default_name, platform].filter(Boolean).join(" · ");
     return platform || t("wa_devices_platform_unknown");
   }
@@ -110,22 +118,23 @@
 <main class="content with-nav">
   {#if !hideDevicesSummary}
     <Card class="devices-summary-card">
-      <div class="devices-summary-head">
-        <Smartphone size={28} />
-        <span>
-          <strong>{t("wa_devices_title")}</strong>
-          <small>{devicesCountLabel(devicesData, t, effectiveMaxDevices)}</small>
-        </span>
-        <Button
-          variant="icon"
-          size="icon"
-          onclick={() => loadDevices(true)}
-          disabled={devicesBusy}
-          aria-label={t("wa_devices_refresh")}
-        >
-          <RefreshCw size={18} />
-        </Button>
-      </div>
+      <ScreenHeading
+        title={t("wa_devices_title")}
+        subtitle={devicesCountLabel(devicesData, t, effectiveMaxDevices)}
+      >
+        {#snippet icon()}<Smartphone />{/snippet}
+        {#snippet actions()}
+          <Button
+            variant="icon"
+            size="icon"
+            onclick={() => loadDevices(true)}
+            disabled={devicesBusy}
+            aria-label={t("wa_devices_refresh")}
+          >
+            <RefreshCw size={18} />
+          </Button>
+        {/snippet}
+      </ScreenHeading>
       <LinearProgress
         class="devices-progress"
         value={progressState === "pending" ? 0 : devicesPercent(devicesData, effectiveMaxDevices)}
@@ -154,7 +163,7 @@
           {#if showDeviceTopupAction}
             <Button
               data-webapp-action="open-device-topup"
-              variant="secondary"
+              variant={hasReachedDeviceLimit ? "default" : "secondary"}
               class="wide"
               onclick={openDeviceTopupModal}
             >
@@ -202,59 +211,69 @@
     <div class="devices-list">
       {#each deviceList as device (device.token || device.index)}
         {@const clientLabel = deviceClientLabel(device.user_agent)}
-        <Card class="device-card">
-          <div class="device-card-head">
-            <div class="device-icon"><DeviceGlyph {device} size={24} /></div>
-            <span>
-              <span class="device-name-row">
-                <strong
-                  >{device.display_name ||
-                    t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
-                      class="device-client-label">{clientLabel}</span
-                    >{/if}</strong
-                >
-                {#if device.token}
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    data-webapp-action="open-device-rename"
-                    onclick={() => openDeviceRenameDialog(device)}
-                    aria-label={t("wa_devices_rename")}
-                    title={t("wa_devices_rename")}
-                  >
-                    <Pencil size={15} />
-                  </Button>
+        {@const deviceContext = { device: Object.freeze({ ...device }) }}
+        <UserExtensionPoint target="user.devices.card" context={deviceContext}>
+          <Card class="device-card">
+            <UserExtensionPoint target="user.devices.card.header" context={deviceContext}>
+              <div class="device-card-head">
+                <div class="device-icon"><DeviceGlyph {device} size={24} /></div>
+                <span>
+                  <span class="device-name-row">
+                    <strong
+                      >{device.display_name ||
+                        t("wa_device_fallback_name", { index: device.index })}{#if clientLabel}<span
+                          class="device-client-label">{clientLabel}</span
+                        >{/if}</strong
+                    >
+                    {#if device.token}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        data-webapp-action="open-device-rename"
+                        onclick={() => openDeviceRenameDialog(device)}
+                        aria-label={t("wa_devices_rename")}
+                        title={t("wa_devices_rename")}
+                      >
+                        <Pencil size={15} />
+                      </Button>
+                    {/if}
+                  </span>
+                  <small>{deviceSubtitle(device)}</small>
+                </span>
+              </div>
+            </UserExtensionPoint>
+            <UserExtensionPoint target="user.devices.card.details" context={deviceContext}>
+              <div class="device-meta">
+                {#if device.last_connected_at_text || device.created_at_text}
+                  <div>
+                    <span>{t("wa_devices_last_connected_at")}</span>
+                    <strong>{device.last_connected_at_text || device.created_at_text}</strong>
+                  </div>
                 {/if}
-              </span>
-              <small>{deviceSubtitle(device)}</small>
-            </span>
-          </div>
-          <div class="device-meta">
-            {#if device.last_connected_at_text || device.created_at_text}
-              <div>
-                <span>{t("wa_devices_last_connected_at")}</span>
-                <strong>{device.last_connected_at_text || device.created_at_text}</strong>
+                {#if device.hwid_short}
+                  <div>
+                    <span>HWID</span>
+                    <code>{device.hwid_short}</code>
+                  </div>
+                {/if}
               </div>
-            {/if}
-            {#if device.hwid_short}
-              <div>
-                <span>HWID</span>
-                <code>{device.hwid_short}</code>
-              </div>
-            {/if}
-          </div>
-          {#if device.can_disconnect}
-            <Button
-              data-webapp-action="open-device-disconnect"
-              variant="outline"
-              class="wide device-disconnect-button"
-              onclick={() => openDeviceDisconnectDialog(device)}
-            >
-              <CircleX size={17} />
-              {t("wa_devices_disconnect")}
-            </Button>
-          {/if}
-        </Card>
+            </UserExtensionPoint>
+            <UserExtensionPoint target="user.devices.card.actions" context={deviceContext}>
+              {#if device.can_disconnect}
+                <Button
+                  data-webapp-action="open-device-disconnect"
+                  variant="outline"
+                  class="wide device-disconnect-button"
+                  title={t("wa_devices_disconnect")}
+                  onclick={() => openDeviceDisconnectDialog(device)}
+                >
+                  <Trash2 size={17} aria-hidden="true" />
+                  <span class="device-disconnect-label">{t("wa_devices_disconnect")}</span>
+                </Button>
+              {/if}
+            </UserExtensionPoint>
+          </Card>
+        </UserExtensionPoint>
       {/each}
     </div>
   {/if}

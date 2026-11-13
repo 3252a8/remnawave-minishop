@@ -44,6 +44,12 @@ def apply_checkout_promo_context(
         promo_min_subscription_months=promo_result.effects.min_subscription_months
         if promo_result
         else None,
+        promo_subscription_tariff_key=promo_result.effects.subscription_tariff_key
+        if promo_result
+        else None,
+        promo_exact_subscription_days=promo_result.effects.exact_subscription_days
+        if promo_result
+        else None,
         promo_min_traffic_gb=promo_result.effects.min_traffic_gb if promo_result else None,
         checkout_discount_amount=promo_result.discount_amount if promo_result else None,
         checkout_charged_months=promo_result.charged_months if promo_result else None,

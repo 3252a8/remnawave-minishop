@@ -1,5 +1,6 @@
 import { APP_SECTION_PATHS } from "./constants";
 import { isCheckoutStartParam } from "./deeplinks.js";
+import { extensionLaunchPath } from "./launchParams.js";
 import { CHECKOUT_PATH, PLANS_PATH } from "./routes.js";
 
 const START_PARAM_KEYS = ["tgWebAppStartParam", "startapp", "start_param"] as const;
@@ -12,24 +13,20 @@ const START_PARAM_KEYS = ["tgWebAppStartParam", "startapp", "start_param"] as co
  * section payload travels in links authored for customers, and admin deep
  * links keep their own `admin_*` prefixes.
  */
-const START_PARAM_SECTIONS = [
-  "home",
-  "install",
-  "trial",
-  "invite",
-  "partner",
-  "devices",
-  "support",
-  "settings",
-  "notifications",
-  "payment-history",
-] as const;
-
-type StartParamSection = (typeof START_PARAM_SECTIONS)[number];
-
-function isStartParamSection(value: string): value is StartParamSection {
-  return (START_PARAM_SECTIONS as readonly string[]).includes(value);
-}
+const { admin: _admin, ...CUSTOMER_PATHS } = APP_SECTION_PATHS;
+const PAGE_PATHS = {
+  ...CUSTOMER_PATHS,
+  plans: PLANS_PATH,
+  ref: "/invite/referrals",
+  gifts: "/invite/gifts",
+  codes: "/invite/codes",
+  "support-new": "/support/new",
+  "partner-links": "/partner/links",
+  "partner-balance": "/partner/balance",
+  "partner-clients": "/partner/clients",
+  "partner-commissions": "/partner/commissions",
+  "partner-withdrawals": "/partner/withdrawals",
+};
 
 export function miniAppPathFromStartParam(value: unknown): string | null {
   const startParam = String(value || "").trim();
@@ -44,10 +41,18 @@ export function miniAppPathFromStartParam(value: unknown): string | null {
   if (supportTicket) return `/support/${supportTicket[1]}`;
 
   const section = startParam.toLowerCase();
+  if (section.startsWith("page_")) {
+    const page = section.slice(5);
+    if (Object.hasOwn(PAGE_PATHS, page)) {
+      return PAGE_PATHS[page as keyof typeof PAGE_PATHS];
+    }
+  }
   if (section === "plans") return PLANS_PATH;
-  if (isStartParamSection(section)) return APP_SECTION_PATHS[section];
+  if (Object.hasOwn(CUSTOMER_PATHS, section)) {
+    return CUSTOMER_PATHS[section as keyof typeof CUSTOMER_PATHS];
+  }
 
-  return null;
+  return extensionLaunchPath(startParam) || null;
 }
 
 export function miniAppPathFromSearch(search: string): string | null {
@@ -57,4 +62,17 @@ export function miniAppPathFromSearch(search: string): string | null {
     if (path) return path;
   }
   return null;
+}
+
+export function miniAppLaunchPath(
+  search: string,
+  hash: string,
+  initData: string,
+  sdkStartParam?: string
+): string | null {
+  const launch = new URLSearchParams(hash.slice(1));
+  const signed = new URLSearchParams(initData);
+  const launchParam =
+    sdkStartParam || signed.get("start_param") || launch.get("tgWebAppStartParam");
+  return launchParam ? miniAppPathFromStartParam(launchParam) : miniAppPathFromSearch(search);
 }

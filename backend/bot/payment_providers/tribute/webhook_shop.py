@@ -118,9 +118,10 @@ class TributeShopWebhookMixin(TributeWebhookRuntime):
                 return "first_period_amount_missing"
             if int(first_period_amount) != initial_amount:
                 return "first_period_amount_mismatch"
-        elif first_period_amount is not None:
-            if not has_first_period_override or int(first_period_amount) != initial_amount:
-                return "first_period_amount_mismatch"
+        elif first_period_amount is not None and (
+            not has_first_period_override or int(first_period_amount) != initial_amount
+        ):
+            return "first_period_amount_mismatch"
         return None
 
     def _shop_snapshot_mismatch(

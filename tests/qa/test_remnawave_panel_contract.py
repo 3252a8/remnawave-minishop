@@ -56,7 +56,7 @@ async def _exercise_panel_contract() -> None:
     try:
         compatibility = await service.get_panel_api_compatibility(force_refresh=True)
         assert compatibility.version is not None
-        assert compatibility.version.lstrip("v").startswith(expected_version)
+        assert compatibility.version.lstrip("v") == expected_version
         assert compatibility.support_status in {"current", "maintenance"}
 
         users = await service.get_all_panel_users(log_responses=False)

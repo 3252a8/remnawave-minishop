@@ -7,7 +7,8 @@ import SecurityScreen from "../screens/SecurityScreen.svelte";
 import AuthScreen from "./AuthScreen.svelte";
 
 const locale: Record<string, string> = en;
-const t = (key: string) => locale[key] || key;
+const t = (key: string, params: Record<string, unknown> = {}) =>
+  (locale[key] || key).replace("{provider}", String(params.provider || ""));
 const action = () => {};
 afterEach(() => vi.unstubAllGlobals());
 
@@ -56,13 +57,21 @@ describe("external OAuth browser guidance", () => {
     }
   );
 
-  it.each([false, true])("login filters external providers only in Mini App: %s", (miniApp) => {
+  it.each([
+    [false, ["telegram", "google", "yandex", "discord"]],
+    [true, ["telegram", "google", "yandex", "discord"]],
+    [false, []],
+    [true, []],
+  ] as const)("login filters external providers in Mini App: %s, %j", (miniApp, providers) => {
     installBrowser(miniApp ? "signed-data" : "");
     const html = render(AuthScreen, {
       props: {
         CFG: {
-          authProviders: ["telegram", "google", "yandex", "discord"],
+          authProviders: [...providers],
           emailAuthEnabled: false,
+          pluginLoginProviders: [
+            { id: "work:sso", name: "Work & SSO", startPath: "/auth/plugins/work/sso/start" },
+          ],
         },
         clearLoginEmailError: action,
         loginWithEmailPassword: action,
@@ -76,11 +85,15 @@ describe("external OAuth browser guidance", () => {
         t,
       },
     }).body;
-    expect(html).toContain('data-auth-provider="telegram"');
-    for (const provider of ["google", "yandex", "discord"]) {
-      expect(html.includes(`data-auth-provider="${provider}"`)).toBe(!miniApp);
+    for (const provider of providers) {
+      expect(html.includes(`data-auth-provider="${provider}"`)).toBe(
+        provider === "telegram" || !miniApp
+      );
     }
+    expect(html.includes('data-auth-provider="work:sso"')).toBe(!miniApp);
+    expect(html.includes("Continue with Work &amp; SSO")).toBe(!miniApp);
     expect(html.includes("data-external-oauth-browser-hint")).toBe(miniApp);
+    expect(html.includes(locale.wa_plugin_login_browser_hint)).toBe(miniApp);
   });
 
   it("ships browser guidance in both base locales", () => {
@@ -88,6 +101,7 @@ describe("external OAuth browser guidance", () => {
       "wa_external_oauth_browser_hint",
       "wa_external_oauth_open_browser",
       "wa_external_oauth_link_in_browser",
+      "wa_plugin_login_browser_hint",
     ]) {
       expect((en as Record<string, string>)[key]).toBeTruthy();
       expect((ru as Record<string, string>)[key]).toBeTruthy();

@@ -240,8 +240,7 @@
     position: absolute;
     inset: 0;
     border: 0;
-    background: color-mix(in srgb, #020617 88%, transparent);
-    backdrop-filter: blur(10px);
+    background: color-mix(in srgb, #020617 92%, transparent);
     cursor: zoom-out;
   }
 

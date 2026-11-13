@@ -9,16 +9,21 @@ function telegramBrowser(): TelegramBrowser | undefined {
 }
 
 /** The SDK is also loaded in ordinary browsers, where initData is empty. */
+export function isOAuthWebview(miniAppContext = false): boolean {
+  return miniAppContext || Boolean(telegramBrowser()?.initData);
+}
+
 export function externalOAuthNeedsBrowser(provider: string, miniAppContext = false): boolean {
-  return (
-    ["google", "yandex", "discord"].includes(provider) &&
-    (miniAppContext || Boolean(telegramBrowser()?.initData))
-  );
+  return ["google", "yandex", "discord"].includes(provider) && isOAuthWebview(miniAppContext);
 }
 
 /** Open a public cabinet URL, never a session, OAuth callback or linking token. */
-export function openOAuthCabinetInBrowser(path: "/" | "/settings/security" = "/"): void {
-  if (typeof window === "undefined") return;
+export function openOAuthCabinetInBrowser(path = "/"): void {
+  if (
+    typeof window === "undefined" ||
+    !/^\/(?:[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*\/?)?$/.test(path)
+  )
+    return;
   const url = new URL(path, window.location.origin).href;
   const telegram = telegramBrowser();
   if (telegram?.openLink) {

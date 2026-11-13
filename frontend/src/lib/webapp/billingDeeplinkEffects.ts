@@ -54,6 +54,7 @@ export type BillingDeeplinkEffectsDeps = {
 };
 
 export type ApplyPostLoadBillingDeeplinksInput = {
+  plansRoute?: boolean;
   defaultMethod: string;
   plans: BillingPlan[];
   search: string;
@@ -83,12 +84,13 @@ export function createBillingDeeplinkEffects({
   function applyPostLoadBillingDeeplinks({
     defaultMethod,
     plans,
+    plansRoute,
     search,
     subscription,
   }: ApplyPostLoadBillingDeeplinksInput): void {
     let openedBillingDeeplink = false;
     const checkoutDeeplink = checkoutEntryConsumed ? null : readCheckoutDeeplink();
-    const plansDeeplinkRequested = !checkoutEntryConsumed && readPlansDeeplink();
+    const plansDeeplinkRequested = !checkoutEntryConsumed && (plansRoute || readPlansDeeplink());
     if (checkoutDeeplink || plansDeeplinkRequested) checkoutEntryConsumed = true;
 
     const topupDeeplinkKind = resolveTopupDeeplinkKind({ plans, search, subscription });

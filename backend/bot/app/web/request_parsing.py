@@ -12,6 +12,8 @@ from pydantic import BaseModel, ValidationError
 
 from bot.services.message_image_service import (
     MESSAGE_IMAGE_INPUT_MAX_BYTES,
+    SUPPORT_MESSAGE_IMAGE_MAX_COUNT,
+    SUPPORT_MESSAGE_IMAGE_TOTAL_MAX_BYTES,
     UploadedMessageImage,
 )
 
@@ -128,7 +130,25 @@ async def parse_body_with_optional_image_or_400[BodyModelT: BaseModel](
     *,
     validation_error_response_factory: ValidationErrorResponseFactory | None = None,
 ) -> tuple[BodyModelT, UploadedMessageImage | None]:
-    """Parse JSON or the same fields plus one streamed multipart image."""
+    body, images = await parse_body_with_images_or_400(
+        request,
+        model_cls,
+        max_images=1,
+        max_image_bytes=MESSAGE_IMAGE_INPUT_MAX_BYTES,
+        validation_error_response_factory=validation_error_response_factory,
+    )
+    return body, images[0] if images else None
+
+
+async def parse_body_with_images_or_400[BodyModelT: BaseModel](
+    request: web.Request,
+    model_cls: type[BodyModelT],
+    *,
+    max_images: int = SUPPORT_MESSAGE_IMAGE_MAX_COUNT,
+    max_image_bytes: int = SUPPORT_MESSAGE_IMAGE_TOTAL_MAX_BYTES,
+    validation_error_response_factory: ValidationErrorResponseFactory | None = None,
+) -> tuple[BodyModelT, list[UploadedMessageImage]]:
+    """Parse JSON or bounded multipart fields with repeated image parts."""
 
     headers = getattr(request, "headers", {})
     content_type = (headers.get("Content-Type") or "").lower()
@@ -139,11 +159,12 @@ async def parse_body_with_optional_image_or_400[BodyModelT: BaseModel](
                 model_cls,
                 validation_error_response_factory=validation_error_response_factory,
             ),
-            None,
+            [],
         )
 
     payload: dict[str, object] = {}
-    image: UploadedMessageImage | None = None
+    images: list[UploadedMessageImage] = []
+    image_bytes = 0
     total_field_bytes = 0
     field_count = 0
     try:
@@ -156,15 +177,21 @@ async def parse_body_with_optional_image_or_400[BodyModelT: BaseModel](
             if not name:
                 _raise_response(_error(400, "invalid_payload", "Multipart field name is required"))
             if name == "image":
-                if image is not None:
-                    _raise_response(
-                        _error(400, "too_many_images", "Only one image may be attached")
-                    )
+                if len(images) >= max_images:
+                    code = "too_many_images" if max_images == 1 else "too_many_support_images"
+                    _raise_response(_error(400, code, f"Maximum {max_images} images"))
                 body = await _read_multipart_part(part, limit=MESSAGE_IMAGE_INPUT_MAX_BYTES)
-                image = UploadedMessageImage(
-                    data=body,
-                    filename=part.filename or "",
-                    content_type=part.headers.get("Content-Type", ""),
+                image_bytes += len(body)
+                if image_bytes > max_image_bytes:
+                    _raise_response(
+                        _error(400, "images_too_large", "Combined images are too large")
+                    )
+                images.append(
+                    UploadedMessageImage(
+                        data=body,
+                        filename=part.filename or "",
+                        content_type=part.headers.get("Content-Type", ""),
+                    )
                 )
                 continue
             if part.filename:
@@ -189,7 +216,7 @@ async def parse_body_with_optional_image_or_400[BodyModelT: BaseModel](
         _raise_response(_error(400, "invalid_payload", "Invalid multipart payload"))
 
     try:
-        return model_cls.model_validate(payload), image
+        return model_cls.model_validate(payload), images
     except ValidationError as exc:
         if validation_error_response_factory is not None:
             _raise_response(validation_error_response_factory(exc))

@@ -193,6 +193,9 @@
   <button
     data-nav-level="primary"
     class:active={activeTab === "settings"}
+    class:has-active-child={["payment-history", "notifications", "security", "partner"].includes(
+      String(screen)
+    )}
     class="attention-wrap"
     type="button"
     aria-label={t("wa_nav_settings")}

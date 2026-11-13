@@ -7,6 +7,18 @@ export interface UiContribution {
   placement?: string;
 }
 
+/** Device filters apply per instance, before replacement conflict resolution. */
+export function matchesDeviceType(
+  item: { device_types?: readonly string[] },
+  context: Record<string, unknown>
+): boolean {
+  if (!item.device_types?.length) return true;
+  const device = context.device;
+  if (!device || typeof device !== "object") return false;
+  const type = "device_type" in device ? device.device_type : "unknown";
+  return typeof type === "string" && item.device_types.includes(type);
+}
+
 export function composeUi<T extends UiContribution>(items: readonly T[], target: string) {
   const sorted = items
     .filter((item) => item.target === target)

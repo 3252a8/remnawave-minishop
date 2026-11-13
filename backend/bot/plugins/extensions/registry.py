@@ -50,6 +50,7 @@ class ExtensionRegistry:
             value.backups,
             value.storage,
             value.message_shortcodes,
+            value.login_providers,
         ):
             seen: set[str] = set()
             for item in collection:
@@ -57,6 +58,13 @@ class ExtensionRegistry:
                 if item.id in seen:
                     raise ExtensionError("duplicate_extension_identifier")
                 seen.add(item.id)
+        for provider in value.login_providers:
+            if (
+                not isinstance(provider.name, str)
+                or not 1 <= len(provider.name.strip()) <= 100
+                or not callable(provider.start)
+            ):
+                raise ExtensionError("invalid_extension_login_provider")
         if len(value.message_shortcodes) > 128:
             raise ExtensionError("too_many_message_shortcodes")
         for shortcode in value.message_shortcodes:

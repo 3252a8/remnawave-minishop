@@ -486,6 +486,7 @@ export type AdminUserAction =
   | "regular-traffic-override"
   | "traffic-strategy"
   | "hwid-device-limit"
+  | "hwid-devices/reset"
   | "traffic-grant"
   | "balance-adjustment"
   | "balance-conversion"
@@ -505,6 +506,7 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/regular-traffic-override"
   | "/api/admin/users/{user_id}/traffic-strategy"
   | "/api/admin/users/{user_id}/hwid-device-limit"
+  | "/api/admin/users/{user_id}/hwid-devices/reset"
   | "/api/admin/users/{user_id}/traffic-grant"
   | "/api/admin/users/{user_id}/balance-adjustment"
   | "/api/admin/users/{user_id}/balance-conversion"
@@ -516,6 +518,12 @@ export function buildAdminUserActionPath(
 ): AdminUserActionPath {
   return builtApiPath<AdminUserActionTemplate>(
     `/admin/users/${encodeURIComponent(String(userId))}/${action}`
+  );
+}
+
+export function buildAdminUserBroadcastAudiencesPath(userId: number | string) {
+  return builtApiPath<"/api/admin/users/{user_id}/broadcast-audiences">(
+    `/admin/users/${encodeURIComponent(String(userId))}/broadcast-audiences`
   );
 }
 

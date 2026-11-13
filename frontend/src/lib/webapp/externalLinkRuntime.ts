@@ -1,5 +1,7 @@
 import { createAppLaunchActions } from "./appLaunchActions.js";
 import { openAppLinkTarget } from "./appLinkActions.js";
+import { isUnsafeAppUrl } from "./appLinks.js";
+import type { OpenLinkAction } from "./types.js";
 import { shellState } from "./shellState.svelte";
 
 type TelegramWebApp = Record<string, unknown> & {
@@ -26,16 +28,21 @@ export function createExternalLinkRuntime({
   refreshTelegram,
   readLaunchTarget,
 }: ExternalLinkRuntimeDeps) {
-  function openExternalLink(url: string) {
-    if (!url) return;
+  const openExternalLink: OpenLinkAction = (url, kind) => {
+    const isPayment = kind === "payment";
+    if (!url || (isPayment && isUnsafeAppUrl(url))) return;
     // Public documents belong to the current Mini App. Telegram.openLink only
     // accepts absolute external URLs and throws for these application paths.
     if (/^\/(?![/\\])/.test(url)) {
       assignLocation(url);
       return;
     }
-    const telegram = shellState.tg;
-    if (/^https:\/\/(?:t|telegram)\.me\//i.test(url) && telegram?.openTelegramLink) {
+    const isTelegramLink = /^https:\/\/(?:t|telegram)\.me\//i.test(url);
+    let telegram = shellState.tg;
+    if (isPayment) {
+      telegram = hasTelegramLaunchParams() ? telegram || refreshTelegram() : null;
+    }
+    if (isTelegramLink && telegram?.openTelegramLink) {
       try {
         telegram.openTelegramLink(url);
         return;
@@ -44,11 +51,15 @@ export function createExternalLinkRuntime({
       }
     }
     if (telegram?.openLink) {
-      telegram.openLink(url, { try_instant_view: false });
-      return;
+      try {
+        telegram.openLink(url, { try_instant_view: false });
+        return;
+      } catch (error) {
+        if (!isPayment) throw error;
+      }
     }
     assignLocation(url);
-  }
+  };
 
   function openAppLink(url: string) {
     openAppLinkTarget(url, {

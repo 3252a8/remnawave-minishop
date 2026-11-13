@@ -1,3 +1,4 @@
+import type { components } from "../../api/openapi.generated";
 import { withDemoIdentities } from "../demoIdentities.js";
 import { DEMO_DATASET } from "../demoDataset.js";
 import { structuredCloneSafe } from "../../safeClone.js";
@@ -45,6 +46,7 @@ export type DemoTicket = DemoRecord & {
 };
 
 export type DemoUserDetail = DemoRecord & {
+  hwid_devices?: components["schemas"]["AdminUserHwidDevicesOut"];
   user?: DemoAdminUser;
   active_subscription?: DemoRecord;
   referral?: DemoRecord & { inviter?: DemoAdminUser | null };

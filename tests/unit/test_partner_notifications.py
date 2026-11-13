@@ -31,6 +31,7 @@ def _service() -> NotificationService:
             DEFAULT_LANGUAGE="ru",
             LOG_CHAT_ID=-100123,
             LOG_THREAD_ID=77,
+            LOG_PARTNER_THREAD_ID=None,
             ADMIN_IDS=[],
         ),
         i18n=_LocaleI18n(),

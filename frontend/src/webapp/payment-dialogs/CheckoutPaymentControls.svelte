@@ -176,6 +176,9 @@
     onValueChange={setCheckoutPromoInput}
     {t}
   />
+  {#if checkoutPromoIsError && checkoutPromoStatus}
+    <small class="checkout-quote-error" role="alert">{checkoutPromoStatus}</small>
+  {/if}
 {/if}
 <PartnerBalanceDiscount
   {api}

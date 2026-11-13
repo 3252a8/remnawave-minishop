@@ -1,4 +1,4 @@
-import type { PendingPaymentView, WebappRecord } from "./types.js";
+import type { OpenLinkAction, PendingPaymentView, WebappRecord } from "./types.js";
 import { isQaPaymentUrl } from "./qaPayment.js";
 
 export type BillingPaymentResponse = WebappRecord & {
@@ -24,7 +24,7 @@ export function createPaymentResponseHandler({
 }: {
   afterOpened?: () => Promise<unknown> | unknown;
   notifyOpened: (resumed: boolean) => void;
-  openExternalLink: (url: string) => void;
+  openExternalLink: OpenLinkAction;
   openQaPaymentLink: (url: string) => void;
   openTelegramInvoice: (url: string, context: PaymentSuccessContext) => Promise<boolean>;
   startPaymentStatusPolling: (
@@ -59,7 +59,7 @@ export function createPaymentResponseHandler({
     } else {
       if (!response.payment_url) throw response;
       if (isQaPaymentUrl(response.payment_url)) openQaPaymentLink(response.payment_url);
-      else openExternalLink(response.payment_url);
+      else openExternalLink(response.payment_url, "payment");
     }
     startPaymentStatusPolling(response.payment_id, successContext);
     closeModal();

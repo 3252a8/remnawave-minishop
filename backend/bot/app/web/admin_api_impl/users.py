@@ -79,6 +79,7 @@ from .users_detail import (
     admin_user_detail_route,
     admin_user_referrals_route,
 )
+from .users_devices import admin_user_hwid_devices_reset_route
 from .users_listing import (
     _bulk_user_statuses,
     _invalidate_after_admin_user_mutation,
@@ -339,6 +340,9 @@ register_contract(
     RouteContract(response_schema=ok_envelope_with({"queued": BOOLEAN_SCHEMA})),
 )
 register_contract("admin_user_delete_route", RouteContract(response_schema=ok_envelope_with()))
+register_contract(
+    "admin_user_hwid_devices_reset_route", RouteContract(response_schema=ok_envelope_with())
+)
 register_contract("admin_user_reset_trial_route", RouteContract(response_schema=ok_envelope_with()))
 register_contract(
     "admin_user_subscription_reissue_route",
@@ -436,6 +440,7 @@ __all__ = [
     "admin_user_detail_route",
     "admin_user_extend_route",
     "admin_user_hwid_device_limit_route",
+    "admin_user_hwid_devices_reset_route",
     "admin_user_message_preview_route",
     "admin_user_message_route",
     "admin_user_notification_preferences_route",

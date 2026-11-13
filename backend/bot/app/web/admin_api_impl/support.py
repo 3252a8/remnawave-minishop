@@ -15,7 +15,7 @@ from bot.app.web.message_image_contracts import message_image_request_content
 from bot.app.web.message_image_responses import message_image_response
 from bot.app.web.request_parsing import (
     parse_body_or_400,
-    parse_body_with_optional_image_or_400,
+    parse_body_with_images_or_400,
 )
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
@@ -46,7 +46,7 @@ from bot.services.broadcast_personalization import (
 from bot.services.message_image_service import (
     MessageImageError,
     load_message_image,
-    prepare_message_image,
+    prepare_support_message_images,
 )
 from bot.services.support_message_body import SupportBodyError
 from bot.services.support_message_buttons import (
@@ -150,7 +150,7 @@ register_contract(
 register_contract(
     "admin_support_ticket_reply_route",
     RouteContract(
-        request_content=message_image_request_content(AdminTicketReplyPayload),
+        request_content=message_image_request_content(AdminTicketReplyPayload, multiple=True),
         response_schema=ok_envelope_with(
             {
                 "ticket": schema_ref(SupportTicketOut),
@@ -358,16 +358,16 @@ async def _personalize_reply_body(
 async def admin_support_ticket_reply_route(request: web.Request) -> web.Response:
     admin_id = _require_admin_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, upload = await parse_body_with_optional_image_or_400(
+    payload, uploads = await parse_body_with_images_or_400(
         request,
         AdminTicketReplyPayload,
         validation_error_response_factory=_invalid_request_payload_response,
     )
     try:
-        image = await prepare_message_image(upload)
+        images = await prepare_support_message_images(uploads)
     except MessageImageError as exc:
         return _error(400, exc.code, exc.detail)
-    if not payload.body and image is None:
+    if not payload.body and not images:
         return _error(400, "empty_text", "Message is empty")
     unknown = sorted(unknown_shortcodes(payload.body))
     if unknown:
@@ -412,7 +412,7 @@ async def admin_support_ticket_reply_route(request: web.Request) -> web.Response
             is_internal_note=payload.is_internal_note,
             body_format=payload.body_format,
             buttons=encoded_buttons,
-            image=image,
+            images=images,
         )
     except SupportBodyError:
         return _error(400, "empty_text", "Message is empty")

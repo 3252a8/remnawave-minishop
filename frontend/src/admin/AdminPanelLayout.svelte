@@ -51,7 +51,6 @@
   type AdsStoreBridge = { setCreateOpen: (open: boolean) => void };
   type DocumentsStoreBridge = { openCreateDocument: () => void };
   type PromosStoreBridge = { setCreateOpen: (open: boolean) => void };
-  type TariffsStoreBridge = { openCreateTariff: () => void };
   type SettingsStoreBridge = {
     saveSettings: (callback: (payload: SettingsSavedPayload) => void | Promise<void>) => unknown;
   };
@@ -119,7 +118,6 @@
     statsStore,
     supportStore,
     syncBusy,
-    tariffsStore,
     translationsDirtyCount,
     translationsSaving,
     translationsStore,
@@ -193,7 +191,6 @@
     statsStore: StatsStoreBridge;
     supportStore: SupportStoreBridge;
     syncBusy: boolean;
-    tariffsStore: TariffsStoreBridge;
     translationsDirtyCount: number;
     translationsSaving: boolean;
     translationsStore: TranslationsStoreBridge;
@@ -547,7 +544,6 @@
           onCreateAd={() => adsStore.setCreateOpen(true)}
           onCreateCode={() => promosStore.setCreateOpen(true)}
           onCreateDocument={documentsStore.openCreateDocument}
-          onCreateTariff={tariffsStore.openCreateTariff}
           {onExportPayments}
           onSaveSettings={() => settingsStore.saveSettings(onSaveSettings)}
           onSaveTranslations={() => translationsStore.saveTranslations(onSaveTranslations)}

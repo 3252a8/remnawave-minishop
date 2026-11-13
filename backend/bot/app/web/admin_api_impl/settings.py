@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -28,8 +29,10 @@ from bot.services.partner_withdrawal_service import PartnerWithdrawalService
 from bot.services.required_channel_diagnostics import check_required_channel
 from bot.services.settings_override_service import current_value, update_overrides
 from bot.services.telegram_bot_commands import BOT_MENU_SETTING_KEY, sync_telegram_bot_commands
+from bot.services.telegram_chat_menu import sync_telegram_chat_menu
 from config.menu_buttons import parse_menu_buttons, validate_menu_button_languages
 from config.settings import Settings
+from config.settings_telegram import TELEGRAM_CHAT_MENU_KEYS
 from config.subscription_guides_config import (
     SubscriptionGuidesConfigError,
     subscription_guides_admin_config_json,
@@ -51,6 +54,7 @@ VALUE_SOURCE_DATABASE_OVERRIDE = "database_override"
 VALUE_SOURCE_ENVIRONMENT = "environment"
 
 logger = logging.getLogger(__name__)
+_chat_menu_sync_lock = asyncio.Lock()
 
 
 register_contract(
@@ -78,6 +82,23 @@ async def _sync_bot_commands_after_settings_change(
         logger.warning("Could not synchronize Telegram bot commands: %s", exc)
         return BOT_MENU_SETTING_KEY
     return None
+
+
+async def _sync_chat_menu_after_settings_change(
+    request: web.Request, settings: Settings, changed_keys: set[str]
+) -> set[str]:
+    menu_keys = TELEGRAM_CHAT_MENU_KEYS.intersection(changed_keys)
+    if not menu_keys:
+        return set()
+    async with _chat_menu_sync_lock:
+        if settings.TELEGRAM_CHAT_MENU_MODE == "keep":
+            return set()
+        try:
+            await sync_telegram_chat_menu(get_bot(request), settings)
+        except Exception as exc:
+            logger.warning("Could not synchronize the Telegram chat menu button: %s", exc)
+            return set(menu_keys)
+    return set()
 
 
 register_contract(
@@ -238,7 +259,8 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
 
     await refresh_webapp_runtime_after_settings_change(request, updates=updates, deletes=deletes)
 
-    if "REQUIRED_CHANNEL_ID" in set(updates) | set(deletes):
+    changed_keys = set(updates).union(str(key) for key in deletes)
+    if "REQUIRED_CHANNEL_ID" in changed_keys:
         async with async_session_factory() as session:
             await check_required_channel(
                 get_optional_bot(request),
@@ -256,6 +278,7 @@ async def admin_settings_patch_route(request: web.Request) -> web.Response:
         deletes=deletes,
     ):
         not_applied.add(failed_key)
+    not_applied.update(await _sync_chat_menu_after_settings_change(request, settings, changed_keys))
 
     # ``not_applied`` keys were persisted but could not reach the running
     # process, so the panel must not report them as taking effect.

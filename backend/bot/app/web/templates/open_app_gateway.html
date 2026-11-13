@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
     <link id="app-favicon" rel="icon" href="data:," sizes="any">
     <title>__PAGE_TITLE__</title>
     <style nonce="__NONCE__">
@@ -111,6 +112,7 @@
         const closeButton = document.getElementById("close-button");
         const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         const target = String(params.get("url") || "").trim();
+        const isPayment = params.get("kind") === "payment";
         const isUnsafe =
           !target ||
           hasControlChars(target) ||
@@ -227,6 +229,38 @@
           window.setTimeout(() => {
             if (state === "opening" && !pageLeft) render("manual");
           }, 1600);
+        }
+
+        if (isPayment) {
+          let paymentUrl;
+          try {
+            if (/^https?:\/\//i.test(target) && !hasControlChars(target)) {
+              paymentUrl = new URL(target);
+            }
+          } catch {
+            // Leave malformed payment destinations unavailable.
+          }
+          titleEl.textContent = text("paymentTitle", "Payment page");
+          closeButton.hidden = true;
+          copyButton.hidden = true;
+          openLink.hidden = true;
+          if (!paymentUrl || paymentUrl.username || paymentUrl.password) {
+            statusEl.textContent = text("unavailableHint", "Return to Telegram and try again.");
+          } else if (isTelegramInAppBrowser) {
+            statusEl.textContent = text(
+              "paymentExternalBrowserHint",
+              "Use Telegram’s menu to open this page in your browser."
+            );
+          } else {
+            statusEl.textContent = text("paymentDestination", "Payment provider: {host}").replace(
+              "{host}",
+              () => paymentUrl.host
+            );
+            openLink.textContent = text("paymentButton", "Continue to payment");
+            openLink.href = paymentUrl.href;
+            openLink.hidden = false;
+          }
+          return;
         }
 
         if (isUnsafe) {

@@ -22,6 +22,7 @@ from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
     callback_data,
     callback_message,
+    callback_message_or_none,
     message_from_user,
     safe_answer_callback,
 )
@@ -33,6 +34,7 @@ from .start_common import (
     router,
 )
 from .start_menus import send_bot_interface_menu, send_main_menu
+from .start_pages import open_start_page
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,7 @@ async def verify_channel_subscription_callback(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     state: FSMContext | None = None,
+    referral_service: ReferralService | None = None,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -98,7 +101,8 @@ async def verify_channel_subscription_callback(
     else:
         _ = lambda key, **kwargs: key
 
-    pending = (await state.get_data()).get("pending_gift_token") if state else None
+    pending_data = await state.get_data() if state else {}
+    pending = pending_data.get("pending_gift_token")
     if isinstance(pending, str) and db_user and callback.message:
         from .gifts import show_gift_preview
 
@@ -112,6 +116,27 @@ async def verify_channel_subscription_callback(
             session=session,
         )
         return
+
+    pending_page = pending_data.get("pending_start_page")
+    if (
+        isinstance(pending_page, str)
+        and db_user
+        and callback_message_or_none(callback) is not None
+        and state
+        and referral_service
+    ):
+        await state.update_data(pending_start_page=None)
+        if await open_start_page(
+            pending_page,
+            callback,
+            state,
+            settings,
+            i18n_data,
+            subscription_service,
+            referral_service,
+            session,
+        ):
+            return
 
     if not settings.DISABLE_WELCOME_MESSAGE:
         welcome_text = _(key="welcome", user_name=hd.quote(callback.from_user.full_name))

@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { ArrowLeft, Megaphone } from "$components/ui/icons.js";
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
+  import { Megaphone } from "$components/ui/icons.js";
   import Card from "$components/ui/card.svelte";
   import NotificationPreferencesPanel from "$components/patterns/NotificationPreferencesPanel.svelte";
   import {
@@ -91,20 +93,14 @@
 </script>
 
 <main class="content with-nav security-screen">
-  <button class="security-back" type="button" onclick={goSettings}>
-    <ArrowLeft size={19} />
-    {t("wa_back")}
-  </button>
+  <ScreenBackLink class="security-back" label={t("wa_back")} onclick={goSettings} />
   <Card class="security-overview-card">
-    <div class="security-heading">
-      <span><Megaphone size={32} /></span>
-      <div>
-        <h1>{t("wa_notification_preferences_title", {}, "Notifications")}</h1>
-        <p>
-          {preferencesDescription}
-        </p>
-      </div>
-    </div>
+    <ScreenHeading
+      title={t("wa_notification_preferences_title", {}, "Notifications")}
+      subtitle={preferencesDescription}
+    >
+      {#snippet icon()}<Megaphone />{/snippet}
+    </ScreenHeading>
   </Card>
 
   <NotificationPreferencesPanel
@@ -112,7 +108,7 @@
     telegramOnly={!emailAuthEnabled}
     disabled={notificationPreferencesBusy}
     title={t("wa_notification_preferences_delivery_title", {}, "Delivery settings")}
-    description={preferencesDescription}
+    description=""
     marketingLabel={t("wa_notification_preferences_marketing", {}, "News and offers")}
     marketingHint={t(
       "wa_notification_preferences_marketing_hint",

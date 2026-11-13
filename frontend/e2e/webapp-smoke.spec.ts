@@ -620,7 +620,7 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   );
   expect(counterInsideSurface, "admin-support: counter must stay inside the editor").toBe(true);
   const actionsShareRow = await Promise.all([
-    attachment.boundingBox(),
+    uploadButton.boundingBox(),
     sendButton.boundingBox(),
   ]).then(([upload, send]) => Boolean(upload && send && Math.abs(upload.y - send.y) <= 4));
   expect(actionsShareRow, "admin-support: image and send actions must share one row").toBe(true);
@@ -1793,7 +1793,8 @@ test("partner account stays compact, table-driven, and keeps the tour ring local
   expect(fieldBox!.x + fieldBox!.width).toBeLessThanOrEqual(copyBox!.x + 1);
 
   const firstTableRow = statistics.locator(".partner-data-table tbody tr").first();
-  await expect(firstTableRow).toHaveCSS("display", "block");
+  // Phone records lay their facts out as a compact two-column grid.
+  await expect(firstTableRow).toHaveCSS("display", "grid");
   await statistics.getByRole("tab", { name: /Комиссии/ }).click();
   await expect(statistics.locator(".partner-data-table tbody tr")).toHaveCount(20);
   await expect(statistics.locator(".partner-data-table thead th")).toHaveCount(5);
@@ -2550,7 +2551,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
     ".admin-panel-version-trigger"
   );
   await expect(panelVersionTrigger).toBeVisible();
-  await expect(panelVersionTrigger).toContainText("v3.4.7");
+  await expect(panelVersionTrigger).toContainText("v3.4.10");
   await panelVersionTrigger.click();
   const panelVersionPopover = page.locator(".admin-panel-version-popover");
   await expect(panelVersionPopover).toBeVisible();

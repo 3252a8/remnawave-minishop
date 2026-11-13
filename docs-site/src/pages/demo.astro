@@ -59,8 +59,7 @@ const docsHref = '/getting-started/demo/';
         padding: max(0.7rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
           0.7rem max(1rem, env(safe-area-inset-left));
         border-bottom: 1px solid rgb(148 163 184 / 20%);
-        background: rgb(5 8 15 / 94%);
-        backdrop-filter: blur(16px);
+        background: #05080f;
       }
 
       .demo-topbar__toggle,
@@ -106,11 +105,12 @@ const docsHref = '/getting-started/demo/';
       }
 
       .demo-topbar__state-select {
+        height: 2rem;
         min-width: 13.25rem;
         max-width: 100%;
         border: 1px solid rgb(148 163 184 / 28%);
-        border-radius: 7px;
-        padding: 0.42rem 1.9rem 0.42rem 0.65rem;
+        border-radius: 8px;
+        padding: 0 1.9rem 0 0.65rem;
         background: rgb(15 23 42 / 82%);
         color: #f8fafc;
         cursor: pointer;
@@ -126,10 +126,13 @@ const docsHref = '/getting-started/demo/';
       }
 
       .demo-topbar__back {
+        display: inline-flex;
         flex: 0 0 auto;
+        height: 2rem;
+        align-items: center;
         border: 1px solid rgb(0 254 122 / 45%);
-        border-radius: 7px;
-        padding: 0.48rem 0.72rem;
+        border-radius: 8px;
+        padding: 0 0.72rem;
         color: #f8fafc;
         font-size: 0.86rem;
         font-weight: 650;
@@ -165,9 +168,7 @@ const docsHref = '/getting-started/demo/';
       .email-previews {
         min-height: 0;
         overflow: auto;
-        background:
-          linear-gradient(180deg, rgb(15 23 42 / 32%), rgb(5 8 15 / 0) 14rem),
-          #05080f;
+        background: #05080f;
       }
 
       .email-previews__inner {
@@ -398,17 +399,17 @@ const docsHref = '/getting-started/demo/';
         .demo-topbar__back {
           display: inline-flex;
           border-color: rgb(0 254 122 / 35%);
-          padding: 0.42rem 0.55rem;
+          padding: 0 0.55rem;
           font-size: 0.78rem;
         }
 
         .demo-topbar__hide {
           display: inline-grid;
-          width: 1.95rem;
-          height: 1.95rem;
+          width: 2rem;
+          height: 2rem;
           place-items: center;
           border: 1px solid rgb(148 163 184 / 26%);
-          border-radius: 7px;
+          border-radius: 8px;
           padding: 0;
           background: transparent;
           color: #cbd5e1;

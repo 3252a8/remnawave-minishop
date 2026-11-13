@@ -1,8 +1,11 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { onMount } from "svelte";
+  import { trackLinkedSubsection } from "$lib/webapp/linkedSubsectionScroll.js";
+  import { partnerSubsectionFromPath } from "$lib/webapp/routes.js";
   import "./partnerScreen.css";
   import {
-    ArrowLeft,
     ArrowRight,
     Check,
     CheckCircle2,
@@ -59,11 +62,13 @@
     copyText = async () => {},
     api,
     goBack,
+    routePrefix = "",
     t = (key) => key,
   }: {
     copyText?: CopyTextAction;
     api?: ApiClient["api"];
     goBack?: VoidAction;
+    routePrefix?: string;
     t?: Translate;
   } = $props();
 
@@ -286,6 +291,23 @@
     activityPage = 0;
   }
 
+  function scrollToLinkedSubsection(content: HTMLElement) {
+    const getSubsection = () => partnerSubsectionFromPath(window.location.pathname, routePrefix);
+    return trackLinkedSubsection(
+      content,
+      () => Boolean(getSubsection()),
+      () => {
+        const subsection = getSubsection();
+        if (!subsection) return null;
+        if (subsection === "links" || subsection === "balance")
+          return content.querySelector(`#partner-${subsection}`);
+        const activity = content.querySelector("#partner-activity");
+        if (activity && activeTab !== subsection) changeActivityTab(subsection);
+        return activity;
+      }
+    );
+  }
+
   function changeActivitySort(value: string): void {
     activitySort = value;
     activityPage = 0;
@@ -428,12 +450,13 @@
   }
 </script>
 
-<main class="content with-nav partner-page" aria-busy={preview.loading}>
+<main
+  class="content with-nav partner-page"
+  aria-busy={preview.loading}
+  {@attach scrollToLinkedSubsection}
+>
   {#if goBack}
-    <button class="partner-back" type="button" onclick={goBack}>
-      <ArrowLeft size={19} />
-      {t("wa_back")}
-    </button>
+    <ScreenBackLink class="partner-back" label={t("wa_back")} onclick={goBack} />
   {/if}
   {#if preview.loading}
     {#if loadingPlaceholder === "dashboard"}
@@ -549,35 +572,34 @@
     </Card>
   {:else}
     <Card class="partner-overview-card">
-      <div class="partner-overview-head">
-        <div class="partner-overview-title">
-          <UsersRound size={34} />
-          <div>
-            <strong>{t("wa_partner_profile_title")}</strong>
-            <span
-              class="partner-status"
-              class:partner-status-pending={partnerPaused}
-              class:partner-status-available={!partnerPaused}
-            >
-              {preview.profileState === "closed"
-                ? t("wa_partner_status_closed")
-                : partnerPaused
-                  ? t("wa_partner_status_paused")
-                  : t("wa_partner_status_active")}
-            </span>
-          </div>
-        </div>
-        <Button
-          class="partner-tutorial-button"
-          variant="outline"
-          size="sm"
-          onclick={() => openTutorial()}
-          aria-label={t("wa_partner_tutorial_open")}
-          title={t("wa_partner_tutorial_open")}
-        >
-          <Sparkles size={15} /><span>{t("wa_partner_tutorial_open")}</span>
-        </Button>
-      </div>
+      <ScreenHeading class="partner-overview-head" title={t("wa_partner_profile_title")}>
+        {#snippet icon()}<UsersRound />{/snippet}
+        {#snippet meta()}
+          <span
+            class="partner-status"
+            class:partner-status-pending={partnerPaused}
+            class:partner-status-available={!partnerPaused}
+          >
+            {preview.profileState === "closed"
+              ? t("wa_partner_status_closed")
+              : partnerPaused
+                ? t("wa_partner_status_paused")
+                : t("wa_partner_status_active")}
+          </span>
+        {/snippet}
+        {#snippet actions()}
+          <Button
+            class="partner-tutorial-button"
+            variant="outline"
+            size="sm"
+            onclick={() => openTutorial()}
+            aria-label={t("wa_partner_tutorial_open")}
+            title={t("wa_partner_tutorial_open")}
+          >
+            <Sparkles size={15} /><span>{t("wa_partner_tutorial_open")}</span>
+          </Button>
+        {/snippet}
+      </ScreenHeading>
       <p class="partner-overview-copy">
         {preview.welcomeMessage || t("wa_partner_program_kicker")}
       </p>
@@ -589,7 +611,7 @@
         </div>
       {/if}
 
-      <div class="partner-links-section" data-tour="links">
+      <div id="partner-links" class="partner-links-section" data-tour="links">
         <h3 class="card-heading">{t("wa_partner_links_title")}</h3>
         <div class="partner-link-list">
           {#each preview.links as link (link.id)}
@@ -616,7 +638,7 @@
     </Card>
 
     {#if currentBalance}
-      <Card class="partner-balance-card" data-tour="balance">
+      <Card id="partner-balance" class="partner-balance-card" data-tour="balance">
         <div class="partner-section-head">
           <div class="partner-section-title">
             <WalletCards size={30} />

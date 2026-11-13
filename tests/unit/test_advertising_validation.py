@@ -23,6 +23,8 @@ from bot.services.advertising.validation import landing_path, minor_units, start
         "admin_x",
         "ticket_a",
         "webapp_auth_x",
+        "page_ref",
+        "page_settings",
         "two words",
         "a" * 65,
         "\u043a\u043e\u0434",

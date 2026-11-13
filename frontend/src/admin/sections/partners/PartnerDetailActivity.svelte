@@ -15,6 +15,7 @@
     WithdrawalRow,
   } from "$lib/admin/previewMock/partnerProgram.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
+  import { fmtDateTime } from "$lib/admin/format.js";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -270,8 +271,8 @@
                 onclick={client.userId ? () => onOpenUserCard(client.userId) : undefined}
               />
             </td>
-            <td class="admin-cell-mono" data-label={at("partners_col_attributed", {}, "Attributed")}
-              >{client.attributed}</td
+            <td data-label={at("partners_col_attributed", {}, "Attributed")}
+              >{fmtDateTime(client.attributed)}</td
             >
             <td data-label={at("partners_col_source", {}, "Source")}
               >{at(`partners_source_${client.source}`, {}, client.source)}</td

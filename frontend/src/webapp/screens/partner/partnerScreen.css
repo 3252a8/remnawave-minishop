@@ -3,18 +3,6 @@
   gap: 12px;
   color: var(--text);
 }
-.partner-back {
-  width: max-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  padding: 4px 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  cursor: pointer;
-}
 .partner-overview-card,
 .partner-balance-card,
 .partner-stats-card {
@@ -116,7 +104,7 @@
 .partner-kicker {
   color: var(--accent);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -266,7 +254,7 @@
   padding: 4px 9px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.04em;
   background: var(--surface-muted);
   color: var(--muted);
@@ -750,7 +738,7 @@
 .partner-tour-step {
   color: var(--accent);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -900,13 +888,24 @@
     width: 100%;
     min-width: 0;
   }
+  /* One frame per record: the table wrapper loses its own frame, and each
+     record shows its facts as a 2x2 grid of label-over-value instead of four
+     upper-case label rows. */
+  .partner-activity-table .admin-table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
   .partner-activity-table .admin-table tbody {
-    padding: 8px;
+    padding: 0;
   }
   .partner-activity-table .admin-table tbody tr {
-    display: block;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 12px;
     margin-bottom: 8px;
-    padding: 10px 12px;
+    padding: 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-card);
     background: var(--panel-2);
@@ -916,24 +915,21 @@
   }
   .partner-activity-table .admin-table tbody td {
     display: grid;
-    grid-template-columns: minmax(88px, 38%) minmax(0, 1fr);
-    align-items: baseline;
-    gap: 2px 10px;
-    padding: 4px 0;
+    align-content: start;
+    gap: 2px;
+    padding: 0;
     border: 0;
     overflow-wrap: anywhere;
   }
   .partner-activity-table .admin-table tbody td::before {
     content: attr(data-label);
     color: var(--muted);
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: 0.045em;
-    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 500;
   }
   .partner-activity-table .admin-table tbody td.admin-cell-primary {
     display: block;
-    margin-bottom: 5px;
+    grid-column: 1 / -1;
     padding: 0 0 8px;
     border-bottom: 1px solid var(--border);
   }
@@ -946,8 +942,9 @@
   }
   .partner-activity-table .admin-table tbody td.admin-cell-actions {
     display: flex;
+    grid-column: 1 / -1;
     justify-content: flex-end;
-    padding-top: 7px;
+    padding-top: 4px;
   }
   .partner-activity .admin-pagination {
     grid-template-columns: 1fr;

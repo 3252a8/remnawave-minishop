@@ -1,7 +1,7 @@
 <script lang="ts">
   import "./partnerProgramSettings.css";
   import { ArrowRight, ShieldCheck, TriangleAlert } from "$components/ui/icons.js";
-  import { Checkbox, Input } from "$components/ui/index.js";
+  import { Input } from "$components/ui/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { AdminBadge, AdminButton } from "$components/patterns/admin/index.js";
   import type { Snippet } from "svelte";
@@ -739,18 +739,11 @@
       )}
 
       {#snippet reapplicationControl()}
-        <label class="partner-settings-check">
-          <Checkbox
-            checked={config.reapplication}
-            ariaLabel={at(
-              "partner_settings_reapplication",
-              {},
-              "Allow reapplication after rejection"
-            )}
-            onCheckedChange={(checked) => (config.reapplication = checked)}
-          />
-          <span>{switchStateLabel(config.reapplication)}</span>
-        </label>
+        {@render switchControl(
+          config.reapplication,
+          at("partner_settings_reapplication", {}, "Allow reapplication after rejection"),
+          (checked) => (config.reapplication = checked)
+        )}
       {/snippet}
       {@render settingRow(
         at("partner_settings_reapplication", {}, "Allow reapplication after rejection"),

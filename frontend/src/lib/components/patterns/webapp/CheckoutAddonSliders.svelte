@@ -29,6 +29,7 @@
     disabled = false,
     animateValues = true,
     expandedByDefault = false,
+    showPremium = true,
     t = (key) => key,
     onChange = () => {},
     onInteractionChange = () => {},
@@ -43,12 +44,15 @@
     disabled?: boolean;
     animateValues?: boolean;
     expandedByDefault?: boolean;
+    showPremium?: boolean;
     t?: Translate;
     onChange?: (kind: CheckoutAddonKind, extraUnits: number) => void;
     onInteractionChange?: (active: boolean) => void;
   } = $props();
 
-  const kinds: CheckoutAddonKind[] = ["devices", "traffic", "premium_traffic"];
+  const kinds = $derived<CheckoutAddonKind[]>(
+    showPremium ? ["devices", "traffic", "premium_traffic"] : ["devices", "traffic"]
+  );
   const description = $derived(String(tariffDescription || plan?.description || "").trim());
   const summary = $derived(checkoutTariffSummary(plan));
   const facts = $derived<TariffLimitFact[]>(

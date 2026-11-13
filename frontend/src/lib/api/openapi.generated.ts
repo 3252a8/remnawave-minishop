@@ -2123,6 +2123,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/promos/birthday": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Birthday Activation Get */
+    get: operations["get_admin_birthday_activation_get_route"];
+    /** Admin Birthday Activation Put */
+    put: operations["put_admin_birthday_activation_put_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/promos/options": {
     parameters: {
       query?: never;
@@ -2937,6 +2955,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/broadcast-audiences": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Broadcast Audiences Get */
+    get: operations["get_admin_user_broadcast_audiences_get_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin User Broadcast Audiences Patch */
+    patch: operations["patch_admin_user_broadcast_audiences_patch_route"];
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/extend": {
     parameters: {
       query?: never;
@@ -2965,6 +3001,23 @@ export interface paths {
     put?: never;
     /** Admin User Hwid Device Limit */
     post: operations["post_admin_user_hwid_device_limit_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/hwid-devices/reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Hwid Devices Reset */
+    post: operations["post_admin_user_hwid_devices_reset_route"];
     delete?: never;
     options?: never;
     head?: never;
@@ -5704,6 +5757,8 @@ export interface components {
        * @default all
        */
       target: unknown;
+      /** Targets */
+      targets?: string[];
       /**
        * Text
        * @default
@@ -5950,6 +6005,8 @@ export interface components {
       successful_deliveries: number;
       /** Target */
       target: string;
+      /** Targets */
+      targets?: string[];
       /**
        * Telegram Failed
        * @default 0
@@ -7235,6 +7292,11 @@ export interface components {
         [key: string]: unknown;
       };
       /**
+       * Manual Maintenance Enabled
+       * @default false
+       */
+      manual_maintenance_enabled: boolean;
+      /**
        * Panel
        * @default null
        */
@@ -7251,6 +7313,12 @@ export interface components {
       } | null;
       /** Recent Payments */
       recent_payments: components["schemas"]["PaymentOut"][];
+      /**
+       * Subscription Mrr
+       * @description Monthly run rate of active subscriptions in the reporting currency, before fees.
+       * @default null
+       */
+      subscription_mrr: number | null;
       /** Users */
       users: {
         [key: string]: unknown;
@@ -7481,6 +7549,8 @@ export interface components {
        * @default null
        */
       image_id: string | null;
+      /** Image Ids */
+      image_ids?: string[];
       /** Is Internal Note */
       is_internal_note: boolean;
       /** Message Id */
@@ -8362,6 +8432,101 @@ export interface components {
       /** Target */
       target: number;
     };
+    /** AdminUserRelationshipNodeOut */
+    AdminUserRelationshipNodeOut: {
+      /**
+       * Account Id
+       * @default null
+       */
+      account_id: string | null;
+      /**
+       * Avatar Url
+       * @default null
+       */
+      avatar_url: string | null;
+      /** Current Tariff Key */
+      current_tariff_key: string | null;
+      /**
+       * Email
+       * @default null
+       */
+      email: string | null;
+      /**
+       * First Name
+       * @default null
+       */
+      first_name: string | null;
+      /** Is Banned */
+      is_banned: boolean;
+      /**
+       * Language Code
+       * @default null
+       */
+      language_code: string | null;
+      /**
+       * Last Name
+       * @default null
+       */
+      last_name: string | null;
+      /**
+       * Minishop Id
+       * @default null
+       */
+      minishop_id: string | null;
+      /**
+       * Panel User Uuid
+       * @default null
+       */
+      panel_user_uuid: string | null;
+      /**
+       * Panel Username
+       * @default null
+       */
+      panel_username: string | null;
+      /**
+       * Panel Username State
+       * @default null
+       */
+      panel_username_state: string | null;
+      /**
+       * Referral Code
+       * @default null
+       */
+      referral_code: string | null;
+      /**
+       * Referred By Id
+       * @default null
+       */
+      referred_by_id: number | null;
+      /**
+       * Registration Date
+       * @default null
+       */
+      registration_date: string | null;
+      /** Revenue By Currency */
+      revenue_by_currency: {
+        [key: string]: number;
+      };
+      /** Subscription Active */
+      subscription_active: boolean | null;
+      /**
+       * Telegram Id
+       * @default null
+       */
+      telegram_id: number | null;
+      /**
+       * Telegram Photo Url
+       * @default null
+       */
+      telegram_photo_url: string | null;
+      /** User Id */
+      user_id: number;
+      /**
+       * Username
+       * @default null
+       */
+      username: string | null;
+    };
     /** AdminUserSquadOverridesPatchBody */
     AdminUserSquadOverridesPatchBody: {
       /** Add Internal Squad Uuids */
@@ -8586,6 +8751,20 @@ export interface components {
     Author: {
       /** Name */
       name: string;
+    };
+    /** BirthdayActivationConfig */
+    BirthdayActivationConfig: {
+      effects?: components["schemas"]["PromoEffects"];
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Valid Days
+       * @default 7
+       */
+      valid_days: number;
     };
     /** ButtonAppearance */
     ButtonAppearance: {
@@ -9084,6 +9263,8 @@ export interface components {
     };
     /** ExtensionViewOut */
     ExtensionViewOut: {
+      /** Device Types */
+      device_types?: ("phone" | "tablet" | "laptop" | "desktop" | "tv" | "router" | "unknown")[];
       /**
        * I18Nkey
        * @default
@@ -10746,6 +10927,11 @@ export interface components {
        * @default null
        */
       duration_multiplier: number | null;
+      /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
       /** Max Activations */
       max_activations: number;
       /**
@@ -10779,6 +10965,11 @@ export interface components {
        */
       regular_traffic_gb: number;
       /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
+      /**
        * Traffic Multiplier
        * @default null
        */
@@ -10788,6 +10979,74 @@ export interface components {
        * @default null
        */
       valid_days: unknown;
+    };
+    /** PromoEffects */
+    PromoEffects: {
+      /**
+       * Applies To
+       * @default all
+       */
+      applies_to: string;
+      /**
+       * Bonus Days
+       * @default 0
+       */
+      bonus_days: number;
+      /**
+       * Bonus Requires Payment
+       * @default false
+       */
+      bonus_requires_payment: boolean;
+      /**
+       * Discount Percent
+       * @default null
+       */
+      discount_percent: number | null;
+      /**
+       * Duration Multiplier
+       * @default 1
+       */
+      duration_multiplier: number;
+      /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
+      /**
+       * Min Subscription Days
+       * @default null
+       */
+      min_subscription_days: number | null;
+      /**
+       * Min Subscription Months
+       * @default null
+       */
+      min_subscription_months: number | null;
+      /**
+       * Min Traffic Gb
+       * @default null
+       */
+      min_traffic_gb: number | null;
+      /**
+       * Premium Traffic Gb
+       * @default 0
+       */
+      premium_traffic_gb: number;
+      /**
+       * Regular Traffic Gb
+       * @default 0
+       */
+      regular_traffic_gb: number;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
+      /**
+       * Traffic Multiplier
+       * @default 1
+       */
+      traffic_multiplier: number;
     };
     /** PromoOptionOut */
     PromoOptionOut: {
@@ -10845,6 +11104,11 @@ export interface components {
       duration_multiplier: number | null;
       /** Effect Summary */
       effect_summary: string;
+      /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
       /** Id */
       id: number;
       /** Is Active */
@@ -10878,6 +11142,11 @@ export interface components {
        * @default 0
        */
       regular_traffic_gb: number;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
       /**
        * Traffic Multiplier
        * @default null
@@ -10960,6 +11229,11 @@ export interface components {
        */
       duration_multiplier: number | null;
       /**
+       * Exact Subscription Days
+       * @default null
+       */
+      exact_subscription_days: number | null;
+      /**
        * Is Active
        * @default null
        */
@@ -10999,6 +11273,11 @@ export interface components {
        * @default null
        */
       regular_traffic_gb: number | null;
+      /**
+       * Subscription Tariff Key
+       * @default null
+       */
+      subscription_tariff_key: string | null;
       /**
        * Traffic Multiplier
        * @default null
@@ -11408,6 +11687,8 @@ export interface components {
        * @default null
        */
       image_id: string | null;
+      /** Image Ids */
+      image_ids?: string[];
       /** Is Internal Note */
       is_internal_note: boolean;
       /** Message Id */
@@ -11573,6 +11854,16 @@ export interface components {
        * @default null
        */
       conversion_rate_rub_per_gb: number | null;
+      /**
+       * Day Conversion From Cheaper
+       * @default null
+       */
+      day_conversion_from_cheaper: number | null;
+      /**
+       * Day Conversion From Dearer
+       * @default null
+       */
+      day_conversion_from_dearer: number | null;
       /** Descriptions */
       descriptions?: {
         [key: string]: string;
@@ -12360,6 +12651,31 @@ export interface components {
         [key: string]: components["schemas"]["TributeProductConfig"];
       };
     };
+    /** UserBroadcastAudiencesOut */
+    UserBroadcastAudiencesOut: {
+      /** Excluded */
+      excluded: string[];
+      /** Targets */
+      targets: string[];
+    };
+    /** UserBroadcastExclusionsBody */
+    UserBroadcastExclusionsBody: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "exclude" | "include" | "exclude_all" | "reset";
+      /**
+       * Target
+       * @default null
+       */
+      target: string | null;
+    };
+    /** UserBroadcastExclusionsOut */
+    UserBroadcastExclusionsOut: {
+      /** Excluded */
+      excluded: string[];
+    };
     /** WebAppAccountMergePayload */
     WebAppAccountMergePayload: {
       /**
@@ -12429,6 +12745,17 @@ export interface components {
        * @default
        */
       default_name: string;
+      /**
+       * Device Model
+       * @default
+       */
+      device_model: string;
+      /**
+       * Device Type
+       * @default unknown
+       * @enum {string}
+       */
+      device_type: "phone" | "tablet" | "laptop" | "desktop" | "tv" | "router" | "unknown";
       /** Display Name */
       display_name: string;
       /** Hwid Short */
@@ -12448,6 +12775,12 @@ export interface components {
       platform: string;
       /** Platform Label */
       platform_label: string;
+      /**
+       * Router Platform
+       * @default null
+       */
+      router_platform:
+        ("openwrt" | "keenetic" | "routeros" | "dd-wrt" | "asuswrt" | "tomato") | null;
       /** Token */
       token: string;
       /** User Agent */
@@ -13106,6 +13439,8 @@ export interface components {
       maintenanceModeEnabled: boolean;
       /** Notificationpreferencesenabled */
       notificationPreferencesEnabled: boolean;
+      /** Pluginloginproviders */
+      pluginLoginProviders?: components["schemas"]["WebappPluginLoginProviderOut"][];
       /**
        * Primarycolor
        * @default null
@@ -13183,6 +13518,15 @@ export interface components {
       };
       /** Scope */
       scope: string;
+    };
+    /** WebappPluginLoginProviderOut */
+    WebappPluginLoginProviderOut: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Startpath */
+      startPath: string;
     };
     /**
      * WebappTheme
@@ -15527,6 +15871,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -17115,6 +17460,58 @@ export interface operations {
       };
     };
   };
+  get_admin_birthday_activation_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            campaign: components["schemas"]["BirthdayActivationConfig"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
+  put_admin_birthday_activation_put_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BirthdayActivationConfig"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            campaign: components["schemas"]["BirthdayActivationConfig"];
+            /** @constant */
+            ok: true;
+          };
+        };
+      };
+    };
+  };
   get_admin_promo_options_route: {
     parameters: {
       query?: never;
@@ -17547,8 +17944,7 @@ export interface operations {
       content: {
         "application/json": components["schemas"]["AdminTicketReplyPayload"];
         "multipart/form-data": components["schemas"]["AdminTicketReplyPayload"] & {
-          /** Format: binary */
-          image?: string;
+          image?: string[];
         };
       };
     };
@@ -18582,7 +18978,7 @@ export interface operations {
         content: {
           "application/json": {
             edges: components["schemas"]["AdminUserRelationshipEdgeOut"][];
-            nodes: components["schemas"]["AdminUserWithAvatarOut"][];
+            nodes: components["schemas"]["AdminUserRelationshipNodeOut"][];
             /** @constant */
             ok: true;
           };
@@ -18887,6 +19283,60 @@ export interface operations {
       };
     };
   };
+  get_admin_user_broadcast_audiences_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["UserBroadcastAudiencesOut"];
+        };
+      };
+    };
+  };
+  patch_admin_user_broadcast_audiences_patch_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UserBroadcastExclusionsBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["UserBroadcastExclusionsOut"];
+        };
+      };
+    };
+  };
   post_admin_user_extend_route: {
     parameters: {
       query?: never;
@@ -18942,6 +19392,31 @@ export interface operations {
             /** @constant */
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_hwid_devices_reset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };
@@ -20301,6 +20776,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -20721,6 +21197,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -20951,6 +21428,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {
@@ -21101,6 +21579,7 @@ export interface operations {
                 price?: number;
                 proration_ratio?: number;
                 sale_mode?: string;
+                shop_premium_enabled?: boolean;
                 squad_uuids?: string[];
                 stars_price?: number;
                 subscription_days?: {
@@ -21261,6 +21740,7 @@ export interface operations {
               telegram_notifications_need_prompt?: boolean;
               telegram_notifications_start_link?: string | null;
               telegram_notifications_status?: string;
+              telegram_photo_fallback_url?: string;
               telegram_photo_url?: string;
               username?: string | null;
             };
@@ -22178,8 +22658,7 @@ export interface operations {
       content: {
         "application/json": components["schemas"]["CreateTicketPayload"];
         "multipart/form-data": components["schemas"]["CreateTicketPayload"] & {
-          /** Format: binary */
-          image?: string;
+          image?: string[];
         };
       };
     };
@@ -22265,8 +22744,7 @@ export interface operations {
       content: {
         "application/json": components["schemas"]["TicketReplyPayload"];
         "multipart/form-data": components["schemas"]["TicketReplyPayload"] & {
-          /** Format: binary */
-          image?: string;
+          image?: string[];
         };
       };
     };
@@ -22577,6 +23055,7 @@ export interface operations {
               price?: number;
               proration_ratio?: number;
               sale_mode?: string;
+              shop_premium_enabled?: boolean;
               squad_uuids?: string[];
               stars_price?: number;
               subscription_days?: {

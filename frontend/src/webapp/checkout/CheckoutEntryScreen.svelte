@@ -451,24 +451,6 @@
     min-width: 0;
     min-height: 100dvh;
     overflow-x: hidden;
-    background: radial-gradient(
-      circle at 50% 42%,
-      color-mix(in srgb, var(--accent) 8%, transparent),
-      transparent 38%
-    );
-  }
-
-  .checkout-main::before {
-    content: "";
-    position: absolute;
-    inset: 48px 0 0;
-    background: linear-gradient(
-      135deg,
-      transparent 20%,
-      color-mix(in srgb, var(--accent) 4%, transparent),
-      transparent 75%
-    );
-    pointer-events: none;
   }
 
   .checkout-notice {

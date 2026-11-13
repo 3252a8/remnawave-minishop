@@ -7,9 +7,21 @@ from typing import Any
 from pydantic import BaseModel
 
 from bot.app.web.route_contracts import BINARY_RESPONSE_SCHEMA, schema_ref
+from bot.services.message_image_service import SUPPORT_MESSAGE_IMAGE_MAX_COUNT
 
 
-def message_image_request_content(model: type[BaseModel]) -> dict[str, dict[str, Any]]:
+def message_image_request_content(
+    model: type[BaseModel], *, multiple: bool = False
+) -> dict[str, dict[str, Any]]:
+    image_schema = (
+        {
+            "type": "array",
+            "items": BINARY_RESPONSE_SCHEMA,
+            "maxItems": SUPPORT_MESSAGE_IMAGE_MAX_COUNT,
+        }
+        if multiple
+        else BINARY_RESPONSE_SCHEMA
+    )
     return {
         "application/json": schema_ref(model),
         "multipart/form-data": {
@@ -17,7 +29,7 @@ def message_image_request_content(model: type[BaseModel]) -> dict[str, dict[str,
                 schema_ref(model),
                 {
                     "type": "object",
-                    "properties": {"image": BINARY_RESPONSE_SCHEMA},
+                    "properties": {"image": image_schema},
                 },
             ]
         },

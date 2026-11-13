@@ -19,6 +19,186 @@ async function assertNoOverflow(page: Page) {
   ).toBeLessThanOrEqual(2);
 }
 
+test("device card slots isolate snapshots, update after rename and restore Core on failure", async ({
+  page,
+}, testInfo) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.stack || error.message));
+  const devices = [
+    {
+      index: 1,
+      token: "router-token",
+      display_name: "Home network",
+      default_name: "Keenetic Giga",
+      custom_name: "Home network",
+      device_model: "Keenetic Giga",
+      device_type: "router",
+      router_platform: "keenetic",
+      platform: "Linux",
+      platform_label: "Linux",
+      os_version: "",
+      user_agent: "sing-box/1.12",
+      hwid_short: "abc…xyz",
+      created_at_text: "01.11.2026 12:00",
+      last_connected_at_text: "02.11.2026 12:00",
+      can_disconnect: true,
+    },
+    {
+      index: 2,
+      token: "phone-token",
+      display_name: "My phone",
+      default_name: "iPhone 15",
+      custom_name: "",
+      device_model: "iPhone 15",
+      device_type: "phone",
+      router_platform: null,
+      platform: "iOS",
+      platform_label: "iOS 18",
+      os_version: "18",
+      user_agent: "Happ/3.1",
+      hwid_short: "def…uvw",
+      created_at_text: "01.11.2026 12:00",
+      last_connected_at_text: "02.11.2026 12:00",
+      can_disconnect: true,
+    },
+  ];
+  let mode: "parts" | "replace" | "filtered" | "conflict" = "parts";
+  const deviceModule = `
+function draw(target, context) {
+  const device = context.device;
+  if (device.custom_name === 'fail-update') throw new Error('fixture update failure');
+  target.textContent = device.display_name + ' / ' + device.device_type;
+  target.dataset.token = device.token;
+  target.dataset.type = device.device_type;
+  target.dataset.screen = context.screen;
+  target.dataset.slot = context.target;
+}
+export function mountView(view, target, props) { draw(target, props.context); return target; }
+export function updateView(target, props) { draw(target, props.context); }
+export function unmountView(target) { target.textContent = ''; }
+`;
+  await page.route("**/demo/runtime/**", async (route) => {
+    if (route.request().resourceType() !== "document") return route.continue();
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      "</head>",
+      '<script id="webapp-config" type="application/json">{"title":"Test shop"}</script></head>'
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.route("**/api/**", async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.startsWith("/api/extensions/assets/"))
+      return route.fulfill({ contentType: "text/javascript", body: deviceModule });
+    let response: Record<string, unknown> = { ok: true };
+    if (path === "/api/auth/session")
+      response = { ok: true, authenticated: true, csrf_token: "fixture-csrf" };
+    if (path === "/api/me")
+      response = {
+        ok: true,
+        user: { id: 42, language_code: "ru", is_admin: false },
+        settings: { my_devices_enabled: true },
+        subscription: { active: true, max_devices: 5 },
+        plans: [],
+        payment_methods: [],
+        referral: {},
+      };
+    if (path === "/api/devices")
+      response = { ok: true, devices, current_devices: 2, max_devices: 5 };
+    if (path === "/api/gifts") response = { ok: true, enabled: false, gifts: [] };
+    if (path === "/api/extensions/runtime") {
+      const views =
+        mode === "parts"
+          ? ["header", "details", "actions"].map((region) => ({
+              id: region,
+              view: region,
+              label: region,
+              target: `user.devices.card.${region}`,
+              placement: "after",
+            }))
+          : [
+              {
+                id: "card",
+                view: "card",
+                label: "Card",
+                target: "user.devices.card",
+                placement: "replace",
+                ...(mode === "filtered" ? { device_types: ["router"] } : {}),
+              },
+            ];
+      const plugin = {
+        id: "sample",
+        digest,
+        entry: `/api/extensions/assets/sample/${digest}/index.js`,
+        views,
+      };
+      response = {
+        ok: true,
+        generation: 1,
+        plugins:
+          mode === "conflict"
+            ? [
+                plugin,
+                {
+                  ...plugin,
+                  id: "other",
+                  entry: `/api/extensions/assets/other/${digest}/index.js`,
+                },
+              ]
+            : [plugin],
+      };
+    }
+    await route.fulfill({ json: response });
+  });
+  for (const width of [1280, 390]) {
+    devices[0].display_name = "Home network";
+    devices[0].custom_name = "Home network";
+    mode = "parts";
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/demo/runtime/devices");
+    await expect(page.locator('[data-slot="user.devices.card.details"]')).toHaveCount(2);
+    for (const device of devices) {
+      const slots = page.locator(`[data-user-plugin][data-token="${device.token}"]`);
+      await expect(slots).toHaveCount(3);
+      await expect(slots.first()).toHaveAttribute("data-type", device.device_type);
+      await expect(slots.first()).toHaveAttribute("data-screen", "devices");
+      await expect(slots.first()).toHaveText(`${device.display_name} / ${device.device_type}`);
+    }
+    await expect(page.locator('svg.lucide-router[data-device-shape="router"]')).toBeVisible();
+    await expect(page.locator('[data-webapp-action="open-device-disconnect"]')).toHaveCount(2);
+    await assertNoOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath(`devices-${width}.png`), fullPage: true });
+
+    mode = "replace";
+    await page.reload();
+    const cards = page.locator('[data-slot="user.devices.card"]');
+    await expect(cards).toHaveCount(2);
+    await expect(page.locator(".device-card")).toHaveCount(0);
+    devices[0].display_name = "Updated network";
+    await page.getByRole("button", { name: "Обновить устройства", exact: true }).click();
+    await expect(cards.filter({ hasText: "Updated network" })).toHaveCount(1);
+    devices[0].custom_name = "fail-update";
+    await page.getByRole("button", { name: "Обновить устройства", exact: true }).click();
+    await expect(page.locator(".device-card")).toHaveCount(1);
+    await expect(page.locator('.device-card [data-device-shape="router"]')).toBeVisible();
+    await expect(
+      page.locator('[data-slot="user.devices.card"][data-token="phone-token"]')
+    ).toBeVisible();
+    devices[0].custom_name = "Home network";
+    mode = "filtered";
+    await page.reload();
+    await expect(cards).toHaveCount(1);
+    await expect(cards).toHaveAttribute("data-token", "router-token");
+    await expect(page.locator('.device-card [data-device-shape="phone"]')).toBeVisible();
+    mode = "conflict";
+    await page.reload();
+    await expect(page.locator(".device-card")).toHaveCount(2);
+    await expect(page.locator('[data-webapp-action="open-device-rename"]')).toHaveCount(2);
+    await assertNoOverflow(page);
+  }
+  expect(errors).toEqual([]);
+});
+
 test("customer subsections keep their parent, direct links and failed replacement fallback", async ({
   page,
 }) => {

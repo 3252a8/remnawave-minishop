@@ -126,6 +126,12 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0107_cleaned_trial_history",
     "0108_telegram_observations",
     "0109_subscription_days_payments",
+    "0110_telegram_birthdays",
+    "0111_payment_provider_method",
+    "0112_payment_provider_fee_amount",
+    "0113_promo_subscription_restrictions",
+    "0114_support_message_images",
+    "0115_broadcast_audiences",
 ]
 
 

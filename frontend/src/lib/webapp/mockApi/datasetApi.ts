@@ -42,6 +42,7 @@ import {
 
 const demoInformationPages = new Map<string, string>();
 const demoDocuments = loadDemoDocuments();
+let demoBirthdayCampaign: Record<string, unknown> = { enabled: false, valid_days: 7, effects: {} };
 
 function demoSortValue(value: unknown): AdminSortValue {
   if (value == null || typeof value === "string" || typeof value === "number") return value;
@@ -82,6 +83,9 @@ export function demoApiResponse(
     return {
       ...stats,
       users,
+      subscription_mrr: 42_750,
+      manual_maintenance_enabled:
+        demoSettingsChanges.get("MAINTENANCE_MODE_ENABLED")?.value === true,
       active_tariffs: demoActiveTariffs(),
       financial: { ...(stats.financial as DemoRecord), ...adminGiftDemoStats() },
     };
@@ -117,10 +121,13 @@ export function demoApiResponse(
       ],
       checked_at: new Date().toISOString(),
       panel_compatibility: {
-        version: "3.4.7",
+        version: "3.4.10",
         generation: "rw3-numeric-user-id",
         support_status: "current",
         certified_versions: [
+          "3.4.10",
+          "3.4.9",
+          "3.4.8",
           "3.4.7",
           "3.4.6",
           "3.4.5",
@@ -128,9 +135,12 @@ export function demoApiResponse(
           "3.4.3",
           "3.4.2",
           "3.4.1",
+          "3.4.0",
           "3.3.2",
+          "3.3.1",
           "3.3.0",
           "3.2.3",
+          "3.2.2",
           "3.2.1",
           "3.2.0",
           "3.1.0",
@@ -274,6 +284,13 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
+      if (parts[4] === "hwid-devices" && parts[5] === "reset" && method === "POST") {
+        detail.hwid_devices = {
+          current_devices: 0,
+          max_devices: decoratedDetail.hwid_devices?.max_devices ?? null,
+        };
+        return { ok: true };
+      }
       if (parts[4] === "tariff" && method === "POST") {
         const tariffKey = String(jsonBody(options).tariff_key || "");
         const tariff = ((demoTariffs().tariffs || []) as DemoRecord[]).find(
@@ -288,6 +305,23 @@ export function demoApiResponse(
           subscription.hwid_device_limit = tariff.hwid_device_limit ?? null;
         }
         return { ok: true, subscription: clone(subscription) };
+      }
+      if (parts[4] === "broadcast-audiences") {
+        const targets = user?.is_banned
+          ? []
+          : ["all", detail.active_subscription ? "active" : "inactive"];
+        const existing = detail.broadcast_audience_exclusions;
+        const excluded = new Set(Array.isArray(existing) ? existing.map(String) : []);
+        if (method === "PATCH") {
+          const { action, target } = jsonBody(options);
+          if (action === "exclude" && typeof target === "string") excluded.add(target);
+          if (action === "include" && typeof target === "string") excluded.delete(target);
+          if (action === "exclude_all") targets.forEach((name) => excluded.add(name));
+          if (action === "reset") excluded.clear();
+          detail.broadcast_audience_exclusions = [...excluded];
+          return { ok: true, excluded: [...excluded] };
+        }
+        return { ok: true, targets, excluded: [...excluded] };
       }
       if (parts[4] === "notification-preferences" && method === "PATCH") {
         const notificationPreferences = jsonBody(options);
@@ -395,6 +429,10 @@ export function demoApiResponse(
     };
   }
 
+  if (cleanPath === "/admin/promos/birthday") {
+    if (method === "PUT") demoBirthdayCampaign = jsonBody(options);
+    return { ok: true, campaign: clone(demoBirthdayCampaign) };
+  }
   if (cleanPath === "/admin/promos") {
     if (method === "POST") {
       const body = jsonBody(options);

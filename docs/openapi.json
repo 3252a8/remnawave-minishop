@@ -2192,6 +2192,14 @@
             "default": "all",
             "title": "Target"
           },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Targets",
+            "type": "array"
+          },
           "text": {
             "default": "",
             "title": "Text"
@@ -2596,6 +2604,13 @@
           "target": {
             "title": "Target",
             "type": "string"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targets",
+            "type": "array"
           },
           "telegram_failed": {
             "default": 0,
@@ -5640,6 +5655,11 @@
             "title": "Financial",
             "type": "object"
           },
+          "manual_maintenance_enabled": {
+            "default": false,
+            "title": "Manual Maintenance Enabled",
+            "type": "boolean"
+          },
           "panel": {
             "anyOf": [
               {
@@ -5675,6 +5695,19 @@
             },
             "title": "Recent Payments",
             "type": "array"
+          },
+          "subscription_mrr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Monthly run rate of active subscriptions in the reporting currency, before fees.",
+            "title": "Subscription Mrr"
           },
           "users": {
             "additionalProperties": true,
@@ -6232,6 +6265,13 @@
             ],
             "default": null,
             "title": "Image Id"
+          },
+          "image_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Ids",
+            "type": "array"
           },
           "is_internal_note": {
             "title": "Is Internal Note",
@@ -8222,6 +8262,248 @@
         "title": "AdminUserRelationshipEdgeOut",
         "type": "object"
       },
+      "AdminUserRelationshipNodeOut": {
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account Id"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Avatar Url"
+          },
+          "current_tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Tariff Key"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "First Name"
+          },
+          "is_banned": {
+            "title": "Is Banned",
+            "type": "boolean"
+          },
+          "language_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Language Code"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Name"
+          },
+          "minishop_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Minishop Id"
+          },
+          "panel_user_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel User Uuid"
+          },
+          "panel_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Username"
+          },
+          "panel_username_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Panel Username State"
+          },
+          "referral_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referral Code"
+          },
+          "referred_by_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Referred By Id"
+          },
+          "registration_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Registration Date"
+          },
+          "revenue_by_currency": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Revenue By Currency",
+            "type": "object"
+          },
+          "subscription_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription Active"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Id"
+          },
+          "telegram_photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Telegram Photo Url"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "integer"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Username"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_banned",
+          "subscription_active",
+          "current_tariff_key",
+          "revenue_by_currency"
+        ],
+        "title": "AdminUserRelationshipNodeOut",
+        "type": "object"
+      },
       "AdminUserSquadOverridesPatchBody": {
         "properties": {
           "add_internal_squad_uuids": {
@@ -8720,6 +9002,28 @@
           "name"
         ],
         "title": "Author",
+        "type": "object"
+      },
+      "BirthdayActivationConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "effects": {
+            "$ref": "#/components/schemas/PromoEffects"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "valid_days": {
+            "default": 7,
+            "maximum": 365,
+            "minimum": 1,
+            "title": "Valid Days",
+            "type": "integer"
+          }
+        },
+        "title": "BirthdayActivationConfig",
         "type": "object"
       },
       "ButtonAppearance": {
@@ -9897,6 +10201,22 @@
       },
       "ExtensionViewOut": {
         "properties": {
+          "device_types": {
+            "items": {
+              "enum": [
+                "phone",
+                "tablet",
+                "laptop",
+                "desktop",
+                "tv",
+                "router",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            "title": "Device Types",
+            "type": "array"
+          },
           "i18nKey": {
             "default": "",
             "title": "I18Nkey",
@@ -13667,6 +13987,20 @@
             "default": null,
             "title": "Duration Multiplier"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "max_activations": {
             "exclusiveMinimum": 0,
             "title": "Max Activations",
@@ -13731,6 +14065,20 @@
             "title": "Regular Traffic Gb",
             "type": "number"
           },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
+          },
           "traffic_multiplier": {
             "anyOf": [
               {
@@ -13753,6 +14101,119 @@
           "max_activations"
         ],
         "title": "PromoCreateBody",
+        "type": "object"
+      },
+      "PromoEffects": {
+        "properties": {
+          "applies_to": {
+            "default": "all",
+            "title": "Applies To",
+            "type": "string"
+          },
+          "bonus_days": {
+            "default": 0,
+            "title": "Bonus Days",
+            "type": "integer"
+          },
+          "bonus_requires_payment": {
+            "default": false,
+            "title": "Bonus Requires Payment",
+            "type": "boolean"
+          },
+          "discount_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Discount Percent"
+          },
+          "duration_multiplier": {
+            "default": 1.0,
+            "title": "Duration Multiplier",
+            "type": "number"
+          },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
+          "min_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Days"
+          },
+          "min_subscription_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Subscription Months"
+          },
+          "min_traffic_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Min Traffic Gb"
+          },
+          "premium_traffic_gb": {
+            "default": 0.0,
+            "title": "Premium Traffic Gb",
+            "type": "number"
+          },
+          "regular_traffic_gb": {
+            "default": 0.0,
+            "title": "Regular Traffic Gb",
+            "type": "number"
+          },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
+          },
+          "traffic_multiplier": {
+            "default": 1.0,
+            "title": "Traffic Multiplier",
+            "type": "number"
+          }
+        },
+        "title": "PromoEffects",
         "type": "object"
       },
       "PromoOptionOut": {
@@ -13878,6 +14339,18 @@
             "title": "Effect Summary",
             "type": "string"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -13939,6 +14412,18 @@
             "default": 0,
             "title": "Regular Traffic Gb",
             "type": "number"
+          },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
           },
           "traffic_multiplier": {
             "anyOf": [
@@ -14147,6 +14632,20 @@
             "default": null,
             "title": "Duration Multiplier"
           },
+          "exact_subscription_days": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 2147483647,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exact Subscription Days"
+          },
           "is_active": {
             "default": null,
             "title": "Is Active"
@@ -14243,6 +14742,20 @@
             ],
             "default": null,
             "title": "Regular Traffic Gb"
+          },
+          "subscription_tariff_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subscription Tariff Key"
           },
           "traffic_multiplier": {
             "anyOf": [
@@ -15210,6 +15723,13 @@
             "default": null,
             "title": "Image Id"
           },
+          "image_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Image Ids",
+            "type": "array"
+          },
           "is_internal_note": {
             "title": "Is Internal Note",
             "type": "boolean"
@@ -15556,6 +16076,32 @@
             ],
             "default": null,
             "title": "Conversion Rate Rub Per Gb"
+          },
+          "day_conversion_from_cheaper": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Day Conversion From Cheaper"
+          },
+          "day_conversion_from_dearer": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Day Conversion From Dearer"
           },
           "descriptions": {
             "additionalProperties": {
@@ -17357,6 +17903,79 @@
         "title": "TributeTariffConfig",
         "type": "object"
       },
+      "UserBroadcastAudiencesOut": {
+        "properties": {
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded",
+          "targets"
+        ],
+        "title": "UserBroadcastAudiencesOut",
+        "type": "object"
+      },
+      "UserBroadcastExclusionsBody": {
+        "properties": {
+          "action": {
+            "enum": [
+              "exclude",
+              "include",
+              "exclude_all",
+              "reset"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "UserBroadcastExclusionsBody",
+        "type": "object"
+      },
+      "UserBroadcastExclusionsOut": {
+        "properties": {
+          "excluded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Excluded",
+            "type": "array"
+          }
+        },
+        "required": [
+          "excluded"
+        ],
+        "title": "UserBroadcastExclusionsOut",
+        "type": "object"
+      },
       "WebAppAccountMergePayload": {
         "additionalProperties": false,
         "properties": {
@@ -17518,6 +18137,25 @@
             "title": "Default Name",
             "type": "string"
           },
+          "device_model": {
+            "default": "",
+            "title": "Device Model",
+            "type": "string"
+          },
+          "device_type": {
+            "default": "unknown",
+            "enum": [
+              "phone",
+              "tablet",
+              "laptop",
+              "desktop",
+              "tv",
+              "router",
+              "unknown"
+            ],
+            "title": "Device Type",
+            "type": "string"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -17557,6 +18195,26 @@
           "platform_label": {
             "title": "Platform Label",
             "type": "string"
+          },
+          "router_platform": {
+            "anyOf": [
+              {
+                "enum": [
+                  "openwrt",
+                  "keenetic",
+                  "routeros",
+                  "dd-wrt",
+                  "asuswrt",
+                  "tomato"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Router Platform"
           },
           "token": {
             "title": "Token",
@@ -18961,6 +19619,13 @@
             "title": "Notificationpreferencesenabled",
             "type": "boolean"
           },
+          "pluginLoginProviders": {
+            "items": {
+              "$ref": "#/components/schemas/WebappPluginLoginProviderOut"
+            },
+            "title": "Pluginloginproviders",
+            "type": "array"
+          },
           "primaryColor": {
             "anyOf": [
               {
@@ -19163,6 +19828,29 @@
           "i18n"
         ],
         "title": "WebappI18nOut",
+        "type": "object"
+      },
+      "WebappPluginLoginProviderOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "startPath": {
+            "title": "Startpath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "startPath"
+        ],
+        "title": "WebappPluginLoginProviderOut",
         "type": "object"
       },
       "WebappTheme": {
@@ -24198,6 +24886,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -27464,6 +28155,100 @@
         ]
       }
     },
+    "/api/admin/promos/birthday": {
+      "get": {
+        "operationId": "get_admin_birthday_activation_get_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "campaign": {
+                      "$ref": "#/components/schemas/BirthdayActivationConfig"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "campaign"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Birthday Activation Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_admin_birthday_activation_put_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BirthdayActivationConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "campaign": {
+                      "$ref": "#/components/schemas/BirthdayActivationConfig"
+                    },
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "campaign"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Birthday Activation Put",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/promos/options": {
       "get": {
         "operationId": "get_admin_promo_options_route",
@@ -28352,8 +29137,12 @@
                   {
                     "properties": {
                       "image": {
-                        "format": "binary",
-                        "type": "string"
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "type": "array"
                       }
                     },
                     "type": "object"
@@ -30550,7 +31339,7 @@
                     },
                     "nodes": {
                       "items": {
-                        "$ref": "#/components/schemas/AdminUserWithAvatarOut"
+                        "$ref": "#/components/schemas/AdminUserRelationshipNodeOut"
                       },
                       "type": "array"
                     },
@@ -31493,6 +32282,126 @@
         ]
       }
     },
+    "/api/admin/users/{user_id}/broadcast-audiences": {
+      "get": {
+        "operationId": "get_admin_user_broadcast_audiences_get_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserBroadcastAudiencesOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Broadcast Audiences Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_admin_user_broadcast_audiences_patch_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserBroadcastExclusionsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserBroadcastExclusionsOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Broadcast Audiences Patch",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/admin/users/{user_id}/extend": {
       "post": {
         "operationId": "post_admin_user_extend_route",
@@ -31612,6 +32521,55 @@
           }
         ],
         "summary": "Admin User Hwid Device Limit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/hwid-devices/reset": {
+      "post": {
+        "operationId": "post_admin_user_hwid_devices_reset_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Hwid Devices Reset",
         "tags": [
           "admin"
         ]
@@ -34602,6 +35560,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -35618,6 +36579,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -36384,6 +37348,9 @@
                           "sale_mode": {
                             "type": "string"
                           },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
+                          },
                           "squad_uuids": {
                             "items": {
                               "type": "string"
@@ -36973,6 +37940,9 @@
                                 },
                                 "sale_mode": {
                                   "type": "string"
+                                },
+                                "shop_premium_enabled": {
+                                  "type": "boolean"
                                 },
                                 "squad_uuids": {
                                   "items": {
@@ -37657,6 +38627,9 @@
                           ]
                         },
                         "telegram_notifications_status": {
+                          "type": "string"
+                        },
+                        "telegram_photo_fallback_url": {
                           "type": "string"
                         },
                         "telegram_photo_url": {
@@ -39662,8 +40635,12 @@
                   {
                     "properties": {
                       "image": {
-                        "format": "binary",
-                        "type": "string"
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "type": "array"
                       }
                     },
                     "type": "object"
@@ -39862,8 +40839,12 @@
                   {
                     "properties": {
                       "image": {
-                        "format": "binary",
-                        "type": "string"
+                        "items": {
+                          "format": "binary",
+                          "type": "string"
+                        },
+                        "maxItems": 5,
+                        "type": "array"
                       }
                     },
                     "type": "object"
@@ -40659,6 +41640,9 @@
                           },
                           "sale_mode": {
                             "type": "string"
+                          },
+                          "shop_premium_enabled": {
+                            "type": "boolean"
                           },
                           "squad_uuids": {
                             "items": {

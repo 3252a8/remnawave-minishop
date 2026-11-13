@@ -4,10 +4,13 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from aiohttp import web
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ReportingFeePercent = Annotated[float | None, Field(ge=0, le=100, allow_inf_nan=False)]
 
 
 def provider_env_file() -> str | None:
@@ -32,6 +35,7 @@ class ProviderEnvConfig(BaseSettings):
     """
 
     ADMIN_ONLY_ENABLED: bool = False
+    REPORTING_FEE_PERCENT: ReportingFeePercent = None
 
     @property
     def _trusted_exchange_rate_url(self) -> str:
@@ -162,6 +166,8 @@ class WebAppPaymentContext:
     promo_applies_to: str | None = None
     promo_min_subscription_months: int | None = None
     promo_min_subscription_days: int | None = None
+    promo_subscription_tariff_key: str | None = None
+    promo_exact_subscription_days: int | None = None
     promo_min_traffic_gb: float | None = None
     checkout_base_amount: float | None = None
     checkout_discount_amount: float | None = None
@@ -324,6 +330,7 @@ class PaymentProviderSpec:
     currency_support_url: str | None = None
     # Funding instrument, independent of the currency used to price the order.
     payment_group: PaymentMethodGroup | None = None
+    reporting_fee_method: str | None = None
 
     @property
     def provider_id(self) -> str:

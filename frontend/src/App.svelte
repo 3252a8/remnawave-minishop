@@ -43,9 +43,10 @@
   import { createExternalLinkRuntime } from "./lib/webapp/externalLinkRuntime.js";
   import { createAppLoadExecutor, type AppLoadDataOptions } from "./lib/webapp/appLoadExecutor.js";
   import { createPopstateLifecycle } from "./lib/webapp/popstateLifecycle.js";
-  import { miniAppPathFromSearch } from "./lib/webapp/miniAppStartRoute.js";
+  import { miniAppLaunchPath } from "./lib/webapp/miniAppStartRoute.js";
   import { isPlansRoute } from "./lib/webapp/deeplinks.js";
-  import { PLANS_PATH, supportTicketIdFromPath } from "./lib/webapp/routes.js";
+  import { PLANS_PATH, supportTicketIdFromPath, withRoutePrefix } from "./lib/webapp/routes.js";
+  import { readTelegramMiniAppInitDataFromLocation as readInitialTelegramData } from "./lib/webapp/telegramSdk.js";
   import {
     buildAppAdminPanelProps,
     createAppFactories,
@@ -126,19 +127,27 @@
   const isDocsDemo = stableMockRuntime?.docsDemo === true;
   const routePrefix = isDocsDemo ? "/demo/runtime" : "";
   const query = new URLSearchParams(window.location.search);
-  const miniAppStartPath = miniAppPathFromSearch(window.location.search);
+  const miniAppStartPath = miniAppLaunchPath(
+    window.location.search,
+    window.location.hash,
+    readInitialTelegramData(),
+    window.Telegram?.WebApp?.initDataUnsafe?.start_param
+  );
   const initialCheckoutDeeplink = readCheckoutDeeplink();
   // Checkout has no screen of its own, so the boot sync moves the URL to home
   // before the data load finishes. Remember the intent while it is still
   // readable; the modal opens once plans and the subscription are known.
   const plansRouteRequested =
     miniAppStartPath === PLANS_PATH || isPlansRoute(window.location.pathname, routePrefix);
-  if (miniAppStartPath && window.location.pathname !== miniAppStartPath) {
-    window.history.replaceState(
-      null,
-      "",
-      `${miniAppStartPath}${window.location.search}${window.location.hash}`
-    );
+  if (miniAppStartPath) {
+    const target = withRoutePrefix(miniAppStartPath, routePrefix);
+    if (window.location.pathname !== target) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${target}${window.location.search}${window.location.hash}`
+      );
+    }
   }
   const isAppLaunchRoute = isExternalAppLaunchPath(window.location.pathname);
   stableMockRuntime?.applyPreviewMock?.(query.get("mock"));

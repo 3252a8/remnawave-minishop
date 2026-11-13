@@ -449,6 +449,8 @@ class Tariff(BaseModel):
     traffic_packages: PackageSet | None = None
     conversion_rate_per_gb: float | None = None
     conversion_rate_rub_per_gb: float | None = None
+    day_conversion_from_cheaper: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    day_conversion_from_dearer: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     hwid_device_limit: int | None = None
     hwid_device_packages: HwidDevicePackageSet | None = None
     premium_squad_uuids: list[str] = Field(default_factory=list)

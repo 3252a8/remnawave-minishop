@@ -14,6 +14,7 @@
   import UserActionsTab from "./UserActionsTab.svelte";
   import UserMessageComposerCard from "./UserMessageComposerCard.svelte";
   import UserNotificationPreferencesCard from "./UserNotificationPreferencesCard.svelte";
+  import UserBroadcastAudiencesCard from "./UserBroadcastAudiencesCard.svelte";
   import UserDetailFacts from "./UserDetailFacts.svelte";
   import UserNotificationSummaryCard from "./UserNotificationSummaryCard.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
@@ -447,5 +448,10 @@
 >
   {#if openedUserDetail}
     <UserNotificationPreferencesCard {at} {usersStore} {openedUserDetail} busy={userActionBusy} />
+    {#if notificationsOpen && openedUser}
+      {#key openedUser.user_id}
+        <UserBroadcastAudiencesCard {at} userId={openedUser.user_id} />
+      {/key}
+    {/if}
   {/if}
 </Dialog>

@@ -42,40 +42,27 @@
   </AdminDashboardGrid>
 
   <Card.Root class="admin-cn-card-skeleton admin-cn-card-skeleton--tall">
-    <Card.Header>
-      <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>
-      <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong" style="width:48%"
-      ></span>
-    </Card.Header>
     <Card.Content>
-      <div class="admin-revenue-kpis" aria-hidden="true">
-        {#each Array(6) as _, i (i)}
+      <AdminDashboardGrid class="admin-revenue-summary" aria-hidden="true">
+        <div class="admin-revenue-kpi admin-revenue-kpi--mrr">
+          <span class="admin-skeleton admin-skeleton-line" style="width:55%"></span>
+          <span class="admin-skeleton admin-skeleton-line" style="width:42%"></span>
+          <span class="admin-skeleton admin-skeleton-line" style="width:75%"></span>
+        </div>
+        {#each [2, 3] as rows (rows)}
           <div class="admin-revenue-kpi">
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-              style="width:72%"
-            ></span>
-            <span
-              class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-              style="width:58%;height:20px;margin-top:4px"
-            ></span>
+            <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"></span>
+            <div class="admin-revenue-breakdown">
+              {#each Array(rows) as _, i (i)}
+                <div>
+                  <span class="admin-skeleton admin-skeleton-line" style="width:32%"></span>
+                  <span class="admin-skeleton admin-skeleton-line" style="width:24%"></span>
+                </div>
+              {/each}
+            </div>
           </div>
         {/each}
-        <div class="admin-revenue-kpi admin-revenue-kpi--wide">
-          <span
-            class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
-            style="width:46%"
-          ></span>
-          <span
-            class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
-            style="width:36%;height:20px;margin-top:4px"
-          ></span>
-          <span
-            class="admin-skeleton admin-skeleton-line"
-            style="width:92%;height:9px;margin-top:6px"
-          ></span>
-        </div>
-      </div>
+      </AdminDashboardGrid>
       <div class="admin-revenue-chart">
         <div class="admin-revenue-chart-head">
           <div class="admin-revenue-chart-title">
@@ -96,6 +83,34 @@
         <span class="admin-skeleton admin-skeleton-line" style="width:46%;height:9px"></span>
         <div class="admin-revenue-svg-frame admin-revenue-svg-frame--chart">
           <AdminChartSkeleton plotHeight={204} />
+        </div>
+      </div>
+      <div class="admin-revenue-kpis" aria-hidden="true">
+        {#each Array(7) as _, i (i)}
+          <div class="admin-revenue-kpi">
+            <span
+              class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+              style="width:72%"
+            ></span>
+            <span
+              class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+              style="width:58%;height:20px;margin-top:4px"
+            ></span>
+          </div>
+        {/each}
+        <div class="admin-revenue-kpi">
+          <span
+            class="admin-skeleton admin-skeleton-line admin-skeleton-line-tiny"
+            style="width:46%"
+          ></span>
+          <span
+            class="admin-skeleton admin-skeleton-line admin-skeleton-line-strong"
+            style="width:36%;height:20px;margin-top:4px"
+          ></span>
+          <span
+            class="admin-skeleton admin-skeleton-line"
+            style="width:92%;height:9px;margin-top:6px"
+          ></span>
         </div>
       </div>
     </Card.Content>

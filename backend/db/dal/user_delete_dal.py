@@ -7,6 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..models import (
+    AccountAlias,
+    AccountRole,
+    AccountRoleEvent,
     AdAttribution,
     EmailVerificationCode,
     FlexibleTrafficLimit,
@@ -65,6 +68,23 @@ async def delete_user_and_relations(session: AsyncSession, user_id: int) -> bool
     )
     await session.execute(delete(WebAuthnChallenge).where(WebAuthnChallenge.user_id == user_id))
     await session.execute(delete(QrLoginRequest).where(QrLoginRequest.user_id == user_id))
+
+    # Remove the account's privileges and aliases, retaining other accounts'
+    # role history without references to the deleted actor.
+    await session.execute(delete(AccountRole).where(AccountRole.user_id == user_id))
+    await session.execute(delete(AccountRoleEvent).where(AccountRoleEvent.user_id == user_id))
+    await session.execute(
+        update(AccountRole).where(AccountRole.granted_by == user_id).values(granted_by=None)
+    )
+    await session.execute(
+        update(AccountRole).where(AccountRole.revoked_by == user_id).values(revoked_by=None)
+    )
+    await session.execute(
+        update(AccountRoleEvent)
+        .where(AccountRoleEvent.actor_user_id == user_id)
+        .values(actor_user_id=None)
+    )
+    await session.execute(delete(AccountAlias).where(AccountAlias.new_user_id == user_id))
 
     # Financial partner history is intentionally retained, but the deleted
     # account must no longer be identifiable or able to receive attribution.

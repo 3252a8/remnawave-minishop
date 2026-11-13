@@ -18,7 +18,7 @@ const descriptions = {
   'getting-started/deployment.md': 'Production-развертывание: Docker Compose, reverse proxy, TLS, образы, обновления и резервные копии.',
   'configuration/security.md': 'Секреты, публичные URL, доступ администраторов и базовые меры защиты Minishop.',
   'configuration/env-vars.md': 'Полный справочник переменных окружения Remnawave Minishop.',
-  'features/minishop-pro.md': 'Бизнес-аналитика, клиентские сегменты и автоматизация продаж в minishop PRO.',
+  'features/minishop-pro.md': 'Бизнес-аналитика, клиентские сегменты, автоматизация продаж и подключение AI-модели к поддержке в minishop PRO.',
   'features/payments.md': 'Общая настройка способов оплаты, кнопок, валют, чеков и webhook-обработки.',
   'features/gifts.md': 'Покупка, передача и активация подарочных подписок, сохранение условий, доставка и администрирование.',
   'features/promocodes.md': 'Промокоды: бонусные дни, скидки, множители, checkout-активация и история применений.',
@@ -158,12 +158,6 @@ function addInlineContents(markdown) {
 
 function relatedLinksFor(sourceRelativePath) {
   const relatedByOverview = {
-    'index.md': [
-      ['Список изменений', '/changelog/'],
-      ['Обзор', '/getting-started/overview/'],
-      ['Быстрый запуск', '/getting-started/setup/'],
-      ['Демо-режим', '/getting-started/overview/#демо-режим'],
-    ],
     'getting-started/overview.md': [
       ['Быстрый запуск', '/getting-started/setup/'],
       ['Production-развертывание', '/getting-started/deployment/'],
@@ -286,6 +280,8 @@ function extraFrontmatter(sourceRelativePath) {
 
   return [
     'template: splash',
+    'prev: false',
+    'next: false',
     'hero:',
     '  tagline: "Telegram-бот и Mini App для продажи подписок Remnawave: платежи, тарифы, админка, поддержка и инструкции подключения."',
     '  image:',

@@ -78,6 +78,7 @@ class PaymentContextMixin(SubscriptionServiceMixinContract):
         "oxapay": "OxaPay",
         "cryptopay": "Crypto Pay",
         "paykilla": "PayKilla",
+        "payhot": "PayHot",
         "cloudpayments": "CloudPayments",
         "telegram_stars": "Telegram Stars",
     }

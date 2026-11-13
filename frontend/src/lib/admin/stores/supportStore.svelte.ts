@@ -33,7 +33,7 @@ export type SupportReplyButton = components["schemas"]["AdminBroadcastButtonBody
 export type SendReplyOptions = {
   bodyFormat?: TicketReplyPayload["body_format"];
   buttons?: SupportReplyButton[];
-  image?: File | null;
+  image?: File | File[] | null;
 };
 type BaseSupportTicket = components["schemas"]["SupportTicketOut"];
 type AdminSupportTicket = components["schemas"]["AdminSupportTicketOut"];

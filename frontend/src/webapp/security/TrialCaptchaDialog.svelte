@@ -132,7 +132,7 @@
   :global(.trial-captcha-dialog .dialog-head h2) {
     font-size: 20px;
     line-height: 1.25;
-    font-weight: 750;
+    font-weight: 700;
   }
 
   :global(.trial-captcha-dialog .dialog-close-button) {

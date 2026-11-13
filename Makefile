@@ -1,6 +1,6 @@
 PYTHON ?= python
 NPM ?= npm
-DEV_PRESET ?= 3.0.0
+DEV_PRESET ?= 3.4.10
 
 MYPY_PATHS := \
 	backend/config \

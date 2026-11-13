@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import Field, field_validator
 from pydantic_settings import SettingsConfigDict
 
-from ..base import ProviderEnvConfig, provider_env_file
+from ..base import ProviderEnvConfig, ReportingFeePercent, provider_env_file
 from .subscriptions import DEFAULT_SUBSCRIPTION_METHOD
 
 
@@ -41,6 +41,11 @@ class PlategaConfig(ProviderEnvConfig):
     CRYPTO_METHOD: int = Field(default=13)
     INTERNATIONAL_METHOD: int = Field(default=12)
     SUBSCRIPTION_METHOD: int = Field(default=DEFAULT_SUBSCRIPTION_METHOD)
+    SBP_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    CARD_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    CRYPTO_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    INTERNATIONAL_REPORTING_FEE_PERCENT: ReportingFeePercent = None
+    SUBSCRIPTION_REPORTING_FEE_PERCENT: ReportingFeePercent = None
     RETURN_URL: str | None = None
     FAILED_URL: str | None = None
     SUPPORTED_CURRENCIES: str = Field(default="RUB")

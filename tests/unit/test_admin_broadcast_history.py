@@ -119,6 +119,25 @@ class AdminBroadcastDeliveryTests(unittest.IsolatedAsyncioTestCase):
             "https://app.example.test/install?platform=ios&app=preferred-client",
         )
 
+    async def test_worker_re_resolves_all_stored_targets(self) -> None:
+        service = _service(_Queue())
+        targets = ["active", "never"]
+        broadcast = _broadcast(target="active", targets=targets)
+        resolve = AsyncMock(return_value=[1, 2])
+        service.audience_service = cast(Any, SimpleNamespace(resolve_targets=resolve))
+        with (
+            patch.object(
+                delivery_module.broadcast_dal, "begin_broadcast", AsyncMock(return_value=broadcast)
+            ),
+            patch.object(
+                service, "_prepare_deliveries", AsyncMock(return_value=[_delivery()])
+            ) as prepare,
+            patch.object(service, "_queue_deliveries", AsyncMock()),
+        ):
+            await service.dispatch(1)
+        resolve.assert_awaited_once_with(targets)
+        prepare.assert_awaited_once_with(broadcast, [1, 2], ["telegram", "email"])
+
     async def test_scheduled_button_icon_survives_worker_deserialization(self) -> None:
         queue = _Queue()
         service = _service(queue)

@@ -102,8 +102,11 @@ RUN set -eux; \
     dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libbrotli1)" ge '1.1.0-2ubuntu0.1'; \
     . /etc/os-release; \
     install -d /usr/share/postgresql-common/pgdg; \
-    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-      | gpg --dearmor -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg; \
+    curl --fail --silent --show-error --location \
+      --retry 4 --retry-all-errors --retry-max-time 150 --connect-timeout 15 --max-time 45 \
+      --output /tmp/pgdg-key.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
+    gpg --dearmor --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg /tmp/pgdg-key.asc; \
+    rm /tmp/pgdg-key.asc; \
     echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list; \
     apt_update_with_retries; \

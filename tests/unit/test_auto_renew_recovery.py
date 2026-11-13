@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import main_worker
 from sqlalchemy.dialects import postgresql
@@ -24,7 +24,9 @@ from bot.payment_providers.yookassa.auto_renew import (
     classify_request_exception,
 )
 from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
-from db.dal import auto_renew_dal
+from bot.services.subscription_service_impl.core import SubscriptionService
+from config.settings import Settings
+from db.dal import auto_renew_dal, subscription_dal
 
 
 def _settings(**overrides: Any) -> SimpleNamespace:
@@ -702,27 +704,92 @@ class AutoRenewDalTests(IsolatedAsyncioTestCase):
         self.assertIn("for update skip locked", sql)
         self.assertIn("auto_renew_cycles.cycle_id = 11", sql)
 
+    async def test_balance_candidates_exclude_existing_cycles_on_the_same_utc_date(self) -> None:
+        session = AsyncMock()
+        session.execute.return_value = SimpleNamespace(all=list)
+        await auto_renew_dal.list_due_subscriptions(
+            session, providers=("user_balance",), hours_ahead=24, limit=50, initial_only=True
+        )
+        statement = session.execute.await_args.args[0]
+        sql = str(
+            statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+        ).lower()
+        self.assertIn("subscriptions.auto_renew_enabled is true", sql)
+        self.assertIn("not (exists", sql)
+        self.assertIn("auto_renew_cycles.subscription_id = subscriptions.subscription_id", sql)
+        self.assertIn("cycle_anchor = cast(timezone('utc', subscriptions.end_date) as date)", sql)
 
-def test_core_worker_registers_bounded_auto_renew_recovery() -> None:
-    tasks = {task.name: task for task in main_worker._core_worker_tasks()}
-    assert "AutoRenewRetryWorker" in tasks
-    enabled = tasks["AutoRenewRetryWorker"].enabled
-    assert enabled is not None
-    assert not enabled(
-        cast(
-            Any,
-            SimpleNamespace(
+
+class AutoRenewSchedulerTests(IsolatedAsyncioTestCase):
+    async def test_first_balance_charge_runs_with_default_recovery_flags(self) -> None:
+        await self._check_balance_charge(scheduler=False)
+
+    async def test_external_dry_run_does_not_prevent_first_balance_charge(self) -> None:
+        await self._check_balance_charge(scheduler=True)
+
+    async def _check_balance_charge(self, *, scheduler: bool) -> None:
+        settings = cast(
+            Settings,
+            _settings(
                 AUTO_RENEW_RETRY_ENABLED=False,
-                AUTO_RENEW_SCHEDULER_ENABLED=False,
+                AUTO_RENEW_RETRY_DRY_RUN=True,
+                AUTO_RENEW_SCHEDULER_ENABLED=scheduler,
             ),
         )
-    )
-    assert enabled(
-        cast(
-            Any,
-            SimpleNamespace(
-                AUTO_RENEW_RETRY_ENABLED=True,
-                AUTO_RENEW_SCHEDULER_ENABLED=False,
-            ),
+        sub = SimpleNamespace(
+            is_active=True,
+            auto_renew_enabled=True,
+            provider="user_balance",
+            end_date=datetime.now(UTC) + timedelta(hours=2),
         )
-    )
+        external_sub = SimpleNamespace(**{**vars(sub), "provider": "yookassa"})
+        service = SimpleNamespace(
+            recurring_provider_services={
+                provider: SimpleNamespace(recurring_active=True)
+                for provider in ("partner_balance", "user_balance", "yookassa")
+            },
+            charge_subscription_renewal=AsyncMock(),
+        )
+        session = AsyncMock()
+        session_factory = MagicMock()
+        session_factory.return_value.__aenter__.return_value = session
+        lock_context = MagicMock()
+        lock_context.__aenter__.return_value = True
+        worker = AutoRenewRetryWorker(settings, session_factory, cast(SubscriptionService, service))
+        with (
+            patch("bot.services.auto_renew_retry_worker.redis_lock", return_value=lock_context),
+            patch.object(
+                auto_renew_dal,
+                "list_due_subscriptions",
+                side_effect=lambda _session, **kwargs: [
+                    auto_renew_dal.AutoRenewSubscriptionCandidate(
+                        subscription_id=7 if "user_balance" in kwargs["providers"] else 8,
+                        user_id=42,
+                    )
+                ],
+            ) as due,
+            patch.object(
+                subscription_dal,
+                "get_subscription_by_id_for_update",
+                side_effect=lambda _session, sub_id: sub if sub_id == 7 else external_sub,
+            ),
+            patch.object(auto_renew_dal, "list_due_cycles") as retries,
+        ):
+            await worker.tick()
+
+        self.assertEqual(
+            [call.kwargs["providers"] for call in due.await_args_list],
+            [("partner_balance", "user_balance"), ("yookassa",)]
+            if scheduler
+            else [("partner_balance", "user_balance")],
+        )
+        self.assertTrue(due.await_args_list[0].kwargs["initial_only"])
+        service.charge_subscription_renewal.assert_awaited_once_with(
+            session, sub, renewal_cycle_end=sub.end_date
+        )
+        retries.assert_not_awaited()
+
+
+def test_core_worker_registers_renewal_before_a_balance_source_is_enabled() -> None:
+    tasks = {task.name: task for task in main_worker._core_worker_tasks()}
+    assert tasks["AutoRenewRetryWorker"].enabled is None

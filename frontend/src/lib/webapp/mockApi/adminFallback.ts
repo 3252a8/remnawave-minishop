@@ -37,6 +37,7 @@ export function adminFallbackResponse(
     return {
       ok: true,
       currency_symbol: "RUB",
+      subscription_mrr: 42_750,
       users: {
         total_users: 248,
         active_today: 9,

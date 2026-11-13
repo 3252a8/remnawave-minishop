@@ -45,6 +45,65 @@ Plugin API, frontend host API и schema version остаются 1: новые �
 - Разделы «Бонусы» и «Поддержка» остаются в навигации при наличии вкладов плагина,
   даже если встроенная реферальная программа или тикеты выключены.
 
+## ЛК: провайдер на странице входа
+
+Плагин может добавить кнопку входа, вернув `LoginProvider` в `ExtensionContributions.login_providers`.
+Для подписанного пакета укажите `"login_providers": 1` в `core_compatibility.requires`.
+Core добавляет кнопку рядом со штатными способами входа. В Telegram Mini App кабинет предлагает
+открыть страницу входа в браузере. В публичную конфигурацию попадают только идентификатор,
+название и локальный путь запуска. JavaScript и стили пакета загружаются после входа на обычных
+экранах расширений.
+
+```python
+from aiohttp import web
+
+from bot.plugins import Plugin, PluginContext, WEB_SCOPE_WEBAPP
+from bot.plugins.extensions import ExtensionContributions, LoginProvider
+from bot.plugins.extensions.auth import complete_login
+
+from .sso import begin_authorization, verify_and_resolve_account
+
+
+class WorkLogin(Plugin):
+    name = "work-login"
+    version = "1.0.0"
+
+    def extensions(self, ctx: PluginContext) -> ExtensionContributions:
+        return ExtensionContributions(
+            login_providers=(LoginProvider("sso", "Work SSO", begin_authorization),),
+        )
+
+    def setup_web(self, ctx: PluginContext, app: web.Application, *, scope: str) -> None:
+        if scope == WEB_SCOPE_WEBAPP:
+            app.router.add_get(
+                "/auth/plugins/work-login/sso/callback", self.callback, allow_head=False
+            )
+
+    async def callback(self, request: web.Request) -> web.Response:
+        user_id = await verify_and_resolve_account(request)
+        if user_id is None:
+            raise web.HTTPForbidden()
+        return await complete_login(request, owner=self.name, provider="sso", user_id=user_id)
+```
+
+Core вызывает `begin_authorization(request)` по адресу `/auth/plugins/<owner>/<id>/start`.
+Параметр `lang` позволяет выбрать язык страницы провайдера. Название отображается как текст
+в локализованной кнопке Core. ID уникален внутри плагина и использует строчные латинские буквы,
+цифры, дефис и подчёркивание. Первый символ должен быть буквой.
+
+Плагин отвечает за протокол и хранение привязок. Для OAuth сохраните короткоживущий одноразовый
+`state`, привязанный к браузеру, и используйте PKCE S256. При OIDC также проверяйте подпись,
+issuer, audience, срок действия и `nonce`. Обмен кода выполняется на сервере. По подтверждённой
+паре issuer/subject найдите заранее привязанный внутренний ID Core. Не используйте ID из
+запроса браузера или совпадение неподтверждённого email. `complete_login` принимает только ID
+существующего незаблокированного пользователя и выдаёт штатные cookie сессии и CSRF.
+Создание, привязка и восстановление аккаунтов остаются отдельными действиями.
+
+Регистрируйте callback у провайдера по публичному HTTPS URL кабинета. При установке в подкаталоге
+укажите этот префикс в `SUBSCRIPTION_MINI_APP_URL` и настройте прокси так, чтобы он передавал
+запросы `<префикс>/auth/…` в backend без префикса. Core отправляет браузер на фиксированный
+локальный корень кабинета после входа. Произвольный `return_to` из браузера не используется.
+
 ## Экраны в кнопках и данные в сообщениях
 
 В `core_compatibility.requires` пакет может объявить `"message_composition": 1`.
@@ -106,6 +165,8 @@ def extensions(self, ctx):
 | `user.home.balance`, `.subscription`, `.traffic` | Карточки обычного режима главной |
 | `user.home.status` | Карточка состояния серверов |
 | `user.settings.profile`, `.codes` | Профиль и активация кода в настройках |
+| `user.devices.card` | Каждая карточка подключённого устройства целиком (`ui_composition=4`) |
+| `user.devices.card.header`, `.details`, `.actions` | Заголовок, сведения и действия внутри каждой карточки (`ui_composition=4`) |
 
 Старые `user.home.cards`, `user.profile.actions`, `user.subscription.actions`,
 `user.install.blocks` сохраняют прежнее добавление после соответствующего экрана.
@@ -113,6 +174,44 @@ def extensions(self, ctx):
 `user.home.traffic` относится к обычному режиму активной подписки. Если вклад должен
 показываться независимо от режима или подписки, используйте `.cards` или `.content`.
 Неизвестная цель ЛК отклоняется при установке.
+
+### Карточки подключённых устройств
+
+Пакет объявляет `"user_ui": 1, "ui_composition": 4` в
+`core_compatibility.requires`. Все четыре цели карточки поддерживают `before`,
+`after` и `replace`; `user.devices.cards` по-прежнему добавляет блоки после всего
+экрана, а `user.devices.content` заменяет весь экран.
+
+```json
+{"id": "router-info", "view": "router-info", "label": "Router info", "target": "user.devices.card.details", "placement": "after", "device_types": ["router"]}
+```
+
+Вид монтируется отдельно для каждого устройства. `props.context.device` содержит
+снимок его `WebAppDeviceOut`: `token`, имена, `device_model`, `device_type`,
+`router_platform`, платформу, клиент и доступность отключения. Исходный HWID и
+IP не добавляются. Снимок обновляется при обновлении списка или переименовании;
+это не store и его изменение не меняет устройство. Общие `screen`, `subscription`
+и метаданные вида сохраняются. Для поведения только на роутерах проверяйте
+`device.device_type === "router"` в своём виде либо добавьте `device_types: ["router"]`
+в descriptor. Этот необязательный непустой список принимает значения `device_type`
+без повторов и доступен только четырём целям карточки. Фильтр применяется до
+разрешения конфликтов: другие устройства сохраняют Core, а замены с разными
+типами не конфликтуют. Без фильтра `replace` заменяет область каждого устройства.
+Не скрывайте стандартные действия без собственной реализации.
+
+Core определяет тип до передачи данных плагину по исходным `deviceModel`,
+`platform`, `osVersion` и `userAgent` панели, независимо от пользовательского
+имени. `device_type` принимает `phone`, `tablet`, `laptop`, `desktop`, `tv`,
+`router`, `unknown`. `router_platform` содержит `openwrt`, `keenetic`, `routeros`,
+`dd-wrt`, `asuswrt`, `tomato` или `null`; `device_model` сохраняет исходную модель.
+Явные признаки OpenWrt/LEDE, Keenetic/KeeneticOS/NDMS и других поддержанных
+прошивок имеют приоритет над Linux. Обычные Linux, curl, Mihomo или sing-box
+без признаков роутера не доказывают его тип. Если клиент не передаёт подходящих
+данных, надёжное определение невозможно. Это подсказка для интерфейса, не
+доверенная аппаратная идентификация и не основание для ограничения доступа.
+
+Порядок, конфликт замен и возврат к Core при ошибке импорта, mount или update
+работают для каждого экземпляра карточки независимо. DOM-селекторы не нужны.
 
 ## Админка: карточки, вкладки и замена содержимого
 

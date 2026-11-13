@@ -13,6 +13,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.webapp.subscription_reissue import send_subscription_reissue_email
+from bot.services.account_roles import can_ban_account
 from bot.services.subscription_reissue_access import AccessRotationBusy, reissue_subscription_access
 from config.settings import Settings
 from config.traffic_strategy import canonical_traffic_limit_strategy
@@ -86,6 +87,10 @@ async def admin_user_delete_route(request: web.Request) -> web.Response:
         user = await user_dal.get_user_by_id(session, target_id)
         if not user:
             return _error(404, "not_found")
+
+        if not await can_ban_account(session, actor_id, target_id):
+            await session.rollback()
+            return _error(403, "forbidden")
 
         panel_user_uuids = await user_dal.get_panel_user_uuids_for_user(
             session,

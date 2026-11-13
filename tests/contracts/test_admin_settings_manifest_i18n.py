@@ -312,7 +312,7 @@ def test_default_user_traffic_strategy_is_a_general_admin_setting():
     assert field["label"] == "Default Traffic Reset Strategy"
     assert field["choices"]
     label_key = field["i18n_label_key"]
-    assert _locale("ru")[label_key] == "Стратегия сброса трафика по-умолчанию"
+    assert _locale("ru")[label_key] == "Стратегия сброса трафика по умолчанию"
     assert _locale("en")[label_key] == "Default Traffic Reset Strategy"
 
 

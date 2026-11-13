@@ -800,6 +800,10 @@
       disabled={checkoutAddonsUnavailableForMethod(selectedPlan)}
       animateValues={checkoutAddonValueAnimationEnabled}
       expandedByDefault={checkoutAddonEditorExpandedByDefault}
+      showPremium={gift ||
+        !subscription.tariff_key ||
+        subscription.tariff_key !== selectedPlan.tariff_key ||
+        selectedPlan.shop_premium_enabled !== false}
       {t}
       onChange={updateCheckoutAddon}
       onInteractionChange={handleCheckoutSliderInteraction}

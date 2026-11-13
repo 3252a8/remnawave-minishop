@@ -550,6 +550,7 @@ SPEC = PaymentProviderSpec(
 
 CRYPTO_SPEC = PaymentProviderSpec(
     id=WATA_CRYPTO_PROVIDER,
+    reporting_fee_method="crypto",
     payment_group="crypto",
     provider_key=WATA_CRYPTO_PROVIDER,
     label="Wata",

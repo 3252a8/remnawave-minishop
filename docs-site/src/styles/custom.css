@@ -2,13 +2,30 @@
 
 @layer minishop {
   :root {
+    --minishop-brand: #00fe7a;
+    --minishop-brand-strong: #58ff9e;
+    --minishop-brand-ink: #03140a;
+    --minishop-brand-soft: color-mix(in srgb, var(--minishop-brand) 12%, transparent);
     --minishop-pro-accent: #a78bfa;
     --minishop-pro-accent-strong: #ddd6fe;
+    --minishop-pro-solid: #7c3aed;
+    --minishop-surface: color-mix(in srgb, var(--sl-color-gray-6) 55%, transparent);
+    --minishop-surface-hover: color-mix(in srgb, var(--sl-color-gray-6) 80%, transparent);
+    --minishop-border: var(--sl-color-gray-5);
+    --minishop-control-height: 2.75rem;
   }
 
   :root[data-theme='light'] {
+    --minishop-brand: #007a3d;
+    --minishop-brand-strong: #006b35;
+    --minishop-brand-ink: #ffffff;
+    --minishop-brand-soft: color-mix(in srgb, var(--minishop-brand) 10%, transparent);
     --minishop-pro-accent: #6d28d9;
     --minishop-pro-accent-strong: #5b21b6;
+    --minishop-pro-solid: #6d28d9;
+    --minishop-surface: var(--sl-color-gray-7);
+    --minishop-surface-hover: var(--sl-color-gray-6);
+    --minishop-border: var(--sl-color-gray-5);
   }
 
   .sl-markdown-content .starlight-aside[aria-label='Друзья проекта'] {
@@ -24,29 +41,28 @@
     margin-top: 1.25rem;
   }
 
-  .site-title,
-  .site-title span {
-    color: #00fe7a;
-    font-weight: 760;
+  /* ---------- Header ---------- */
+
+  /* A solid bar: the translucent blurred header repainted on every scroll frame. */
+  :root {
+    --sl-color-bg-nav: var(--sl-color-black);
   }
 
+  header.backdrop-blur,
+  mobile-starlight-toc nav {
+    backdrop-filter: none;
+  }
+
+  .site-title,
+  .site-title span,
   .site-title:hover,
   .site-title:hover span {
-    color: #00fe7a;
-  }
-
-  :root[data-theme='light'] .site-title,
-  :root[data-theme='light'] .site-title span {
-    color: #007a3d;
-  }
-
-  :root[data-theme='light'] .site-title:hover,
-  :root[data-theme='light'] .site-title:hover span {
-    color: #006f36;
+    color: var(--minishop-brand);
+    font-weight: 700;
   }
 
   .minishop-header-link {
-    column-gap: 0.625rem;
+    column-gap: 0.5rem;
   }
 
   .minishop-header-link svg {
@@ -54,39 +70,28 @@
   }
 
   .minishop-pro-link {
-    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 58%, transparent);
+    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 45%, transparent);
     color: var(--minishop-pro-accent-strong);
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--minishop-pro-accent) 24%, transparent),
-      color-mix(in srgb, var(--minishop-pro-accent) 8%, transparent)
-    );
-    box-shadow: 0 0 1.25rem color-mix(in srgb, var(--minishop-pro-accent) 16%, transparent);
-    font-weight: 760;
+    background: color-mix(in srgb, var(--minishop-pro-accent) 12%, transparent);
+    font-weight: 600;
   }
 
   .minishop-pro-link:hover,
   .minishop-pro-link:focus-visible {
-    border-color: color-mix(in srgb, var(--minishop-pro-accent) 82%, transparent);
-    color: var(--sl-color-white);
-    background: color-mix(in srgb, var(--minishop-pro-accent) 30%, transparent);
-  }
-
-  :root[data-theme='light'] .minishop-pro-link:hover,
-  :root[data-theme='light'] .minishop-pro-link:focus-visible {
-    color: #3b0764;
+    border-color: color-mix(in srgb, var(--minishop-pro-accent) 75%, transparent);
+    color: var(--minishop-pro-accent-strong);
+    background: color-mix(in srgb, var(--minishop-pro-accent) 20%, transparent);
   }
 
   .minishop-pro-diamond {
-    width: 1rem;
-    height: 1rem;
+    width: 0.95rem;
+    height: 0.95rem;
     overflow: visible;
     fill: color-mix(in srgb, var(--minishop-pro-accent) 28%, transparent);
-    filter: drop-shadow(0 0 0.3rem color-mix(in srgb, var(--minishop-pro-accent) 60%, transparent));
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-width: 1.35;
+    stroke-width: 1.5;
   }
 
   .minishop-header-search {
@@ -110,11 +115,16 @@
     width: 2.25rem;
     height: 2.25rem;
     place-items: center;
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 7px;
+    border-radius: 8px;
     color: var(--sl-color-gray-2);
     cursor: pointer;
     list-style: none;
+  }
+
+  .minishop-mobile-nav summary:hover,
+  .minishop-mobile-nav[open] summary {
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-6);
   }
 
   .minishop-mobile-nav summary::-webkit-details-marker {
@@ -150,11 +160,6 @@
     top: 0.34rem;
   }
 
-  .minishop-mobile-nav[open] summary {
-    border-color: #00fe7a;
-    color: #00fe7a;
-  }
-
   .minishop-mobile-nav-panel {
     position: absolute;
     z-index: 30;
@@ -164,21 +169,22 @@
     min-width: min(17rem, calc(100vw - 2rem));
     gap: 0.25rem;
     border: 1px solid var(--sl-color-gray-5);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 0.5rem;
     background: var(--sl-color-black);
-    box-shadow: 0 18px 60px rgb(0 0 0 / 32%);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 28%);
   }
 
   .minishop-mobile-nav-link {
     display: flex;
+    min-height: 2.5rem;
     align-items: center;
     gap: 0.625rem;
     border-radius: 6px;
-    padding: 0.65rem 0.75rem;
+    padding: 0 0.75rem;
     color: var(--sl-color-gray-2);
     font-size: 0.95rem;
-    font-weight: 650;
+    font-weight: 600;
     text-decoration: none;
   }
 
@@ -189,19 +195,28 @@
   }
 
   :root[data-theme='light'] .minishop-mobile-nav-panel {
-    background: var(--sl-color-white);
-    box-shadow: 0 18px 60px rgb(15 23 42 / 16%);
+    box-shadow: 0 12px 32px rgb(15 23 42 / 12%);
+  }
+
+  /* ---------- Sidebar ---------- */
+
+  .sidebar-content a[aria-current='page'],
+  .sidebar-content a[aria-current='page']:hover,
+  .sidebar-content a[aria-current='page']:focus-visible {
+    color: var(--minishop-brand);
+    background: var(--minishop-brand-soft);
+    font-weight: 600;
   }
 
   .sidebar-content :is(a[href='/features/minishop-pro/'], a[href='/features/minishop-pro']) {
     color: var(--minishop-pro-accent-strong);
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--minishop-pro-accent) 18%, transparent),
-      transparent
-    );
-    box-shadow: inset 2px 0 var(--minishop-pro-accent);
-    font-weight: 760;
+    font-weight: 600;
+  }
+
+  .sidebar-content
+    :is(a[href='/features/minishop-pro/'], a[href='/features/minishop-pro'])[aria-current='page'] {
+    color: var(--minishop-pro-accent-strong);
+    background: color-mix(in srgb, var(--minishop-pro-accent) 14%, transparent);
   }
 
   .sidebar-content
@@ -212,12 +227,15 @@
     font-size: 0.62rem;
   }
 
+  /* ---------- Hero ---------- */
+
   .hero {
-    gap: clamp(2rem, 6vw, 5rem);
-    padding-block: clamp(3.5rem, 10vw, 6.5rem);
+    gap: clamp(2rem, 6vw, 4.5rem);
+    padding-block: clamp(3rem, 9vw, 6rem);
   }
 
   .hero > .hero-html:has(.minishop-hero-screenshot) {
+    order: 2;
     width: min(100%, 90rem);
     max-width: none;
     min-width: 0;
@@ -240,19 +258,66 @@
     align-items: center;
   }
 
+  .hero:has(.minishop-hero-screenshot) .tagline {
+    max-width: 40rem;
+    line-height: 1.55;
+  }
+
   .hero:has(.minishop-hero-screenshot) .actions {
     gap: 0.75rem;
     justify-content: center;
   }
 
-  .hero:has(.minishop-hero-screenshot) .actions a {
+  .hero .actions > span {
+    display: flex;
+  }
+
+  .hero .actions a {
+    min-height: var(--minishop-control-height);
     margin: 0;
+    border-radius: 10px;
+    padding: 0 1.25rem;
+    box-shadow: none;
+    font-weight: 600;
+    transform: none;
+  }
+
+  .hero .actions a[href='/demo/home'] {
+    border-color: var(--minishop-brand);
+    color: var(--minishop-brand-ink);
+    background: var(--minishop-brand);
+  }
+
+  .hero .actions a[href='/demo/home']:hover,
+  .hero .actions a[href='/demo/home']:focus-visible {
+    border-color: var(--minishop-brand-strong);
+    background: var(--minishop-brand-strong);
+  }
+
+  .hero .actions a[href='https://cloud.minidoc.cc'] {
+    border-color: color-mix(in srgb, var(--minishop-pro-accent) 55%, transparent);
+    color: var(--minishop-pro-accent-strong);
+    background: color-mix(in srgb, var(--minishop-pro-accent) 10%, transparent);
+  }
+
+  .hero .actions a[href='https://cloud.minidoc.cc']:hover,
+  .hero .actions a[href='https://cloud.minidoc.cc']:focus-visible {
+    border-color: var(--minishop-pro-accent);
+    background: color-mix(in srgb, var(--minishop-pro-accent) 18%, transparent);
+  }
+
+  .hero .actions a[href='/getting-started/setup/'] {
+    border-color: var(--minishop-border);
+  }
+
+  .hero .actions a[href='/getting-started/setup/']:hover,
+  .hero .actions a[href='/getting-started/setup/']:focus-visible {
+    background: var(--minishop-surface);
   }
 
   .hero img {
-    border: 1px solid var(--sl-color-gray-5);
-    border-radius: 10px;
-    box-shadow: 0 24px 70px rgb(15 23 42 / 18%);
+    border: 1px solid var(--minishop-border);
+    border-radius: 12px;
   }
 
   .minishop-hero-screenshot {
@@ -262,51 +327,38 @@
     height: auto;
   }
 
-  :root[data-theme='dark'] .hero img {
-    box-shadow: 0 24px 70px rgb(0 0 0 / 36%);
-  }
+  @media (max-width: 41.99rem) {
+    .hero:has(.minishop-hero-screenshot) .actions {
+      display: grid;
+      width: 100%;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.6rem;
+    }
 
-  .hero .actions a[href='https://cloud.minidoc.cc'] {
-    border-color: color-mix(in srgb, var(--minishop-pro-accent) 72%, transparent);
-    color: #fff;
-    background: linear-gradient(135deg, #7c3aed, #4c1d95);
-    box-shadow: 0 0.75rem 2rem color-mix(in srgb, #7c3aed 30%, transparent);
-  }
-
-  .hero .actions a[href='https://cloud.minidoc.cc']:hover,
-  .hero .actions a[href='https://cloud.minidoc.cc']:focus-visible {
-    border-color: #c4b5fd;
-    background: linear-gradient(135deg, #8b5cf6, #5b21b6);
-    transform: translateY(-1px);
+    .hero .actions a {
+      width: 100%;
+      justify-content: center;
+    }
   }
 
   @media (min-width: 50rem) {
     .hero:has(.minishop-hero-screenshot) {
-      gap: clamp(2rem, 4vw, 4rem);
+      gap: clamp(2rem, 4vw, 3.5rem);
       align-items: center;
-    }
-
-    .hero > .hero-html:has(.minishop-hero-screenshot) {
-      order: 2;
     }
   }
 
+  /* ---------- Home sections ---------- */
+
   .minishop-home,
   .minishop-start {
-    --minishop-accent: #00fe7a;
-    --minishop-accent-strong: #58ff9e;
     width: min(100%, 72rem);
     margin-inline: auto;
   }
 
-  :root[data-theme='light'] :is(.minishop-home, .minishop-start) {
-    --minishop-accent: #007a3d;
-    --minishop-accent-strong: #006b35;
-  }
-
   .sl-markdown-content .minishop-home {
     display: grid;
-    gap: clamp(1.5rem, 3vw, 2.5rem);
+    gap: clamp(1.5rem, 3vw, 2.25rem);
     margin-top: 0;
   }
 
@@ -318,10 +370,10 @@
   }
 
   .sl-markdown-content .minishop-eyebrow {
-    color: var(--minishop-accent);
+    color: var(--minishop-brand);
     font-size: 0.75rem;
-    font-weight: 780;
-    letter-spacing: 0.13em;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     line-height: 1.4;
     text-transform: uppercase;
   }
@@ -329,26 +381,26 @@
   .sl-markdown-content .minishop-home-header h2 {
     max-width: 42rem;
     margin: 0;
-    font-size: clamp(1.75rem, 4vw, 2.8rem);
-    letter-spacing: -0.035em;
-    line-height: 1.08;
+    font-size: clamp(1.6rem, 3.6vw, 2.5rem);
+    letter-spacing: -0.02em;
+    line-height: 1.12;
   }
 
   .sl-markdown-content .minishop-home-header p {
     max-width: 44rem;
     margin: 0;
     color: var(--sl-color-gray-2);
-    font-size: clamp(1rem, 2vw, 1.125rem);
-    line-height: 1.7;
+    font-size: clamp(1rem, 2vw, 1.0625rem);
+    line-height: 1.65;
   }
 
   .sl-markdown-content .minishop-pro-overview {
     display: grid;
     gap: 0.9rem;
-    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 48%, var(--sl-color-gray-5));
+    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 40%, var(--minishop-border));
     border-radius: 12px;
-    padding: clamp(1.25rem, 4vw, 2rem);
-    background: color-mix(in srgb, var(--sl-color-gray-6) 72%, transparent);
+    padding: clamp(1.25rem, 4vw, 1.75rem);
+    background: var(--minishop-surface);
   }
 
   .sl-markdown-content .minishop-pro-overview > * {
@@ -357,152 +409,129 @@
 
   .sl-markdown-content .minishop-pro-kicker {
     color: var(--minishop-pro-accent-strong);
-    font-size: 0.78rem;
-    font-weight: 780;
-    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
   .sl-markdown-content .minishop-pro-cta {
     display: inline-flex;
     width: fit-content;
+    min-height: var(--minishop-control-height);
     align-items: center;
-    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 64%, transparent);
-    border-radius: 8px;
-    padding: 0.65rem 0.9rem;
+    gap: 0.45rem;
+    border-radius: 10px;
+    padding: 0 1.1rem;
     color: #fff;
-    background: linear-gradient(135deg, #7c3aed, #4c1d95);
-    font-weight: 740;
+    background: var(--minishop-pro-solid);
+    font-weight: 600;
     text-decoration: none;
   }
 
   .sl-markdown-content .minishop-pro-cta:hover,
   .sl-markdown-content .minishop-pro-cta:focus-visible {
-    border-color: #c4b5fd;
-    background: linear-gradient(135deg, #8b5cf6, #5b21b6);
+    color: #fff;
+    background: color-mix(in srgb, var(--minishop-pro-solid) 85%, #fff);
   }
 
   .sl-markdown-content .minishop-feature-grid {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
     margin: 0;
   }
 
   .sl-markdown-content .minishop-feature-card {
-    position: relative;
     display: flex;
-    grid-column: span 12;
-    min-height: 17rem;
     flex-direction: column;
-    gap: 0.85rem;
-    overflow: hidden;
-    border: 1px solid var(--sl-color-gray-5);
+    gap: 0.7rem;
+    border: 1px solid var(--minishop-border);
     border-radius: 12px;
-    padding: clamp(1.25rem, 3vw, 1.75rem);
+    padding: clamp(1.15rem, 2.5vw, 1.5rem);
     color: var(--sl-color-white);
-    background: color-mix(in srgb, var(--sl-color-gray-6) 58%, transparent);
+    background: var(--minishop-surface);
     text-decoration: none;
     transition:
-      border-color 160ms ease,
-      transform 160ms ease,
-      background-color 160ms ease;
-  }
-
-  .sl-markdown-content .minishop-feature-card::after {
-    position: absolute;
-    right: -3.5rem;
-    bottom: -4.5rem;
-    width: 10rem;
-    height: 10rem;
-    border: 1px solid color-mix(in srgb, var(--minishop-accent) 24%, transparent);
-    border-radius: 50%;
-    content: '';
-    opacity: 0;
-    transition: opacity 160ms ease;
+      border-color 140ms ease,
+      background-color 140ms ease;
   }
 
   .sl-markdown-content .minishop-feature-card:hover,
   .sl-markdown-content .minishop-feature-card:focus-visible {
-    border-color: color-mix(in srgb, var(--minishop-accent) 62%, var(--sl-color-gray-5));
-    background: color-mix(in srgb, var(--sl-color-gray-6) 78%, transparent);
-    transform: translateY(-2px);
-  }
-
-  .sl-markdown-content .minishop-feature-card:hover::after,
-  .sl-markdown-content .minishop-feature-card:focus-visible::after {
-    opacity: 1;
+    border-color: color-mix(in srgb, var(--minishop-brand) 55%, var(--minishop-border));
+    background: var(--minishop-surface-hover);
   }
 
   .sl-markdown-content .minishop-feature-card--spotlight {
-    border-color: color-mix(in srgb, var(--minishop-accent) 42%, var(--sl-color-gray-5));
-    background:
-      linear-gradient(135deg, color-mix(in srgb, var(--minishop-accent) 15%, transparent), transparent 62%),
-      color-mix(in srgb, var(--sl-color-gray-6) 64%, transparent);
+    border-color: color-mix(in srgb, var(--minishop-brand) 35%, var(--minishop-border));
   }
 
   .sl-markdown-content .minishop-feature-index {
-    position: relative;
-    z-index: 1;
-    color: var(--minishop-accent);
-    font-size: 0.76rem;
-    font-weight: 780;
-    letter-spacing: 0.12em;
+    color: var(--minishop-brand);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     line-height: 1.4;
     text-transform: uppercase;
   }
 
   .sl-markdown-content .minishop-feature-card h3 {
-    position: relative;
-    z-index: 1;
-    max-width: 32rem;
     margin: 0;
     color: inherit;
-    font-size: clamp(1.18rem, 2.4vw, 1.45rem);
-    letter-spacing: -0.02em;
-    line-height: 1.25;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
   }
 
   .sl-markdown-content .minishop-feature-card p {
-    position: relative;
-    z-index: 1;
-    max-width: 38rem;
     margin: 0;
     color: var(--sl-color-gray-2);
-    font-size: 0.94rem;
-    line-height: 1.65;
+    font-size: 0.92rem;
+    line-height: 1.6;
   }
 
   .sl-markdown-content .minishop-card-link {
-    position: relative;
-    z-index: 1;
     display: inline-flex;
     gap: 0.4rem;
     align-items: center;
     margin-top: auto;
-    color: var(--minishop-accent-strong);
+    padding-top: 0.35rem;
+    color: var(--minishop-brand);
     font-size: 0.88rem;
-    font-weight: 720;
+    font-weight: 600;
   }
 
   .sl-markdown-content .minishop-provider-panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 1.5rem;
-    border: 1px solid color-mix(in srgb, var(--minishop-accent) 36%, var(--sl-color-gray-5));
+    gap: 1.25rem;
+    border: 1px solid var(--minishop-border);
     border-radius: 12px;
-    padding: clamp(1.35rem, 4vw, 2.25rem);
+    padding: clamp(1.25rem, 3.5vw, 1.75rem);
     color: var(--sl-color-white);
-    background:
-      radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--minishop-accent) 16%, transparent), transparent 34%),
-      color-mix(in srgb, var(--sl-color-gray-6) 64%, transparent);
+    background: var(--minishop-surface);
     text-decoration: none;
-    transition: border-color 160ms ease;
+    transition: border-color 140ms ease;
   }
 
   .sl-markdown-content .minishop-provider-panel:hover,
   .sl-markdown-content .minishop-provider-panel:focus-visible {
-    border-color: color-mix(in srgb, var(--minishop-accent) 74%, var(--sl-color-gray-5));
+    border-color: color-mix(in srgb, var(--minishop-brand) 55%, var(--minishop-border));
+  }
+
+  /* Payment providers and migrations side by side on wide screens. */
+  .sl-markdown-content .minishop-panel-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    margin: 0;
+  }
+
+  .sl-markdown-content .minishop-panel-row > .minishop-provider-panel {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
   }
 
   .sl-markdown-content .minishop-provider-copy {
@@ -513,8 +542,8 @@
 
   .sl-markdown-content .minishop-provider-copy strong {
     color: inherit;
-    font-size: clamp(1.3rem, 3vw, 1.75rem);
-    letter-spacing: -0.025em;
+    font-size: clamp(1.25rem, 2.6vw, 1.5rem);
+    letter-spacing: -0.015em;
     line-height: 1.25;
   }
 
@@ -527,17 +556,20 @@
   .sl-markdown-content .minishop-provider-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.55rem;
+    gap: 0.5rem;
   }
 
   .sl-markdown-content .minishop-provider-list > span {
-    border: 1px solid var(--sl-color-gray-5);
+    display: inline-flex;
+    min-height: 1.85rem;
+    align-items: center;
+    border: 1px solid var(--minishop-border);
     border-radius: 999px;
-    padding: 0.38rem 0.7rem;
+    padding: 0 0.7rem;
     color: var(--sl-color-gray-2);
-    background: color-mix(in srgb, var(--sl-color-black) 45%, transparent);
+    background: var(--sl-color-black);
     font-size: 0.78rem;
-    font-weight: 650;
+    font-weight: 600;
     line-height: 1.2;
   }
 
@@ -545,15 +577,15 @@
     display: inline-flex;
     gap: 0.4rem;
     align-items: center;
-    color: var(--minishop-accent-strong);
+    color: var(--minishop-brand);
     font-size: 0.88rem;
-    font-weight: 720;
+    font-weight: 600;
   }
 
   .sl-markdown-content .minishop-start {
     display: grid;
     gap: clamp(1.5rem, 3vw, 2.25rem);
-    margin-top: clamp(4rem, 9vw, 7rem);
+    margin-top: clamp(3.5rem, 8vw, 6rem);
   }
 
   .sl-markdown-content .minishop-start-grid {
@@ -567,23 +599,23 @@
 
   .sl-markdown-content .minishop-start-grid li {
     display: flex;
-    min-height: 13rem;
     flex-direction: column;
-    gap: 0.65rem;
-    border-top: 1px solid var(--sl-color-gray-5);
-    padding: 1.25rem 0.25rem 0;
+    gap: 0.6rem;
+    margin: 0;
+    border-top: 1px solid var(--minishop-border);
+    padding: 1.25rem 0 0;
   }
 
   .sl-markdown-content .minishop-start-grid li > span {
-    color: var(--minishop-accent);
-    font-size: 0.78rem;
-    font-weight: 780;
-    letter-spacing: 0.12em;
+    color: var(--minishop-brand);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
   }
 
   .sl-markdown-content .minishop-start-grid strong {
     color: var(--sl-color-white);
-    font-size: 1.12rem;
+    font-size: 1.1rem;
   }
 
   .sl-markdown-content .minishop-start-grid p {
@@ -598,33 +630,20 @@
     gap: 0.4rem;
     align-items: center;
     margin-top: auto;
-    color: var(--minishop-accent-strong);
-    font-size: 0.86rem;
-    font-weight: 720;
+    padding-top: 0.35rem;
+    color: var(--minishop-brand);
+    font-size: 0.88rem;
+    font-weight: 600;
     text-decoration: none;
   }
 
-  :root[data-theme='light'] .sl-markdown-content :is(.minishop-feature-card, .minishop-provider-panel) {
-    color: var(--sl-color-black);
-    background-color: color-mix(in srgb, var(--sl-color-gray-7) 52%, var(--sl-color-white));
-  }
-
-  :root[data-theme='light'] .sl-markdown-content .minishop-provider-list > span {
-    background: color-mix(in srgb, var(--sl-color-gray-7) 64%, var(--sl-color-white));
-  }
-
-  :root[data-theme='light'] .sl-markdown-content .minishop-start-grid strong {
-    color: var(--sl-color-black);
-  }
-
   @media (min-width: 42rem) {
-    .sl-markdown-content .minishop-feature-card {
-      grid-column: span 6;
+    .sl-markdown-content .minishop-feature-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .sl-markdown-content .minishop-feature-card--spotlight {
-      grid-column: span 12;
-      min-height: 16rem;
+    .sl-markdown-content .minishop-feature-card:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
     }
 
     .sl-markdown-content .minishop-start-grid {
@@ -633,27 +652,135 @@
   }
 
   @media (min-width: 64rem) {
-    .sl-markdown-content .minishop-feature-card--spotlight {
-      grid-column: span 8;
+    .sl-markdown-content .minishop-feature-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .sl-markdown-content .minishop-feature-card:nth-child(2) {
-      grid-column: span 4;
+    .sl-markdown-content .minishop-feature-card:last-child:nth-child(odd) {
+      grid-column: auto;
     }
 
-    .sl-markdown-content .minishop-feature-card:nth-child(n + 3) {
-      grid-column: span 6;
+    .sl-markdown-content .minishop-panel-row {
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
     }
 
-    .sl-markdown-content .minishop-provider-panel {
-      grid-template-columns: minmax(16rem, 0.8fr) minmax(24rem, 1.2fr);
-      align-items: center;
-    }
-
-    .sl-markdown-content .minishop-provider-link {
-      grid-column: 2;
+    .sl-markdown-content .minishop-panel-row .minishop-provider-link {
+      margin-top: auto;
     }
   }
+
+  /* PRO teaser at the end of the home page: flat card, PRO accent only on the border and labels. */
+  .sl-markdown-content .minishop-pro-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    width: min(100%, 72rem);
+    margin: clamp(3.5rem, 8vw, 6rem) auto 0;
+    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 40%, var(--minishop-border));
+    border-radius: 12px;
+    padding: clamp(1.25rem, 3.5vw, 2rem);
+    background: var(--minishop-surface);
+  }
+
+  .sl-markdown-content .minishop-pro-home-copy {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+  }
+
+  .sl-markdown-content .minishop-pro-home-copy > * {
+    margin: 0;
+  }
+
+  .sl-markdown-content .minishop-pro-home h2 {
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+  }
+
+  .sl-markdown-content .minishop-pro-home-copy p {
+    color: var(--sl-color-gray-2);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .sl-markdown-content .minishop-pro-home-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+  }
+
+  .sl-markdown-content .minishop-pro-more {
+    display: inline-flex;
+    min-height: var(--minishop-control-height);
+    align-items: center;
+    border: 1px solid var(--minishop-border);
+    border-radius: 10px;
+    padding: 0 1.1rem;
+    color: var(--sl-color-white);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .sl-markdown-content .minishop-pro-more:hover,
+  .sl-markdown-content .minishop-pro-more:focus-visible {
+    border-color: var(--minishop-pro-accent);
+    color: var(--sl-color-white);
+  }
+
+  .sl-markdown-content .minishop-pro-home-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sl-markdown-content .minishop-pro-home-list li {
+    display: grid;
+    align-content: start;
+    gap: 0.3rem;
+    margin: 0;
+    border-top: 1px solid var(--minishop-border);
+    padding-top: 0.85rem;
+  }
+
+  .sl-markdown-content .minishop-pro-home-list strong {
+    color: var(--minishop-pro-accent-strong);
+    font-size: 0.95rem;
+  }
+
+  .sl-markdown-content .minishop-pro-home-list span {
+    color: var(--sl-color-gray-2);
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 41.99rem) {
+    .sl-markdown-content .minishop-pro-home-actions > a {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (min-width: 42rem) {
+    .sl-markdown-content .minishop-pro-home-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .sl-markdown-content .minishop-pro-home {
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+      align-items: center;
+      gap: 2.5rem;
+    }
+  }
+
+  /* ---------- Article content ---------- */
 
   .sl-markdown-content :is(h2, h3) {
     letter-spacing: 0;
@@ -668,5 +795,4 @@
     border-radius: 5px;
     padding: 0.08rem 0.28rem;
   }
-
 }

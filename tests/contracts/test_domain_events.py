@@ -341,6 +341,8 @@ EXPECTED_EVENT_WIRING = {
     ],
     "backend/bot/app/web/webapp/account.py": [
         ("ACCOUNT_EMAIL_LINKED", "AccountEmailLinkedPayload"),
+    ],
+    "backend/bot/app/web/webapp/auth_panel.py": [
         ("ACCOUNT_TELEGRAM_LINKED", "AccountTelegramLinkedPayload"),
     ],
     "backend/bot/services/promo_code_service.py": [
@@ -367,9 +369,12 @@ EXPECTED_EVENT_WIRING = {
 def test_emit_points_are_wired():
     for module_path, event_contracts in EXPECTED_EVENT_WIRING.items():
         source = Path(module_path).read_text(encoding="utf-8")
-        if module_path == "backend/db/dal/user_merge_dal.py":
+        if module_path in {
+            "backend/bot/app/web/webapp/auth_panel.py",
+            "backend/db/dal/user_merge_dal.py",
+        }:
             assert "defer_event_until_commit(" in source, (
-                "Account merging must defer its event until the transaction commits"
+                f"{module_path} must defer account events until the transaction commits"
             )
         else:
             assert "events.emit(" in source or "events.emit_model(" in source, (

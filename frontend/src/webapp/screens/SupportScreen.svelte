@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import { getSupportStore } from "$lib/webapp/context";
   import { onDestroy, onMount, tick } from "svelte";
   import { fade } from "svelte/transition";
@@ -60,7 +61,7 @@
   let category = $state<DraftPayload["category"]>("other");
   let paymentId = $state("");
   let body = $state("");
-  let image = $state<File | null>(null);
+  let images = $state<File[]>([]);
   let createOpen = $state(false);
   let viewportHeight = $state("100dvh");
   let viewportTop = $state("0px");
@@ -124,6 +125,8 @@
     invalidType: t("wa_message_image_invalid_type"),
     tooLarge: t("wa_message_image_too_large"),
     previewAlt: t("wa_message_image_preview_alt"),
+    tooMany: t("wa_support_images_too_many"),
+    totalTooLarge: t("wa_support_images_too_large"),
   });
   // A stored draft is markup, so it cannot be cut at the message limit without
   // splitting a tag. The message limit is enforced on the visible text below;
@@ -236,7 +239,7 @@
         payment_id: category === "billing" && paymentId ? Number(paymentId) : null,
         priority: "normal",
       },
-      image
+      images
     );
     if (ticket) {
       clearSupportDraft("new", currentDraftScope);
@@ -244,7 +247,7 @@
       category = "other";
       paymentId = "";
       body = "";
-      image = null;
+      images = [];
       createOpen = false;
     }
   }
@@ -305,15 +308,9 @@
         <h1 bind:this={createHeading} tabindex="-1">{t("wa_support_new_ticket")}</h1>
       </header>
     {:else}
-      <div class="support-heading-row">
-        <span class="support-heading-icon" aria-hidden="true">
-          <LifeBuoy size={42} />
-        </span>
-        <div class="support-heading-copy">
-          <h1>{t("wa_support_title")}</h1>
-          <p>{t("wa_support_subtitle")}</p>
-        </div>
-      </div>
+      <ScreenHeading title={t("wa_support_title")} subtitle={t("wa_support_subtitle")}>
+        {#snippet icon()}<LifeBuoy />{/snippet}
+      </ScreenHeading>
 
       <button class="support-new-ticket-button" type="button" onclick={openCreatePage}>
         <span class="support-new-ticket-icon">
@@ -353,7 +350,7 @@
             <span>{t("wa_support_message")}</span>
             <TicketComposer
               bind:value={body}
-              bind:image
+              bind:images
               labels={editorLabels}
               {imageLabels}
               placeholder={t("wa_support_message_placeholder")}

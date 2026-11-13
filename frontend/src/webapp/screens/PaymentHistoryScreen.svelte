@@ -1,6 +1,8 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { onMount } from "svelte";
-  import { ArrowLeft, CreditCardCheck, RefreshCw } from "$components/ui/icons.js";
+  import { CreditCardCheck, RefreshCw } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import Badge from "$components/ui/badge.svelte";
@@ -16,6 +18,7 @@
     paymentAmountDisplay,
     paymentDescriptionDisplay,
     paymentDiscountDisplay,
+    paymentPurchaseDisplay,
   } from "$lib/admin/paymentTable.js";
   import { formatMoney } from "$lib/webapp/formatters.js";
   import { buildPaymentHistoryPath, unwrap, type ApiClient } from "$lib/webapp/publicApi.js";
@@ -133,17 +136,11 @@
 </script>
 
 <main class="content with-nav payment-history-screen">
-  <Button variant="ghost" size="sm" onclick={goSettings}>
-    <ArrowLeft size={18} />{t("wa_back")}
-  </Button>
+  <ScreenBackLink label={t("wa_back")} onclick={goSettings} />
   <Card class="payment-history-heading">
-    <div class="payment-history-title">
-      <CreditCardCheck size={30} />
-      <div>
-        <h1>{t("wa_payment_history_title")}</h1>
-        <p>{t("wa_payment_history_hint")}</p>
-      </div>
-    </div>
+    <ScreenHeading title={t("wa_payment_history_title")} subtitle={t("wa_payment_history_hint")}>
+      {#snippet icon()}<CreditCardCheck />{/snippet}
+    </ScreenHeading>
     <Button variant="secondary" size="sm" disabled={loading} onclick={() => void loadPage(page)}
       ><RefreshCw size={16} />{t("wa_payment_history_refresh")}</Button
     >
@@ -202,19 +199,36 @@
             <tbody>
               {#each items as item (item.payment_id)}
                 {@const status = paymentHistoryStatus(item, t)}
-                <tr data-payment-history-id={item.payment_id}>
-                  <td data-label={headers[0]} data-numeric><strong>#{item.payment_id}</strong></td>
-                  <td data-label={headers[1]}><PaymentPurchasesCell payment={item} {at} /></td>
-                  <td data-label={headers[2]} data-numeric
+                {@const discount = paymentDiscountDisplay(item, money)}
+                {@const description = paymentDescriptionDisplay(item, at)}
+                <tr class="ph-row" data-payment-history-id={item.payment_id}>
+                  <td class="ph-id" data-label={headers[0]} data-numeric
+                    ><strong>#{item.payment_id}</strong></td
+                  >
+                  <td
+                    class="ph-purchases"
+                    data-label={headers[1]}
+                    data-empty={paymentPurchaseDisplay(item, at).length ? undefined : ""}
+                    ><PaymentPurchasesCell payment={item} {at} /></td
+                  >
+                  <td class="ph-amount" data-label={headers[2]} data-numeric
                     >{paymentAmountDisplay(item, money, at)}</td
                   >
-                  <td data-label={headers[3]} data-numeric>{paymentDiscountDisplay(item, money)}</td
+                  <td
+                    class="ph-discount"
+                    data-label={headers[3]}
+                    data-numeric
+                    data-empty={discount === "—" ? "" : undefined}>{discount}</td
                   >
-                  <td data-label={headers[4]}
+                  <td class="ph-provider" data-label={headers[4]}
                     ><PaymentProviderCell provider={item.provider} {at} /></td
                   >
-                  <td data-label={headers[5]}>{paymentDescriptionDisplay(item, at)}</td>
-                  <td data-label={headers[6]}>
+                  <td
+                    class="ph-description"
+                    data-label={headers[5]}
+                    data-empty={description === "—" ? "" : undefined}>{description}</td
+                  >
+                  <td class="ph-status" data-label={headers[6]}>
                     <Tooltip.Root
                       open={openStatusTooltip === item.payment_id}
                       onOpenChange={(open) => {
@@ -262,7 +276,7 @@
                       </Tooltip.Portal>
                     </Tooltip.Root>
                   </td>
-                  <td data-label={headers[7]}>{date(item.created_at)}</td>
+                  <td class="ph-date" data-label={headers[7]}>{date(item.created_at)}</td>
                 </tr>
               {/each}
             </tbody>
@@ -294,10 +308,6 @@
 <style>
   .payment-history-screen {
     display: grid;
-    gap: 16px;
-  }
-  .payment-history-screen > :global(.btn) {
-    justify-self: start;
   }
   :global(.payment-history-heading) {
     display: flex;
@@ -305,22 +315,9 @@
     flex-wrap: wrap;
     gap: 16px;
   }
-  .payment-history-title {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex: 1;
-    min-width: 0;
+  :global(.payment-history-heading .screen-heading) {
+    flex: 1 1 260px;
   }
-  .payment-history-title :global(svg) {
-    flex: none;
-    color: var(--accent);
-  }
-  .payment-history-title h1 {
-    margin: 0;
-    font-size: 22px;
-  }
-  .payment-history-title p,
   :global(.payment-history-empty p) {
     margin: 6px 0 0;
     color: var(--muted);
@@ -383,12 +380,69 @@
   :global(.payment-history-empty h2) {
     font-size: 18px;
   }
+  /* Phones: one compact item per payment: number and amount on top, date and
+     status under them, then what was bought; empty fields are hidden instead of
+     printing eight label rows per payment. */
   @media (max-width: 720px) {
-    .payment-history-title h1 {
-      font-size: 20px;
+    :global(.payment-history-list .webapp-table-wrap tr.ph-row) {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "id amount"
+        "date status"
+        "purchases purchases"
+        "provider provider"
+        "description description"
+        "discount discount";
+      gap: 6px 12px;
+      padding: 12px 14px;
     }
-    .payment-history-title {
-      flex-basis: 100%;
+    :global(.payment-history-list .webapp-table-wrap tr.ph-row > td) {
+      display: block;
+    }
+    :global(.payment-history-list .webapp-table-wrap tr.ph-row > td::before) {
+      display: none;
+    }
+    :global(.payment-history-list .webapp-table-wrap tr.ph-row > td[data-empty]) {
+      display: none;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-id) {
+      grid-area: id;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-amount) {
+      grid-area: amount;
+      justify-self: end;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-date) {
+      grid-area: date;
+      align-self: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-status) {
+      grid-area: status;
+      justify-self: end;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-purchases) {
+      grid-area: purchases;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-provider) {
+      grid-area: provider;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-description) {
+      grid-area: description;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    :global(.payment-history-list tr.ph-row > .ph-discount) {
+      grid-area: discount;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    :global(.payment-history-list .webapp-table-wrap tr.ph-row > .ph-discount::before) {
+      display: inline;
+      content: attr(data-label) ": ";
     }
   }
 </style>

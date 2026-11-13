@@ -131,12 +131,23 @@ class PanelApiUserMutationMixin:
         )
         return None
 
+    async def reset_user_hwid_devices(self, user_uuid: str) -> bool:
+        """Clear recorded devices while preserving the link, limit and entitlements.
+
+        Deletions use the panel compatibility layer. Failure may mean only some
+        devices were cleared, so discard the device snapshot even on failure.
+        """
+        try:
+            return await self._disconnect_all_hwid_devices(user_uuid)
+        finally:
+            await self._invalidate_devices_cache(user_uuid)
+
     async def _disconnect_all_hwid_devices(self, user_uuid: str) -> bool:
         await self._invalidate_devices_cache(user_uuid)
         devices = await self.get_user_devices(user_uuid)
         if devices is None:
             logger.error(
-                "Cannot revoke subscription for user %s: failed to read registered devices.",
+                "Cannot clear registered devices for user %s: failed to read registered devices.",
                 user_uuid,
             )
             return False
@@ -147,7 +158,7 @@ class PanelApiUserMutationMixin:
             hwid = str(device.get("hwid") or "").strip()
             if not hwid:
                 logger.error(
-                    "Cannot revoke subscription for user %s: panel returned a device "
+                    "Cannot clear registered devices for user %s: panel returned a device "
                     "without an HWID.",
                     user_uuid,
                 )
@@ -159,7 +170,7 @@ class PanelApiUserMutationMixin:
         for hwid in hwids:
             if not await self.disconnect_device(user_uuid, hwid):
                 logger.error(
-                    "Cannot revoke subscription for user %s: failed to clear all "
+                    "Cannot clear registered devices for user %s: failed to clear all "
                     "registered devices.",
                     user_uuid,
                 )

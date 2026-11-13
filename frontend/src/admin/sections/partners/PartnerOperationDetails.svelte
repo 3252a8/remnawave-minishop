@@ -19,6 +19,7 @@
   } from "$components/patterns/admin/index.js";
   import type { PartnerLinkRow } from "$lib/admin/partnerProgramApi.js";
   import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
+  import { fmtDateTime } from "$lib/admin/format.js";
   import type {
     ApplicationRow,
     PartnerAuditRow,
@@ -246,7 +247,7 @@
         </div>
         <div>
           <dt>{at("partners_submitted", {}, "Submitted")}</dt>
-          <dd class="admin-cell-mono">{selectedApplication.submitted}</dd>
+          <dd>{fmtDateTime(selectedApplication.submitted)}</dd>
         </div>
         <div>
           <dt>{at("partners_application_message", {}, "Application message")}</dt>

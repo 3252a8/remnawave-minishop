@@ -87,6 +87,8 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/s/{share_token}"): "subscription_gateway_route",
             ("GET", "/s/{share_token}/{client_type}"): "subscription_gateway_route",
             ("GET", "/invite"): "index_route",
+            ("GET", "/invite/{subsection}"): "index_route",
+            ("GET", "/partner/{subsection}"): "index_route",
             ("GET", "/devices"): "index_route",
             ("GET", "/settings"): "index_route",
             ("GET", "/settings/notifications"): "index_route",
@@ -185,6 +187,10 @@ class WebAppRouteContractTests(unittest.TestCase):
                 "/api/admin/users/{user_id}/message/preview",
             ): "admin_user_message_preview_route",
             ("POST", "/api/admin/users/{user_id}/reset-trial"): "admin_user_reset_trial_route",
+            (
+                "POST",
+                "/api/admin/users/{user_id}/hwid-devices/reset",
+            ): "admin_user_hwid_devices_reset_route",
             (
                 "PATCH",
                 "/api/admin/users/{user_id}/squad-overrides",

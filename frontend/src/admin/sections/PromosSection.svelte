@@ -1,7 +1,8 @@
 ﻿<script lang="ts">
-  import { getPromosStore } from "$lib/admin/context";
+  import { getPromosStore, getTariffsStore } from "$lib/admin/context";
   import { FileText, RefreshCw, Sliders, Trash2, User } from "$components/ui/icons.js";
   import { onMount } from "svelte";
+  import { tariffDisplayName } from "$lib/admin/tariffDisplay";
   import {
     AdminBadge,
     AdminButton,
@@ -19,6 +20,7 @@
   import { Tabs } from "$components/ui/primitives.js";
   import { TableHandler } from "@vincjo/datatables";
   import PromoCreateDialog from "./promos/PromoCreateDialog.svelte";
+  import BirthdayActivationSettings from "./promos/BirthdayActivationSettings.svelte";
   import PromoEditDialog from "./promos/PromoEditDialog.svelte";
   import type { components } from "../../lib/api/openapi.generated";
   import type {
@@ -73,6 +75,8 @@
     | "duration_multiplier"
     | "traffic_multiplier"
     | "min_subscription_days"
+    | "subscription_tariff_key"
+    | "exact_subscription_days"
     | "min_traffic_gb";
   const BASIC_EDIT_FIELDS: readonly PromoEditField[] = [
     "is_active",
@@ -91,6 +95,8 @@
   ];
   const ELIGIBILITY_EDIT_FIELDS: readonly PromoEditField[] = [
     "min_subscription_days",
+    "subscription_tariff_key",
+    "exact_subscription_days",
     "min_traffic_gb",
   ];
 
@@ -111,6 +117,12 @@
   } = $props();
 
   const promosStore = getPromosStore();
+  const tariffsStore = getTariffsStore();
+  const subscriptionTariffs = $derived(
+    tariffsStore.tariffsCatalog.tariffs
+      .filter((tariff) => tariff.billing_model !== "traffic")
+      .map((tariff) => ({ value: tariff.key, label: tariffDisplayName(tariff) }))
+  );
   const promosTable = new TableHandler<Promo>();
 
   const promos = $derived(promosStore.promos as Promo[]);
@@ -123,7 +135,7 @@
   const promoKind = $derived(String(promosStore.promoKind || "shared"));
   // The split only means something once some code carries an owner, so an
   // install that never issues one keeps the plain single list.
-  const promoKindTabsVisible = $derived(Number(promosStore.promoOwnedTotal || 0) > 0);
+  let openBirthdaySettings = $state(false);
   const promoCreateOpen = $derived(Boolean(promosStore.promoCreateOpen));
   const promoEditOpen = $derived(Boolean(promosStore.promoEditOpen));
   const promoEditing = $derived(promosStore.promoEditing as Promo | null);
@@ -238,6 +250,15 @@
     ...scopeItems,
   ]);
   onMount(() => {
+    void tariffsStore.loadTariffs();
+    if (window.location.hash === "#birthday-activation-settings") {
+      openBirthdaySettings = true;
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      if (promoKind !== "personal") {
+        promosStore.setPromoKind("personal");
+        return;
+      }
+    }
     promosStore.loadPromos();
   });
 
@@ -340,6 +361,8 @@
     if (hasFixedGrant(next)) patch.min_traffic_gb = null;
     if (!effectUsesCheckout(next)) {
       patch.min_subscription_days = null;
+      patch.subscription_tariff_key = null;
+      patch.exact_subscription_days = null;
       patch.min_traffic_gb = null;
     }
     promosStore.updateDraft(patch);
@@ -352,6 +375,8 @@
     if (hasFixedGrant(next)) patch.min_traffic_gb = null;
     if (!effectUsesCheckout(next)) {
       patch.min_subscription_days = null;
+      patch.subscription_tariff_key = null;
+      patch.exact_subscription_days = null;
       patch.min_traffic_gb = null;
     }
     promosStore.updateEditDraft(patch as Partial<PromoPatch>);
@@ -409,7 +434,8 @@
   }
 
   function thresholdText(promo: Promo | PromoPatch): string {
-    return formatAdminPromoEligibility(promo, at);
+    const tariff = subscriptionTariffs.find((item) => item.value === promo.subscription_tariff_key);
+    return formatAdminPromoEligibility(promo, at, tariff?.label);
   }
 
   /** Who a personal code was issued for, in whatever form the profile has. */
@@ -483,6 +509,16 @@
     return (event.currentTarget as HTMLInputElement).value;
   }
 
+  function promoScopePatch(applies_to: string): Partial<PromoPatch> {
+    if (applies_to === "all" || applies_to === "subscription") return { applies_to };
+    return {
+      applies_to,
+      min_subscription_days: null,
+      subscription_tariff_key: null,
+      exact_subscription_days: null,
+    };
+  }
+
   function updateCreateNumber(field: CreateNumberField, value: string): void {
     const parsed = nullableNumber(value);
     if (field === "bonus_days") {
@@ -519,18 +555,22 @@
   }
 </script>
 
-{#if promoKindTabsVisible}
-  <Tabs.Root
-    value={promoKind}
-    onValueChange={(value) => promosStore.setPromoKind(value as PromoKind)}
-    class="admin-tabs-root admin-promo-kind-tabs"
-  >
-    <Tabs.List class="admin-tabs-list">
-      {#each promoKindTabs as tab (tab.value)}
-        <Tabs.Trigger value={tab.value} class="admin-tabs-trigger">{tab.label}</Tabs.Trigger>
-      {/each}
-    </Tabs.List>
-  </Tabs.Root>
+<Tabs.Root
+  value={promoKind}
+  onValueChange={(value) => {
+    openBirthdaySettings = false;
+    promosStore.setPromoKind(value as PromoKind);
+  }}
+  class="admin-tabs-root admin-promo-kind-tabs"
+>
+  <Tabs.List class="admin-tabs-list">
+    {#each promoKindTabs as tab (tab.value)}
+      <Tabs.Trigger value={tab.value} class="admin-tabs-trigger">{tab.label}</Tabs.Trigger>
+    {/each}
+  </Tabs.List>
+</Tabs.Root>
+{#if promoKind === "personal"}
+  <BirthdayActivationSettings {at} {scopeItems} initiallyOpen={openBirthdaySettings} />
 {/if}
 
 <AdminListToolbar
@@ -550,7 +590,7 @@
     />
   {/snippet}
   {#snippet searchActions()}
-    <AdminButton type="submit" variant="primary" disabled={promosLoading}>
+    <AdminButton type="submit" variant="default" disabled={promosLoading}>
       {at("find", {}, "Find")}
     </AdminButton>
   {/snippet}
@@ -764,7 +804,7 @@
                 <AdminButton
                   data-admin-action="delete-code"
                   size="icon"
-                  variant="danger"
+                  variant="dangerSoft"
                   title={at("btn_delete", {}, "Delete")}
                   aria-label={at("btn_delete", {}, "Delete")}
                   onclick={() => promosStore.deletePromo(p)}
@@ -801,10 +841,12 @@
   draft={promoDraft}
   usesCheckout={promoCreateUsesCheckout}
   {scopeItems}
+  tariffItems={subscriptionTariffs}
   onClose={() => promosStore.setCreateOpen(false)}
   onCreate={promosStore.createPromo}
   onCodeInput={(code) => promosStore.updateDraft({ code })}
-  onScopeChange={(applies_to) => promosStore.updateDraft({ applies_to })}
+  onScopeChange={(scope) => promosStore.updateDraft(promoScopePatch(scope) as Partial<PromoDraft>)}
+  onRestrictionsChange={(patch) => promosStore.updateDraft(patch)}
   onEffectEnabledChange={toggleCreateEffect}
   onNumberInput={updateCreateNumber}
   onBonusRequiresPaymentChange={setCreateBonusRequiresPayment}
@@ -837,7 +879,9 @@
   {promoSettingsDirtyCount}
   {promoStatus}
   {promosStore}
+  onScopeChange={(scope) => promosStore.updateEditDraft(promoScopePatch(scope))}
   {scopeItems}
+  tariffItems={subscriptionTariffs}
   onEffectEnabledChange={toggleEditEffect}
   {selectPromoEditTab}
   {setEditBonusRequiresPayment}

@@ -515,6 +515,16 @@ async def _gift_delivery_task(ctx: PluginContext) -> None:
     await run_gift_delivery_worker(ctx.settings, ctx.require_session_factory(), ctx.require_i18n())
 
 
+async def _birthday_activation_task(ctx: PluginContext) -> None:
+    from bot.services.birthday_activation_worker import BirthdayActivationWorker
+
+    if ctx.bot is None:
+        return
+    await BirthdayActivationWorker(
+        ctx.settings, ctx.require_session_factory(), ctx.bot, ctx.require_i18n()
+    ).run()
+
+
 async def _gift_activation_task(ctx: PluginContext) -> None:
     from bot.services.gift_activation_worker import run_gift_activation_worker
 
@@ -551,6 +561,7 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
         WorkerTaskSpec(name="PanelMaintenanceWorker", factory=_panel_maintenance_task),
         WorkerTaskSpec(name="OutboundSettingsRefresh", factory=_outbound_settings_refresh_task),
         WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),
+        WorkerTaskSpec(name="BirthdayActivationWorker", factory=_birthday_activation_task),
         WorkerTaskSpec(name="ReferralAccrualWorker", factory=_referral_accrual_task),
         WorkerTaskSpec(
             name="GiftDeliveryWorker",
@@ -573,9 +584,6 @@ def _core_worker_tasks() -> list[WorkerTaskSpec]:
         WorkerTaskSpec(
             name="AutoRenewRetryWorker",
             factory=_auto_renew_retry_task,
-            enabled=lambda settings: bool(
-                settings.AUTO_RENEW_RETRY_ENABLED or settings.AUTO_RENEW_SCHEDULER_ENABLED
-            ),
         ),
         WorkerTaskSpec(
             name="WataReconciliationWorker",

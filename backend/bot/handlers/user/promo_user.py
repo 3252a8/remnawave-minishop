@@ -40,7 +40,7 @@ MAX_PROMO_CODE_INPUT_LENGTH = 100
 
 
 async def prompt_promo_code_input(
-    callback: types.CallbackQuery,
+    event: types.Message | types.CallbackQuery,
     state: FSMContext,
     i18n_data: dict,
     settings: Settings,
@@ -50,44 +50,38 @@ async def prompt_promo_code_input(
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     if not i18n:
-        await safe_answer_callback(callback, "Language service error.", show_alert=True)
+        if isinstance(event, types.CallbackQuery):
+            await safe_answer_callback(event, "Language service error.", show_alert=True)
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    if not callback.message:
+    if isinstance(event, types.CallbackQuery) and not event.message:
         logger.error("CallbackQuery has no message in prompt_promo_code_input")
         await safe_answer_callback(
-            callback,
+            event,
             _("error_occurred_processing_request"),
             show_alert=True,
         )
         return
 
-    try:
-        await callback_message(callback).edit_text(
-            text=_(key="promo_code_prompt"),
-            reply_markup=get_back_to_main_menu_markup(
-                current_lang,
-                i18n,
-                callback_data=back_callback,
-            ),
-        )
-    except Exception as e_edit:
-        logger.warning("Failed to edit message for promo prompt: %s. Sending new one.", e_edit)
-        await callback_message(callback).answer(
-            text=_(key="promo_code_prompt"),
-            reply_markup=get_back_to_main_menu_markup(
-                current_lang,
-                i18n,
-                callback_data=back_callback,
-            ),
-        )
-
-    await safe_answer_callback(callback)
+    text = _("promo_code_prompt")
+    markup = get_back_to_main_menu_markup(current_lang, i18n, callback_data=back_callback)
+    if isinstance(event, types.CallbackQuery):
+        message = callback_message(event)
+        try:
+            await message.edit_text(text=text, reply_markup=markup)
+        except Exception as error:
+            logger.warning("Failed to edit message for promo prompt: %s. Sending new one.", error)
+            await message.answer(text=text, reply_markup=markup)
+        await safe_answer_callback(event)
+        user_id = event.from_user.id
+    else:
+        await event.answer(text=text, reply_markup=markup)
+        user_id = message_from_user(event).id
     await state.set_state(UserPromoStates.waiting_for_promo_code)
     logger.info(
         "User %s entered state UserPromoStates.waiting_for_promo_code. FSM state: %s",
-        callback.from_user.id,
+        user_id,
         await state.get_state(),
     )
 

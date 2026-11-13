@@ -563,9 +563,9 @@
     {@const valueSource = settingsFieldValueSourceLabel(at, field, settingsDirty[field.key])}
     <div
       class="admin-setting"
-      class:admin-setting--menu-buttons={field.type === "menu_buttons"}
-      class:admin-setting--telegram-menu={field.type === "telegram_menu"}
-      class:admin-setting--payment-method-order={field.key === "PAYMENT_METHODS_ORDER"}
+      class:admin-setting--full-width={field.type === "menu_buttons" ||
+        field.type === "telegram_menu" ||
+        field.key === "PAYMENT_METHODS_ORDER"}
       class:is-overridden={isOverridden(field)}
       class:is-search-highlighted={highlightedSettingKey === field.key}
       data-settings-anchor={settingsFieldAnchorKey(field.key)}
@@ -759,7 +759,11 @@
           />
         {/if}
         {#if isOverridden(field) || settingsDirty[field.key]}
-          <AdminButton size="sm" variant="ghost" onclick={() => resetField(field)}>
+          <AdminButton
+            variant="ghost"
+            class="admin-setting-reset"
+            onclick={() => resetField(field)}
+          >
             <X size={12} />
             {at("reset", {}, "Reset")}
           </AdminButton>
@@ -986,15 +990,11 @@
 {/if}
 
 <style>
-  .admin-setting--menu-buttons,
-  .admin-setting--telegram-menu,
-  .admin-setting--payment-method-order {
+  .admin-setting--full-width {
     grid-template-columns: 1fr;
   }
 
-  .admin-setting--menu-buttons .admin-setting-control,
-  .admin-setting--telegram-menu .admin-setting-control,
-  .admin-setting--payment-method-order .admin-setting-control {
+  .admin-setting--full-width .admin-setting-control {
     width: 100%;
   }
 </style>

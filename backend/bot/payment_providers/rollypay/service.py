@@ -591,6 +591,7 @@ def _spec(
             "crypto" if variant == "crypto" else "mixed" if variant == "all_methods" else "fiat"
         ),
         provider_key=provider_key,
+        reporting_fee_method=variant if variant != "all_methods" else None,
         label="RollyPay",
         webapp_label=webapp_label,
         webapp_labels=webapp_labels,

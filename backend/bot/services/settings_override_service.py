@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -24,6 +25,7 @@ from bot.app.web.admin_settings_manifest import (
     manifest_keys,
 )
 from config.settings import Settings
+from config.settings_telegram import TELEGRAM_CHAT_MENU_KEYS, telegram_chat_menu_errors
 from db.dal import app_settings_dal, partner_dal
 
 logger = logging.getLogger(__name__)
@@ -247,6 +249,32 @@ def _referral_link_visibility_errors(
     return dict.fromkeys(sorted(touched), "at least one referral link must remain enabled")
 
 
+async def _telegram_chat_menu_override_errors(
+    session: AsyncSession, updates: dict[str, Any], deletes: list[str]
+) -> dict[str, str]:
+    if not TELEGRAM_CHAT_MENU_KEYS.intersection((*updates, *deletes)):
+        return {}
+
+    # Validate the complete persisted configuration, including concurrent writes
+    # to different fields and fields whose override is being reset to the env value.
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended('minishop:telegram:chat-menu', 0))")
+    )
+    defaults = Settings()
+    values = {key: getattr(defaults, key) for key in TELEGRAM_CHAT_MENU_KEYS}
+    overrides = await app_settings_dal.get_override_values(session, TELEGRAM_CHAT_MENU_KEYS)
+    values.update({key: value for key, value in overrides.items() if key not in deletes})
+    values.update({key: updates[key] for key in TELEGRAM_CHAT_MENU_KEYS.intersection(updates)})
+    mode = values["TELEGRAM_CHAT_MENU_MODE"]
+    return telegram_chat_menu_errors(
+        mode,
+        values["TELEGRAM_CHAT_MENU_TEXT"],
+        values["TELEGRAM_CHAT_MENU_URL"]
+        if mode == "web_app"
+        else updates.get("TELEGRAM_CHAT_MENU_URL", ""),
+    )
+
+
 def _partner_settings_candidate(
     settings: Settings,
     updates: dict[str, Any],
@@ -448,10 +476,16 @@ async def refresh_overrides_from_db(
 
 
 def outbound_runtime_setting_keys() -> set[str]:
-    """Keep SMTP and provider settings consistent in the separate worker process."""
+    """Keep delivery and payment settings consistent in the separate worker process."""
     from bot.payment_providers import find_manifest_owner
 
-    keys = set()
+    keys = {
+        "PARTNER_BALANCE_PAYMENT_ENABLED",
+        "PARTNER_PROGRAM_ENABLED",
+        "USER_BALANCE_CURRENCY",
+        "USER_BALANCE_ENABLED",
+        "USER_BALANCE_RECURRING_ENABLED",
+    }
     for key in manifest_keys():
         owner = find_manifest_owner(key)
         if key.startswith("SMTP_") or (owner is not None and owner[1].target == "config"):
@@ -571,6 +605,10 @@ async def update_overrides(
             )
             if conflict:
                 return {"ok": False, "errors": {conflict: "telegram_menu_conflict"}}
+            if menu_errors := await _telegram_chat_menu_override_errors(
+                session, coerced_updates, valid_deletes
+            ):
+                return {"ok": False, "errors": menu_errors}
             methods_in_use = await partner_dal.active_withdrawal_methods_in_use(
                 session,
                 removed_partner_method_ids,

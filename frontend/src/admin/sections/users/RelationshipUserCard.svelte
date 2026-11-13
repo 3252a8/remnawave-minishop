@@ -2,6 +2,7 @@
   import { AdminUserCell } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { TranslateFn } from "$lib/admin/stores/usersStoreState";
+  import { formatMoney } from "$lib/webapp/formatters.js";
 
   let {
     user,
@@ -24,6 +25,23 @@
     [at("user_telegram_id", {}, "Telegram ID"), user.telegram_id],
     [at("relationships_username", {}, "TG username"), user.username ? `@${user.username}` : null],
     [at("relationships_email", {}, "Email"), user.email],
+    [
+      at("relationships_subscription"),
+      user.subscription_active == null
+        ? null
+        : user.subscription_active
+          ? at("relationships_subscription_active")
+          : at("relationships_subscription_inactive"),
+    ],
+    [at("relationships_tariff"), user.current_tariff_key],
+    [
+      at("relationships_revenue"),
+      user.revenue_by_currency
+        ? Object.entries(user.revenue_by_currency)
+            .map(([currency, amount]) => formatMoney(amount, currency))
+            .join(" · ") || "0"
+        : null,
+    ],
   ]);
 </script>
 

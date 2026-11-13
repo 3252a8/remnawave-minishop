@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import UserExtensionPoint from "../extensions/UserExtensionPoint.svelte";
   import GiftEntry from "../gifts/GiftEntry.svelte";
   import { ChevronDown, CircleQuestionMark, Gift } from "$components/ui/icons.js";
@@ -10,6 +11,8 @@
   import { StatusMessage } from "$components/patterns/webapp/index.js";
   import { visibleReferralLinks, type ReferralLinkEntry } from "$lib/webapp/referralLinks.js";
   import { formatReceivedSince, referralStats } from "$lib/webapp/referralStats.js";
+  import { trackLinkedSubsection } from "$lib/webapp/linkedSubsectionScroll.js";
+  import { inviteSubsectionFromPath } from "$lib/webapp/routes.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import type {
     CopyTextAction,
@@ -36,6 +39,7 @@
     referralBonusListMode?: ReferralBonusListMode;
     referralOneBonusPerReferee?: boolean;
     referralWelcomeBonusDays?: number;
+    routePrefix?: string;
     setPromoCode?: StringAction;
     t?: Translate;
   };
@@ -47,6 +51,7 @@
     referralBonusListMode = "plain",
     referralOneBonusPerReferee = false,
     referralWelcomeBonusDays = 0,
+    routePrefix = "",
     promoBusy = false,
     promoCode = "",
     promoFieldError = "",
@@ -75,6 +80,17 @@
   const PERIOD_BONUS_LIST_TRANSITION = { duration: 220 };
   let periodBonusListOpen = $state(false);
   let qrLink = $state<ReferralLinkEntry | null>(null);
+  function scrollToLinkedSubsection(content: HTMLElement) {
+    const getSubsection = () => inviteSubsectionFromPath(window.location.pathname, routePrefix);
+    return trackLinkedSubsection(
+      content,
+      () => Boolean(getSubsection()),
+      () => {
+        const subsection = getSubsection();
+        return subsection ? content.querySelector(`#invite-${subsection}`) : null;
+      }
+    );
+  }
 
   $effect(() => {
     periodBonusListOpen = referralBonusListMode === "expanded";
@@ -88,10 +104,13 @@
   }
 </script>
 
-<main class="content with-nav">
-  <UserExtensionPoint target="user.invite.gifts"><GiftEntry {t} full /></UserExtensionPoint>
+<main class="content with-nav" {@attach scrollToLinkedSubsection}>
+  <UserExtensionPoint target="user.invite.gifts">
+    <GiftEntry id="invite-gifts" {t} full />
+  </UserExtensionPoint>
   <UserExtensionPoint target="user.invite.codes">
     <PromoActivationCard
+      id="invite-codes"
       {promoCode}
       {promoFieldError}
       {promoBusy}
@@ -169,18 +188,16 @@
     {/each}
   {/snippet}
   <UserExtensionPoint target="user.invite.referrals">
-    {#if referralProgramEnabled}<section class="referral-program-shell">
+    {#if referralProgramEnabled}<section id="invite-referrals" class="referral-program-shell">
         <div class="referral-program-content">
           <Card class="bonus-card">
-            <div class="bonus-card-head">
-              <Gift size={42} />
-              <div>
-                <strong>{t("wa_referral_bonus_overview_title")}</strong>
-                {#if referralOneBonusPerReferee}
-                  <p>{t("wa_referral_bonus_once_note")}</p>
-                {/if}
-              </div>
-            </div>
+            <ScreenHeading
+              level={2}
+              title={t("wa_referral_bonus_overview_title")}
+              subtitle={referralOneBonusPerReferee ? t("wa_referral_bonus_once_note") : ""}
+            >
+              {#snippet icon()}<Gift />{/snippet}
+            </ScreenHeading>
             <dl class="referral-stats">
               <div class="referral-stat">
                 <dt>{t("wa_referral_stats_invited")}</dt>

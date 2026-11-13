@@ -1347,7 +1347,7 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
         )
         email_service.send_rendered_email.assert_awaited_once()
 
-    async def test_oidc_account_merge_notifies_admin_with_provider(self):
+    async def test_confirmed_account_merges_notify_admin_with_source(self):
         notification_service = SimpleNamespace(notify_account_merged=AsyncMock())
         email_service = SimpleNamespace(send_rendered_email=AsyncMock())
         ctx = _context(
@@ -1361,35 +1361,47 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             return_value=SimpleNamespace(subject="subject", html="html", text="text"),
         ):
             register_core_reactions(ctx)
-            await events.emit(
-                events.ACCOUNT_MERGED,
-                {
-                    "source_user_id": -100,
-                    "target_user_id": 42,
-                    "reason": "google_verified_email_link",
-                    "send_user_email": True,
-                    "email": "alice@example.test",
-                    "telegram_id": 42,
-                    "username": "alice",
-                    "first_name": "Alice",
-                    "language": "en",
-                },
-            )
+            for reason, provider in (
+                ("google_verified_email_link", "google"),
+                ("explicit_google_merge", "google"),
+                ("explicit_yandex_merge", "yandex"),
+                ("explicit_discord_merge", "discord"),
+                ("explicit_telegram_merge", None),
+                ("explicit_email_merge", None),
+                ("admin_manual_merge:123", None),
+            ):
+                with self.subTest(reason=reason):
+                    notification_service.notify_account_merged.reset_mock()
+                    email_service.send_rendered_email.reset_mock()
+                    await events.emit(
+                        events.ACCOUNT_MERGED,
+                        {
+                            "source_user_id": -100,
+                            "target_user_id": 42,
+                            "reason": reason,
+                            "send_user_email": True,
+                            "email": "alice@example.test",
+                            "telegram_id": 42,
+                            "username": "alice",
+                            "first_name": "Alice",
+                            "language": "en",
+                        },
+                    )
 
-        notification_service.notify_account_merged.assert_awaited_once_with(
-            primary_user_id=42,
-            removed_user_id=-100,
-            email="alice@example.test",
-            telegram_id=42,
-            username="alice",
-            first_name="Alice",
-            final_end_date_text="",
-            primary_panel_user_uuid=None,
-            source_panel_user_uuid=None,
-            reason="google_verified_email_link",
-            provider="google",
-        )
-        email_service.send_rendered_email.assert_awaited_once()
+                    notification_service.notify_account_merged.assert_awaited_once_with(
+                        primary_user_id=42,
+                        removed_user_id=-100,
+                        email="alice@example.test",
+                        telegram_id=42,
+                        username="alice",
+                        first_name="Alice",
+                        final_end_date_text="",
+                        primary_panel_user_uuid=None,
+                        source_panel_user_uuid=None,
+                        reason=reason.partition(":")[0],
+                        provider=provider,
+                    )
+                    email_service.send_rendered_email.assert_awaited_once()
 
     async def test_partner_application_events_notify_admin_and_user(self):
         user = SimpleNamespace(user_id=42)

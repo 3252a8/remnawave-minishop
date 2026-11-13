@@ -743,6 +743,7 @@ class PlategaSubscriptionMixin(PlategaSubscriptionRuntime):
                 session,
                 int(anchor.payment_id),
                 provider_payment_id=str(record.platega_subscription_id),
+                provider_method="subscription",
             )
         except Exception:
             await session.rollback()
@@ -829,6 +830,7 @@ class PlategaSubscriptionMixin(PlategaSubscriptionRuntime):
                 session,
                 int(payment.payment_id),
                 provider_payment_id=charge_id,
+                provider_method="subscription",
             )
         except Exception:
             await session.rollback()

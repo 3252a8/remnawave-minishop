@@ -8,11 +8,13 @@
     plugin,
     view,
     composition,
+    context = {},
     children,
   }: {
     plugin: UserExtensionPlugin;
     view: UserExtensionView;
     composition: UserCompositionContext;
+    context?: Record<string, unknown>;
     children?: Snippet;
   } = $props();
   let status = $state<"loading" | "ready" | "failed">("loading");
@@ -32,6 +34,7 @@
       routePrefix={composition.routePrefix}
       context={{
         ...composition.context,
+        ...context,
         target: view.target,
         viewId: view.id,
         parent: view.parent,

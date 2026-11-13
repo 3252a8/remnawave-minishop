@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 RESERVED = re.compile(
-    r"^(?:ref_|p_|promo_|plan_|gift_|admin_|ticket_|webapp_auth_)|^(?:notifications|page_ref)$",
+    r"^(?:ref_|p_|promo_|plan_|gift_|admin_|ticket_|webapp_auth_|page_)|^notifications$",
     re.I,
 )
 UTM_KEYS = ("utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term")

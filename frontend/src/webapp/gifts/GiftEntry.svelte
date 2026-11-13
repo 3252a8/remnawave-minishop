@@ -1,11 +1,12 @@
 <script lang="ts">
+  import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import { Gift, ArrowRight } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { giftState } from "$lib/webapp/gifts.svelte.js";
   import type { Translate } from "$lib/webapp/types.js";
   import GiftCard from "./GiftCard.svelte";
-  let { t, full = false }: { t: Translate; full?: boolean } = $props();
+  let { t, full = false, id }: { t: Translate; full?: boolean; id?: string } = $props();
   let copied = $state(false);
   async function copy(link: string) {
     try {
@@ -18,20 +19,24 @@
 </script>
 
 {#if giftState.enabled || giftState.gifts.length || giftState.token || giftState.pending}
-  <Card class="gift-entry">
-    <div class="gift-intro">
-      <div class="gift-entry-icon"><Gift size={25} /></div>
-      <div>
-        <h2>{t(full ? "wa_gift_my_gifts" : "wa_gift_entry_title")}</h2>
-        {#if giftState.enabled}<p>{t("wa_gift_entry_description")}</p>{/if}
-      </div>
-      {#if giftState.enabled}<Button
-          variant="secondary"
-          onclick={() => {
-            giftState.purchaseRequested = true;
-          }}><span>{t("wa_gift_buy")}</span><ArrowRight size={16} /></Button
-        >{/if}
-    </div>
+  <Card class="gift-entry" {id}>
+    <ScreenHeading
+      class="gift-intro"
+      stackActions
+      level={2}
+      title={t(full ? "wa_gift_my_gifts" : "wa_gift_entry_title")}
+      subtitle={giftState.enabled ? t("wa_gift_entry_description") : ""}
+    >
+      {#snippet icon()}<Gift />{/snippet}
+      {#snippet actions()}
+        {#if giftState.enabled}<Button
+            variant="secondary"
+            onclick={() => {
+              giftState.purchaseRequested = true;
+            }}><span>{t("wa_gift_buy")}</span><ArrowRight size={16} /></Button
+          >{/if}
+      {/snippet}
+    </ScreenHeading>
     {#if full}
       <div class="gift-list">
         {#if giftState.loading}<p>{t("wa_loading")}</p>
@@ -74,23 +79,6 @@
     min-width: 0;
     background: var(--panel);
   }
-  .gift-intro {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-  }
-  .gift-entry-icon {
-    color: var(--accent);
-    display: flex;
-  }
-  .gift-intro > div:nth-child(2) {
-    flex: 1;
-  }
-  h2 {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 650;
-  }
   p {
     color: var(--muted);
     font-size: 13px;
@@ -111,13 +99,5 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 14px;
     margin-top: 16px;
-  }
-  @media (max-width: 520px) {
-    .gift-intro {
-      flex-wrap: wrap;
-    }
-    .gift-intro :global(button) {
-      width: 100%;
-    }
   }
 </style>

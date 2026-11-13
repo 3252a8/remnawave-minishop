@@ -18,12 +18,12 @@ button:disabled {
   color: var(--text);
   font: inherit;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.1;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
   transition:
     transform 0.16s ease,
     border-color 0.16s ease,
@@ -32,20 +32,13 @@ button:disabled {
     color 0.16s ease;
 }
 
-.btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-soft);
-}
-
 .btn:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(1px);
 }
 
 .btn:focus-visible {
   outline: none;
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent),
-    var(--shadow-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .btn.wide,
@@ -53,6 +46,8 @@ button:disabled {
   width: 100%;
 }
 
+/* The cabinet keeps its accent gradient and glowing progress bars by design;
+   the flat treatment applies to surfaces, not to these brand accents. */
 .btn-primary {
   border-color: color-mix(in srgb, var(--accent) 72%, white);
   background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 76%, white));

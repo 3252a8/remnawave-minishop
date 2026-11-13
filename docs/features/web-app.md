@@ -28,6 +28,41 @@
 **пользователей** (поиск, фильтры, premium-трафик), партнёров, поддержку, рассылки, промокоды,
 логи, настройки и редактор тарифов. Подробности: [админ-панель](admin-panel.md).
 
+## Прямые ссылки на разделы
+
+Чтобы открыть личный реферальный раздел из новостного канала или с сайта,
+используйте один из адресов:
+
+- Бот: `https://t.me/example_bot?start=page_ref`. После нажатия «Запустить» бот показывает реферальный раздел.
+- Telegram Mini App: `https://t.me/example_bot?startapp=page_ref` для основного приложения
+  или `https://t.me/example_bot/my_app?startapp=page_ref` для именованного.
+- Браузерный кабинет: `https://app.example.com/invite/referrals`.
+
+Замените имя бота, имя Mini App и домен на значения своей установки. В Mini App и
+кабинете страница прокручивается к реферальному блоку после загрузки и входа.
+Такая ссылка открывает данные текущего пользователя. Для атрибуции нового
+приглашения используются отдельные ссылки с кодом приглашения.
+
+| Раздел | Параметр `startapp` | Путь в браузере |
+| --- | --- | --- |
+| Главная | `page_home` | `/home` |
+| Тарифы | `page_plans` | `/plans` |
+| Установка и пробный период | `page_install`, `page_trial` | `/install`, `/trial` |
+| Бонусы, рефералы, подарки и коды активации | `page_invite`, `page_ref`, `page_gifts`, `page_codes` | `/invite`, `/invite/referrals`, `/invite/gifts`, `/invite/codes` |
+| Партнёрство и устройства | `page_partner`, `page_devices` | `/partner`, `/devices` |
+| Партнёрские ссылки, баланс, клиенты, комиссии и выплаты | `page_partner-links`, `page_partner-balance`, `page_partner-clients`, `page_partner-commissions`, `page_partner-withdrawals` | `/partner/links`, `/partner/balance`, `/partner/clients`, `/partner/commissions`, `/partner/withdrawals` |
+| Поддержка, новый тикет и существующий тикет | `page_support`, `page_support-new`, `ticket_<id>` | `/support`, `/support/new`, `/support/<id>` |
+| Настройки, уведомления, платежи и безопасность | `page_settings`, `page_notifications`, `page_payment-history`, `page_security` | `/settings`, `/settings/notifications`, `/settings/payments`, `/settings/security` |
+| Статус серверов и расширения | `page_status`, `page_extensions` | `/status`, `/extensions` |
+
+В боте параметр `start` открывает встроенные разделы `page_ref`, `page_plans`,
+`page_subscription`, `page_install`, `page_devices`, `page_language`,
+`page_codes`, `page_bot`, `page_trial`, `page_support` и `page_info`.
+Для разделов кабинета бот предлагает кнопку перехода в Mini App, если он настроен.
+Ссылки соблюдают настройки доступности разделов и проверку обязательной подписки
+на канал. Параметры `startapp=invite` и `startapp=partner` по-прежнему открывают
+соответственно «Бонусы» и отдельную партнёрскую программу.
+
 ## Оформление period-подписки
 
 Перед выбором срока Mini App показывает компактную карточку тарифа: название, описание,

@@ -38,6 +38,12 @@ from .chain_0106_support_connector import CHAIN_0106_SUPPORT_CONNECTOR
 from .chain_0107_cleaned_trial_history import CHAIN_0107_CLEANED_TRIAL_HISTORY
 from .chain_0108_telegram_observations import CHAIN_0108_TELEGRAM_OBSERVATIONS
 from .chain_0109_subscription_days_payments import CHAIN_0109_SUBSCRIPTION_DAYS_PAYMENTS
+from .chain_0110_telegram_birthdays import CHAIN_0110_TELEGRAM_BIRTHDAYS
+from .chain_0111_payment_provider_method import CHAIN_0111_PAYMENT_PROVIDER_METHOD
+from .chain_0112_payment_provider_fee_amount import CHAIN_0112_PAYMENT_PROVIDER_FEE_AMOUNT
+from .chain_0113_promo_subscription_restrictions import CHAIN_0113_PROMO_SUBSCRIPTION_RESTRICTIONS
+from .chain_0114_support_message_images import CHAIN_0114_SUPPORT_MESSAGE_IMAGES
+from .chain_0115_broadcast_audiences import CHAIN_0115_BROADCAST_AUDIENCES
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -77,4 +83,10 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0107_CLEANED_TRIAL_HISTORY,
     *CHAIN_0108_TELEGRAM_OBSERVATIONS,
     *CHAIN_0109_SUBSCRIPTION_DAYS_PAYMENTS,
+    *CHAIN_0110_TELEGRAM_BIRTHDAYS,
+    *CHAIN_0111_PAYMENT_PROVIDER_METHOD,
+    *CHAIN_0112_PAYMENT_PROVIDER_FEE_AMOUNT,
+    *CHAIN_0113_PROMO_SUBSCRIPTION_RESTRICTIONS,
+    *CHAIN_0114_SUPPORT_MESSAGE_IMAGES,
+    *CHAIN_0115_BROADCAST_AUDIENCES,
 ]

@@ -73,6 +73,7 @@ WEBHOOK_PROFILES = {
         "overpay",
         "oxapay",
         "pally",
+        "payhot",
         "paykilla",
         "platega",
         "rollypay",

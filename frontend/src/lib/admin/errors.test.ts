@@ -6,6 +6,7 @@ const messages: Record<string, string> = {
   error_payment_api_origin: "Pin the payment API origin in the operator configuration",
   error_image_dimensions: "Image dimensions are not supported",
   error_image_type: "Image type is not supported",
+  error_advertiser_not_found: "Advertiser not found. Copy the internal ID from the user card.",
   error_invalid_audience:
     "The recipient was not found. Refresh or reopen the user card and try again.",
   error_tariff_change_failed: "Tariff sync failed",
@@ -44,6 +45,12 @@ describe("adminErrorMessage", () => {
   it("explains an invalid direct-message audience", () => {
     expect(adminErrorMessage({ error: "invalid_audience" }, at, "Broadcast failed")).toBe(
       "The recipient was not found. Refresh or reopen the user card and try again."
+    );
+  });
+
+  it("explains which ID to use when the advertiser is missing", () => {
+    expect(adminErrorMessage({ ok: false, error: "advertiser_not_found" }, at)).toBe(
+      messages.error_advertiser_not_found
     );
   });
 

@@ -5,8 +5,8 @@ export function referralStartParam(value: unknown): string {
   if (typeof value !== "string") return "";
   const raw = decodeInvitationPayload(value.trim());
   if (
-    /^(?:promo|plan|gift|ticket|admin|ext)_/i.test(raw) ||
-    /^(?:home|plans|checkout|invite|partner|install|trial|devices|support|settings|notifications|security|status|admin|extensions|balance|gifts)$/i.test(
+    /^(?:promo|plan|gift|ticket|admin|ext|page)_/i.test(raw) ||
+    /^(?:home|plans|checkout|invite|partner|install|trial|devices|support|settings|notifications|payment-history|security|status|admin|extensions|balance|gifts)$/i.test(
       raw
     ) ||
     /^[/#]/.test(raw)

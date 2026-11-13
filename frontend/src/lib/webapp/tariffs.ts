@@ -77,6 +77,7 @@ export type BillingPlan = WebappRecord & {
   duration_days?: number | string | null;
   monthly_gb?: number | string | null;
   premium_enabled?: boolean | null;
+  shop_premium_enabled?: boolean;
   premium_monthly_gb?: number | string | null;
   premium_title?: string | null;
   premium_traffic_limit_strategy?: string | null;

@@ -77,7 +77,7 @@
   } = $props();
 </script>
 
-<Card class="partner-stats-card" data-tour="clients">
+<Card id="partner-activity" class="partner-stats-card" data-tour="clients">
   <div class="partner-section-head">
     <div class="partner-section-title">
       <History size={30} />

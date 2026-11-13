@@ -39,6 +39,12 @@ class WebappBootstrapLanguageOut(HttpResponseModel):
     base: bool
 
 
+class WebappPluginLoginProviderOut(HttpResponseModel):
+    id: str
+    name: str
+    start_path: str = Field(alias="startPath")
+
+
 class WebappBootstrapConfigOut(HttpResponseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
@@ -79,6 +85,9 @@ class WebappBootstrapConfigOut(HttpResponseModel):
     notification_preferences_enabled: bool = Field(alias="notificationPreferencesEnabled")
     dev_mode: bool = Field(alias="devMode")
     auth_providers: list[str] = Field(alias="authProviders")
+    plugin_login_providers: list[WebappPluginLoginProviderOut] = Field(
+        default_factory=list, alias="pluginLoginProviders"
+    )
     recommended_auth_providers: list[str] = Field(alias="recommendedAuthProviders")
     wide_auth_providers: list[str] = Field(alias="wideAuthProviders")
     registration_invite_only_enabled: bool = Field(alias="registrationInviteOnlyEnabled")
@@ -396,6 +405,7 @@ PLAN_SCHEMA: dict[str, Any] = {
         "hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "effective_hwid_device_limit": NULLABLE_INTEGER_SCHEMA,
         "premium_enabled": BOOLEAN_SCHEMA,
+        "shop_premium_enabled": BOOLEAN_SCHEMA,
         "premium_monthly_gb": NULLABLE_NUMBER_SCHEMA,
         "premium_title": STRING_SCHEMA,
         "premium_unlimited": BOOLEAN_SCHEMA,
@@ -577,6 +587,7 @@ WEBAPP_USER_SCHEMA: dict[str, Any] = {
         "telegram_notifications_need_prompt": BOOLEAN_SCHEMA,
         "telegram_notifications_start_link": NULLABLE_STRING_SCHEMA,
         "telegram_photo_url": STRING_SCHEMA,
+        "telegram_photo_fallback_url": STRING_SCHEMA,
         "first_name": NULLABLE_STRING_SCHEMA,
         "language_code": STRING_SCHEMA,
         "is_admin": BOOLEAN_SCHEMA,

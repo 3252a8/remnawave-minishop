@@ -69,7 +69,7 @@
 
 Модель данных события: `AccountTelegramLinkedPayload`
 
-Источники события: `backend/bot/app/web/webapp/account.py`, `backend/bot/app/web/webapp/account_merge.py`
+Источники события: `backend/bot/app/web/webapp/account_merge.py`, `backend/bot/app/web/webapp/auth_panel.py`
 
 Реакции Core: `CoreEventReactions.on_account_telegram_linked`
 

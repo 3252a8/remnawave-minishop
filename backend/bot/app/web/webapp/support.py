@@ -11,7 +11,7 @@ from bot.app.web.context import (
     get_support_service,
 )
 from bot.app.web.message_image_responses import message_image_response
-from bot.app.web.request_parsing import parse_body_with_optional_image_or_400
+from bot.app.web.request_parsing import parse_body_with_images_or_400
 from bot.app.web.support_schemas import (
     SupportMessageOut,
     SupportPaymentOut,
@@ -23,7 +23,7 @@ from bot.services.broadcast_personalization import telegram_html_error
 from bot.services.message_image_service import (
     MessageImageError,
     load_message_image,
-    prepare_message_image,
+    prepare_support_message_images,
 )
 from bot.services.support_message_body import SupportBodyError
 from bot.services.support_payment_body import SupportPaymentUnavailable
@@ -116,15 +116,15 @@ def _invalid_body_response(body: str, body_format: str) -> web.Response | None:
 
 async def support_create_ticket_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
-    payload, upload = await parse_body_with_optional_image_or_400(
+    payload, uploads = await parse_body_with_images_or_400(
         request,
         CreateTicketPayload,
     )
     try:
-        image = await prepare_message_image(upload)
+        images = await prepare_support_message_images(uploads)
     except MessageImageError as exc:
         return _json_error(400, exc.code, exc.detail)
-    if not payload.body and image is None:
+    if not payload.body and not images:
         return _json_error(400, "empty_text", "Message is empty")
     invalid = _invalid_body_response(payload.body, payload.body_format)
     if invalid is not None:
@@ -138,7 +138,7 @@ async def support_create_ticket_route(request: web.Request) -> web.Response:
             payload.priority,
             payload.body,
             body_format=payload.body_format,
-            image=image,
+            images=images,
             payment_id=payload.payment_id,
         )
     except SupportPaymentUnavailable:
@@ -194,15 +194,15 @@ async def support_ticket_detail_route(request: web.Request) -> web.Response:
 async def support_ticket_reply_route(request: web.Request) -> web.Response:
     user_id = _require_user_id(request)
     ticket_id = int(request.match_info["id"])
-    payload, upload = await parse_body_with_optional_image_or_400(
+    payload, uploads = await parse_body_with_images_or_400(
         request,
         TicketReplyPayload,
     )
     try:
-        image = await prepare_message_image(upload)
+        images = await prepare_support_message_images(uploads)
     except MessageImageError as exc:
         return _json_error(400, exc.code, exc.detail)
-    if not payload.body and image is None:
+    if not payload.body and not images:
         return _json_error(400, "empty_text", "Message is empty")
     invalid = _invalid_body_response(payload.body, payload.body_format)
     if invalid is not None:
@@ -214,7 +214,7 @@ async def support_ticket_reply_route(request: web.Request) -> web.Response:
             ticket_id,
             payload.body,
             body_format=payload.body_format,
-            image=image,
+            images=images,
         )
     except SupportBodyError:
         return _json_error(400, "empty_text", "Message is empty")

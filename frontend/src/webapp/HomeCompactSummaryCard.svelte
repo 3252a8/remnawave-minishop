@@ -486,27 +486,12 @@
   }
   :global(section.home-compact-summary-warning) {
     border-color: var(--warning-border);
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--warning) 22%, var(--surface-sheen-soft)),
-        color-mix(in srgb, var(--warning) 11%, var(--surface-sheen-soft))
-      ),
-      var(--panel);
-    box-shadow:
-      var(--shadow-soft),
-      0 0 0 1px color-mix(in srgb, var(--warning) 16%, transparent),
-      inset 0 1px 0 var(--inset-highlight);
+    background: color-mix(in srgb, var(--warning) 9%, var(--panel));
+    box-shadow: none;
   }
   :global(section.home-compact-summary-inactive) {
     border-color: color-mix(in srgb, var(--danger) 58%, var(--border));
-    background:
-      linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--danger) 20%, var(--surface-sheen-soft)),
-        color-mix(in srgb, var(--danger) 8%, var(--surface-sheen-soft))
-      ),
-      var(--panel);
+    background: color-mix(in srgb, var(--danger) 8%, var(--panel));
   }
   .compact-summary-head {
     min-width: 0;

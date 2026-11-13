@@ -78,6 +78,8 @@ class PromoEffects:
     applies_to: str = PROMO_APPLIES_TO_ALL
     min_subscription_months: int | None = None
     min_subscription_days: int | None = None
+    subscription_tariff_key: str | None = None
+    exact_subscription_days: int | None = None
     min_traffic_gb: float | None = None
 
     @classmethod
@@ -101,6 +103,8 @@ class PromoEffects:
             applies_to=applies_to if applies_to in ALLOWED_PROMO_SCOPES else PROMO_APPLIES_TO_ALL,
             min_subscription_months=min_subscription_months,
             min_subscription_days=_optional_int(getattr(promo, "min_subscription_days", None)),
+            subscription_tariff_key=getattr(promo, "subscription_tariff_key", None),
+            exact_subscription_days=_optional_int(getattr(promo, "exact_subscription_days", None)),
             min_traffic_gb=min_traffic_gb,
         )
 
@@ -151,6 +155,10 @@ class PromoEffects:
             min_subscription_days=_optional_int(
                 getattr(payment, "promo_min_subscription_days", None)
             ),
+            subscription_tariff_key=getattr(payment, "promo_subscription_tariff_key", None),
+            exact_subscription_days=_optional_int(
+                getattr(payment, "promo_exact_subscription_days", None)
+            ),
             min_traffic_gb=_optional_float(getattr(payment, "promo_min_traffic_gb", None)),
         )
 
@@ -168,6 +176,7 @@ class PromoEffects:
             self.min_subscription_days is not None
             or self.min_subscription_months is not None
             or self.min_traffic_gb is not None
+            or self.has_subscription_restrictions
         )
 
     @property
@@ -222,6 +231,24 @@ class PromoEffects:
     def applies_to_sale_mode(self, sale_mode_base: str) -> bool:
         scope = sale_mode_bonus_scope(sale_mode_base)
         return self.applies_to == PROMO_APPLIES_TO_ALL or self.applies_to == scope
+
+    @property
+    def has_subscription_restrictions(self) -> bool:
+        return self.subscription_tariff_key is not None or self.exact_subscription_days is not None
+
+    def matches_subscription(
+        self, sale_mode_base: str, tariff_key: str | None, duration_days: int | None
+    ) -> bool:
+        if not self.has_subscription_restrictions:
+            return True
+        return (
+            sale_mode_base == "subscription"
+            and (self.subscription_tariff_key is None or self.subscription_tariff_key == tariff_key)
+            and (
+                self.exact_subscription_days is None
+                or self.exact_subscription_days == duration_days
+            )
+        )
 
     def meets_threshold(
         self,
@@ -306,6 +333,19 @@ def validate_effects(
         and legacy_months_to_days(effects.min_subscription_months) != effects.min_subscription_days
     ):
         errors.append("conflicting_subscription_thresholds")
+    if effects.has_subscription_restrictions and effects.applies_to not in {
+        PROMO_APPLIES_TO_ALL,
+        PROMO_APPLIES_TO_SUBSCRIPTION,
+    }:
+        errors.append("subscription_threshold_scope_mismatch")
+    if effects.exact_subscription_days is not None:
+        minimum_days = effects.min_subscription_days or (
+            legacy_months_to_days(effects.min_subscription_months)
+            if effects.min_subscription_months and effects.min_subscription_months > 0
+            else 1
+        )
+        if not minimum_days <= effects.exact_subscription_days <= 2147483647:
+            errors.append("invalid_exact_subscription_days")
     if effects.min_traffic_gb is not None and effects.min_traffic_gb <= 0:
         errors.append("invalid_min_traffic_gb")
     if (
@@ -366,6 +406,10 @@ def summarize_effects(effects: PromoEffects) -> str:
         parts.append(f"+{effects.regular_traffic_gb:g} GB regular")
     if effects.premium_traffic_gb > 0:
         parts.append(f"+{effects.premium_traffic_gb:g} GB premium")
+    if effects.subscription_tariff_key:
+        parts.append(f"tariff {effects.subscription_tariff_key}")
+    if effects.exact_subscription_days:
+        parts.append(f"exactly {effects.exact_subscription_days} days")
     if effects.min_subscription_days:
         parts.append(f"from {effects.min_subscription_days} days")
     elif effects.min_subscription_months:

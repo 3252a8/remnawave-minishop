@@ -2,9 +2,11 @@
 // user-agent strings. Matching is word-bounded because short tokens like "ios",
 // "tv" and "pc" otherwise appear inside unrelated words surprisingly often.
 
-export type DeviceShape = "phone" | "tablet" | "laptop" | "desktop" | "tv";
+export type DeviceShape = "phone" | "tablet" | "laptop" | "desktop" | "tv" | "router";
 
 interface DeviceGlyphSource {
+  device_type?: unknown;
+  device_model?: unknown;
   display_name?: unknown;
   platform?: unknown;
   platform_label?: unknown;
@@ -14,7 +16,7 @@ interface DeviceGlyphSource {
 
 function haystack(device: DeviceGlyphSource | null | undefined): string {
   return [
-    device?.display_name,
+    device?.device_model ?? device?.display_name,
     device?.platform,
     device?.platform_label,
     device?.os_version,
@@ -30,6 +32,19 @@ function matcher(words: readonly string[]): RegExp {
 }
 
 const TV = matcher(["tv", "tvos", "appletv", "shield", "firestick", "chromecast"]);
+const ROUTER = matcher([
+  "router",
+  "open[\\s_-]?wrt",
+  "lede",
+  "keenetic(?:[\\s_-]?os)?",
+  "ndms",
+  "router[\\s_-]?os",
+  "mikrotik",
+  "dd[\\s_-]?wrt",
+  "asus[\\s_-]?wrt(?:[\\s_-]?merlin)?",
+  "fresh[\\s_-]?tomato",
+  "advanced[\\s_-]?tomato",
+]);
 const TABLET = matcher(["ipad", "tablet", "tab", "pad", "surface"]);
 const LAPTOP = matcher(["macbook", "laptop", "notebook", "thinkpad", "chromebook", "book"]);
 const DESKTOP = matcher(["imac", "mac mini", "mac studio", "mac pro", "desktop", "pc"]);
@@ -37,11 +52,24 @@ const PHONE = matcher(["iphone", "phone", "pixel", "galaxy", "xiaomi", "redmi", 
 const APPLE_MOBILE = matcher(["ios", "ipados", "iphone", "ipad"]);
 const ANDROID = matcher(["android", "harmonyos", "grapheneos"]);
 const WINDOWS = matcher(["windows", "win32", "win64", "winnt", "microsoft"]);
-const LINUX = matcher(["linux", "ubuntu", "debian", "fedora", "arch", "openwrt"]);
+const LINUX = matcher(["linux", "ubuntu", "debian", "fedora", "arch"]);
 const MAC_COMPUTER = matcher(["macos", "mac os", "macintosh", "darwin"]);
 
 export function resolveDeviceShape(device: DeviceGlyphSource | null | undefined): DeviceShape {
+  // Core's normalized metadata is authoritative; the heuristics support older payloads.
+  switch (device?.device_type) {
+    case "phone":
+    case "tablet":
+    case "laptop":
+    case "desktop":
+    case "tv":
+    case "router":
+      return device.device_type;
+    case "unknown":
+      return "phone";
+  }
   const text = haystack(device);
+  if (ROUTER.test(text)) return "router";
   if (TV.test(text)) return "tv";
   if (TABLET.test(text)) return "tablet";
   if (LAPTOP.test(text)) return "laptop";

@@ -5,15 +5,9 @@ from contextlib import suppress
 
 from aiogram import Dispatcher
 from aiogram.exceptions import TelegramNetworkError
-from aiogram.types import (
-    MenuButtonDefault,
-    MenuButtonWebApp,
-    WebAppInfo,
-)
 
 from bot.app.controllers.dispatcher_context import (
     get_dispatcher_bot,
-    get_dispatcher_i18n,
     get_dispatcher_service,
     get_dispatcher_settings,
     set_dispatcher_bot_username,
@@ -29,6 +23,7 @@ from bot.routers import build_root_router
 from bot.services.event_reactions import register_core_reactions
 from bot.services.message_log_notifier import configure_message_log_notifier
 from bot.services.telegram_bot_commands import sync_telegram_bot_commands
+from bot.services.telegram_chat_menu import sync_telegram_chat_menu
 from bot.utils.message_queue import init_queue_manager
 from config.settings import Settings
 from config.telegram_proxy import safe_telegram_network_error_detail
@@ -168,31 +163,14 @@ async def configure_telegram_webhook(dispatcher: Dispatcher) -> None:
 async def on_startup_configured(dispatcher: Dispatcher):
     bot = get_dispatcher_bot(dispatcher)
     settings = get_dispatcher_settings(dispatcher)
-    i18n_instance = get_dispatcher_i18n(dispatcher)
 
     logger.info("STARTUP: on_startup_configured executing...")
 
-    if settings.SUBSCRIPTION_MINI_APP_URL:
-
-        async def _configure_mini_app_menu() -> None:
-            menu_text = i18n_instance.gettext(
-                settings.DEFAULT_LANGUAGE,
-                "menu_personal_account_button",
-            )
-            await bot.set_chat_menu_button(
-                menu_button=MenuButtonWebApp(
-                    text=menu_text,
-                    web_app=WebAppInfo(url=settings.SUBSCRIPTION_MINI_APP_URL),
-                )
-            )
-            await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
-            logger.info("STARTUP: Mini app domain registered and default menu button restored.")
-
-        await _run_telegram_startup_step(
-            "registering mini app menu button",
-            _configure_mini_app_menu,
-            "STARTUP: Failed to register mini app domain.",
-        )
+    await _run_telegram_startup_step(
+        "setting the Telegram chat menu button",
+        lambda: sync_telegram_chat_menu(bot, settings),
+        "STARTUP: Failed to set the Telegram chat menu button.",
+    )
 
     async def _configure_bot_commands() -> None:
         await sync_telegram_bot_commands(bot, settings)

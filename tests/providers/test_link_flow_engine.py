@@ -129,7 +129,7 @@ def test_callback_create_path_calls_create_and_renders(monkeypatch):
     )
     monkeypatch.setattr(link_flow, "payment_dal", fake_dal)
 
-    desc = _descriptor()
+    desc = _descriptor(provider_method="sbp")
     service = _FakeService()
     asyncio.run(
         run_callback_payment(
@@ -144,6 +144,7 @@ def test_callback_create_path_calls_create_and_renders(monkeypatch):
     assert isinstance(req, CreatePaymentRequest)
     assert req.payment is payment and req.user_id == 456 and req.amount == 100.0
     assert link_flow.build_payment_record_payload.call_args.kwargs["user_id"] == 456
+    assert link_flow.build_payment_record_payload.call_args.kwargs["provider_method"] == "sbp"
     assert fake_dal.find_recent_pending_provider_payment.await_args.kwargs["user_id"] == 456
     telegram_account.user_dal.get_user_by_telegram_id.assert_awaited_once_with(
         fake_dal.create_payment_record.await_args.args[0], 123

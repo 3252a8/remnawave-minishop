@@ -24,7 +24,7 @@
 <NotificationPreferencesPanel
   {preferences}
   disabled={busy}
-  title={at("user_notifications_title", {}, "Notification preferences")}
+  title={at("user_notifications_channels_title", {}, "Notification channels")}
   description={at(
     "user_notifications_hint",
     {},

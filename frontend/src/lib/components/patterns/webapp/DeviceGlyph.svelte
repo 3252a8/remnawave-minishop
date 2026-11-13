@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Laptop, Monitor, Smartphone, Tablet, Tv } from "$components/ui/icons.js";
+  import { Laptop, Monitor, Router, Smartphone, Tablet, Tv } from "$components/ui/icons.js";
   import { resolveDeviceShape } from "$lib/webapp/deviceGlyph.js";
 
   type Props = {
@@ -12,7 +12,9 @@
   const shape = $derived(resolveDeviceShape(device as Record<string, unknown> | null));
 </script>
 
-{#if shape === "tablet"}
+{#if shape === "router"}
+  <Router class="device-glyph" data-device-shape={shape} {size} aria-hidden="true" />
+{:else if shape === "tablet"}
   <Tablet class="device-glyph" data-device-shape={shape} {size} aria-hidden="true" />
 {:else if shape === "laptop"}
   <Laptop class="device-glyph" data-device-shape={shape} {size} aria-hidden="true" />

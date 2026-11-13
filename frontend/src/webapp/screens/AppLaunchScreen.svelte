@@ -241,7 +241,7 @@
     box-sizing: border-box;
     font: inherit;
     font-size: 15px;
-    font-weight: 850;
+    font-weight: 700;
     text-decoration: none;
     cursor: pointer;
   }

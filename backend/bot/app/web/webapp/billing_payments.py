@@ -674,6 +674,7 @@ async def _create_subscription_payment(
                 "entitlement_context_changed",
                 "The active subscription no longer matches this purchase",
             )
+    period_start: datetime | None = None
     if _sale_mode_base(sale_mode) in {"subscription", "tariff_upgrade"} and not is_gift_sale(
         sale_mode
     ):
@@ -871,7 +872,8 @@ async def _create_subscription_payment(
                     bonus_days = promo_result.effects.bonus_days + multiplied_bonus_days(
                         fixed_days, promo_result.effects.duration_multiplier
                     )
-                    add_period_days(period_start, fixed_days + bonus_days)
+                    # A gift has no activation date yet, so check its duration from now.
+                    add_period_days(period_start or datetime.now(UTC), fixed_days + bonus_days)
                 except ValueError:
                     return _json_error(400, "invalid_plan", "Subscription end date is out of range")
             promo_code_id = promo_result.promo_code_id

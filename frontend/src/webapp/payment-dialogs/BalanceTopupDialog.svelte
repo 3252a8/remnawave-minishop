@@ -154,7 +154,7 @@
         response.payment_url || response.confirmation_url || response.url || ""
       ).trim();
       if (paymentUrl) {
-        openExternalLink(paymentUrl);
+        openExternalLink(paymentUrl, "payment");
         open = false;
         return;
       }

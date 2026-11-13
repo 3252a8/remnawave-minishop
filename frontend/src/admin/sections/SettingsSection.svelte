@@ -2,7 +2,7 @@
   import { getSettingsStore, getTranslationsStore } from "$lib/admin/context";
   import * as UiIcons from "$components/ui/icons.js";
   import SettingsContent from "./settings/SettingsContent.svelte";
-  import SettingsMaintenanceStatus from "./settings/SettingsMaintenanceStatus.svelte";
+  import MaintenanceStatus from "./MaintenanceStatus.svelte";
   import SettingsIconPicker from "./settings/SettingsIconPicker.svelte";
   import { onDestroy, onMount, tick } from "svelte";
   import { prefersReducedMotion } from "svelte/motion";
@@ -80,6 +80,13 @@
 
   const rawSettingsSections = $derived((settingsStore.settingsSections || []) as SettingsSection[]);
   const settingsSections = $derived(rawSettingsSections as AdminSettingsSection[]);
+  const maintenanceEnabled = $derived(
+    settingsSections.some((section) =>
+      section.fields.some(
+        (field) => field.key === "MAINTENANCE_MODE_ENABLED" && field.value === true
+      )
+    )
+  );
   const settingsLoading = $derived(Boolean(settingsStore.settingsLoading));
   const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
@@ -137,6 +144,25 @@
       fieldDescriptionText,
     }),
     ...programSearchEntries(),
+    {
+      key: "BIRTHDAY_ACTIVATION_CAMPAIGN",
+      sectionId: "promos",
+      subsectionId: "personal",
+      label: at("promo_birthday_title"),
+      description: at("promo_birthday_hint"),
+      pathLabel: at("promo_birthday_search_path"),
+      anchorKey: "birthday-activation-settings",
+      navigationSection: "promos" as const,
+      searchText: normalizeSettingsSearchText(
+        [
+          at("promo_birthday_title"),
+          at("promo_birthday_hint"),
+          at("promo_birthday_search_keywords"),
+          "BIRTHDAY_ACTIVATION_CODE_DAYS",
+          "BIRTHDAY_ACTIVATION_CAMPAIGN",
+        ].join(" ")
+      ),
+    },
     {
       key: "ADMINISTRATORS",
       sectionId: "general",
@@ -817,7 +843,7 @@
   }
 </script>
 
-<SettingsMaintenanceStatus {at} sections={settingsSections} />
+<MaintenanceStatus {at} enabled={maintenanceEnabled} />
 <SettingsContent
   {at}
   {currentLang}

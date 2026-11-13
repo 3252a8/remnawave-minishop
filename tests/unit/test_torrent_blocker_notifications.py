@@ -16,7 +16,9 @@ FINGERPRINT_SECRET = "test-panel-webhook-secret"
 
 class _I18n:
     _MESSAGES: ClassVar[dict[str, str]] = {
-        "torrent_blocker_notification": "Blocked until {unblock_at}",
+        "torrent_blocker_notification_duration": "Blocked for {duration}",
+        "torrent_blocker_duration_hours": "{count} h",
+        "torrent_blocker_duration_seconds": "{count} s",
         "torrent_blocker_notification_without_time": "Blocked temporarily",
         "torrent_blocker_notification_ip": "IP: {ip}",
     }
@@ -120,7 +122,7 @@ def test_message_hides_ip_by_default_and_includes_it_only_when_enabled():
         fingerprint_secret=FINGERPRINT_SECRET,
     )
 
-    assert service._message_text("en", report) == "Blocked until 2099-07-17 11:00 UTC"
+    assert service._message_text("en", report) == "Blocked for 1 h"
 
     service.settings.TORRENT_BLOCKER_NOTIFICATION_INCLUDE_IP = True
     assert service._message_text("en", report).endswith("IP: 203.0.113.8")
@@ -215,7 +217,7 @@ def test_sends_telegram_notification_and_audits_only_a_fingerprint(monkeypatch):
 
     assert delivery.telegram_sent is True
     assert delivery.email_sent is False
-    bot.send_message.assert_awaited_once_with(99, "Blocked until 2099-07-17 11:00 UTC")
+    bot.send_message.assert_awaited_once_with(99, "Blocked for 1 h")
     audit.assert_awaited_once()
     audit_kwargs = audit.await_args.kwargs
     assert "fingerprint=" in audit_kwargs["content"]

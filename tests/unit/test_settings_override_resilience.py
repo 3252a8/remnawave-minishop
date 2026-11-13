@@ -24,7 +24,7 @@ from bot.app.web.admin_api_impl import settings as settings_api
 from bot.app.web.admin_api_impl.panel_links import build_panel_user_admin_url
 from bot.app.web.webapp import external_oauth
 from bot.payment_providers import registry
-from bot.payment_providers.base import ProviderEnvConfig
+from bot.payment_providers.base import PaymentProviderSpec, ProviderEnvConfig
 from bot.payment_providers.paykilla.config import PaykillaConfig
 from bot.payment_providers.tribute.config import TributeConfig
 from bot.services import settings_override_service as svc
@@ -50,14 +50,6 @@ class _BrokenConfig(ProviderEnvConfig):
         raise ValueError("BROKEN_ENABLED is not usable")
 
 
-class _FakeSpec:
-    def __init__(self, spec_id: str, service_key: str, config_class: Any) -> None:
-        self.id = spec_id
-        self.service_key = service_key
-        self.config_class = config_class
-        self.presentation_class = None
-
-
 class _WorkingConfig(ProviderEnvConfig):
     model_config = SettingsConfigDict(env_prefix="WORKING_", extra="ignore")
 
@@ -65,17 +57,29 @@ class _WorkingConfig(ProviderEnvConfig):
 
 
 def test_broken_provider_config_does_not_drop_the_other_bundles(monkeypatch, caplog) -> None:
-    monkeypatch.setattr(
-        registry,
-        "PAYMENT_PROVIDER_SPECS",
-        (
-            _FakeSpec("broken", "broken_service", _BrokenConfig),
-            _FakeSpec("working", "working_service", _WorkingConfig),
-        ),
+    specs = tuple(
+        PaymentProviderSpec(
+            id=name,
+            provider_key=name,
+            label=name,
+            pending_status=f"pending_{name}",
+            enabled=lambda _: True,
+            service_key=f"{name}_service",
+            config_class=config,
+        )
+        for name, config in (("broken", _BrokenConfig), ("working", _WorkingConfig))
     )
 
-    with caplog.at_level(logging.ERROR, logger="bot.payment_providers.registry"):
+    with (
+        monkeypatch.context() as patch,
+        caplog.at_level(logging.ERROR, logger="bot.payment_providers.registry"),
+    ):
+        patch.setattr(registry, "PAYMENT_PROVIDER_SPECS", specs)
         bundles = registry.build_provider_configs(force=True)
+        assert registry.reporting_fee_sources("broken") == {}
+        assert registry.reporting_fee_sources("working") == {
+            "working": {"": [("WORKING_REPORTING_FEE_PERCENT", None)]}
+        }
 
     assert bundles["broken_service"].config is None
     assert bundles["working_service"].config is not None
@@ -113,6 +117,9 @@ class _FakeSession(_Ctx):
     def begin(self) -> _Ctx:
         return _Ctx()
 
+    async def execute(self, statement: object) -> None:
+        pass
+
 
 @pytest.fixture
 def _memory_overrides(monkeypatch) -> dict[str, Any]:
@@ -124,9 +131,52 @@ def _memory_overrides(monkeypatch) -> dict[str, Any]:
     async def delete(session: Any, key: str) -> None:
         store.pop(key, None)
 
+    async def get_values(session: Any, keys: frozenset[str]) -> dict[str, Any]:
+        return {key: store[key] for key in keys if key in store}
+
     monkeypatch.setattr(svc.app_settings_dal, "upsert_override", upsert)
     monkeypatch.setattr(svc.app_settings_dal, "delete_override", delete)
+    monkeypatch.setattr(svc.app_settings_dal, "get_override_values", get_values)
     return store
+
+
+def test_admin_validates_complete_telegram_chat_menu_before_persisting(_memory_overrides):
+    settings = Settings(_env_file=None)
+    mode_key = "TELEGRAM_CHAT_MENU_MODE"
+    text_key = "TELEGRAM_CHAT_MENU_TEXT"
+    url_key = "TELEGRAM_CHAT_MENU_URL"
+
+    result = asyncio.run(
+        svc.update_overrides(
+            settings,
+            _FakeSession,
+            updates={mode_key: "web_app", url_key: "http://app.example.com/"},
+        )
+    )
+    assert result["errors"] == {
+        text_key: "telegram_chat_menu_text_required",
+        url_key: "telegram_chat_menu_url_invalid",
+    }
+    assert _memory_overrides == {}
+
+    saved = {mode_key: "web_app", text_key: "My app", url_key: "https://app.example.com/"}
+    result = asyncio.run(svc.update_overrides(settings, _FakeSession, updates=saved))
+    assert result["ok"]
+    assert _memory_overrides == saved
+    assert settings.TELEGRAM_CHAT_MENU_MODE == "web_app"
+
+    result = asyncio.run(
+        svc.update_overrides(settings, _FakeSession, updates={}, deletes=[url_key])
+    )
+    assert result["errors"] == {url_key: "telegram_chat_menu_url_invalid"}
+    assert _memory_overrides == saved
+
+    result = asyncio.run(
+        svc.update_overrides(settings, _FakeSession, updates={mode_key: "keep"}, deletes=[url_key])
+    )
+    assert result["ok"]
+    assert _memory_overrides == {mode_key: "keep", text_key: "My app"}
+    assert settings.TELEGRAM_CHAT_MENU_MODE == "keep"
 
 
 def test_update_overrides_reports_settings_the_process_could_not_apply(

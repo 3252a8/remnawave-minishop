@@ -248,6 +248,7 @@ def _method_spec(method: str, presentation: type[YooKassaPresentation]) -> Payme
     return replace(
         SPEC,
         id=f"yookassa_{method}",
+        reporting_fee_method=method,
         webhook_path=None,
         webhook_route=None,
         callback_prefix=f"pay_yk_{method}",

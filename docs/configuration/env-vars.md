@@ -511,6 +511,7 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
 | `PAYMENT_FAILURE_NOTIFICATION_GRACE_SECONDS` | Задержка уведомления о неуспешной оплате. По умолчанию `300`: успешная повторная оплата за это время подавляет устаревшие ошибки; `0` отключает задержку. |
 | `USER_BALANCE_ENABLED` | Включает пользовательский баланс, его пополнение и оплату покупок. Настраивается в **Общие → Баланс пользователя**. |
+| `USER_BALANCE_RECURRING_ENABLED` | Разрешает автопродление с доступного личного или партнёрского баланса. По умолчанию `True`. |
 | `USER_BALANCE_CURRENCY` | Валюта обычного и конвертируемого партнёрского баланса; пустое значение наследует `DEFAULT_CURRENCY_SYMBOL`. |
 | `USER_BALANCE_TOPUP_MIN_AMOUNT` / `USER_BALANCE_TOPUP_MAX_AMOUNT` | Допустимый диапазон одного пополнения. Максимум не может быть меньше минимума. |
 | `USER_BALANCE_TOPUP_PRESETS` | JSON-массив быстрых сумм пополнения, например `[500, 1000, 2000, 5000]`. |
@@ -691,7 +692,7 @@ PAYMENT_TRIBUTE_TELEGRAM_EMOJI
 | `AUTO_RENEW_WORKER_TICK_SECONDS` | Период опроса очереди повторов. |
 | `AUTO_RENEW_WORKER_BATCH_SIZE` | Максимальное число циклов за один проход воркера. |
 | `AUTO_RENEW_RETRY_GRACE_HOURS` | Дополнительное окно после окончания подписки, в котором разрешен финансовый повтор. |
-| `AUTO_RENEW_SCHEDULER_ENABLED` | Включить резервный поиск подписок к продлению без panel webhook. По умолчанию выключен. |
+| `AUTO_RENEW_SCHEDULER_ENABLED` | Включить резервный поиск подписок к продлению через внешних провайдеров без вебхука панели. По умолчанию выключен. |
 | `AUTO_RENEW_SCHEDULER_LEAD_HOURS` | За сколько часов резервный планировщик начинает рассматривать подписку. |
 
 ### FreeKassa
@@ -752,6 +753,19 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `ROLLYPAY_PLAN_CACHE_SECONDS` | TTL кэша subscription plans, по умолчанию `300`. |
 | `ROLLYPAY_RECONCILE_INTERVAL_SECONDS` | Период сверки состояний мандатов, по умолчанию `300`. |
 | `ROLLYPAY_RECONCILE_BATCH_SIZE` | Максимум мандатов за одну сверку, по умолчанию `100`. |
+
+### PayHot
+
+| Переменная | Назначение |
+| --- | --- |
+| `PAYHOT_ENABLED` | Показывает PayHot при выборе оплаты. По умолчанию `false`. |
+| `PAYHOT_ADMIN_ONLY_ENABLED` | Показывает PayHot администраторам при выключенном публичном способе. По умолчанию `false`. |
+| `PAYHOT_API_KEY` | Рабочий API-ключ проекта с правами создания и чтения платежей. |
+| `PAYHOT_WEBHOOK_SECRET` | Полный секрет подписи вебхука из кабинета PayHot. |
+| `PAYHOT_PAYMENT_METHOD` | Способ оплаты в кассе. По умолчанию `card`. Допустимы `card`, `sbp`, `sberpay`, `applepay`, `googlepay`, `crypto`. |
+
+В PayHot укажите `<WEBHOOK_BASE_URL>/webhook/payhot` и выберите событие
+`payment.succeeded`. [Инструкция по настройке](../features/payments.md#payhot)
 
 ### SeverPay
 
@@ -1117,6 +1131,14 @@ openssl rand -base64 32 | tr '+/' '-_'
 | `LOG_CHAT_ID` | Telegram chat/group ID для служебных уведомлений. |
 | `LOG_THREAD_ID` | Topic/thread ID общего лог-чата. |
 | `LOG_SUPPORT_THREAD_ID` | Topic/thread ID поддержки. |
+| `LOG_NEW_USERS_THREAD_ID` | Отдельная тема. Регистрации и изменения аккаунтов. |
+| `LOG_PAYMENTS_THREAD_ID` | Отдельная тема. Платежи. |
+| `LOG_PROMO_ACTIVATIONS_THREAD_ID` | Отдельная тема. Активации кодов. |
+| `LOG_TRIAL_ACTIVATIONS_THREAD_ID` | Отдельная тема. Активации пробного периода. |
+| `LOG_SUSPICIOUS_ACTIVITY_THREAD_ID` | Отдельная тема. Подозрительная активность. |
+| `LOG_PARTNER_THREAD_ID` | Отдельная тема. Партнёрская программа. |
+| `LOG_PANEL_SYNC_THREAD_ID` | Отдельная тема. Синхронизация панели. |
+| `LOG_DEBUG_THREAD_ID` | Отдельная тема. Отладочные логи сообщений. |
 | `LOG_NEW_USERS` | Логировать новые регистрации. |
 | `LOG_PAYMENTS` | Логировать платежи. |
 | `LOG_SUPPORT` | Логировать тикеты поддержки. |
@@ -1124,6 +1146,9 @@ openssl rand -base64 32 | tr '+/' '-_'
 | `LOG_TRIAL_ACTIVATIONS` | Логировать активации trial. |
 | `LOG_SUSPICIOUS_ACTIVITY` | Логировать подозрительную активность. |
 | `LOG_ADMIN_ACTIONS` | Логировать действия администраторов. |
+
+Уведомления идут в один `LOG_CHAT_ID`. Если тема категории не задана,
+используется `LOG_THREAD_ID`, а при его отсутствии — общая тема чата.
 
 ## Чеки, ссылки подключения и inline
 

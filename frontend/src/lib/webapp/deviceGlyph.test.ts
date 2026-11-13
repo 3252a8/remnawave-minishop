@@ -3,6 +3,33 @@ import { describe, expect, it } from "vitest";
 import { resolveDeviceShape } from "./deviceGlyph.js";
 
 describe("resolveDeviceShape", () => {
+  it("uses Core classification independently of user-assigned names", () => {
+    expect(resolveDeviceShape({ device_type: "router", display_name: "iPhone" })).toBe("router");
+    expect(resolveDeviceShape({ device_type: "phone", display_name: "OpenWrt router" })).toBe(
+      "phone"
+    );
+    expect(resolveDeviceShape({ device_type: "unknown", display_name: "OpenWrt router" })).toBe(
+      "phone"
+    );
+  });
+
+  it.each([
+    "OpenWrt",
+    "KeeneticOS",
+    "NDMS",
+    "MikroTik",
+    "RouterOS",
+    "DD-WRT",
+    "AsusWRT-Merlin",
+    "FreshTomato",
+  ])("recognizes %s in older payloads before the Linux fallback", (platform) =>
+    expect(resolveDeviceShape({ platform, user_agent: "Linux" })).toBe("router")
+  );
+
+  it("does not use a renamed title when the original model is available", () => {
+    expect(resolveDeviceShape({ device_model: "iPhone", display_name: "OpenWrt" })).toBe("phone");
+  });
+
   it("reads the form factor from the model", () => {
     expect(resolveDeviceShape({ display_name: "iPhone 15 Pro" })).toBe("phone");
     expect(resolveDeviceShape({ display_name: "MacBook Air" })).toBe("laptop");

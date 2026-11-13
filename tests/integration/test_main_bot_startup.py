@@ -3,8 +3,9 @@ import asyncio
 import logging
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from aiogram.exceptions import TelegramNetworkError
 
 from bot.main_bot import (
@@ -13,6 +14,8 @@ from bot.main_bot import (
     configure_telegram_webhook,
     on_startup_configured,
 )
+from bot.services.settings_override_service import apply_overrides
+from config.settings import Settings
 
 
 def test_backend_startup_does_not_run_panel_sync_inline():
@@ -98,6 +101,7 @@ def test_telegram_startup_hides_tg_command_from_public_scopes_when_bot_menu_disa
 
     settings = SimpleNamespace(
         SUBSCRIPTION_MINI_APP_URL="",
+        TELEGRAM_CHAT_MENU_MODE="keep",
         DEFAULT_LANGUAGE="ru",
         START_COMMAND_DESCRIPTION=None,
         TELEGRAM_BOT_MENU_DISABLED=True,
@@ -130,6 +134,50 @@ def test_telegram_startup_hides_tg_command_from_public_scopes_when_bot_menu_disa
         scope_name == "BotCommandScopeChat" and chat_id == 42
         for scope_name, chat_id, _ in dispatcher["bot_instance"].deleted
     )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected_button"),
+    [
+        ({}, None),
+        ({"TELEGRAM_CHAT_MENU_MODE": "commands"}, {"type": "commands"}),
+        (
+            {
+                "TELEGRAM_CHAT_MENU_MODE": "web_app",
+                "TELEGRAM_CHAT_MENU_TEXT": "Open account",
+                "TELEGRAM_CHAT_MENU_URL": "https://menu.example.com/account",
+            },
+            {
+                "type": "web_app",
+                "text": "Open account",
+                "web_app": {"url": "https://menu.example.com/account"},
+            },
+        ),
+    ],
+)
+def test_telegram_chat_menu_uses_saved_settings_on_every_start(overrides, expected_button):
+    bot = SimpleNamespace(set_chat_menu_button=AsyncMock())
+    for _ in range(2):
+        settings = Settings(_env_file=None, SUBSCRIPTION_MINI_APP_URL="https://app.example.com/")
+        assert apply_overrides(settings, overrides) == len(overrides)
+        dispatcher = {"bot_instance": bot, "settings": settings}
+
+        with (
+            patch("bot.main_bot.init_queue_manager", return_value=object()),
+            patch("bot.main_bot.sync_telegram_bot_commands", new_callable=AsyncMock),
+        ):
+            asyncio.run(on_startup_configured(dispatcher))
+
+    if expected_button is None:
+        bot.set_chat_menu_button.assert_not_awaited()
+    else:
+        assert bot.set_chat_menu_button.await_count == 2
+        for call in bot.set_chat_menu_button.await_args_list:
+            assert set(call.kwargs) == {"menu_button"}
+            assert (
+                call.kwargs["menu_button"].model_dump(mode="json", exclude_none=True)
+                == expected_button
+            )
 
 
 def test_telegram_startup_network_error_retries_until_success_without_traceback(caplog):

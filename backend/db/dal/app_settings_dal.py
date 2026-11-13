@@ -7,6 +7,7 @@ strings, booleans, integers and floats.
 
 import json
 import logging
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Any
 
@@ -37,6 +38,17 @@ def _decode(raw: str | None) -> Any:
 async def get_all_overrides(session: AsyncSession) -> dict[str, Any]:
     rows = (await session.execute(select(AppSettingOverride))).scalars().all()
     return {row.key: _decode(row.value) for row in rows}
+
+
+async def get_override_values(session: AsyncSession, keys: Collection[str]) -> dict[str, Any]:
+    if not keys:
+        return {}
+    rows = await session.execute(
+        select(AppSettingOverride.key, AppSettingOverride.value).where(
+            AppSettingOverride.key.in_(keys)
+        )
+    )
+    return {key: _decode(value) for key, value in rows}
 
 
 async def get_override_value(session: AsyncSession, key: str) -> tuple[bool, Any]:

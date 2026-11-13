@@ -55,6 +55,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
     @staticmethod
     def _external_auth_provider_label(translate: Callable[..., str], provider: str | None) -> str:
         key = {
+            "discord": "log_auth_provider_discord",
             "google": "log_auth_provider_google",
             "yandex": "log_auth_provider_yandex",
         }.get(str(provider or "").lower())
@@ -243,7 +244,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_new_email_user_registration(
         self,
@@ -280,7 +285,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_new_external_user_registration(
         self,
@@ -319,7 +328,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             referral_text=referral_text,
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_account_email_linked(
         self,
@@ -356,7 +369,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_account_telegram_linked(
         self,
@@ -393,7 +410,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_account_external_identity_linked(
         self,
@@ -436,7 +457,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             email=hd.quote(email or ""),
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_account_merged(
         self,
@@ -478,7 +503,10 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             merge_source = self._external_auth_provider_label(_, provider)
         else:
             source_key = {
+                "admin_manual_merge": "log_account_merge_source_admin",
                 "email_link": "log_account_merge_source_email",
+                "explicit_email_merge": "log_account_merge_source_email",
+                "explicit_telegram_merge": "log_account_merge_source_telegram",
                 "telegram_link": "log_account_merge_source_telegram",
                 "login": "log_account_merge_source_login",
             }.get(str(reason or ""))
@@ -519,7 +547,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
         )
 
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_NEW_USERS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     def _format_traffic_gb_admin(self, traffic_gb: float) -> str:
         value = float(traffic_gb)
@@ -733,7 +765,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 + "\n\n"
                 + message
             )
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_PAYMENTS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     def _format_payment_purchase_line(
         self,
@@ -819,7 +855,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_PROMO_ACTIVATIONS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_trial_activation(
         self,
@@ -851,7 +891,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_TRIAL_ACTIVATIONS_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def notify_panel_sync(
         self,
@@ -884,7 +928,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        await self._send_to_log_channel(message)
+        await self._send_to_log_channel(message, thread_id=self.settings.LOG_PANEL_SYNC_THREAD_ID)
 
     async def notify_suspicious_promo_attempt(
         self,
@@ -916,7 +960,11 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         )
 
         # Send to log channel
-        await self._send_to_log_channel(message, reply_markup=profile_keyboard)
+        await self._send_to_log_channel(
+            message,
+            thread_id=self.settings.LOG_SUSPICIOUS_ACTIVITY_THREAD_ID,
+            reply_markup=profile_keyboard,
+        )
 
     async def send_custom_notification(
         self,

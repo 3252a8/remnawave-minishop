@@ -47,7 +47,7 @@ export type Translate = (
 ) => string;
 export type VoidAction = () => void;
 export type StringAction = (value: string) => void;
-export type OpenLinkAction = (url: string) => void;
+export type OpenLinkAction = (url: string, kind?: "payment") => void;
 export type CopyTextAction = (text: string, message?: string) => Promise<void>;
 export type BooleanAction = (value: boolean) => void;
 export type TermUnitLabel = (value: number, unit: string) => string;

@@ -287,9 +287,15 @@ class AdminsAudienceTest(unittest.IsolatedAsyncioTestCase):
         service = AudienceSegmentationService(
             cast(sessionmaker, SessionFactory()),
         )
-        with patch(
-            "bot.services.audience_segmentation.active_admin_user_ids",
-            AsyncMock(return_value=[10, 20]),
+        with (
+            patch(
+                "bot.services.audience_segmentation.active_admin_user_ids",
+                AsyncMock(return_value=[10, 20]),
+            ),
+            patch(
+                "bot.services.audience_segmentation.broadcast_audience_dal.excluded_ids_by_target",
+                AsyncMock(return_value={}),
+            ),
         ):
             self.assertEqual(await service.resolve_user_ids("admins"), [10, 20])
 

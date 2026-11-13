@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -141,6 +141,19 @@ class TicketNotFound(LookupError):
     pass
 
 
+async def _persist_support_images(
+    session: AsyncSession,
+    first: PreparedMessageImage | None,
+    images: Sequence[PreparedMessageImage],
+) -> tuple[str | None, list[str]]:
+    ids = []
+    for image in ([first] if first is not None else []) + list(images):
+        stored = await persist_message_image(session, image)
+        if stored is not None:
+            ids.append(str(stored.image_id))
+    return (ids[0], ids[1:]) if ids else (None, [])
+
+
 class SupportService:
     async def get_ticket_context(
         self, ticket_id: int, *, expected_user_id: int, after_message_id: int | None = None
@@ -267,7 +280,7 @@ class SupportService:
         session: AsyncSession,
         user_id: int,
         *,
-        has_image: bool,
+        image_count: int,
     ) -> None:
         support_settings = self.settings.support_settings
         message_limit = max(0, int(support_settings.message_rate_limit_per_minute or 0))
@@ -280,14 +293,14 @@ class SupportService:
             if recent_messages >= message_limit:
                 raise TicketRateLimited("support_message_rate_limited")
         image_limit = max(0, int(support_settings.image_rate_limit_per_day or 0))
-        if has_image and image_limit:
+        if image_count and image_limit:
             recent_images = await support_dal.count_recent_messages_for_user(
                 session,
                 user_id,
                 24 * 60 * 60,
                 images_only=True,
             )
-            if recent_images >= image_limit:
+            if recent_images + image_count > image_limit:
                 raise TicketRateLimited("support_image_rate_limited")
 
     async def create_ticket(
@@ -300,10 +313,12 @@ class SupportService:
         body_format: str = BODY_FORMAT_TEXT,
         image: PreparedMessageImage | None = None,
         payment_id: int | None = None,
+        *,
+        images: Sequence[PreparedMessageImage] = (),
     ) -> SupportTicket:
         support_settings = self.settings.support_settings
         stored_body, stored_format = self._prepare_body(
-            first_message_body, body_format, allow_empty=image is not None
+            first_message_body, body_format, allow_empty=image is not None or bool(images)
         )
         async with self.session_factory() as session:
             # Payment finalization takes the payment lock before the user lock.
@@ -329,8 +344,10 @@ class SupportService:
                 recent = await support_dal.count_recent_tickets_for_user(session, user_id, 3600)
                 if recent >= limit:
                     raise TicketRateLimited("ticket_rate_limited")
-            await self._enforce_user_message_limits(session, user_id, has_image=image is not None)
-            stored_image = await persist_message_image(session, image)
+            await self._enforce_user_message_limits(
+                session, user_id, image_count=int(image is not None) + len(images)
+            )
+            image_id, additional_image_ids = await _persist_support_images(session, image, images)
             ticket = await support_dal.create_ticket(
                 session,
                 user_id,
@@ -339,7 +356,8 @@ class SupportService:
                 priority,
                 stored_body,
                 first_message_format=stored_format,
-                image_id=str(stored_image.image_id) if stored_image is not None else None,
+                image_id=image_id,
+                additional_image_ids=additional_image_ids,
             )
             snapshot = await self.build_user_snapshot(user, session=session)
             _created_ticket, initial_messages = await support_dal.get_ticket(
@@ -366,7 +384,8 @@ class SupportService:
                 stored_body,
                 snapshot,
                 body_format=stored_format,
-                image_id=str(stored_image.image_id) if stored_image is not None else None,
+                image_id=image_id,
+                additional_image_ids=additional_image_ids,
             )
         except Exception:
             logger.exception("Failed to notify about support ticket %s", ticket.ticket_id)
@@ -379,18 +398,22 @@ class SupportService:
         body: str,
         body_format: str = BODY_FORMAT_TEXT,
         image: PreparedMessageImage | None = None,
+        *,
+        images: Sequence[PreparedMessageImage] = (),
     ) -> tuple[SupportTicket, SupportTicketMessage]:
         support_settings = self.settings.support_settings
         stored_body, stored_format = self._prepare_body(
-            body, body_format, allow_empty=image is not None
+            body, body_format, allow_empty=image is not None or bool(images)
         )
         async with self.session_factory() as session:
             user = await self._ensure_user_allowed(session, user_id)
             ticket, _messages = await support_dal.get_ticket(session, ticket_id)
             if not ticket or ticket.user_id != user_id:
                 raise TicketNotFound("not_found")
-            await self._enforce_user_message_limits(session, user_id, has_image=image is not None)
-            stored_image = await persist_message_image(session, image)
+            await self._enforce_user_message_limits(
+                session, user_id, image_count=int(image is not None) + len(images)
+            )
+            image_id, additional_image_ids = await _persist_support_images(session, image, images)
             message = await support_dal.add_message(
                 session,
                 ticket_id,
@@ -398,7 +421,8 @@ class SupportService:
                 user_id,
                 stored_body,
                 body_format=stored_format,
-                image_id=str(stored_image.image_id) if stored_image is not None else None,
+                image_id=image_id,
+                additional_image_ids=additional_image_ids,
             )
             if message is None:
                 raise TicketNotFound("not_found")
@@ -454,9 +478,10 @@ class SupportService:
         body_format: str = BODY_FORMAT_TEXT,
         buttons: str | None = None,
         image: PreparedMessageImage | None = None,
+        images: Sequence[PreparedMessageImage] = (),
     ) -> tuple[SupportTicket, SupportTicketMessage]:
         stored_body, stored_format = self._prepare_body(
-            body, body_format, allow_empty=image is not None
+            body, body_format, allow_empty=image is not None or bool(images)
         )
         async with self.session_factory() as session:
             ticket, _messages = await support_dal.get_ticket(
@@ -467,7 +492,7 @@ class SupportService:
             if not ticket:
                 raise TicketNotFound("not_found")
             user = await user_dal.get_user_by_id(session, ticket.user_id)
-            stored_image = await persist_message_image(session, image)
+            image_id, additional_image_ids = await _persist_support_images(session, image, images)
             message = await support_dal.add_message(
                 session,
                 ticket_id,
@@ -477,7 +502,8 @@ class SupportService:
                 is_internal_note=is_internal_note,
                 body_format=stored_format,
                 buttons=buttons if not is_internal_note else None,
-                image_id=str(stored_image.image_id) if stored_image is not None else None,
+                image_id=image_id,
+                additional_image_ids=additional_image_ids,
             )
             if message is None:
                 raise TicketNotFound("not_found")
