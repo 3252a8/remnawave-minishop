@@ -254,7 +254,11 @@ def setup_subscription_webapp_routes(app: web.Application) -> None:
         allow_head=False,
     )
     app.router.add_get("/invite", index_route)
+    app.router.add_get(r"/invite/{subsection:referrals|gifts|codes}", index_route)
     app.router.add_get("/partner", index_route)
+    app.router.add_get(
+        r"/partner/{subsection:links|balance|clients|commissions|withdrawals}", index_route
+    )
     app.router.add_get("/devices", index_route)
     app.router.add_get("/settings", index_route)
     app.router.add_get("/unsubscribe", index_route)

@@ -87,6 +87,8 @@ class WebAppRouteContractTests(unittest.TestCase):
             ("GET", "/s/{share_token}"): "subscription_gateway_route",
             ("GET", "/s/{share_token}/{client_type}"): "subscription_gateway_route",
             ("GET", "/invite"): "index_route",
+            ("GET", "/invite/{subsection}"): "index_route",
+            ("GET", "/partner/{subsection}"): "index_route",
             ("GET", "/devices"): "index_route",
             ("GET", "/settings"): "index_route",
             ("GET", "/settings/notifications"): "index_route",

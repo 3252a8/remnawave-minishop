@@ -5,6 +5,7 @@ import {
   resolveSupportLoadRoute,
 } from "./appLoadFlow.js";
 import type { ApplyPostLoadBillingDeeplinksInput } from "./billingDeeplinkEffects.js";
+import { isPlansRoute } from "./deeplinks.js";
 import type { LoadSectionDataInput } from "./sectionDataLoader.js";
 import { createLoadPerfProbe } from "./loadPerfProbe.js";
 import { shellState } from "./shellState.svelte";
@@ -206,6 +207,7 @@ export function createAppLoadExecutor({
       section,
     });
     const initialSupportTicketId = supportRoute.initialSupportTicketId;
+    const plansRoute = isPlansRoute(routePathnameFromLocation(), routePrefix);
     if (isDocsDemo()) shellState.docsDemoParentRouteConsumed = true;
     shellState.activeTab =
       section === loadedRoute.section ? loadedRoute.activeTab : activeTabForWebappSection(section);
@@ -250,6 +252,7 @@ export function createAppLoadExecutor({
     applyPostLoadBillingDeeplinks({
       defaultMethod: defaultPaymentMethodId(payload),
       plans: arrayField(payload.plans) as PlanView[],
+      ...(plansRoute ? { plansRoute: true } : {}),
       search: getWindowSearch(),
       subscription: recordField(payload.subscription) as SubscriptionView,
     });

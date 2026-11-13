@@ -11,6 +11,7 @@
   type Props = {
     applyPromo?: VoidAction;
     clearPromoFieldError?: VoidAction;
+    id?: string;
     promoBusy?: boolean;
     promoCode?: string;
     promoFieldError?: string;
@@ -21,6 +22,7 @@
   };
 
   let {
+    id,
     promoBusy = false,
     promoCode = "",
     promoFieldError = "",
@@ -44,7 +46,7 @@
   }
 </script>
 
-<Card>
+<Card {id}>
   <h3 class="card-heading card-heading-accent promo-heading">
     <Ticket size={18} />
     <span>{t("wa_activate_promo_title")}</span>

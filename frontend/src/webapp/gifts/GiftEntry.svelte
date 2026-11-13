@@ -6,7 +6,7 @@
   import { giftState } from "$lib/webapp/gifts.svelte.js";
   import type { Translate } from "$lib/webapp/types.js";
   import GiftCard from "./GiftCard.svelte";
-  let { t, full = false }: { t: Translate; full?: boolean } = $props();
+  let { t, full = false, id }: { t: Translate; full?: boolean; id?: string } = $props();
   let copied = $state(false);
   async function copy(link: string) {
     try {
@@ -19,7 +19,7 @@
 </script>
 
 {#if giftState.enabled || giftState.gifts.length || giftState.token || giftState.pending}
-  <Card class="gift-entry">
+  <Card class="gift-entry" {id}>
     <ScreenHeading
       class="gift-intro"
       stackActions

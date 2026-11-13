@@ -1,5 +1,6 @@
 interface TelegramWebApp {
   initData?: string;
+  initDataUnsafe?: { start_param?: string };
 }
 
 interface TelegramSdkOptions {

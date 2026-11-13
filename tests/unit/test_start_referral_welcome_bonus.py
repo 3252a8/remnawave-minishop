@@ -9,6 +9,64 @@ from config.settings_models import ReferralSettings
 
 
 class StartReferralWelcomeBonusTests(IsolatedAsyncioTestCase):
+    async def test_public_referral_page_opens_for_new_and_returning_users(self):
+        from db.models import User
+
+        for returning, channel_verified in ((True, True), (False, True), (True, False)):
+            with self.subTest(returning=returning, channel_verified=channel_verified):
+                message = self._message()
+                message.text = "/start page_ref"
+                message.chat.type = "private"
+                user = User(
+                    user_id=20,
+                    telegram_id=42,
+                    language_code="en",
+                    username="alice",
+                    first_name="Alice",
+                    last_name="Example",
+                )
+                state = AsyncMock()
+                session = AsyncMock()
+                i18n = SimpleNamespace(gettext=lambda lang, key, **kwargs: key)
+                with (
+                    patch(
+                        "bot.handlers.user.start_flow.user_dal.get_user_by_telegram_id",
+                        AsyncMock(return_value=user if returning else None),
+                    ),
+                    patch(
+                        "bot.handlers.user.start_flow.user_dal.create_user",
+                        AsyncMock(return_value=(user, True)),
+                    ),
+                    patch(
+                        "bot.services.partner_program_service.PartnerProgramService.auto_enroll_user",
+                        AsyncMock(),
+                    ),
+                    patch(
+                        "bot.handlers.user.start_flow.ensure_required_channel_subscription",
+                        AsyncMock(return_value=channel_verified),
+                    ),
+                    patch(
+                        "bot.handlers.user.referral.referral_command_handler", AsyncMock()
+                    ) as open_referral,
+                    patch("bot.handlers.user.start_flow.send_main_menu", AsyncMock()) as menu,
+                ):
+                    await start_command_handler(
+                        message,
+                        state,
+                        self._settings(),
+                        {"i18n_instance": i18n},
+                        AsyncMock(),
+                        AsyncMock(),
+                        session,
+                    )
+                menu.assert_not_awaited()
+                if channel_verified:
+                    open_referral.assert_awaited_once()
+                    self.assertIs(open_referral.await_args.args[0], message)
+                else:
+                    open_referral.assert_not_awaited()
+                    state.update_data.assert_awaited_once_with(pending_start_page="ref")
+
     async def test_configured_invitation_reaches_gate_without_advertising_attribution(self):
         for payload, expected in (
             ("join_r_ABC123XYZ", "uABC123XYZ"),

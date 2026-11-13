@@ -82,6 +82,32 @@ export function withRoutePrefix(pathname: unknown, routePrefix: unknown = ""): s
   return `${prefix}${path}`;
 }
 
+const INVITE_SUBSECTIONS = ["referrals", "gifts", "codes"] as const;
+const PARTNER_SUBSECTIONS = ["links", "balance", "clients", "commissions", "withdrawals"] as const;
+
+export function inviteSubsectionFromPath(pathname: unknown, routePrefix = "") {
+  const path = stripRoutePrefix(pathname, routePrefix).toLowerCase();
+  return INVITE_SUBSECTIONS.find((subsection) => path === `/invite/${subsection}`);
+}
+
+export function partnerSubsectionFromPath(pathname: unknown, routePrefix = "") {
+  const path = stripRoutePrefix(pathname, routePrefix).toLowerCase();
+  return PARTNER_SUBSECTIONS.find((subsection) => path === `/partner/${subsection}`);
+}
+
+export function isCustomerSectionPath(path: string): boolean {
+  return (
+    Object.entries(APP_SECTION_PATHS).some(
+      ([section, value]) => section !== "admin" && value === path
+    ) ||
+    INVITE_SUBSECTIONS.some((subsection) => path === `/invite/${subsection}`) ||
+    PARTNER_SUBSECTIONS.some((subsection) => path === `/partner/${subsection}`) ||
+    path === PLANS_PATH ||
+    path === "/support/new" ||
+    /^\/support\/\d+$/.test(path)
+  );
+}
+
 export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): WebappSection {
   const normalizedPath = String(pathname || "")
     .trim()
@@ -91,6 +117,8 @@ export function sectionFromPath(pathname: unknown, routePrefix: unknown = ""): W
   if (routePath === "/extensions" || routePath.startsWith("/extensions/")) return "extensions";
   if (routePath === "/admin" || routePath.startsWith("/admin/")) return "admin";
   if (routePath === "/support" || routePath.startsWith("/support/")) return "support";
+  if (inviteSubsectionFromPath(routePath)) return "invite";
+  if (partnerSubsectionFromPath(routePath)) return "partner";
   if (routePath === "/settings/notifications") return "notifications";
   if (routePath === "/settings/payments") return "payment-history";
   if (routePath === "/settings/security") return "security";
@@ -212,6 +240,14 @@ export function syncSectionPath(
   if (window.location.protocol === "file:") return;
   const normalized = normalizeSection(section);
   let targetPath = APP_SECTION_PATHS[normalized] || APP_SECTION_PATHS.home;
+  if (replace && normalized === "invite") {
+    const subsection = inviteSubsectionFromPath(window.location.pathname, routePrefix);
+    if (subsection) targetPath = `/invite/${subsection}`;
+  }
+  if (replace && normalized === "partner") {
+    const subsection = partnerSubsectionFromPath(window.location.pathname, routePrefix);
+    if (subsection) targetPath = `/partner/${subsection}`;
+  }
   if (normalized === "admin") {
     const adm =
       adminSection || adminSectionFromPath(window.location.pathname, routePrefix) || "stats";

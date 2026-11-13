@@ -11,6 +11,39 @@ const devices = [
   ["desktop", { width: 1440, height: 1000 }],
   ["mobile", { width: 390, height: 844 }],
 ] as const;
+
+for (const [device, viewport] of devices) {
+  test(`referral deep links reach the referral block on ${device}`, async ({ page }) => {
+    await page.setViewportSize({ ...viewport, height: 500 });
+    for (const destination of [
+      "/demo/runtime/invite/referrals",
+      "/demo/runtime/home#tgWebAppStartParam=page_ref",
+    ]) {
+      const url = new URL(destination, "https://minishop.test");
+      url.searchParams.set("theme_preview", "dark");
+      url.searchParams.set("mock", "checkout-addons");
+      await page.goto(url.pathname + url.search + url.hash);
+      await expect(page).toHaveURL(/\/invite\/referrals(?:[?#]|$)/);
+      const heading = page.locator("#invite-referrals").getByRole("heading").first();
+      await expect(page.locator("#invite-codes")).toBeAttached();
+      await expect(page.locator("#invite-gifts .gift-card").first()).toBeAttached();
+      await expect(heading, destination).toBeInViewport();
+    }
+  });
+}
+
+test("a Mini App deep link selects the requested partner activity", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto(
+    "/demo/runtime/home?partner_scenario=active_populated&theme_preview=dark&startapp=page_partner-commissions"
+  );
+  await expect(page).toHaveURL(/\/partner\/commissions\?/);
+  const activity = page.locator("#partner-activity");
+  const commissions = activity.getByRole("tab", { name: /комиссии/i });
+  await expect(commissions).toHaveAttribute("aria-selected", "true");
+  await expect(commissions).toBeInViewport();
+});
+
 async function snapshot(page: Page, name: string) {
   if (!process.env.ISSUE_REVIEW_DIR) return;
   await settleAnimations(page);

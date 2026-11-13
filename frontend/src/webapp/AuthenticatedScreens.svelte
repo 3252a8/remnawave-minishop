@@ -552,6 +552,7 @@
         {@const Screen = inviteScreen.component}
         <Screen
           {referral}
+          {routePrefix}
           {referralProgramEnabled}
           {referralBonusDetails}
           {referralBonusListMode}
@@ -574,7 +575,13 @@
     {:else if screen === "partner"}
       {#if partnerScreen.component}
         {@const Screen = partnerScreen.component}
-        <Screen {api} {copyText} goBack={activeTab === "settings" ? goSettings : undefined} {t} />
+        <Screen
+          {api}
+          {copyText}
+          {routePrefix}
+          goBack={activeTab === "settings" ? goSettings : undefined}
+          {t}
+        />
       {:else}
         <ScreenLoading screen={partnerScreen} {t} />
       {/if}

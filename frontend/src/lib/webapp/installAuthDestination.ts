@@ -1,11 +1,14 @@
 import { installTargetFromSearch, installTargetSearch } from "./installTargets.js";
+import { isCustomerSectionPath } from "./routes.js";
 
 const STORAGE_KEY = "remnawave:install-auth-destination";
 const MAX_AGE_MS = 15 * 60 * 1000;
 const installPath = /^(?:\/[A-Za-z0-9_-]+)*\/install\/?$/;
 const extensionPath = /^\/extensions\/[a-z0-9][a-z0-9-]{0,63}\/[a-z0-9][a-z0-9_-]{0,63}\/?$/;
 const loginPath = /^(?:\/login(?:\/password)?)?\/?$/;
-const destinationPath = (path: string) => installPath.test(path) || extensionPath.test(path);
+const installOrExtensionPath = (path: string) => installPath.test(path) || extensionPath.test(path);
+const destinationPath = (path: string) =>
+  installOrExtensionPath(path) || isCustomerSectionPath(path);
 // These belong to the current authentication callback, never to a saved plugin URL.
 const authParameters = new Set(["external_auth", "telegram_auth", "login_token", "code", "state"]);
 
@@ -16,7 +19,7 @@ function extensionSearch(search: string): string {
   return params.toString();
 }
 
-/** Preserve installation and plugin screens; checkout keeps its own return flow. */
+/** Preserve the requested customer screen. Checkout keeps its own return flow. */
 export function rememberInstallAuthDestination(purpose: string, keepLoginPending = false): void {
   if (typeof window === "undefined") return;
   try {
@@ -50,7 +53,10 @@ export function restoreInstallAuthDestination(authenticated = false): boolean {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
     window.sessionStorage.removeItem(STORAGE_KEY);
     if (!raw) return false;
-    if (!loginPath.test(window.location.pathname) && !destinationPath(window.location.pathname))
+    if (
+      !loginPath.test(window.location.pathname) &&
+      !installOrExtensionPath(window.location.pathname)
+    )
       return false;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
@@ -65,10 +71,13 @@ export function restoreInstallAuthDestination(authenticated = false): boolean {
     )
       return false;
     const url = new URL(window.location.href);
-    let search = installTargetSearch(url.search, {
-      platform: typeof saved.platform === "string" ? saved.platform : "",
-      app: typeof saved.app === "string" ? saved.app : "",
-    });
+    let search = url.search;
+    if (installPath.test(saved.pathname)) {
+      search = installTargetSearch(search, {
+        platform: typeof saved.platform === "string" ? saved.platform : "",
+        app: typeof saved.app === "string" ? saved.app : "",
+      });
+    }
     if (extensionPath.test(saved.pathname)) {
       const params = new URLSearchParams(
         extensionSearch(typeof saved.search === "string" ? saved.search : "")

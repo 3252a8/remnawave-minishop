@@ -11,6 +11,8 @@
   import { StatusMessage } from "$components/patterns/webapp/index.js";
   import { visibleReferralLinks, type ReferralLinkEntry } from "$lib/webapp/referralLinks.js";
   import { formatReceivedSince, referralStats } from "$lib/webapp/referralStats.js";
+  import { trackLinkedSubsection } from "$lib/webapp/linkedSubsectionScroll.js";
+  import { inviteSubsectionFromPath } from "$lib/webapp/routes.js";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import type {
     CopyTextAction,
@@ -37,6 +39,7 @@
     referralBonusListMode?: ReferralBonusListMode;
     referralOneBonusPerReferee?: boolean;
     referralWelcomeBonusDays?: number;
+    routePrefix?: string;
     setPromoCode?: StringAction;
     t?: Translate;
   };
@@ -48,6 +51,7 @@
     referralBonusListMode = "plain",
     referralOneBonusPerReferee = false,
     referralWelcomeBonusDays = 0,
+    routePrefix = "",
     promoBusy = false,
     promoCode = "",
     promoFieldError = "",
@@ -76,6 +80,17 @@
   const PERIOD_BONUS_LIST_TRANSITION = { duration: 220 };
   let periodBonusListOpen = $state(false);
   let qrLink = $state<ReferralLinkEntry | null>(null);
+  function scrollToLinkedSubsection(content: HTMLElement) {
+    const getSubsection = () => inviteSubsectionFromPath(window.location.pathname, routePrefix);
+    return trackLinkedSubsection(
+      content,
+      () => Boolean(getSubsection()),
+      () => {
+        const subsection = getSubsection();
+        return subsection ? content.querySelector(`#invite-${subsection}`) : null;
+      }
+    );
+  }
 
   $effect(() => {
     periodBonusListOpen = referralBonusListMode === "expanded";
@@ -89,10 +104,13 @@
   }
 </script>
 
-<main class="content with-nav">
-  <UserExtensionPoint target="user.invite.gifts"><GiftEntry {t} full /></UserExtensionPoint>
+<main class="content with-nav" {@attach scrollToLinkedSubsection}>
+  <UserExtensionPoint target="user.invite.gifts">
+    <GiftEntry id="invite-gifts" {t} full />
+  </UserExtensionPoint>
   <UserExtensionPoint target="user.invite.codes">
     <PromoActivationCard
+      id="invite-codes"
       {promoCode}
       {promoFieldError}
       {promoBusy}
@@ -170,7 +188,7 @@
     {/each}
   {/snippet}
   <UserExtensionPoint target="user.invite.referrals">
-    {#if referralProgramEnabled}<section class="referral-program-shell">
+    {#if referralProgramEnabled}<section id="invite-referrals" class="referral-program-shell">
         <div class="referral-program-content">
           <Card class="bonus-card">
             <ScreenHeading

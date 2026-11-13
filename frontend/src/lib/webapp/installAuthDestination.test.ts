@@ -98,6 +98,17 @@ describe("install destination through authentication", () => {
     expect(browser.location.pathname).toBe("/install");
   });
 
+  it("retains the referral subsection through browser OAuth", () => {
+    const { browser } = installBrowser("/invite/referrals");
+    rememberInstallAuthDestination("login");
+    browser.location = new URL("https://shop.test/login/password");
+    buildExternalOAuthStartUrl("google", "login", "en");
+    browser.location = new URL("https://shop.test/?external_auth=google:success");
+    expect(restoreInstallAuthDestination()).toBe(true);
+    expect(browser.location.pathname).toBe("/invite/referrals");
+    expect(browser.location.searchParams.get("external_auth")).toBe("google:success");
+  });
+
   it("does not replace a newer checkout, account linking, or merging destination", () => {
     const { browser, values } = installBrowser();
     rememberInstallAuthDestination("login");
@@ -135,7 +146,7 @@ describe("install destination through authentication", () => {
     for (const saved of [
       { pathname: "/install", expiresAt: Date.now() - 1 },
       { pathname: "//evil.test/install", expiresAt: Date.now() + 1000 },
-      { pathname: "/settings/security", expiresAt: Date.now() + 1000 },
+      { pathname: "/admin/settings", expiresAt: Date.now() + 1000 },
     ]) {
       values.set(key, JSON.stringify(saved));
       expect(restoreInstallAuthDestination()).toBe(false);

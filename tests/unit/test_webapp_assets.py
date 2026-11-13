@@ -1106,7 +1106,12 @@ class WebAppAssetTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("error_page 502 503 504 = @webapp_static_shell;", shell_block)
         self.assertNotIn("try_files /index.html =404;", shell_block)
         self.assertIn("checkout(?:/[a-fA-F0-9]{32})?$", shell_block)
-        self.assertIn("settings(?:/(?:security|notifications))?$", shell_block)
+        self.assertIn("settings(?:/(?:security|notifications|payments))?$", shell_block)
+        self.assertIn("invite(?:/(?:referrals|gifts|codes))?$", shell_block)
+        self.assertIn(
+            "partner(?:/(?:links|balance|clients|commissions|withdrawals))?$", shell_block
+        )
+        self.assertIn("support(?:/(?:new|[0-9]+))?$", shell_block)
         self.assertIn("devices$", shell_block)
         self.assertIn("admin(?:/.*)?$", shell_block)
 

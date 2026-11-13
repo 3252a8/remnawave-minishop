@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { miniAppPathFromSearch, miniAppPathFromStartParam } from "./miniAppStartRoute.js";
+import {
+  miniAppLaunchPath,
+  miniAppPathFromSearch,
+  miniAppPathFromStartParam,
+} from "./miniAppStartRoute.js";
+import { sectionFromPath } from "./routes.js";
 
 describe("Mini App start routes", () => {
   it.each([
@@ -16,6 +21,14 @@ describe("Mini App start routes", () => {
     [`checkout_${"ab".repeat(16)}`, "/checkout"],
     ["plans", "/plans"],
     ["invite", "/invite"],
+    ["page_ref", "/invite/referrals"],
+    ["page_gifts", "/invite/gifts"],
+    ["page_codes", "/invite/codes"],
+    ["page_support-new", "/support/new"],
+    ["page_security", "/settings/security"],
+    ["page_status", "/status"],
+    ["page_partner-commissions", "/partner/commissions"],
+    ["ext_sample__tools__services", "/extensions/sample__tools/services"],
     ["partner", "/partner"],
     ["Support", "/support"],
     ["devices", "/devices"],
@@ -36,6 +49,17 @@ describe("Mini App start routes", () => {
     // Section payloads travel in links authored for customers; admin deep
     // links keep their own admin_* prefixes.
     expect(miniAppPathFromStartParam("admin")).toBeNull();
+    expect(miniAppPathFromStartParam("page_admin")).toBeNull();
+    expect(miniAppPathFromStartParam("page_toString")).toBeNull();
+  });
+
+  it("reads the Telegram launch data without losing the nested section", () => {
+    expect(miniAppLaunchPath("?startapp=home", "#tgWebAppStartParam=page_ref", "")).toBe(
+      "/invite/referrals"
+    );
+    expect(miniAppLaunchPath("", "", "start_param=page_ref")).toBe("/invite/referrals");
+    expect(miniAppLaunchPath("", "", "", "page_ref")).toBe("/invite/referrals");
+    expect(sectionFromPath("/demo/runtime/invite/referrals", "/demo/runtime")).toBe("invite");
   });
 
   it("prefers the Telegram launch parameter", () => {

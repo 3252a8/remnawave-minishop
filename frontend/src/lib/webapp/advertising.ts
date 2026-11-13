@@ -31,7 +31,7 @@ export async function captureAdvertising(api: ApiClient["api"]): Promise<typeof 
       .find(
         (value) =>
           /^[A-Za-z0-9_-]{2,64}$/.test(value) &&
-          !/^(ref_|p_|promo_|plan_|gift_|admin_|ticket_|webapp_auth_)/i.test(value)
+          !/^(ref_|p_|promo_|plan_|gift_|admin_|ticket_|webapp_auth_|page_)/i.test(value)
       ) || "";
   const utm: Record<string, string> = {};
   for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {

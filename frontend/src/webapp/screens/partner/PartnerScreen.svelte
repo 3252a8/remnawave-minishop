@@ -2,6 +2,8 @@
   import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { onMount } from "svelte";
+  import { trackLinkedSubsection } from "$lib/webapp/linkedSubsectionScroll.js";
+  import { partnerSubsectionFromPath } from "$lib/webapp/routes.js";
   import "./partnerScreen.css";
   import {
     ArrowRight,
@@ -60,11 +62,13 @@
     copyText = async () => {},
     api,
     goBack,
+    routePrefix = "",
     t = (key) => key,
   }: {
     copyText?: CopyTextAction;
     api?: ApiClient["api"];
     goBack?: VoidAction;
+    routePrefix?: string;
     t?: Translate;
   } = $props();
 
@@ -287,6 +291,23 @@
     activityPage = 0;
   }
 
+  function scrollToLinkedSubsection(content: HTMLElement) {
+    const getSubsection = () => partnerSubsectionFromPath(window.location.pathname, routePrefix);
+    return trackLinkedSubsection(
+      content,
+      () => Boolean(getSubsection()),
+      () => {
+        const subsection = getSubsection();
+        if (!subsection) return null;
+        if (subsection === "links" || subsection === "balance")
+          return content.querySelector(`#partner-${subsection}`);
+        const activity = content.querySelector("#partner-activity");
+        if (activity && activeTab !== subsection) changeActivityTab(subsection);
+        return activity;
+      }
+    );
+  }
+
   function changeActivitySort(value: string): void {
     activitySort = value;
     activityPage = 0;
@@ -429,7 +450,11 @@
   }
 </script>
 
-<main class="content with-nav partner-page" aria-busy={preview.loading}>
+<main
+  class="content with-nav partner-page"
+  aria-busy={preview.loading}
+  {@attach scrollToLinkedSubsection}
+>
   {#if goBack}
     <ScreenBackLink class="partner-back" label={t("wa_back")} onclick={goBack} />
   {/if}
@@ -586,7 +611,7 @@
         </div>
       {/if}
 
-      <div class="partner-links-section" data-tour="links">
+      <div id="partner-links" class="partner-links-section" data-tour="links">
         <h3 class="card-heading">{t("wa_partner_links_title")}</h3>
         <div class="partner-link-list">
           {#each preview.links as link (link.id)}
@@ -613,7 +638,7 @@
     </Card>
 
     {#if currentBalance}
-      <Card class="partner-balance-card" data-tour="balance">
+      <Card id="partner-balance" class="partner-balance-card" data-tour="balance">
         <div class="partner-section-head">
           <div class="partner-section-title">
             <WalletCards size={30} />
