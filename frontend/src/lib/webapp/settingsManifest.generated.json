@@ -10430,7 +10430,7 @@
         "i18n_description_key": null,
         "i18n_subsection_key": "admin_settings_subsection_heleket",
         "i18n_placeholder_key": "admin_settings_field_heleket_base_url_placeholder",
-        "placeholder": "https://api.heleket.com",
+        "placeholder": "https://api.heleket.hk",
         "optional": true,
         "secret": false,
         "provider_id": "heleket",

@@ -836,7 +836,7 @@ donations интеграцией Minishop не поддерживаются. П�
 
 | Переменная | Назначение |
 | --- | --- |
-| `HELEKET_BASE_URL` | Базовый URL API. |
+| `HELEKET_BASE_URL` | Базовый URL API. По умолчанию `https://api.heleket.hk`. При сохранённом `https://api.heleket.com` запросы отправляются на `https://api.heleket.hk`. |
 | `HELEKET_MERCHANT_ID` | UUID мерчанта. |
 | `HELEKET_API_KEY` | Ключ платежного API. |
 | `HELEKET_CURRENCY` | Валюта инвойса. |
