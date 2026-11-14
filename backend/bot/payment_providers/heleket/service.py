@@ -51,7 +51,11 @@ from ..shared import (
     run_webapp_payment,
 )
 from ..shared.app_context import app_required
-from .constants import HELEKET_DEFAULT_SUPPORTED_CURRENCIES
+from .constants import (
+    HELEKET_DEFAULT_API_URL,
+    HELEKET_DEFAULT_SUPPORTED_CURRENCIES,
+    HELEKET_PREVIOUS_API_URL,
+)
 from .manifest import _CONFIG_MANIFEST, _PRESENTATION_MANIFEST
 
 if TYPE_CHECKING:
@@ -104,7 +108,7 @@ class HeleketConfig(ProviderEnvConfig):
     ENABLED: bool = Field(default=False)
     MERCHANT_ID: str | None = None
     API_KEY: str | None = None
-    BASE_URL: str = Field(default="https://api.heleket.com")
+    BASE_URL: str = Field(default=HELEKET_DEFAULT_API_URL)
     CURRENCY: str = Field(default="RUB")
     TO_CURRENCY: str | None = None
     NETWORK: str | None = None
@@ -279,7 +283,10 @@ class HeleketService(HttpClientMixin):
 
     @property
     def base_url(self) -> str:
-        return (self.config.BASE_URL or "https://api.heleket.com").rstrip("/")
+        configured = (self.config.BASE_URL or "").strip().rstrip("/")
+        if not configured or configured == HELEKET_PREVIOUS_API_URL:
+            return HELEKET_DEFAULT_API_URL
+        return configured
 
     @property
     def merchant_id(self) -> str:

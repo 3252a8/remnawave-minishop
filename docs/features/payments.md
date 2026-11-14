@@ -747,7 +747,7 @@ Heleket используется для крипто-инвойсов с merchan
 ### Настройка
 
 1. Включите `HELEKET_ENABLED`.
-2. Укажите `HELEKET_BASE_URL`, `HELEKET_MERCHANT_ID` и `HELEKET_API_KEY`.
+2. Укажите `HELEKET_MERCHANT_ID` и `HELEKET_API_KEY`. Базовый адрес `HELEKET_BASE_URL` по умолчанию — `https://api.heleket.hk`. Личный кабинет доступен на `https://dash.heleket.hk`. Адрес для входящих уведомлений задаётся отдельно через `WEBHOOK_BASE_URL`.
 3. Настройте `HELEKET_CURRENCY`.
 4. При необходимости задайте `HELEKET_TO_CURRENCY` и `HELEKET_NETWORK`.
 5. Проверьте `HELEKET_RETURN_URL` и `HELEKET_SUCCESS_URL`.
