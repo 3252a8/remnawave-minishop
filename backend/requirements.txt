@@ -27,7 +27,7 @@ asyncpg==0.32.0
     # via -r backend/requirements.in
 attrs==26.1.0
     # via aiohttp
-cbor2==6.2.0.post1
+cbor2==6.3.0
     # via webauthn
 certifi==2026.10.23
     # via
@@ -50,7 +50,7 @@ deprecated==3.0.1
     # via yookassa
 distro==1.9.0
     # via yookassa
-dnspython==2.9.1
+dnspython==2.9.2
     # via email-validator
 email-validator==2.3.0
     # via -r backend/requirements.in
@@ -107,7 +107,7 @@ pydantic==2.13.5
     #   pydantic-settings
 pydantic-core==2.46.5
     # via pydantic
-pydantic-settings==2.16.2
+pydantic-settings==2.16.3
     # via -r backend/requirements.in
 pyjwt[crypto]==2.15.1
     # via
@@ -125,7 +125,7 @@ redis==8.1.0
     # via -r backend/requirements.in
 requests==2.34.2
     # via yookassa
-sqlalchemy[asyncio]==2.0.55
+sqlalchemy[asyncio]==2.0.57
     # via -r backend/requirements.in
 tinycss2==1.5.1
     # via -r backend/requirements.in
@@ -141,7 +141,7 @@ typing-extensions==4.16.0
     #   pyopenssl
     #   sqlalchemy
     #   typing-inspection
-typing-inspection==0.4.4
+typing-inspection==0.4.5
     # via
     #   pydantic
     #   pydantic-settings

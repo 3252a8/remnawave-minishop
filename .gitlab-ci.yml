@@ -56,7 +56,7 @@ publish-docs:
       apt-get -o Acquire::Retries=5 install --yes --no-install-recommends python3 git ca-certificates
     - test -n "$CLOUDFLARE_API_TOKEN" || (echo "CLOUDFLARE_API_TOKEN is required for the documentation environment" >&2; exit 1)
     - test -n "$CLOUDFLARE_ACCOUNT_ID" || (echo "CLOUDFLARE_ACCOUNT_ID is required" >&2; exit 1)
-    - npm install --prefix /tmp/pages-cli --no-save --package-lock=false --no-audit --no-fund wrangler@4.156.1
+    - npm install --prefix /tmp/pages-cli --no-save --package-lock=false --no-audit --no-fund wrangler@4.162.0
     - export PATH="/tmp/pages-cli/node_modules/.bin:$PATH"
   script:
     - python3 scripts/publish_docs.py
@@ -76,9 +76,9 @@ publish-docs:
     when:
       - runner_external_dependency_failure
       - script_failure
-  image: docker:29.9.2-cli
+  image: docker:29.9.3-cli
   services:
-    - name: docker:29.9.2-dind
+    - name: docker:29.9.3-dind
   id_tokens:
     SIGSTORE_ID_TOKEN:
       aud: sigstore

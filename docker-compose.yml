@@ -143,7 +143,7 @@ services:
 
   postgres:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     container_name: remnawave-minishop-postgres
     restart: unless-stopped
     environment:

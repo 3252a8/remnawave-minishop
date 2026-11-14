@@ -12,12 +12,12 @@ python-dotenv==1.2.4
 pydantic==2.13.5
 yookassa==3.13.0
 httpx>=0.27.0
-pydantic-settings==2.16.2
+pydantic-settings==2.16.3
 email-validator==2.3.0
 # SQLAlchemy 2.1 changes autoflush, PostgreSQL named types, and Row typing;
 # keep 2.0 until transaction, migration, and type compatibility is validated.
 # https://docs.sqlalchemy.org/en/21/changelog/migration_21.html
-sqlalchemy[asyncio]==2.0.55
+sqlalchemy[asyncio]==2.0.57
 asyncpg==0.32.0
 # GHSA-6q48-6c7w-9gw2: require the corrected emSign trust bundle.
 certifi>=2026.10.19

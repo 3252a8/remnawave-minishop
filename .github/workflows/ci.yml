@@ -159,7 +159,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17.11
+        image: postgres:17.12
         env:
           POSTGRES_USER: app_user
           POSTGRES_PASSWORD: app_password
