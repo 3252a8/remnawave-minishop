@@ -149,7 +149,7 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 [GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf),
 а аудит и сборка документации проходят без переопределения.
 
-Frontend закрепляет `minimatch@11.0.4` через override: ESLint пока требует
+Frontend закрепляет `minimatch@11.0.8` через override: ESLint пока требует
 уязвимую ветку 10.x ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)).
 Версия 11 поддерживает используемый API и Node 24; совместимость проверяется
 полным lint/frontend gate. Удали override, когда ESLint и остальные потребители

@@ -12,11 +12,11 @@
 
 ### Изменено
 
-- Обновлены зависимости бэкенда, мини-приложения и сайта документации, а также базовые образы сборки.
+- Обновлены зависимости бэкенда, мини-приложения и сайта документации, а также базовые образы сборки. [be5edf16](https://gitlab.com/3252a8/remnawave-minishop/-/commit/be5edf168522e6dac2504f55bdfdfd2d39b45895)
 
 ### Исправлено
 
-- Обновлён dnspython до 2.9.2 с исправлением чрезмерного потребления памяти и процессорного времени при разборе DNS-записей ([GHSA-vvf4-9x63-8xvv](https://github.com/advisories/GHSA-vvf4-9x63-8xvv)).
+- Обновлён dnspython до 2.9.2 с исправлением чрезмерного потребления памяти и процессорного времени при разборе DNS-записей ([GHSA-vvf4-9x63-8xvv](https://github.com/advisories/GHSA-vvf4-9x63-8xvv)). [be5edf16](https://gitlab.com/3252a8/remnawave-minishop/-/commit/be5edf168522e6dac2504f55bdfdfd2d39b45895)
 
 [Сравнить с v3.8.5](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.5...dev).
 
