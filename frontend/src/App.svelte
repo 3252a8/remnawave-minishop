@@ -264,7 +264,7 @@
   });
   const normalizeLangCode = i18n.normalizeLangCode;
   const t = i18n.t;
-  // Traffic figures follow the interface language ("ГБ" / "GB").
+  // Traffic figures follow the interface language.
   setTrafficUnitLabel(t("wa_unit_gb", {}, "GB"));
   $effect.pre(() => {
     setTrafficUnitLabel(t("wa_unit_gb", {}, "GB"));

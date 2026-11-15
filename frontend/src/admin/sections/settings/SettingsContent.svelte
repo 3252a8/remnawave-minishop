@@ -184,6 +184,7 @@
   let copiedLoginProviderKey = $state("");
   const settingsSearchHasQuery = $derived(settingsSearchQuery.trim().length > 0);
   const settingsSearchVisible = $derived(settingsSearchOpen && settingsSearchHasQuery);
+  const visibleFields = $derived(visibleSettingsSections.flatMap((section) => section.fields));
   function openSettingsSearch(): void {
     if (settingsSearchHasQuery) settingsSearchOpen = true;
   }
@@ -237,9 +238,7 @@
   }
 
   function configuredValue(key: string): boolean {
-    const field = visibleSettingsSections
-      .flatMap((section) => section.fields)
-      .find((item) => item.key === key);
+    const field = visibleFields.find((item) => item.key === key);
     if (!field) return false;
     if (field.secret && !settingsDirty[key] && field.has_value) return true;
     const value = settingsDirty[key]?.value ?? valueFor(field);
@@ -247,9 +246,7 @@
   }
 
   function configuredText(key: string): string {
-    const field = visibleSettingsSections
-      .flatMap((section) => section.fields)
-      .find((item) => item.key === key);
+    const field = visibleFields.find((item) => item.key === key);
     if (!field) return "";
     return String(settingsDirty[key]?.value ?? valueFor(field) ?? "").trim();
   }

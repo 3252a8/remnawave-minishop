@@ -1,5 +1,5 @@
 /**
- * Localized traffic unit for the cabinet ("ГБ" in Russian, "GB" in English).
+ * Localized traffic unit for the cabinet.
  * The app sets it from the locale; formatters read it while rendering, so a
  * language switch updates every traffic figure.
  */

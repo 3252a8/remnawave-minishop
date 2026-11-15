@@ -47,7 +47,7 @@ function hasBytes(value: unknown): boolean {
 
 /**
  * Used/limit from the byte counters when the server sends them, so the unit
- * follows the interface language ("ГБ" / "GB"); the server's text is the fallback.
+ * follows the interface language. Use the server's text as the fallback.
  */
 export function trafficLabel(sub: SubscriptionTraffic | null | undefined, t: TranslateFn): string {
   if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0)
