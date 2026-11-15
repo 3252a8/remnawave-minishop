@@ -15,6 +15,7 @@
     "build:webapp": "npm run build:webapp:svelte && npm run build:webapp:js",
     "build": "npm run build:webapp",
     "generate:readme-screenshot": "node ./scripts/generate-readme-screenshot.mjs",
+    "screens": "node ./scripts/ui-screens/ui-screens.mjs",
     "generate:api-types": "npx --yes --package openapi-typescript@7.13.0 openapi-typescript ../docs/openapi.json -o src/lib/api/openapi.generated.ts && prettier --write src/lib/api/openapi.generated.ts",
     "check:runes": "node ./scripts/check-svelte-runes-only.mjs",
     "lint": "eslint src scripts",
