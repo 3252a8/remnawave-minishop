@@ -6,7 +6,7 @@
 #
 aiofiles==25.1.0
     # via aiogram
-aiogram==3.31.0
+aiogram==3.32.0
     # via -r backend/requirements.in
 aiohappyeyeballs==2.7.1
     # via aiohttp
@@ -52,7 +52,7 @@ distro==1.9.0
     # via yookassa
 dnspython==2.9.2
     # via email-validator
-email-validator==2.3.0
+email-validator==2.4.0
     # via -r backend/requirements.in
 frozenlist==1.8.0
     # via
@@ -100,12 +100,12 @@ pyasn1-modules==0.4.2
     # via webauthn
 pycparser==3.12
     # via cffi
-pydantic==2.13.5
+pydantic==2.14.3
     # via
     #   -r backend/requirements.in
     #   aiogram
     #   pydantic-settings
-pydantic-core==2.46.5
+pydantic-core==2.50.4
     # via pydantic
 pydantic-settings==2.16.3
     # via -r backend/requirements.in
