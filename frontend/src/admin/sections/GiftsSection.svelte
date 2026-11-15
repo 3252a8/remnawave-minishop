@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { takeSectionAction } from "$lib/admin/sectionActions.svelte";
   import {
     AdminBadge,
     AdminButton,
@@ -11,7 +12,7 @@
   import Dialog from "$components/ui/dialog.svelte";
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import Input from "$components/ui/input.svelte";
-  import { Gift, Plus, RefreshCw, User } from "$components/ui/icons.js";
+  import { Gift, RefreshCw, User } from "$components/ui/icons.js";
   import { unwrap, buildAdminGiftPath, type ApiClient } from "$lib/webapp/publicApi.js";
   import type { components } from "$lib/api/openapi.generated.js";
   import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
@@ -40,6 +41,9 @@
   let status = $state("");
   let source = $state("");
   let createOpen = $state(false);
+  $effect(() => {
+    if (takeSectionAction("gifts", "create")) createOpen = true;
+  });
   let copiedLink = $state<string | null>(null);
   let copyFailed = $state(false);
   let query = $state("");
@@ -202,9 +206,6 @@
       </div>
     {/snippet}
     {#snippet actions()}
-      <AdminButton variant="primary" onclick={() => (createOpen = true)}
-        ><Plus size={16} />{at("gifts_create")}</AdminButton
-      >
       <AdminButton
         variant="ghost"
         disabled={busy}

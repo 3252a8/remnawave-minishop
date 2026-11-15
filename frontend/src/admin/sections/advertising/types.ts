@@ -1,3 +1,4 @@
+import { fmtMoney } from "$lib/admin/format.js";
 import type { components } from "$lib/api/openapi.generated";
 
 export type AdDetail = components["schemas"]["AdDetailOut"];
@@ -30,6 +31,8 @@ export function adMoney(
   scale = 2
 ): string {
   if (amount === null || amount === undefined) return "—";
+  // Money with kopeck precision follows the admin format (two decimals, ₽).
+  if (scale <= 2) return fmtMoney(Number(amount) / 10 ** scale, currency);
   if (typeof amount === "number" && !Number.isInteger(amount))
     return `${(amount / 10 ** scale).toLocaleString(undefined, { maximumFractionDigits: scale })} ${currency}`;
   const minor = BigInt(amount);

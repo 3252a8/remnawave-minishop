@@ -663,6 +663,8 @@
             onOpenCustomButtons={telegramMenuSettings.openCustomButtons}
             onSaved={telegramMenuSettings.saveAppearance}
             subscribeSettingsSaved={telegramMenuSettings.subscribeSettingsSaved}
+            registerSaver={telegramMenuSettings.registerSaver}
+            reportDirty={telegramMenuSettings.reportDirty}
           />
         {:else if field.type === "menu_buttons"}
           <MenuButtonsField
@@ -677,7 +679,7 @@
             value={fieldTextValue(field)}
             items={choiceItems(field)}
             ariaLabel={fieldLabelText(field)}
-            placeholder={fieldPlaceholderText(field) || fieldLabelText(field)}
+            placeholder={fieldPlaceholderText(field) || at("select", {}, "Select")}
             onValueChange={fieldSelectHandler(field)}
           />
         {:else if field.type === "int" || field.type === "float"}
@@ -762,10 +764,11 @@
           <AdminButton
             variant="ghost"
             class="admin-setting-reset"
+            title={at("reset", {}, "Reset")}
             onclick={() => resetField(field)}
           >
             <X size={12} />
-            {at("reset", {}, "Reset")}
+            <span class="admin-setting-reset-label">{at("reset", {}, "Reset")}</span>
           </AdminButton>
         {/if}
       </div>

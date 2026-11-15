@@ -1,7 +1,7 @@
 <script lang="ts">
-  import * as Card from "$components/ui/card/index.js";
   import {
     AdminFormGrid,
+    AdminKpiTile,
     AdminSettingsGroup,
     AdminTable,
     AdminEmptyState,
@@ -23,14 +23,9 @@
 
 <div class="ad-report-panel">
   <AdminSettingsGroup title={at("ads_contacts")} description={at("ads_report_definition")}>
-    <AdminFormGrid columns={4} minWidth="140px" class="ad-report-metrics">
+    <AdminFormGrid columns={4} minWidth="min(100%, 120px)" class="ad-report-metrics">
       {#each counters as [label, value] (label)}
-        <Card.Root>
-          <Card.Header>
-            <Card.Description>{at(label)}</Card.Description>
-            <Card.Title>{value}</Card.Title>
-          </Card.Header>
-        </Card.Root>
+        <AdminKpiTile label={at(label)} {value} />
       {/each}
     </AdminFormGrid>
     {#if stats.legacy_payment_count}
@@ -143,35 +138,22 @@
   {/if}
 
   <AdminSettingsGroup title={at("ads_platform")}>
-    <AdminFormGrid columns={3} minWidth="140px" class="ad-report-metrics">
+    <AdminFormGrid columns={3} minWidth="min(100%, 120px)" class="ad-report-metrics">
       {#each Object.entries(stats.platform) as [label, count] (label)}
-        <Card.Root>
-          <Card.Header>
-            <Card.Description>{at(`ads_${label}`)}</Card.Description>
-            <Card.Title>{count ?? "—"}</Card.Title>
-          </Card.Header>
-        </Card.Root>
+        <AdminKpiTile label={at(`ads_${label}`)} value={count ?? "—"} />
       {/each}
-      <Card.Root>
-        <Card.Header>
-          <Card.Description>CTR</Card.Description>
-          <Card.Title
-            >{stats.ctr === null || stats.ctr === undefined
-              ? "—"
-              : `${(stats.ctr * 100).toFixed(2)}%`}</Card.Title
-          >
-        </Card.Header>
-      </Card.Root>
-      <Card.Root>
-        <Card.Header>
-          <Card.Description>{at("ads_registration_conversion")}</Card.Description>
-          <Card.Title
-            >{stats.registration_conversion === null || stats.registration_conversion === undefined
-              ? "—"
-              : `${(stats.registration_conversion * 100).toFixed(2)}%`}</Card.Title
-          >
-        </Card.Header>
-      </Card.Root>
+      <AdminKpiTile
+        label="CTR"
+        value={stats.ctr === null || stats.ctr === undefined
+          ? "—"
+          : `${(stats.ctr * 100).toFixed(2)}%`}
+      />
+      <AdminKpiTile
+        label={at("ads_registration_conversion")}
+        value={stats.registration_conversion === null || stats.registration_conversion === undefined
+          ? "—"
+          : `${(stats.registration_conversion * 100).toFixed(2)}%`}
+      />
     </AdminFormGrid>
   </AdminSettingsGroup>
 </div>

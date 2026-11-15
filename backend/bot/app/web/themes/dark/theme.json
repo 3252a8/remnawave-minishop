@@ -8,7 +8,7 @@
   "default": true,
   "use_primary_accent": true,
   "use_in_admin": true,
-  "assets_version": 3,
+  "assets_version": 4,
   "active_variant": "dark",
   "variants": {
     "dark": {
@@ -21,7 +21,7 @@
       "border_strong": "rgba(255, 255, 255, 0.2)",
       "text": "#f2f7f4",
       "muted": "#a9b4b0",
-      "dim": "#68736f",
+      "dim": "#7a8480",
       "danger": "#ff6b6b",
       "danger_text": "#ffb4b4",
       "danger_soft": "color-mix(in srgb, var(--danger) 12%, var(--panel))",
@@ -110,7 +110,7 @@
     "border_strong": "rgba(255, 255, 255, 0.2)",
     "text": "#f2f7f4",
     "muted": "#a9b4b0",
-    "dim": "#68736f",
+    "dim": "#7a8480",
     "danger": "#ff6b6b",
     "blue": "#2d9cff",
     "radius": "8px"

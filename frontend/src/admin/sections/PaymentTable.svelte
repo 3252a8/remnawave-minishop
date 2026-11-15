@@ -344,10 +344,13 @@
               <dt>{at("amount", {}, "Amount")}</dt>
               <dd>{paymentAmountDisplay(p, fmtMoney, at)}</dd>
             </div>
-            <div>
-              <dt>{at("payments_col_discount", {}, "Discount")}</dt>
-              <dd>{paymentDiscountDisplay(p, fmtMoney)}</dd>
-            </div>
+            <!-- A card shows the discount only when there was one. -->
+            {#if paymentDiscountDisplay(p, fmtMoney) !== "—"}
+              <div>
+                <dt>{at("payments_col_discount", {}, "Discount")}</dt>
+                <dd>{paymentDiscountDisplay(p, fmtMoney)}</dd>
+              </div>
+            {/if}
           </dl>
 
           <PaymentPurchasesCell payment={p} {at} mode="mobile" />

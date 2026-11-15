@@ -36,4 +36,13 @@ describe("paid payment outcomes", () => {
     expect(paymentStatusVariant("succeeded_pending_finalization")).toBe("warning");
     expect(paymentStatusVariant("succeeded")).toBe("success");
   });
+
+  it("keeps closed outcomes neutral and failures red", () => {
+    for (const status of ["canceled", "cancelled", "pre_cancelled", "expired", "refunded"]) {
+      expect(paymentStatusVariant(status)).toBe("muted");
+    }
+    expect(paymentStatusVariant("PENDING")).toBe("warning");
+    expect(paymentStatusVariant("failed")).toBe("danger");
+    expect(paymentStatusVariant("failed_provider")).toBe("danger");
+  });
 });

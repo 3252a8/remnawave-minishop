@@ -1,3 +1,5 @@
+import { trafficUnitLabel } from "./trafficUnit.svelte";
+
 type TemplateParams = Record<string, unknown>;
 
 type TelegramProfile =
@@ -32,7 +34,7 @@ export function formatTrafficGb(value: unknown): string {
   const formatted = Number.isInteger(numeric)
     ? String(numeric)
     : numeric.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
-  return `${formatted} GB`;
+  return `${formatted} ${trafficUnitLabel()}`;
 }
 
 export function formatTrafficBytes(value: unknown): string {

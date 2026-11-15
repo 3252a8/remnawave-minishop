@@ -1,6 +1,5 @@
 <script lang="ts">
   import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
-  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { onMount } from "svelte";
   import { CreditCardCheck, RefreshCw } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
@@ -136,9 +135,12 @@
 </script>
 
 <main class="content with-nav payment-history-screen">
-  <ScreenBackLink label={t("wa_back")} onclick={goSettings} />
   <Card class="payment-history-heading">
-    <ScreenHeading title={t("wa_payment_history_title")} subtitle={t("wa_payment_history_hint")}>
+    <ScreenHeading
+      title={t("wa_payment_history_title")}
+      subtitle={t("wa_payment_history_hint")}
+      back={{ label: t("wa_back"), onclick: goSettings, railItem: true }}
+    >
       {#snippet icon()}<CreditCardCheck />{/snippet}
     </ScreenHeading>
     <Button variant="secondary" size="sm" disabled={loading} onclick={() => void loadPage(page)}

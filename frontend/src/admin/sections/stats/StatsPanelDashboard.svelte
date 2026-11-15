@@ -9,6 +9,7 @@
     PanelSystemMetrics,
   } from "$lib/admin/statsDerivations";
   import PanelVersionBadge from "./PanelVersionBadge.svelte";
+  import { AdminKpiTile } from "$components/patterns/admin/index.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
@@ -60,75 +61,47 @@
           role="group"
           aria-label={at("stats_section_panel", {}, "")}
         >
-          <div class="admin-panel-dash-tile">
-            <div class="admin-panel-dash-tile-label">
-              <span class="admin-panel-dash-ico" aria-hidden="true"><Radio size={12} /></span>
-              {at("stats_panel_online", {}, "")}
-            </div>
-            <div class="admin-panel-dash-tile-value">{panelMetrics.onlineNow}</div>
-          </div>
-          <div class="admin-panel-dash-tile">
-            <div class="admin-panel-dash-tile-label">{at("stats_panel_active", {}, "")}</div>
-            <div class="admin-panel-dash-tile-value">{panelMetrics.active}</div>
-          </div>
-          <div class="admin-panel-dash-tile">
-            <div class="admin-panel-dash-tile-label">
-              <span class="admin-panel-dash-ico" aria-hidden="true"><Activity size={12} /></span>
-              {at("stats_panel_total_users", {}, "")}
-            </div>
-            <div class="admin-panel-dash-tile-value">{panelMetrics.totalPanelUsers}</div>
-          </div>
-          <div class="admin-panel-dash-tile">
-            <div class="admin-panel-dash-tile-label">{at("stats_panel_expired", {}, "")}</div>
-            <div class="admin-panel-dash-tile-value">{panelMetrics.expired}</div>
-          </div>
-          <div class="admin-panel-dash-tile">
-            <div class="admin-panel-dash-tile-label">{at("stats_panel_disabled", {}, "")}</div>
-            <div class="admin-panel-dash-tile-value">{panelMetrics.disabled}</div>
-          </div>
-          <div class="admin-panel-dash-tile">
-            <div class="admin-panel-dash-tile-label">{at("stats_panel_limited", {}, "")}</div>
-            <div class="admin-panel-dash-tile-value">{panelMetrics.limited}</div>
-          </div>
+          <AdminKpiTile label={at("stats_panel_online", {}, "")} value={panelMetrics.onlineNow}>
+            {#snippet icon()}<Radio size={13} />{/snippet}
+          </AdminKpiTile>
+          <AdminKpiTile label={at("stats_panel_active", {}, "")} value={panelMetrics.active} />
+          <AdminKpiTile
+            label={at("stats_panel_total_users", {}, "")}
+            value={panelMetrics.totalPanelUsers}
+          >
+            {#snippet icon()}<Activity size={13} />{/snippet}
+          </AdminKpiTile>
+          <AdminKpiTile label={at("stats_panel_expired", {}, "")} value={panelMetrics.expired} />
+          <AdminKpiTile label={at("stats_panel_disabled", {}, "")} value={panelMetrics.disabled} />
+          <AdminKpiTile label={at("stats_panel_limited", {}, "")} value={panelMetrics.limited} />
           {#if panelNodesListedCount > 0}
-            <div class="admin-panel-dash-tile" title={at("stats_panel_nodes_online_hint", {}, "")}>
-              <div class="admin-panel-dash-tile-label">
-                <span class="admin-panel-dash-ico" aria-hidden="true"><Server size={12} /></span>
-                {at("stats_panel_nodes_online", {}, "")}
-              </div>
-              <div class="admin-panel-dash-tile-value">{panelNodesListedCount}</div>
-            </div>
+            <AdminKpiTile
+              label={at("stats_panel_nodes_online", {}, "")}
+              value={panelNodesListedCount}
+              title={at("stats_panel_nodes_online_hint", {}, "")}
+            >
+              {#snippet icon()}<Server size={13} />{/snippet}
+            </AdminKpiTile>
           {/if}
           {#if panelMetrics.memPct != null}
-            <div class="admin-panel-dash-tile">
-              <div class="admin-panel-dash-tile-label">{at("stats_panel_memory", {}, "")}</div>
-              <div class="admin-panel-dash-tile-value">{panelMetrics.memPct.toFixed(1)}%</div>
-            </div>
+            <AdminKpiTile
+              label={at("stats_panel_memory", {}, "")}
+              value={`${panelMetrics.memPct.toFixed(1)}%`}
+            />
           {/if}
           {#if panelMetrics.cpuPct != null}
-            <div class="admin-panel-dash-tile">
-              <div class="admin-panel-dash-tile-label">
-                <span class="admin-panel-dash-ico" aria-hidden="true"><Zap size={12} /></span>
-                {at("stats_panel_cpu", {}, "")}
-              </div>
-              <div class="admin-panel-dash-tile-value">{panelMetrics.cpuPct.toFixed(1)}%</div>
-            </div>
+            <AdminKpiTile
+              label={at("stats_panel_cpu", {}, "")}
+              value={`${panelMetrics.cpuPct.toFixed(1)}%`}
+            >
+              {#snippet icon()}<Zap size={13} />{/snippet}
+            </AdminKpiTile>
           {/if}
           {#if panelBw?.week != null}
-            <div class="admin-panel-dash-tile admin-panel-dash-tile--wide">
-              <div class="admin-panel-dash-tile-label">{at("stats_panel_bw_week", {}, "")}</div>
-              <div class="admin-panel-dash-tile-value admin-panel-dash-tile-value--sm">
-                {panelBw.week}
-              </div>
-            </div>
+            <AdminKpiTile label={at("stats_panel_bw_week", {}, "")} value={panelBw.week} />
           {/if}
           {#if panelBw?.month != null}
-            <div class="admin-panel-dash-tile admin-panel-dash-tile--wide">
-              <div class="admin-panel-dash-tile-label">{at("stats_panel_bw_month", {}, "")}</div>
-              <div class="admin-panel-dash-tile-value admin-panel-dash-tile-value--sm">
-                {panelBw.month}
-              </div>
-            </div>
+            <AdminKpiTile label={at("stats_panel_bw_month", {}, "")} value={panelBw.month} />
           {/if}
         </div>
 

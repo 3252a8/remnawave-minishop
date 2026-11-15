@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { AdminBadge, AdminButton, AdminField, AdminSelect } from "$components/patterns/admin";
-  import { Check, Paintbrush, RotateCcw, Save, Send, Sparkles } from "$components/ui/icons";
+  import { Check, Paintbrush, RotateCcw, Send, Sparkles } from "$components/ui/icons";
   import EmojiGlyph from "$lib/telegramEmoji/EmojiGlyph.svelte";
   import EmojiPicker from "$lib/telegramEmoji/EmojiPicker.svelte";
   import EmojiLibraryManager from "$lib/telegramEmoji/EmojiLibraryManager.svelte";
@@ -37,12 +37,17 @@
     onOpenCustomButtons = () => {},
     onSaved = () => {},
     subscribeSettingsSaved,
+    registerSaver,
+    reportDirty,
   }: {
     at: TranslateFn;
     api?: TelegramEmojiApi;
     onOpenCustomButtons?: () => void;
     onSaved?: (appearance: MenuAppearance) => void;
     subscribeSettingsSaved?: (listener: () => void) => () => void;
+    /** Joins the settings header Save: one Save for the whole screen. */
+    registerSaver?: (saver: () => void | Promise<void>) => () => void;
+    reportDirty?: (count: number) => void;
   } = $props();
   const defaults = (): MenuAppearance => ({ schema_version: 1, buttons: {} });
   const copy = (value: MenuAppearance): MenuAppearance => structuredClone($state.snapshot(value));
@@ -258,7 +263,11 @@
       controller.abort();
     };
   });
+  $effect(() => {
+    reportDirty?.(dirty ? 1 : 0);
+  });
   onMount(() => {
+    const unregisterSaver = registerSaver?.(() => save());
     const unsubscribe = subscribeSettingsSaved?.(() => {
       discardDraftOnUnmount = true;
       clearMenuDraft(api, adminId);
@@ -266,6 +275,8 @@
     });
     void load();
     return () => {
+      unregisterSaver?.();
+      reportDirty?.(0);
       unsubscribe?.();
       if (configuration && dirty && !discardDraftOnUnmount)
         cacheMenuDraft(api, adminId, {
@@ -497,13 +508,6 @@
             notice = "";
             error = "";
           }}>{at("cancel")}</AdminButton
-        ><AdminButton
-          controlSize="md"
-          variant="primary"
-          disabled={saving || !dirty}
-          onclick={() => {
-            void save();
-          }}><Save size={15} />{saving ? at("saving") : at("save")}</AdminButton
         >
       </div>
     </div>

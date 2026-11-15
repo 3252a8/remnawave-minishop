@@ -127,7 +127,7 @@
     </div>
   {/snippet}
   {#snippet searchActions()}
-    <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
+    <AdminButton type="submit">{at("apply", {}, "Apply")}</AdminButton>
   {/snippet}
   {#snippet actions()}
     <AdminButton
@@ -215,7 +215,11 @@
             >
             <td class="admin-cell-mono" data-label={at("event", {}, "Event")}>{entry.event_type}</td
             >
-            <td class="admin-logs-user-cell" data-label={at("user_short", {}, "User")}>
+            <td
+              class="admin-logs-user-cell"
+              class:admin-cell-optional={!userId(entry, "user")}
+              data-label={at("user_short", {}, "User")}
+            >
               {#if userId(entry, "user")}
                 <span class="admin-logs-user">
                   <AdminButton
@@ -237,7 +241,11 @@
                 <span class="admin-muted">—</span>
               {/if}
             </td>
-            <td class="admin-logs-user-cell" data-label={at("target_short", {}, "Target")}>
+            <td
+              class="admin-logs-user-cell"
+              class:admin-cell-optional={!userId(entry, "target")}
+              data-label={at("target_short", {}, "Target")}
+            >
               {#if userId(entry, "target")}
                 <span class="admin-logs-user">
                   <AdminButton
@@ -259,8 +267,10 @@
                 <span class="admin-muted">—</span>
               {/if}
             </td>
-            <td class="admin-cell-wrap" data-label={at("content", {}, "Content")}
-              >{entry.content || ""}</td
+            <td
+              class="admin-cell-wrap"
+              class:admin-cell-optional={!entry.content}
+              data-label={at("content", {}, "Content")}>{entry.content || ""}</td
             >
           </tr>
         {/snippet}

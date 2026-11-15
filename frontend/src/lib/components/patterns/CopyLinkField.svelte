@@ -47,11 +47,13 @@
     onclick={(event) => event.currentTarget.select()}
   />
   {#if variant === "admin"}
-    <AdminButton variant="primary" disabled={!value} onclick={() => oncopy(value)}>
+    <AdminButton disabled={!value} onclick={() => oncopy(value)}>
       {@render content()}
     </AdminButton>
   {:else}
-    <Button disabled={!value} onclick={() => oncopy(value)}>{@render content()}</Button>
+    <Button variant="secondary" disabled={!value} onclick={() => oncopy(value)}
+      >{@render content()}</Button
+    >
     {#if qrLabel}
       <Button
         variant="secondary"

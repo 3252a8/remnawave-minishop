@@ -1613,10 +1613,9 @@ test("program entries follow the enabled feature combination", async ({ page }) 
     })
   ).toHaveClass(/active/);
 
-  const partnerBack = page.locator(".partner-back");
-  await expect(partnerBack).toBeVisible();
-  await expect(partnerBack).toContainText("Назад");
-  await partnerBack.click();
+  // The sidebar marks the section on desktop, so the back link is phone-only.
+  await expect(page.locator(".partner-back")).toBeHidden();
+  await bottomNav.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(page).toHaveURL(/\/demo\/runtime\/settings\?/);
 });
 
@@ -1888,13 +1887,13 @@ test("partner loading and empty chart states preserve their final geometry", asy
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await page.goto("/demo/runtime/admin/partners?partner_admin_scenario=loading&theme_preview=dark");
   const adminSkeleton = page.locator(".partners-skeleton");
-  await expect(adminSkeleton.locator(".partners-kpi-card")).toHaveCount(8);
+  await expect(adminSkeleton.locator(".admin-kpi-tile")).toHaveCount(8);
   await expect(
     adminSkeleton.locator(".partners-chart-block .admin-revenue-chart-body")
   ).toHaveCount(2);
   await expect(adminSkeleton.locator(".partners-preview-card")).toHaveCount(3);
   const skeletonKpiHeight = await adminSkeleton
-    .locator(".partners-kpi-card")
+    .locator(".admin-kpi-tile")
     .first()
     .evaluate((element) => element.getBoundingClientRect().height);
   const skeletonChartHeight = await adminSkeleton
@@ -1907,7 +1906,7 @@ test("partner loading and empty chart states preserve their final geometry", asy
   );
   const partnerDashboard = page.locator(".partners-admin-page");
   const finalKpiHeight = await partnerDashboard
-    .locator(".partners-kpi-card")
+    .locator(".partners-kpi-grid .admin-kpi-tile")
     .first()
     .evaluate((element) => element.getBoundingClientRect().height);
   const finalChartHeight = await partnerDashboard
@@ -2703,12 +2702,11 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const mobileUserCard = usersShell.locator(".admin-user-mobile-card").first();
   await expect(mobileUserCard).toBeVisible();
   await expect(usersShell.locator(".admin-table-wrap")).toBeHidden();
-  await expect(mobileUserCard.locator(".admin-user-mobile-metrics > div")).toHaveCount(5);
+  // Compact card: who and status, plan and term, then only the facts the user has.
   const mobileTariff = mobileUserCard.locator(".admin-user-mobile-plan");
-  await expect(mobileTariff.locator("dt")).toHaveText("Тариф / триал");
   await expect(page.locator(".admin-users-filter-chips")).toContainText("Платные пользователи");
   await expect(mobileTariff.locator(".admin-subscription-plan-name")).toHaveText("Стандарт");
-  await expect(mobileUserCard.locator(".admin-user-mobile-dates > div")).toHaveCount(2);
+  await expect(mobileUserCard.locator(".admin-user-mobile-registered")).toBeVisible();
   const mobileUsersGeometry = await usersShell.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
@@ -2716,15 +2714,7 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   expect(mobileUsersGeometry.scrollWidth).toBeLessThanOrEqual(mobileUsersGeometry.clientWidth);
   const mobileUserCardBox = await mobileUserCard.boundingBox();
   expect(mobileUserCardBox).not.toBeNull();
-  const mobileTariffRowHeight = await mobileTariff.evaluate((row) => {
-    const metrics = row.parentElement!;
-    return row.getBoundingClientRect().height + Number.parseFloat(getComputedStyle(metrics).rowGap);
-  });
-  // The tariff occupies one additional full-width row; the original metrics
-  // retain their compact-card budget, and the new row has its own bound.
-  expect(mobileTariffRowHeight).toBeLessThanOrEqual(64);
-  expect(mobileUserCardBox!.height - mobileTariffRowHeight).toBeLessThan(320);
-  expect(mobileUserCardBox!.height).toBeLessThan(384);
+  expect(mobileUserCardBox!.height).toBeLessThan(200);
   await page.setViewportSize(DESKTOP_VIEWPORT);
   await expect(adminSidebar).toBeVisible();
 
@@ -2760,7 +2750,10 @@ test("webapp and admin sections, dialogs, tabs stay interactive without console 
   const mobilePaymentCardBox = await mobilePaymentCard.boundingBox();
   expect(mobilePaymentCardBox).not.toBeNull();
   expect(mobilePaymentCardBox!.height).toBeLessThan(300);
-  await expect(mobilePaymentCard.locator(".admin-payment-mobile-metrics dd")).toHaveCount(2);
+  // Amount always; the discount only when the payment had one.
+  expect(
+    await mobilePaymentCard.locator(".admin-payment-mobile-metrics dd").count()
+  ).toBeGreaterThanOrEqual(1);
   await page.evaluate(() => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,

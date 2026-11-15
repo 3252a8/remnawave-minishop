@@ -24,8 +24,13 @@
   const categoryLabel = $derived(
     at(`support_category_${ticket?.category}`, {}, ticket?.category || "-")
   );
+  // Waiting on the admin needs action; waiting on the user is a calm open state.
   const statusVariant = $derived(
-    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success"
+    ticket?.status === "closed" || ticket?.status === "resolved"
+      ? "muted"
+      : ticket?.status === "awaiting_admin" || ticket?.status === "open"
+        ? "warning"
+        : "success"
   );
   const priorityVariant = $derived(
     ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"

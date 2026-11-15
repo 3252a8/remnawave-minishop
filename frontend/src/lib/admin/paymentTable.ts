@@ -1,3 +1,5 @@
+import { paymentProviderName } from "../paymentProviderNames";
+
 type PaymentDescriptionRow = {
   sale_mode?: string | null;
   description?: string | null;
@@ -109,7 +111,7 @@ export function paymentProviderDisplay(
     return { label: rawLabel, logoUrl: "", fallbackEmoji: "📅" };
   }
   return {
-    label: rawLabel || "—",
+    label: rawLabel ? paymentProviderName(providerKey) || rawLabel : "—",
     logoUrl: logoFile ? `/provider-logos/${logoFile}` : "",
     fallbackEmoji: "🧾",
   };

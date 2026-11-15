@@ -31,8 +31,8 @@
   );
 </script>
 
-<Card class="telegram-notifications-card attention-wrap">
-  <AttentionDot class="telegram-notifications-dot" />
+<Card class={`telegram-notifications-card attention-wrap${isBlocked ? " is-blocked" : ""}`}>
+  {#if isBlocked}<AttentionDot class="telegram-notifications-dot" />{/if}
   <div class="telegram-notifications-icon">
     <Send size={20} />
   </div>

@@ -5,7 +5,7 @@ type SelectOption = {
   value: string;
 };
 
-export type PaymentStatusVariant = "danger" | "success" | "warning";
+export type PaymentStatusVariant = "danger" | "success" | "warning" | "muted";
 
 function dateInput(value: unknown): string | number | Date {
   return value instanceof Date || typeof value === "number" ? value : String(value);
@@ -61,6 +61,13 @@ export function fmtAmount(amount: unknown): string {
   return `${sign}${grouped}.${fraction}`;
 }
 
+/** Share as "48%" or "81.9%": the dot decimal and no space, like the dashboard badges. */
+export function fmtPercent(ratio: unknown, digits = 1): string {
+  const value = Number(ratio);
+  if (!Number.isFinite(value)) return "—";
+  return `${(value * 100).toFixed(digits).replace(/\.0+$/, "")}%`;
+}
+
 export function fmtMoney(amount: unknown, currency?: string | null): string {
   const code = String(currency || "").trim();
   const sym = code.toUpperCase() === "RUB" ? "₽" : code;
@@ -95,11 +102,19 @@ export function trafficOfLabel(used: unknown, limit: unknown): string {
 }
 
 export function paymentStatusVariant(status: unknown): PaymentStatusVariant {
-  if (status === "succeeded") return "success";
-  if (status === "succeeded_pending_finalization" || status === "succeeded_pending_review") {
+  // Providers send statuses in either case ("PENDING"), like paymentStatusLabel accepts.
+  const value = String(status || "")
+    .trim()
+    .toLowerCase();
+  if (value === "succeeded" || value === "paid") return "success";
+  if (value === "succeeded_pending_finalization" || value === "succeeded_pending_review") {
     return "warning";
   }
-  if (typeof status === "string" && status.startsWith("pending")) return "warning";
+  if (value.startsWith("pending")) return "warning";
+  // A canceled, expired or refunded payment is a closed outcome, not an error.
+  if (["canceled", "cancelled", "pre_cancelled", "expired", "refunded"].includes(value)) {
+    return "muted";
+  }
   return "danger";
 }
 

@@ -1,6 +1,15 @@
 <script lang="ts">
   import { cn } from "$lib/utils.js";
   import type { Snippet } from "svelte";
+  import ScreenBackLink from "./ScreenBackLink.svelte";
+
+  type BackAction = {
+    label: string;
+    onclick: () => void;
+    /** Listed in the desktop sidebar: there the icon tile returns instead. */
+    railItem?: boolean;
+    class?: string;
+  };
 
   // One heading treatment for every cabinet screen: a 40px icon tile, an 18px
   // title in the text colour, a muted 13px line under it and optional actions.
@@ -9,6 +18,7 @@
     subtitle = "",
     level = 1,
     icon,
+    back,
     meta,
     actions,
     stackActions = false,
@@ -18,6 +28,8 @@
     subtitle?: string;
     level?: 1 | 2;
     icon?: Snippet;
+    /** A sub-screen's way back; it takes the icon tile's place in the title row. */
+    back?: BackAction;
     meta?: Snippet;
     actions?: Snippet;
     /** On phones, move text actions to their own full-width row under the title. */
@@ -31,8 +43,21 @@
   class:has-actions={Boolean(actions)}
   class:stack-actions={stackActions}
 >
+  {#if back}
+    <ScreenBackLink
+      label={back.label}
+      onclick={back.onclick}
+      railItem={back.railItem}
+      class={back.class}
+    />
+  {/if}
   {#if icon}
-    <span class="screen-heading-icon" aria-hidden="true">{@render icon()}</span>
+    <span
+      class="screen-heading-icon"
+      class:has-back={Boolean(back)}
+      class:back-in-rail={Boolean(back?.railItem)}
+      aria-hidden="true">{@render icon()}</span
+    >
   {/if}
   <div class="screen-heading-copy">
     {#if level === 1}<h1>{title}</h1>{:else}<h2>{title}</h2>{/if}
@@ -64,6 +89,16 @@
     border-radius: var(--radius-inner);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     color: var(--accent);
+  }
+
+  .screen-heading-icon.has-back {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .screen-heading-icon.has-back.back-in-rail {
+      display: grid;
+    }
   }
 
   .screen-heading-icon :global(svg) {

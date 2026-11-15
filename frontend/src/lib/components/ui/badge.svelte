@@ -3,7 +3,7 @@
   import type { Snippet } from "svelte";
   import type { HTMLAttributes } from "svelte/elements";
 
-  type BadgeVariant = "default" | "destructive" | "muted" | "outline" | "success";
+  type BadgeVariant = "default" | "destructive" | "muted" | "outline" | "success" | "warning";
   type Props = Omit<HTMLAttributes<HTMLSpanElement>, "class" | "children"> & {
     children?: Snippet;
     class?: string;
@@ -28,6 +28,7 @@
     variant === "outline" && "admin-cn-badge-outline",
     variant === "destructive" && "admin-cn-badge-destructive",
     variant === "success" && "admin-cn-badge-success",
+    variant === "warning" && "admin-cn-badge-warning",
     variant === "muted" && "admin-cn-badge-muted",
     className
   )}

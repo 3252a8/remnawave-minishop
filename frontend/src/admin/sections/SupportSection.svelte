@@ -18,13 +18,14 @@
     SupportInboxRow,
     SupportTicketHeader,
     SupportUserContextPanel,
+    AdminKpiTile,
   } from "$components/patterns/admin/index.js";
   import { TicketMessageBubble, TypingIndicator } from "$components/patterns/webapp/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import AdminExtensionPoint from "./AdminExtensionPoint.svelte";
   import type { AdminSupportReplyButton, AdminSupportTicketContext } from "./extensionTypes";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
-  import { Sliders } from "$components/ui/icons.js";
+  import { MessageSquare, Sliders } from "$components/ui/icons.js";
   import type {
     SupportFilters,
     SupportMessage,
@@ -155,6 +156,11 @@
     { value: "created_asc", label: at("sort_created_asc", {}, "Oldest created") },
   ]);
   const ticketReady = $derived(Boolean(openedTicket && openedTicket.ticket_id === openedTicketId));
+  // The request finished without a ticket (deleted, wrong id): say so instead of
+  // leaving the skeleton up behind a toast.
+  const ticketMissing = $derived(
+    Boolean(openedTicketId) && !ticketReady && !supportStore.detailLoading
+  );
   const ticketExtensionContext = $derived.by(() => {
     const ticket = openedTicket;
     const ticketId = Number(openedTicketId);
@@ -199,7 +205,9 @@
   const modalDescription = $derived(
     ticketReady
       ? at("support_ticket_number", { id: openedTicketId }, "Ticket #{id}")
-      : at("loading", {}, "Loading…")
+      : ticketMissing
+        ? ""
+        : at("loading", {}, "Loading…")
   );
   const openedTicketUser = $derived(openedTicket?.user || {});
   const openedTicketUserAvatarUrl = $derived(resolvedAvatarUrl(openedTicketUser));
@@ -357,18 +365,16 @@
 
 <div class="support-admin-layout">
   <div class="support-admin-summary" aria-label={at("support_summary", {}, "Support summary")}>
-    <span>
-      <strong>{stats?.open || 0}</strong>
-      <small>{at("support_summary_new", {}, "New")}</small>
-    </span>
-    <span>
-      <strong>{stats?.awaiting_admin || 0}</strong>
-      <small>{at("support_status_awaiting_admin", {}, "Awaiting admin")}</small>
-    </span>
-    <span>
-      <strong>{stats?.total_unread_admin || 0}</strong>
-      <small>{at("support_unread", {}, "Unread")}</small>
-    </span>
+    <AdminKpiTile label={at("support_summary_new", {}, "New")} value={stats?.open || 0} />
+    <AdminKpiTile
+      label={at("support_status_awaiting_admin", {}, "Awaiting admin")}
+      value={stats?.awaiting_admin || 0}
+      tone={stats?.awaiting_admin ? "warning" : "default"}
+    />
+    <AdminKpiTile
+      label={at("support_unread", {}, "Unread")}
+      value={stats?.total_unread_admin || 0}
+    />
   </div>
 
   <section class="support-admin-list-panel">
@@ -402,7 +408,7 @@
         />
       {/snippet}
       {#snippet searchActions()}
-        <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
+        <AdminButton type="submit">{at("apply", {}, "Apply")}</AdminButton>
       {/snippet}
       {#snippet mobileFilters()}
         <AdminButton
@@ -477,7 +483,30 @@
   onclose={closeTicketModal}
   class="admin-dialog support-ticket-dialog"
 >
-  {#if !ticketReady}
+  {#if ticketMissing}
+    <!-- The whole dialog becomes the state: icon, title, what happened and
+         where to go, instead of a small card at the top of an empty modal. -->
+    <div class="support-ticket-missing" role="status">
+      <span class="support-ticket-missing-icon" aria-hidden="true"><MessageSquare size={26} /></span
+      >
+      <h3>{at("support_ticket_missing", {}, "Ticket not found")}</h3>
+      <p>
+        {at(
+          "support_ticket_missing_hint",
+          {},
+          "It may have been deleted or merged. Pick a conversation from the list."
+        )}
+      </p>
+      <div class="support-ticket-missing-actions">
+        <AdminButton
+          onclick={() => {
+            closeTicketModal();
+            void supportStore.loadList();
+          }}>{at("support_ticket_missing_back", {}, "Back to conversations")}</AdminButton
+        >
+      </div>
+    </div>
+  {:else if !ticketReady}
     <div class="support-ticket-dialog-skeleton">
       <Skeleton variant="title" width="70%" />
       <Skeleton variant="short" width="44%" />

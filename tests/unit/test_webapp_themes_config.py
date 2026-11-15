@@ -61,7 +61,7 @@ class WebappThemesConfigTests(unittest.TestCase):
         self.assertIn("dark", dark.variants)
         self.assertIn("light", dark.variants)
         self.assertEqual(dark.variants["light"].color_scheme, "light")
-        self.assertEqual(dark.assets_version, 3)
+        self.assertEqual(dark.assets_version, 4)
         self.assertEqual(dark.variants["light"].success_text, "#065f46")
         self.assertEqual(dark.variants["light"].warning_text, "#854d0e")
         win95 = cfg.theme_by_key("windows95")

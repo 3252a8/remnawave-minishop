@@ -5,6 +5,7 @@
     AdminTableSkeleton,
     AdminListToolbar,
     AdminField,
+    AdminKpiTile,
   } from "$components/patterns/admin/index.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -68,13 +69,7 @@
   {#if view === "dashboard"}
     <div class="partners-kpi-grid">
       {#each Array(8) as _, index (index)}
-        <article class="partners-kpi-card">
-          <Skeleton variant="dot" width="38px" height="38px" />
-          <div>
-            <Skeleton variant="tiny" width={`${56 + (index % 3) * 9}%`} />
-            <Skeleton variant="line" width={`${44 + (index % 2) * 14}%`} height="19px" />
-          </div>
-        </article>
+        <AdminKpiTile label="" loading loadingWidth={`${44 + (index % 2) * 14}%`} />
       {/each}
     </div>
 

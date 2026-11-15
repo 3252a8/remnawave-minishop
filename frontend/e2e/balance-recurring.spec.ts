@@ -174,7 +174,7 @@ for (const [device, viewport] of [
       await expect(page.locator(".checkout-promo-input")).toHaveAttribute("readonly", "");
       await expect(
         page.locator(".period-card.active .promo-price-pair b .animated-price")
-      ).toHaveAttribute("aria-label", "864.8 ₽");
+      ).toHaveAttribute("aria-label", "864.80 ₽");
       await expect(picker).toContainText(method);
       await expect(page.locator(".checkout-tariff-card")).not.toContainText("⭐");
       await expect(page.locator(".payment-submit-button").last()).toBeEnabled();

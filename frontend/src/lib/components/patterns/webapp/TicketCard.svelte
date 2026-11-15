@@ -25,8 +25,19 @@
   } = $props();
 
   const unread = $derived(Number(ticket?.unread_user_count || 0));
-  const visibleStatus = $derived(
-    ["resolved", "closed"].includes(String(ticket?.status || "")) ? "closed" : "open"
+  // The customer sees whose turn it is, not the internal queue state: "replied"
+  // when support answered, "waiting" while the ticket waits for support.
+  const visibleStatus = $derived.by(() => {
+    const status = String(ticket?.status || "");
+    if (status === "resolved" || status === "closed") return "closed";
+    return status === "awaiting_user" ? "awaiting_user" : "open";
+  });
+  const statusLabel = $derived(
+    visibleStatus === "closed"
+      ? t("wa_support_status_closed")
+      : visibleStatus === "awaiting_user"
+        ? t("wa_support_status_replied", {}, "Support replied")
+        : t("wa_support_status_waiting", {}, "Waiting for support")
   );
   const timeLabel = $derived(
     formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at)
@@ -69,13 +80,8 @@
   <span class="ticket-card-side">
     <span class="ticket-card-badges">
       <Badge variant="outline" class={`ticket-status-badge ticket-status-badge--${visibleStatus}`}>
-        {t(`wa_support_status_${visibleStatus}`)}
+        {statusLabel}
       </Badge>
-      {#if ticket.priority === "high"}
-        <Badge variant="muted" class="ticket-priority-badge ticket-priority-badge--high">
-          {t("wa_support_priority_high")}
-        </Badge>
-      {/if}
     </span>
     {#if unread}
       <AttentionDot position="inline" class="ticket-card-unread-dot" />

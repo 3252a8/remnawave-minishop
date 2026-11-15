@@ -1335,7 +1335,8 @@ for (const [device, viewport] of [
       await dialog.locator(".dialog-head button").click();
     }
 
-    await page.goto(adminUrl("gifts"));
+    // Users have enough pages for the jump field; short lists show page buttons only.
+    await page.goto(adminUrl("users"));
     await expect(page.locator(".admin-pagination-jump-input")).toBeVisible();
     const currentPage = page.locator(".admin-pagination-page[aria-current='page']");
     await expect(currentPage).toHaveCount(1);
@@ -1358,6 +1359,7 @@ for (const [device, viewport] of [
       );
     expect(paginationHeights.length).toBeGreaterThan(2);
     expect(Math.max(...paginationHeights) - Math.min(...paginationHeights)).toBeLessThanOrEqual(1);
+    await page.goto(adminUrl("gifts"));
     const rows = page.locator(
       device === "desktop" ? ".gift-desktop tbody tr" : ".gift-mobile-card"
     );

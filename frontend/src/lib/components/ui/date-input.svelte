@@ -173,6 +173,12 @@
   :global(.date-input-segment[data-segment="literal"]) {
     padding: 0;
   }
+  /* An empty mask ("дд.мм.гггг") is a placeholder, not a value: muted and regular
+     weight. bits-ui marks empty segments only through aria-valuetext. */
+  :global(.date-input-segment[aria-valuetext="Empty"]) {
+    color: var(--admin-muted, var(--muted));
+    font-weight: 400;
+  }
   :global(.date-input-clear.btn) {
     width: 30px;
     height: 30px;

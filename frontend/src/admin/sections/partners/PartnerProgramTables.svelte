@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from "svelte";
-  import { FileText, Plus, UsersRound, WalletCards } from "$components/ui/icons.js";
+  import { FileText, UsersRound, WalletCards } from "$components/ui/icons.js";
   import { Input } from "$components/ui/index.js";
   import {
     AdminBadge,
@@ -45,7 +45,6 @@
     withdrawals,
     view,
     money,
-    onAddPartner,
     onOpenGraph,
     onOpenPartner,
     onOpenApplication,
@@ -61,7 +60,6 @@
     withdrawals: WithdrawalRow[];
     view: View;
     money: (value: number) => string;
-    onAddPartner: () => void;
     onOpenGraph: () => void;
     onOpenPartner: (partner: Partner) => void;
     onOpenApplication: (application: Application) => void;
@@ -272,9 +270,6 @@
       {#snippet actions()}
         <AdminButton onclick={onOpenGraph}
           ><UsersRound size={15} />{at("relationships_open", {}, "Referral graph")}</AdminButton
-        >
-        <AdminButton variant="primary" onclick={onAddPartner}
-          ><Plus size={15} />{at("partners_add", {}, "Add partner")}</AdminButton
         >
       {/snippet}
     </AdminListToolbar>
@@ -731,7 +726,9 @@
                 >{statusLabel(withdrawal.status)}</AdminBadge
               >
             </td>
-            <td data-label={at("partners_requested", {}, "Requested")}>{withdrawal.requested}</td>
+            <td data-label={at("partners_requested", {}, "Requested")}
+              >{fmtDateTime(withdrawal.requested)}</td
+            >
             <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
               <AdminButton size="sm" onclick={() => onOpenWithdrawal(withdrawal)}
                 >{at("partners_open", {}, "Open")}</AdminButton

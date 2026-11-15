@@ -56,6 +56,14 @@
 
   const avatar = $derived(resolvedAvatarUrl(user));
   const badge = $derived(panelStatusBadge(user));
+  const expires = $derived(
+    fmtDateShort(user.subscription_expires_at || user.panel_status_expired_at)
+  );
+  const paymentsCount = $derived(Number(user.payments_count ?? 0));
+  const invitedCount = $derived(Number(user.invited_users_count ?? 0));
+  const hasPremium = $derived(
+    Boolean(user.premium_traffic && user.premium_traffic.state !== "none")
+  );
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -64,6 +72,8 @@
   }
 </script>
 
+<!-- Two lines instead of a label grid: who and status, plan and term, then only
+     the facts this user actually has. Tap opens the full card. -->
 <li>
   <div
     class="admin-user-mobile-card"
@@ -84,85 +94,67 @@
       <AdminBadge variant={badge.variant}>{badge.label}</AdminBadge>
     </div>
 
-    <dl class="admin-user-mobile-metrics">
-      <div class="admin-user-mobile-plan">
-        <dt>{at("users_col_tariff", {}, "Tariff / trial")}</dt>
-        <dd><AdminSubscriptionPlan plan={user.subscription_plan} {at} {currentLang} /></dd>
-      </div>
+    <div class="admin-user-mobile-plan">
+      <AdminSubscriptionPlan plan={user.subscription_plan} {at} {currentLang} />
+      {#if expires && expires !== "—"}
+        <span class="admin-user-mobile-term"
+          >{at("users_col_subscription_expires", {}, "Expires")} {expires}</span
+        >
+      {/if}
+    </div>
+
+    <ul class="admin-user-mobile-facts">
+      {#if paymentsCount > 0}
+        <li>
+          <span>{at("users_col_payments_total", {}, "Paid total")}</span>
+          <strong>{rowPaymentsTotal(user)}</strong>
+        </li>
+        <li>
+          <span>{at("users_col_payments_count", {}, "Payments")}</span>
+          <strong>{paymentsCount}</strong>
+        </li>
+      {/if}
       {#if userBalanceEnabled}
-        <div>
-          <dt>{at("users_col_user_balance", {}, "Balance")}</dt>
-          <dd class="admin-user-balance-value">{rowBalance(user, "user")}</dd>
-        </div>
+        <li>
+          <span>{at("users_col_user_balance", {}, "Balance")}</span>
+          <strong>{rowBalance(user, "user")}</strong>
+        </li>
       {/if}
       {#if partnerBalanceEnabled}
-        <div>
-          <dt>{at("users_col_partner_balance", {}, "Partner balance")}</dt>
-          <dd class="admin-user-balance-value">{rowBalance(user, "partner")}</dd>
-        </div>
+        <li>
+          <span>{at("users_col_partner_balance", {}, "Partner balance")}</span>
+          <strong>{rowBalance(user, "partner")}</strong>
+        </li>
       {/if}
-      <div>
-        <dt>{at("premium_traffic_filter_label", {}, "Premium traffic")}</dt>
-        <dd>
-          {#if user.premium_traffic && user.premium_traffic.state !== "none"}
-            <AdminBadge
-              variant={premiumTrafficBadgeVariant(user.premium_traffic)}
-              class="admin-user-premium-badge"
-            >
-              {premiumTrafficBadgeText(user.premium_traffic)}
-            </AdminBadge>
-          {:else}
-            <span class="admin-user-premium-placeholder">{at("premium_traffic_na", {}, "—")}</span>
-          {/if}
-        </dd>
-      </div>
-      <div>
-        <dt>{at("users_col_payments_total", {}, "Paid total")}</dt>
-        <dd>
-          <span class="admin-user-mobile-money">{rowPaymentsTotal(user)}</span>
-        </dd>
-      </div>
-      <div>
-        <dt>{at("users_col_payments_count", {}, "Payments")}</dt>
-        <dd class="admin-user-counter">
-          <span>{user.payments_count ?? 0}</span>
-        </dd>
-      </div>
-      <div>
-        <dt>{at("users_col_invited", {}, "Invited")}</dt>
-        <dd class="admin-user-counter">
-          <UsersRound size={13} />
-          <span>{user.invited_users_count ?? 0}</span>
-        </dd>
-      </div>
-    </dl>
-
-    <dl class="admin-user-mobile-dates">
-      <div>
-        <dt>{at("users_col_subscription_expires", {}, "Expires")}</dt>
-        <dd>{fmtDateShort(user.subscription_expires_at || user.panel_status_expired_at)}</dd>
-      </div>
-      <div>
-        <dt>{at("users_col_registration", {}, "Registered")}</dt>
-        <dd>{fmtDateShort(user.registration_date)}</dd>
-      </div>
-    </dl>
+      {#if invitedCount > 0}
+        <li>
+          <UsersRound size={12} />
+          <span>{at("users_col_invited", {}, "Invited")}</span>
+          <strong>{invitedCount}</strong>
+        </li>
+      {/if}
+      {#if hasPremium}
+        <li>
+          <AdminBadge
+            variant={premiumTrafficBadgeVariant(user.premium_traffic)}
+            class="admin-user-premium-badge"
+          >
+            {premiumTrafficBadgeText(user.premium_traffic)}
+          </AdminBadge>
+        </li>
+      {/if}
+      <li class="admin-user-mobile-registered">
+        <span>{at("users_col_registration", {}, "Registered")}</span>
+        <strong>{fmtDateShort(user.registration_date)}</strong>
+      </li>
+    </ul>
   </div>
 </li>
 
 <style>
-  .admin-user-mobile-money {
-    color: var(--admin-text);
-    font-size: 12px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  .admin-user-mobile-metrics > .admin-user-mobile-plan {
-    grid-column: 1 / -1;
-  }
   .admin-user-mobile-card {
     display: grid;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
     padding: 12px;
     border: 1px solid var(--admin-border);
@@ -196,81 +188,56 @@
     flex: 0 0 auto;
   }
 
-  /* Compact facts: label-over-value in three columns without tile fills, so a
-     user takes about two thirds of the former height. */
-  .admin-user-mobile-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px 12px;
+  .admin-user-mobile-plan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
     min-width: 0;
-    margin: 0;
+    font-size: 13px;
   }
 
-  .admin-user-mobile-metrics > div {
-    display: grid;
-    align-content: start;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .admin-user-mobile-metrics dt,
-  .admin-user-mobile-dates dt {
-    overflow: hidden;
+  .admin-user-mobile-term {
     color: var(--admin-muted);
-    font-size: 11px;
-    font-weight: 500;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .admin-user-mobile-metrics dd,
-  .admin-user-mobile-dates dd {
-    min-width: 0;
-    margin: 0;
-    color: var(--admin-text);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
   }
 
-  .admin-user-mobile-metrics dd :global(.admin-badge) {
+  .admin-user-mobile-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    min-width: 0;
+    margin: 0;
+    padding: 8px 0 0;
+    border-top: 1px solid var(--admin-border);
+    list-style: none;
+    font-size: 12px;
+  }
+
+  .admin-user-mobile-facts li {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: var(--admin-muted);
+  }
+
+  .admin-user-mobile-facts strong {
+    color: var(--admin-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-user-mobile-facts :global(.admin-user-premium-badge) {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .admin-user-mobile-metrics .admin-user-balance-value {
-    overflow: hidden;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .admin-user-mobile-dates {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    min-width: 0;
-    margin: 0;
-    padding-top: 8px;
-    border-top: 1px solid var(--admin-border);
-  }
-
-  .admin-user-mobile-dates > div {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .admin-user-mobile-dates > div:last-child {
-    text-align: right;
-  }
-
-  .admin-user-mobile-dates dd {
-    overflow: hidden;
-    color: var(--admin-muted);
-    font-family: var(--font-mono);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .admin-user-mobile-registered {
+    margin-left: auto;
   }
 </style>

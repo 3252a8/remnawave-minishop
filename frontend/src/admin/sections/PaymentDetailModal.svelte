@@ -35,7 +35,13 @@
     copy?: unknown;
     href?: string | null;
     promo?: boolean;
+    /** Audit rows are hidden while empty: most payments are never applied or reversed by hand. */
+    optional?: boolean;
   };
+
+  function hasMetaValue(value: unknown): boolean {
+    return value !== null && value !== undefined && String(value).trim() !== "" && value !== "—";
+  }
 
   let {
     at = (key, _params = {}, fallback = "") => fallback || key,
@@ -292,57 +298,68 @@
       : "";
   }
 
-  const paymentRows = $derived([
-    {
-      label: "ID",
-      value: payment?.payment_id ? `#${payment.payment_id}` : "",
-      copy: payment?.payment_id,
-    },
-    {
-      label: at("amount", {}, "Amount"),
-      value: payment ? paymentAmountDisplay(payment, fmtMoney, at) : "—",
-    },
-    { label: at("status", {}, "Status"), value: paymentStatusLabel(payment?.status, at) },
-    {
-      label: at("date", {}, "Date"),
-      value: payment?.created_at ? fmtDate(payment.created_at) : "",
-    },
-    {
-      label: at("payment_detail_updated_at", {}, "Updated"),
-      value: payment?.updated_at ? fmtDate(payment.updated_at) : "",
-    },
-    {
-      label: at("payment_detail_fulfillment_source", {}, "Applied by"),
-      value: fulfillmentSourceLabel(payment?.fulfillment_source),
-    },
-    {
-      label: at("payment_detail_fulfilled_at", {}, "Applied at"),
-      value: payment?.fulfilled_at ? fmtDate(payment.fulfilled_at) : "",
-    },
-    {
-      label: at("payment_detail_reversed_at", {}, "Reversed at"),
-      value: payment?.reversed_at ? fmtDate(payment.reversed_at) : "",
-    },
-    {
-      label: at("payment_detail_fulfilled_by_admin", {}, "Applied by admin ID"),
-      value: payment?.fulfilled_by_admin_id,
-      copy: payment?.fulfilled_by_admin_id,
-    },
-    {
-      label: at("payment_detail_fulfillment_note", {}, "Application reason"),
-      value: payment?.fulfillment_note,
-    },
-    {
-      label: at("payment_detail_reversed_by_admin", {}, "Reversed by admin ID"),
-      value: payment?.reversed_by_admin_id,
-      copy: payment?.reversed_by_admin_id,
-    },
-    {
-      label: at("payment_detail_reversal_note", {}, "Reversal reason"),
-      value: payment?.reversal_note,
-    },
-    { label: at("description", {}, "Description"), value: paymentDescription(payment) },
-  ] satisfies MetaRow[]);
+  const paymentRows = $derived(
+    (
+      [
+        {
+          label: "ID",
+          value: payment?.payment_id ? `#${payment.payment_id}` : "",
+          copy: payment?.payment_id,
+        },
+        {
+          label: at("amount", {}, "Amount"),
+          value: payment ? paymentAmountDisplay(payment, fmtMoney, at) : "—",
+        },
+        { label: at("status", {}, "Status"), value: paymentStatusLabel(payment?.status, at) },
+        {
+          label: at("date", {}, "Date"),
+          value: payment?.created_at ? fmtDate(payment.created_at) : "",
+        },
+        {
+          label: at("payment_detail_updated_at", {}, "Updated"),
+          value: payment?.updated_at ? fmtDate(payment.updated_at) : "",
+        },
+        {
+          optional: true,
+          label: at("payment_detail_fulfillment_source", {}, "Applied by"),
+          value: fulfillmentSourceLabel(payment?.fulfillment_source),
+        },
+        {
+          optional: true,
+          label: at("payment_detail_fulfilled_at", {}, "Applied at"),
+          value: payment?.fulfilled_at ? fmtDate(payment.fulfilled_at) : "",
+        },
+        {
+          optional: true,
+          label: at("payment_detail_reversed_at", {}, "Reversed at"),
+          value: payment?.reversed_at ? fmtDate(payment.reversed_at) : "",
+        },
+        {
+          optional: true,
+          label: at("payment_detail_fulfilled_by_admin", {}, "Applied by admin ID"),
+          value: payment?.fulfilled_by_admin_id,
+          copy: payment?.fulfilled_by_admin_id,
+        },
+        {
+          optional: true,
+          label: at("payment_detail_fulfillment_note", {}, "Application reason"),
+          value: payment?.fulfillment_note,
+        },
+        {
+          optional: true,
+          label: at("payment_detail_reversed_by_admin", {}, "Reversed by admin ID"),
+          value: payment?.reversed_by_admin_id,
+          copy: payment?.reversed_by_admin_id,
+        },
+        {
+          optional: true,
+          label: at("payment_detail_reversal_note", {}, "Reversal reason"),
+          value: payment?.reversal_note,
+        },
+        { label: at("description", {}, "Description"), value: paymentDescription(payment) },
+      ] satisfies MetaRow[]
+    ).filter((row: MetaRow) => !row.optional || hasMetaValue(row.value))
+  );
 
   const providerRows = $derived([
     { label: at("provider", {}, "Provider"), value: providerLabel },

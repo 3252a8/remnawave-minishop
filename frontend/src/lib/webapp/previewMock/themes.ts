@@ -11,7 +11,7 @@ export const DEFAULT_THEME_VARIANTS: Record<string, PreviewThemeTokens> = {
     panel_3: "#17212b",
     text: "#f2f7f4",
     muted: "#a9b4b0",
-    dim: "#68736f",
+    dim: "#7a8480",
     border: "rgba(255,255,255,0.08)",
     border_strong: "rgba(255,255,255,0.16)",
     danger: "#ff6b6b",

@@ -51,15 +51,20 @@ for (const viewport of [
     await expect(library).toBeVisible();
     const actionBar = library.locator(".appearance-action-bar");
     await expect(actionBar.getByRole("button")).toHaveCount(5);
-    expect(
-      new Set(
-        await actionBar
-          .getByRole("button")
-          .evaluateAll((buttons) =>
-            buttons.map((button) => Math.round(button.getBoundingClientRect().top))
-          )
-      ).size
-    ).toBe(1);
+    // One row on wide screens; on phones the actions wrap instead of scrolling
+    // sideways, so every button stays inside the bar.
+    const rows = await actionBar.getByRole("button").evaluateAll((buttons) => {
+      const bar = buttons[0].closest(".appearance-action-bar")!.getBoundingClientRect();
+      return buttons.map((button) => {
+        const box = button.getBoundingClientRect();
+        return {
+          top: Math.round(box.top),
+          inside: box.left >= bar.left - 1 && box.right <= bar.right + 1,
+        };
+      });
+    });
+    expect(rows.every((row) => row.inside)).toBe(true);
+    expect(new Set(rows.map((row) => row.top)).size).toBe(viewport.width > 650 ? 1 : 3);
     await expect(library).not.toContainText("Новые темы добавляются в библиотеку");
     await expect(library).not.toContainText("Ваш магазин, ваш стиль");
     await expect(library).not.toContainText("Выберите тему, добавьте свою");

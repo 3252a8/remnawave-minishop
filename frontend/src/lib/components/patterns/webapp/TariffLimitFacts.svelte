@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { trafficUnitLabel } from "$lib/webapp/trafficUnit.svelte";
   import { ArrowDownUp, SatelliteDish, Smartphone } from "$components/ui/icons.js";
   import Badge from "$components/ui/badge.svelte";
   import type { TariffLimitFact } from "$lib/webapp/tariffs.js";
@@ -25,7 +26,9 @@
     if (fact.unavailable) return t("wa_checkout_tariff_not_included", {}, "Not included");
     if (!fact.known) return t("wa_checkout_tariff_not_specified", {}, "Not specified");
     if (fact.unlimited) return t("wa_checkout_tariff_unlimited", {}, "Unlimited");
-    return fact.valueText || `${fact.units}${fact.kind === "devices" ? "" : " GB"}`;
+    return (
+      fact.valueText || `${fact.units}${fact.kind === "devices" ? "" : ` ${trafficUnitLabel()}`}`
+    );
   }
 </script>
 
@@ -48,7 +51,7 @@
     {:else}
       <AnimatedNumber
         value={fact.units}
-        suffix={fact.kind === "devices" ? "" : " GB"}
+        suffix={fact.kind === "devices" ? "" : ` ${trafficUnitLabel()}`}
         ariaLabel={valueLabel(fact)}
         format={{ maximumFractionDigits: 2 }}
         animated={animateValues}
@@ -78,7 +81,9 @@
   class:is-inline={compact && inline}
   class="checkout-tariff-facts tariff-limit-facts"
 >
-  {#each facts as fact (fact.kind)}
+  <!-- Compact chips skip limits the tariff does not specify: a "?" chip told
+       the customer nothing. The full list still names them. -->
+  {#each compact ? facts.filter((fact) => fact.known || fact.unavailable) : facts as fact (fact.kind)}
     {#if compact}
       <Badge
         variant="outline"

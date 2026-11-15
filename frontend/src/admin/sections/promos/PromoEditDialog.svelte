@@ -302,8 +302,12 @@
                 <div class="admin-promo-field-shell" class:is-dirty={editFieldDirty("valid_until")}>
                   <AdminField label={at("unlimited", {}, "Unlimited")}>
                     <label class="admin-promo-check-row">
+                      <!-- A code without an end date is already unlimited, not "unset". -->
                       <Checkbox
-                        checked={Boolean(promoEditDraft.clear_valid_until)}
+                        checked={Boolean(
+                          promoEditDraft.clear_valid_until ||
+                          !(promoEditDraft.valid_until || promoEditing.valid_until)
+                        )}
                         ariaLabel={at("unlimited", {}, "Unlimited")}
                         onCheckedChange={(checked) =>
                           promosStore.updateEditDraft({

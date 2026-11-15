@@ -325,7 +325,7 @@ for (const [scenario, device, viewport, telegram] of [
     ).toHaveCount(1);
     await expect(documents.locator(".documents-toolbar")).toHaveCount(0);
     await expect(documents.getByText("Документов пока нет", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Новый документ", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Создать документ", exact: true })).toHaveCount(1);
     await page.locator('[data-admin-action="create-document"]').click();
 
     const dialog = page.locator(".dialog-card.admin-document-editor");

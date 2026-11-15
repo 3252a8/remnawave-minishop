@@ -1,6 +1,6 @@
 ﻿<script lang="ts">
   import { getPromosStore, getTariffsStore } from "$lib/admin/context";
-  import { FileText, RefreshCw, Sliders, Trash2, User } from "$components/ui/icons.js";
+  import { Plus, RefreshCw, Sliders, Tag, Trash2, User } from "$components/ui/icons.js";
   import { onMount } from "svelte";
   import { tariffDisplayName } from "$lib/admin/tariffDisplay";
   import {
@@ -213,7 +213,7 @@
     at("promo_col_eligibility", {}, "Eligibility"),
     at("promo_col_activations", {}, "Uses"),
     at("promo_col_status", {}, "Status"),
-    at("promo_col_valid_until", {}, "Valid until"),
+    at("promo_col_expires", {}, "Expires"),
     at("actions", {}, "Actions"),
   ]);
   const promoSortColumns = [
@@ -638,8 +638,38 @@
       widths={["92px", "86px", "132px", "96px", "104px", "78px", "78px", "96px", "132px"]}
     />
   {:else if !promos.length}
-    <AdminEmptyState tone="card">
-      <span class="admin-muted">{at("promos_empty", {}, "No codes")}</span>
+    {@const filtered = Boolean(
+      String(promosStore.promosSearch || "").trim() ||
+      promosStatus ||
+      (promosScope && promosScope !== "all")
+    )}
+    <AdminEmptyState
+      tone="card"
+      title={filtered
+        ? at("promos_empty_filtered", {}, "Nothing matches the filters")
+        : promoKind === "personal"
+          ? at("promos_empty_personal", {}, "No personal codes yet")
+          : promoKind === "all"
+            ? at("promos_empty_all", {}, "No codes yet")
+            : at("promos_empty", {}, "No shared codes yet")}
+      description={filtered
+        ? at("promos_empty_filtered_hint", {}, "Change the search or reset the filters.")
+        : promoKind === "personal"
+          ? at(
+              "promos_empty_personal_hint",
+              {},
+              "They are issued automatically for referrals, gifts and refunds, or from a user card."
+            )
+          : at("promos_empty_hint", {}, "Create a code that any user can enter at checkout.")}
+    >
+      {#snippet icon()}<Tag size={22} />{/snippet}
+      {#snippet actions()}
+        {#if !filtered && promoKind !== "personal"}
+          <AdminButton variant="primary" onclick={() => promosStore.setCreateOpen(true)}
+            ><Plus size={14} />{at("promo_create_button", {}, "Create code")}</AdminButton
+          >
+        {/if}
+      {/snippet}
     </AdminEmptyState>
   {:else}
     <AdminTable class="admin-promos-table">
@@ -695,7 +725,7 @@
             onSort={promosStore.setSort}
           />
           <AdminSortableHeader
-            label={at("promo_col_valid_until", {}, "Valid until")}
+            label={at("promo_col_expires", {}, "Expires")}
             column={promoSortColumns[7]}
             currentSort={promosSort}
             {at}
@@ -749,7 +779,10 @@
               {effectText(p)}
             </td>
             <td data-label={at("promo_col_scope", {}, "Scope")}>{scopeLabel(p.applies_to)}</td>
-            <td data-label={at("promo_col_eligibility", {}, "Eligibility")}>
+            <td
+              class:admin-cell-optional={thresholdText(p) === "—"}
+              data-label={at("promo_col_eligibility", {}, "Eligibility")}
+            >
               {thresholdText(p)}
             </td>
             <td data-label={at("promo_col_activations", {}, "Uses")}>
@@ -768,8 +801,8 @@
             <td data-label={at("promo_col_status", {}, "Status")}>
               <AdminBadge variant={status.variant}>{status.label}</AdminBadge>
             </td>
-            <td data-label={at("promo_col_valid_until", {}, "Valid until")}>
-              {p.valid_until ? fmtDateShort(p.valid_until) : at("unlimited", {}, "Unlimited")}
+            <td data-label={at("promo_col_expires", {}, "Expires")}>
+              {p.valid_until ? fmtDateShort(p.valid_until) : at("promo_no_expiry", {}, "No expiry")}
             </td>
             <td class="admin-cell-actions" data-label={at("actions", {}, "Actions")}>
               <div class="admin-promo-actions">
@@ -782,16 +815,6 @@
                   onclick={() => openPromoSettings(p)}
                 >
                   <Sliders size={14} />
-                </AdminButton>
-                <AdminButton
-                  data-admin-action="open-code-activations"
-                  size="icon"
-                  variant="ghost"
-                  title={at("promo_activations_open", {}, "Open activations")}
-                  aria-label={at("promo_activations_open", {}, "Open activations")}
-                  onclick={() => openPromoActivations(p)}
-                >
-                  <FileText size={14} />
                 </AdminButton>
                 <AdminButton
                   class="admin-promo-toggle-btn"

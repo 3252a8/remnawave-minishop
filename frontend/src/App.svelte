@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { setTrafficUnitLabel } from "$lib/webapp/trafficUnit.svelte";
   import { onMount, tick, untrack } from "svelte";
   import { captureAdvertising } from "./lib/webapp/advertising";
   import { Toaster, toast as sonnerToast } from "svelte-sonner";
@@ -263,6 +264,11 @@
   });
   const normalizeLangCode = i18n.normalizeLangCode;
   const t = i18n.t;
+  // Traffic figures follow the interface language ("ГБ" / "GB").
+  setTrafficUnitLabel(t("wa_unit_gb", {}, "GB"));
+  $effect.pre(() => {
+    setTrafficUnitLabel(t("wa_unit_gb", {}, "GB"));
+  });
   const termUnitLabel = i18n.termUnitLabel;
   const languageName = i18n.languageName;
   $effect(() => {

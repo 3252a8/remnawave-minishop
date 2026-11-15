@@ -111,7 +111,16 @@ for (const width of [1440, 390]) {
       await expect(rows.first()).not.toHaveAttribute("data-payment-history-id", firstId!);
       await expect(rows).toHaveCount(3);
       await expectCurrentPage(page, 2);
-      await page.getByRole("button", { name: "Назад", exact: true }).first().click();
+      // Desktop marks the section in the sidebar, so the back link only shows on phones.
+      if (width >= 1024) {
+        await expect(page.locator(".screen-back-link")).toBeHidden();
+        await page
+          .locator(".bottom-nav")
+          .getByRole("button", { name: "Настройки", exact: true })
+          .click();
+      } else {
+        await page.locator(".screen-back-link").click();
+      }
       await expect(page.locator(".settings-row-payments")).toBeVisible();
       const sidebar = page.locator(
         ".rail-settings-subnav [data-webapp-action='open-payment-history']"
@@ -227,7 +236,9 @@ for (const width of [1440, 780, 390]) {
       await expect(rows).toHaveCount(3);
       await expectStableList();
 
-      const refresh = page.locator(".payment-history-heading button");
+      const refresh = page
+        .locator(".payment-history-heading")
+        .getByRole("button", { name: "Обновить", exact: true });
       await page.evaluate(() => {
         const url = new URL(location.href);
         url.searchParams.set("mock", "payment-history-empty");

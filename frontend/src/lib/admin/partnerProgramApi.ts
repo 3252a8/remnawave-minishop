@@ -272,7 +272,12 @@ export async function loadPartnerDetail(
       id: String(item.public_client_id || ""),
       userId: number(item.client_user_id),
       label: String(item.label || item.public_client_id || ""),
-      handle: String(item.public_client_id || "—"),
+      // The public id is the second line only when the label is a real name;
+      // otherwise the row printed "C-910104 C-910104".
+      handle:
+        item.label && item.label !== item.public_client_id
+          ? String(item.public_client_id || "")
+          : "",
       attributed: String(item.attributed_at || ""),
       source: source(item.source),
       payments: number(item.payments_count),

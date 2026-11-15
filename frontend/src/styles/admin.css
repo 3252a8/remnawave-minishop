@@ -587,6 +587,30 @@
   margin: 0;
 }
 
+.admin-empty-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--admin-surface-2);
+  color: var(--admin-muted);
+}
+
+.admin-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Inside a table card the state sits on the card surface, without a second frame. */
+.admin-empty.admin-empty-card {
+  border-style: solid;
+  background: var(--admin-surface);
+}
+
 .admin-muted {
   color: var(--admin-muted);
   font-size: 12px;
@@ -845,7 +869,8 @@
 
 /* Phones: the period chips wrap into full-width rows that share the space
    (right-aligned wrapping left "Всё время" alone on a line), nothing hides off
-   screen, and the four granularity options share one row. */
+   screen, and the granularity options form a 2×2 grid so "По неделям" does not
+   break inside its button. Chips get a 32px touch height. */
 @media (max-width: 720px) {
   .admin-revenue-chart-toolbar {
     justify-content: flex-start;
@@ -862,8 +887,12 @@
 
   .admin-revenue-granularity {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .admin-revenue-period-btn {
+    min-height: 32px;
   }
 }
 
@@ -1372,7 +1401,8 @@
 .admin-panel-dash-tiles {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  /* min(100%, …) lets two tiles share a row on a 390px phone. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr));
   padding: 12px;
   border-radius: 12px;
   border: 1px solid var(--admin-border);
@@ -1468,6 +1498,21 @@
   border-radius: 12px;
   border: 1px solid var(--admin-border);
   background: color-mix(in srgb, var(--admin-bg) 65%, var(--admin-surface-2));
+}
+
+/* Phones: the page already scrolls, so the node list does not get a second
+   240px scroller, and the tiles drop one nested frame to keep two columns. */
+@media (max-width: 720px) {
+  /* ScrollArea sets max-height inline. */
+  .admin-panel-dash-nodes-scroll {
+    max-height: none !important;
+  }
+
+  .admin-panel-dash-tiles {
+    padding: 0;
+    border: 0;
+    background: none;
+  }
 }
 
 .admin-panel-dash-nodes-grid {
@@ -2966,11 +3011,12 @@
   background: color-mix(in srgb, var(--admin-surface-2) 56%, transparent);
 }
 
+/* Group headings outrank the 13px row labels inside them. */
 .admin-settings-field-group-head strong {
   color: var(--admin-text);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .admin-settings-field-group-head small {
@@ -3066,6 +3112,24 @@
 .admin-setting-control .admin-setting-reset {
   margin-left: auto;
   flex: 0 0 auto;
+}
+
+/* Phones: the reset is a square icon button so a modified field keeps its
+   width (the labelled button squeezed URLs to about 210px). */
+@media (max-width: 720px) {
+  .admin-setting-control .admin-setting-reset {
+    width: 36px;
+    padding: 0;
+  }
+
+  .admin-setting-reset-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 .admin-icon-picker-trigger {
@@ -4718,24 +4782,17 @@
     display: inline-flex;
   }
 
+  /* Section actions stay on the title row instead of taking a row of their own. */
   .admin-header {
     padding: 8px 16px;
-    grid-template-columns: minmax(0, 1fr);
-    grid-auto-flow: row;
-    grid-auto-rows: auto;
-    align-content: center;
-    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
     min-height: var(--admin-header-h);
   }
 
   .admin-header-actions {
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-
-  .admin-header-actions::-webkit-scrollbar {
-    display: none;
+    flex-wrap: nowrap;
   }
 
   .admin-main {
@@ -4744,6 +4801,24 @@
 
   .admin-header.is-user-detail {
     padding-top: 8px;
+  }
+}
+
+/* Phones: header actions with an icon collapse to square icon buttons; the
+   label stays as the accessible name. */
+@media (max-width: 560px) {
+  .admin-header-actions .admin-btn:has(.admin-header-action-label) {
+    width: 36px;
+    padding: 0;
+  }
+
+  .admin-header-action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
 
@@ -5082,8 +5157,22 @@
   .admin-table:not(.admin-table-skeleton) tbody td::before {
     content: attr(data-label);
     color: var(--admin-muted);
+    font-family: var(--font-ui);
     font-size: 12px;
     font-weight: 500;
+    letter-spacing: normal;
+  }
+
+  /* A record card skips fields this record does not have ("Target —"). */
+  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-optional {
+    display: none;
+  }
+
+  /* Every value element stays in the value column: a cell with two children
+     (amount + currency, method + phone) would otherwise place the second one
+     under the label. */
+  .admin-table:not(.admin-table-skeleton) tbody td[data-label]:not([data-label=""]) > * {
+    grid-column: 2;
   }
 
   /* A badge is an inline pill, but as a direct grid item in the value column it
@@ -5254,7 +5343,7 @@
   flex: 0 0 auto;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--control-border, var(--admin-border-strong));
   background: color-mix(in srgb, var(--admin-muted) 28%, var(--admin-surface-2));
   cursor: pointer;
   transition:
@@ -5302,7 +5391,7 @@
   width: 100%;
   height: 36px;
   padding: 0 12px;
-  border: 1px solid var(--admin-border-strong);
+  border: 1px solid var(--control-border, var(--admin-border-strong));
   border-radius: 10px;
   background: color-mix(in srgb, var(--admin-bg) 82%, var(--admin-surface-2));
   color: var(--admin-text);
@@ -6997,10 +7086,12 @@
   cursor: pointer;
 }
 
+/* Same 1px ring as .admin-tabs-trigger: flat surfaces removed the card shadow,
+   so the active tab was invisible on the light theme. */
 .support-admin-ticket-tabs button.active {
   background: var(--admin-surface);
   color: var(--admin-text);
-  box-shadow: var(--admin-card-shadow);
+  box-shadow: 0 0 0 1px var(--admin-border);
 }
 
 .support-admin-ticket-tabs button b {
@@ -7114,6 +7205,48 @@
   width: min(1040px, calc(100vw - 28px));
   max-height: min(840px, calc(100dvh - 28px));
   overflow: hidden;
+}
+
+.support-ticket-missing {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: min(420px, calc(100dvh - 180px));
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.support-ticket-missing-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--admin-surface-2);
+  color: var(--admin-muted);
+}
+
+.support-ticket-missing h3 {
+  margin: 6px 0 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.support-ticket-missing p {
+  max-width: 380px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.support-ticket-missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 .support-ticket-dialog-body {
@@ -7632,6 +7765,16 @@
   min-width: 900px;
 }
 
+/* The code column has one stable width: typical codes fit whole, a longer
+   one ellipsizes instead of widening the column for every row. */
+@media (min-width: 721px) {
+  .admin-promos-table-wrap .admin-promos-table td.admin-cell-primary {
+    width: 184px;
+    min-width: 184px;
+    max-width: 184px;
+  }
+}
+
 .admin-promo-kind-tabs {
   margin-bottom: 12px;
 }
@@ -7960,8 +8103,8 @@
 
   .dialog-card.admin-dialog.admin-promo-dialog,
   .dialog-card.admin-dialog.admin-promo-edit-dialog {
-    width: min(100%, calc(100vw - 24px));
-    inline-size: min(100%, calc(100vw - 24px));
+    width: min(100%, calc(100vw - 32px));
+    inline-size: min(100%, calc(100vw - 32px));
     height: min(
       calc(100dvh - 24px - var(--content-safe-area-top) - var(--content-safe-area-bottom)),
       780px
@@ -7992,6 +8135,18 @@
   .admin-promo-dialog-actions .admin-unsaved-hint {
     width: 100%;
     margin-right: 0;
+  }
+
+  /* The settings tab is ~2900px tall on a phone: Save and Cancel stay pinned
+     to the bottom of the dialog instead of waiting at the end of the form. */
+  .admin-promo-dialog-actions {
+    position: sticky;
+    bottom: -1px;
+    z-index: 2;
+    margin-inline: -14px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--admin-border);
+    background: color-mix(in srgb, var(--panel) 96%, var(--bg));
   }
 
   .admin-promo-edit-body,
