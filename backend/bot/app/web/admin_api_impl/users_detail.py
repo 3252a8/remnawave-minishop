@@ -344,7 +344,7 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
     )
     if panel_uuid and panel_service is not None:
         try:
-            panel_data = await panel_service.get_user_by_uuid(panel_uuid)
+            panel_data = await panel_service.get_user_by_uuid(panel_uuid, use_cache=False)
             if panel_data:
                 panel_user_url = (
                     build_panel_user_admin_url(

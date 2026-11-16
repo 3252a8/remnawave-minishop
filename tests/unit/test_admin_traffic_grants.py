@@ -771,6 +771,7 @@ class AdminGrantTopupTests(unittest.IsolatedAsyncioTestCase):
             panel_service.get_user_by_uuid.assert_awaited_once_with(
                 "panel-uuid",
                 log_response=False,
+                use_cache=False,
             )
             panel_service.update_user_details_on_panel.assert_not_awaited()
 

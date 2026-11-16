@@ -30,6 +30,7 @@ class PanelSquadSyncMixin:
             panel_user = await self.panel_service.get_user_by_uuid(
                 panel_user_uuid,
                 log_response=False,
+                use_cache=False,
             )
         except Exception:
             logger.exception(
