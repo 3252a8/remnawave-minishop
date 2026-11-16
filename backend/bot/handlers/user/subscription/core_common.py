@@ -5,13 +5,13 @@ from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.auto_renew import auto_renew_chargeable
 from bot.keyboards.inline.user_keyboards import (
     get_tariff_packages_keyboard,
     get_tariff_periods_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_manages_recurring, provider_supports_recurring
-from bot.payment_providers.shared import service_supports_recurring
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
@@ -93,7 +93,8 @@ def _recurring_service_for_subscription(
     return services.get(provider)
 
 
-def _auto_renew_control_visible(
+async def _auto_renew_control_visible(
+    session: AsyncSession,
     subscription_service: SubscriptionService,
     sub: Subscription | None,
 ) -> bool:
@@ -107,8 +108,12 @@ def _auto_renew_control_visible(
         return bool(getattr(sub, "auto_renew_enabled", False))
     if not provider_supports_recurring(provider):
         return False
-    service = _recurring_service_for_subscription(subscription_service, sub)
-    return bool(getattr(sub, "auto_renew_enabled", False) or service_supports_recurring(service))
+    if getattr(sub, "auto_renew_enabled", False):
+        return True
+    # "Enable" without a method to charge only ends in "a saved card is required".
+    return await auto_renew_chargeable(
+        session, subscription_service, user_id=int(sub.user_id), provider=provider
+    )
 
 
 def _tariff_purchase_markup(

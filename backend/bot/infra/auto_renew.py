@@ -27,6 +27,45 @@ def auto_renew_toggle_allowed(provider: Any, *, enable: bool) -> bool:
     return bool(provider_manages_recurring(provider_key) and not enable)
 
 
+def recurring_service_for(subscription_service: Any, provider: Any) -> Any:
+    """The service that charges a saved method for this provider, if one is wired."""
+    provider_key = str(provider or "").strip().lower()
+    if not provider_key:
+        return None
+    resolver = getattr(subscription_service, "recurring_service_for", None)
+    if callable(resolver):
+        return resolver(provider_key)
+    services = getattr(subscription_service, "recurring_provider_services", {}) or {}
+    return services.get(provider_key)
+
+
+async def auto_renew_chargeable(
+    session: Any,
+    subscription_service: Any,
+    *,
+    user_id: int,
+    provider: Any,
+) -> bool:
+    """Whether turning auto-renew *on* could actually charge this customer.
+
+    Only saved-method providers can be enabled from our side, and only when their
+    recurring service is live and the customer has something it can charge: a
+    saved card for card providers, the balance itself for balance renewal. A
+    one-off payment through a recurring-capable provider leaves no saved method,
+    so offering the switch would end in "a saved payment method is required".
+    """
+    from bot.payment_providers import provider_supports_recurring
+    from bot.payment_providers.shared import service_supports_recurring
+    from bot.payment_providers.shared.recurring import has_recurring_payment_method
+
+    provider_key = str(provider or "").strip().lower()
+    if not provider_supports_recurring(provider_key):
+        return False
+    if not service_supports_recurring(recurring_service_for(subscription_service, provider_key)):
+        return False
+    return await has_recurring_payment_method(session, int(user_id), provider=provider_key)
+
+
 def managed_recurring_service_for(subscription_service: Any, provider: Any) -> Any:
     provider_key = str(provider or "").strip().lower()
     if not provider_key:

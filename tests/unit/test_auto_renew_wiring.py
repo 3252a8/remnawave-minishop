@@ -503,26 +503,63 @@ class ChargeRenewalHappyPathTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
-class AutoRenewControlVisibilityTests(unittest.TestCase):
-    def test_visible_for_enabled_yookassa_subscription_even_when_service_inactive(self):
+class AutoRenewControlVisibilityTests(unittest.IsolatedAsyncioTestCase):
+    SAVED_METHOD = "bot.payment_providers.shared.recurring.has_recurring_payment_method"
+
+    async def test_visible_for_enabled_yookassa_subscription_even_when_service_inactive(self):
         service = _FakeRecurringService(configured=True, recurring_active=False)
         subscription_service = SimpleNamespace(recurring_provider_services={"yookassa": service})
-        sub = SimpleNamespace(provider="yookassa", auto_renew_enabled=True)
+        sub = SimpleNamespace(provider="yookassa", auto_renew_enabled=True, user_id=7)
 
-        self.assertTrue(subscription_core._auto_renew_control_visible(subscription_service, sub))
+        self.assertTrue(
+            await subscription_core._auto_renew_control_visible(None, subscription_service, sub)
+        )
 
-    def test_visible_for_yookassa_when_shared_recurring_service_is_active(self):
+    async def test_visible_for_yookassa_with_saved_card_and_active_service(self):
         service = _FakeRecurringService(configured=True, recurring_active=True)
         subscription_service = SimpleNamespace(recurring_provider_services={"yookassa": service})
-        sub = SimpleNamespace(provider="yookassa", auto_renew_enabled=False)
+        sub = SimpleNamespace(provider="yookassa", auto_renew_enabled=False, user_id=7)
 
-        self.assertTrue(subscription_core._auto_renew_control_visible(subscription_service, sub))
+        with patch(self.SAVED_METHOD, AsyncMock(return_value=True)) as saved:
+            visible = await subscription_core._auto_renew_control_visible(
+                None, subscription_service, sub
+            )
 
-    def test_hidden_for_non_recurring_provider(self):
+        self.assertTrue(visible)
+        saved.assert_awaited_once_with(None, 7, provider="yookassa")
+
+    async def test_hidden_for_yookassa_one_off_payment_without_saved_card(self):
+        service = _FakeRecurringService(configured=True, recurring_active=True)
+        subscription_service = SimpleNamespace(recurring_provider_services={"yookassa": service})
+        sub = SimpleNamespace(provider="yookassa", auto_renew_enabled=False, user_id=7)
+
+        with patch(self.SAVED_METHOD, AsyncMock(return_value=False)):
+            self.assertFalse(
+                await subscription_core._auto_renew_control_visible(None, subscription_service, sub)
+            )
+
+    async def test_balance_renewal_follows_the_balance_recurring_switch(self):
+        sub = SimpleNamespace(provider="user_balance", auto_renew_enabled=False, user_id=7)
+        for active in (True, False):
+            with self.subTest(balance_recurring_active=active):
+                service = _FakeRecurringService(configured=True, recurring_active=active)
+                subscription_service = SimpleNamespace(
+                    recurring_provider_services={"user_balance": service}
+                )
+                self.assertIs(
+                    await subscription_core._auto_renew_control_visible(
+                        None, subscription_service, sub
+                    ),
+                    active,
+                )
+
+    async def test_hidden_for_non_recurring_provider(self):
         subscription_service = SimpleNamespace(recurring_provider_services={})
-        sub = SimpleNamespace(provider="freekassa", auto_renew_enabled=True)
+        sub = SimpleNamespace(provider="freekassa", auto_renew_enabled=True, user_id=7)
 
-        self.assertFalse(subscription_core._auto_renew_control_visible(subscription_service, sub))
+        self.assertFalse(
+            await subscription_core._auto_renew_control_visible(None, subscription_service, sub)
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

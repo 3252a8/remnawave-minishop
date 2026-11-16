@@ -11,7 +11,6 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_bot_username,
-    get_optional_subscription_service,
     get_referral_service,
     get_session_factory,
     get_settings,
@@ -21,6 +20,7 @@ from bot.app.web.webapp.auth_common import (
     _trial_oauth_required_reason_for_user,
     _user_has_linked_telegram,
 )
+from bot.infra.auto_renew import auto_renew_chargeable
 from bot.infra.performance import performance_phase
 from bot.infra.promo_policies import (
     PromoCheckoutSuggestionContext,
@@ -282,6 +282,17 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             user_id=user_id,
             pending_payment=pending_promo_payment,
         )
+        # The switch is offered only when turning it on could charge someone.
+        auto_renew_can_charge = bool(
+            active
+            and local_sub is not None
+            and await auto_renew_chargeable(
+                session,
+                subscription_service,
+                user_id=user_id,
+                provider=renewal_provider(local_sub),
+            )
+        )
         install_share_token = (
             await subscription_dal.ensure_install_share_token(
                 session,
@@ -478,6 +489,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             local_sub,
             lang,
             install_share_token=install_share_token,
+            auto_renew_chargeable=auto_renew_can_charge,
         ),
         "referral": {
             "code": referral_code,
@@ -584,6 +596,7 @@ def _serialize_subscription(
     lang: str | None = None,
     *,
     install_share_token: str | None = None,
+    auto_renew_chargeable: bool = False,
 ) -> dict[str, Any]:
     if lang is None:
         request = None
@@ -686,9 +699,7 @@ def _serialize_subscription(
         auto_renew_provider,
         settings=settings,
         language=lang,
-        subscription_service=(
-            get_optional_subscription_service(request) if request is not None else None
-        ),
+        chargeable=auto_renew_chargeable,
     )
     return {
         "active": seconds_left > 0,

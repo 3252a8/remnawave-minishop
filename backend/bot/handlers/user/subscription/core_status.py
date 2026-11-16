@@ -418,7 +418,7 @@ async def my_subscription_command_handler(
         if (
             not traffic_mode
             and local_sub
-            and _auto_renew_control_visible(subscription_service, local_sub)
+            and await _auto_renew_control_visible(session, subscription_service, local_sub)
         ):
             toggle_text = (
                 get_text("autorenew_disable_button")
