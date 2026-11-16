@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.middlewares.i18n import JsonI18n
 from config.settings import Settings
+from config.subscription_periods import sale_mode_duration_days
 from db.dal import payment_dal
 
 from ..base import (
@@ -469,23 +470,26 @@ async def _create_payment(
 ) -> tuple[bool, dict]:
     context = request.provider_context or {}
     variant = str(context.get("platega_variant") or "sbp")
+    duration_days = sale_mode_duration_days(request.sale_mode)
+    is_webapp = context.get("source") == "webapp"
+    traffic_gb = getattr(request.payment, "purchased_gb", None) if is_webapp else None
     payload_data: dict[str, Any] = {
         "payment_db_id": request.payment.payment_id,
         "user_id": request.user_id,
-        "months": request.months,
         "sale_mode": request.sale_mode,
         "platega_variant": variant,
     }
-    if context.get("source") == "webapp":
-        traffic_gb = getattr(request.payment, "purchased_gb", None)
-        hwid_devices = getattr(request.payment, "purchased_hwid_devices", None)
+    if duration_days is None:
+        payload_data["months"] = request.months if traffic_gb is None else 0
+    else:
+        payload_data["duration_days"] = duration_days
+    if is_webapp:
         payload_data.update(
             {
-                "months": request.months if traffic_gb is None else 0,
                 "traffic_gb": format_number_for_payload(traffic_gb)
                 if traffic_gb is not None
                 else None,
-                "hwid_devices": hwid_devices,
+                "hwid_devices": getattr(request.payment, "purchased_hwid_devices", None),
                 "source": "webapp",
             }
         )

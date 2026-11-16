@@ -59,6 +59,8 @@
 
 - Запросы Heleket используют `api.heleket.hk`, в том числе при сохранённом прежнем адресе `api.heleket.com`. Адрес входящих уведомлений по-прежнему задаётся через `WEBHOOK_BASE_URL`.
 
+- В данных платежа Platega срок дневной подписки передаётся в `duration_days`. Для подписок с месячным сроком используется `months`.
+
 - Обновлён dnspython до 2.9.2 с исправлением чрезмерного потребления памяти и процессорного времени при разборе DNS-записей ([GHSA-vvf4-9x63-8xvv](https://github.com/advisories/GHSA-vvf4-9x63-8xvv)). [be5edf16](https://gitlab.com/3252a8/remnawave-minishop/-/commit/be5edf168522e6dac2504f55bdfdfd2d39b45895)
 
 [Сравнить с v3.8.5](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.5...dev).

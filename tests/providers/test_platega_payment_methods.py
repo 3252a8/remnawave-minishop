@@ -7,6 +7,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+
 from bot.payment_providers.platega import service as platega_service
 
 
@@ -146,6 +148,42 @@ def test_create_payment_includes_antifraud_payer_metadata(monkeypatch) -> None:
         "userId": "42",
         "userName": "42",
     }
+
+
+@pytest.mark.parametrize(
+    ("source", "sale_mode", "units", "traffic_gb", "expected_period"),
+    [
+        ("webapp", "subscription@main|d365", 365.0, None, {"duration_days": 365}),
+        ("bot", "subscription@main|d30", 30.0, None, {"duration_days": 30}),
+        ("webapp", "subscription@main", 3.0, None, {"months": 3.0}),
+        ("webapp", "traffic", 25.0, 25, {"months": 0}),
+    ],
+)
+def test_create_payment_payload_uses_the_checkout_duration_unit(
+    monkeypatch, source, sale_mode, units, traffic_gb, expected_period
+) -> None:
+    service = _service(SBP_ENABLED=True)
+    captured = _capture_create_request(monkeypatch, service)
+    request = platega_service.CreatePaymentRequest(
+        payment=SimpleNamespace(payment_id=17, purchased_gb=traffic_gb),
+        user_id=42,
+        amount=150.0,
+        currency="RUB",
+        description="Checkout",
+        months=units,
+        sale_mode=sale_mode,
+        provider_context={"platega_variant": "sbp", "source": source},
+    )
+
+    success, _data = asyncio.run(platega_service._create_payment(service, request))
+
+    assert success
+    payload = json.loads(captured["body"]["payload"])
+    assert {key: payload[key] for key in ("months", "duration_days") if key in payload} == (
+        expected_period
+    )
+    assert payload["sale_mode"] == sale_mode
+    assert payload["payment_db_id"] == 17
 
 
 def test_variant_routing_keeps_callbacks_and_webapp_reuse_isolated() -> None:
