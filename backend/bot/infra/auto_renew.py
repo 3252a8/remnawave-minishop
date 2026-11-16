@@ -50,9 +50,9 @@ async def auto_renew_chargeable(
 
     Only saved-method providers can be enabled from our side, and only when their
     recurring service is live and the customer has something it can charge: a
-    saved card for card providers, the balance itself for balance renewal. A
-    one-off payment through a recurring-capable provider leaves no saved method,
-    so offering the switch would end in "a saved payment method is required".
+    saved card for card providers or a usable balance for balance renewal. For
+    partner balance, check that the profile is active and has funds in the
+    renewal currency. A previous payment from it alone does not establish that.
     """
     from bot.payment_providers import provider_supports_recurring
     from bot.payment_providers.shared import service_supports_recurring
@@ -61,8 +61,18 @@ async def auto_renew_chargeable(
     provider_key = str(provider or "").strip().lower()
     if not provider_supports_recurring(provider_key):
         return False
-    if not service_supports_recurring(recurring_service_for(subscription_service, provider_key)):
+    service = recurring_service_for(subscription_service, provider_key)
+    if not service_supports_recurring(service):
         return False
+    if provider_key == "partner_balance":
+        from config.tariffs_config import default_payment_currency_code_for_settings
+        from db.dal import partner_dal
+
+        profile = await partner_dal.get_profile_by_user_id(session, int(user_id))
+        if profile is None or profile.status != "active":
+            return False
+        currency = default_payment_currency_code_for_settings(service.settings)
+        return await partner_dal.balance_minor(session, int(profile.partner_id), currency) > 0
     return await has_recurring_payment_method(session, int(user_id), provider=provider_key)
 
 

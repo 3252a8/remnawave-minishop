@@ -553,6 +553,35 @@ class AutoRenewControlVisibilityTests(unittest.IsolatedAsyncioTestCase):
                     active,
                 )
 
+    async def test_partner_balance_renewal_requires_an_active_profile_with_funds(self):
+        service = _FakeRecurringService()
+        service.settings = SimpleNamespace(DEFAULT_CURRENCY_SYMBOL="RUB")
+        subscription_service = SimpleNamespace(
+            recurring_provider_services={"partner_balance": service}
+        )
+        sub = SimpleNamespace(provider="partner_balance", auto_renew_enabled=False, user_id=7)
+        for status, amount, visible in (
+            ("active", 0, False),
+            ("active", 100, True),
+            ("paused", 100, False),
+        ):
+            with (
+                self.subTest(status=status, amount=amount),
+                patch(
+                    "db.dal.partner_dal.get_profile_by_user_id",
+                    AsyncMock(
+                        return_value=SimpleNamespace(status=status, partner_id=9),
+                    ),
+                ),
+                patch("db.dal.partner_dal.balance_minor", AsyncMock(return_value=amount)),
+            ):
+                self.assertIs(
+                    await subscription_core._auto_renew_control_visible(
+                        None, subscription_service, sub
+                    ),
+                    visible,
+                )
+
     async def test_hidden_for_non_recurring_provider(self):
         subscription_service = SimpleNamespace(recurring_provider_services={})
         sub = SimpleNamespace(provider="freekassa", auto_renew_enabled=True, user_id=7)
