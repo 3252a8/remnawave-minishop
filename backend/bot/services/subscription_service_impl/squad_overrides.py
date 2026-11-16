@@ -232,13 +232,27 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
             return
         default_external_uuid = self._default_external_squad_uuid(external_default_uuid)
         if panel_external_uuid == default_external_uuid:
-            # The panel returned to the inherited value. Retire only discovered overrides.
-            await override_dal.deactivate_external_override(
+            current_override = await override_dal.get_active_external_override(
                 session,
                 user_id=user_id,
                 panel_user_uuid=panel_user_uuid,
-                source=override_dal.OVERRIDE_SOURCE_PANEL,
             )
+            if current_override is None:
+                return
+            source = str(current_override.source)
+            current_uuid = _clean_uuid(current_override.squad_uuid)
+            if source == override_dal.OVERRIDE_SOURCE_PANEL or (
+                current_uuid
+                and current_uuid != panel_external_uuid
+                and await self.panel_service.is_external_squad_missing(current_uuid)
+            ):
+                await override_dal.deactivate_external_override(
+                    session,
+                    user_id=user_id,
+                    panel_user_uuid=panel_user_uuid,
+                    source=source,
+                    squad_uuid=current_uuid or None,
+                )
             return
         await override_dal.set_external_override(
             session,

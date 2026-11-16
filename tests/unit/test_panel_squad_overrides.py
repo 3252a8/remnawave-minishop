@@ -125,13 +125,21 @@ def test_normalize_panel_external_squad_uuid_supports_known_wire_keys():
 
 
 @pytest.mark.parametrize(
-    ("default_uuid", "panel_snapshot", "source", "expected_mode", "expected_fields"),
+    (
+        "default_uuid",
+        "panel_snapshot",
+        "source",
+        "lookup_response",
+        "expected_mode",
+        "expected_fields",
+    ),
     [
-        (None, {"externalSquadUuid": None}, "panel", "inherit", {}),
+        (None, {"externalSquadUuid": None}, "panel", None, "inherit", {}),
         (
             "default",
             {"externalSquadUuid": "default"},
             "panel",
+            None,
             "inherit",
             {
                 "externalSquadUuid": "default",
@@ -141,27 +149,59 @@ def test_normalize_panel_external_squad_uuid_supports_known_wire_keys():
             "default",
             {"externalSquadUuid": None},
             "panel",
+            None,
             "cleared",
             {
                 "externalSquadUuid": None,
             },
         ),
-        (None, {}, "panel", "set", {"externalSquadUuid": "manual"}),
-        (None, {"externalSquadUuid": None}, "admin", "set", {"externalSquadUuid": "manual"}),
+        (None, {}, "panel", None, "set", {"externalSquadUuid": "manual"}),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"response": {"uuid": "manual"}},
+            "set",
+            {"externalSquadUuid": "manual"},
+        ),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"error": True, "status_code": 404, "details": {"errorCode": "A182"}},
+            "inherit",
+            {},
+        ),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"error": True, "status_code": 404, "details": {"message": "Unknown route"}},
+            "set",
+            {"externalSquadUuid": "manual"},
+        ),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"error": True, "status_code": 503},
+            "set",
+            {"externalSquadUuid": "manual"},
+        ),
     ],
 )
 def test_external_squad_refresh_reconciles_the_override_used_by_the_next_edit(
-    default_uuid, panel_snapshot, source, expected_mode, expected_fields
+    default_uuid, panel_snapshot, source, lookup_response, expected_mode, expected_fields
 ):
     asyncio.run(
         _assert_external_squad_refresh(
-            default_uuid, panel_snapshot, source, expected_mode, expected_fields
+            default_uuid, panel_snapshot, source, lookup_response, expected_mode, expected_fields
         )
     )
 
 
 async def _assert_external_squad_refresh(
-    default_uuid, panel_snapshot, source, expected_mode, expected_fields
+    default_uuid, panel_snapshot, source, lookup_response, expected_mode, expected_fields
 ):
     panel = PanelApiService(
         settings_stub(parsed_user_external_squad_uuid=default_uuid, parsed_user_squad_uuids=[])
@@ -190,14 +230,19 @@ async def _assert_external_squad_refresh(
                     squad_uuid="manual",
                     source=source,
                 )
-        async with factory.begin() as session:
-            summary = await host.panel_squad_overrides_summary(
-                session,
-                user_id=42,
-                panel_user_uuid="panel-user",
-                panel_user_snapshot=panel_snapshot,
-            )
-            assert summary["external"]["mode"] == expected_mode
+        with patch.object(panel, "_request", AsyncMock(return_value=lookup_response)) as request:
+            async with factory.begin() as session:
+                summary = await host.panel_squad_overrides_summary(
+                    session,
+                    user_id=42,
+                    panel_user_uuid="panel-user",
+                    panel_user_snapshot=panel_snapshot,
+                )
+                assert summary["external"]["mode"] == expected_mode
+            if lookup_response is not None:
+                request.assert_awaited_once()
+            else:
+                request.assert_not_awaited()
         async with factory() as session:
             payload = await host.build_effective_panel_squad_fields(
                 session,

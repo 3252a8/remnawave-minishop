@@ -55,6 +55,9 @@ class PanelApiResourcesMixin:
 
     if TYPE_CHECKING:
 
+        @classmethod
+        def _panel_response_error_code(cls, response_data: dict[str, Any] | None) -> str | None: ...
+
         async def _request(
             self,
             method: str,
@@ -182,18 +185,29 @@ class PanelApiResourcesMixin:
         return _json_dict(cached)
 
     async def _get_external_squad_uncached(self, squad_uuid: str) -> dict[str, Any] | None:
-        response_data = await self._request(
-            "GET",
-            f"/external-squads/{squad_uuid}",
-            operation=PanelApiOperation.EXTERNAL_SQUAD_GET,
-            log_full_response=False,
-        )
+        response_data = await self._fetch_external_squad(squad_uuid)
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
             if isinstance(response, dict):
                 return response
         logger.error("Failed to get external squad %s. Response: %s", squad_uuid, response_data)
         return None
+
+    async def is_external_squad_missing(self, squad_uuid: str) -> bool:
+        response_data = await self._fetch_external_squad(squad_uuid)
+        return (
+            response_data is not None
+            and response_data.get("status_code") == 404
+            and self._panel_response_error_code(response_data) == "A182"
+        )
+
+    async def _fetch_external_squad(self, squad_uuid: str) -> dict[str, Any] | None:
+        return await self._request(
+            "GET",
+            f"/external-squads/{squad_uuid}",
+            operation=PanelApiOperation.EXTERNAL_SQUAD_GET,
+            log_full_response=False,
+        )
 
     async def get_user_devices(
         self,

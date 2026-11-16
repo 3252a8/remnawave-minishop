@@ -329,6 +329,7 @@ async def deactivate_external_override(
     user_id: int,
     panel_user_uuid: str,
     source: str | None = None,
+    squad_uuid: str | None = None,
 ) -> int:
     statement = update(UserPanelSquadOverride).where(
         UserPanelSquadOverride.user_id == user_id,
@@ -339,6 +340,8 @@ async def deactivate_external_override(
     )
     if source is not None:
         statement = statement.where(UserPanelSquadOverride.source == source)
+    if squad_uuid is not None:
+        statement = statement.where(UserPanelSquadOverride.squad_uuid == squad_uuid)
     now = _now()
     result = await session.execute(
         statement.values(is_active=False, updated_at=now, deactivated_at=now)
