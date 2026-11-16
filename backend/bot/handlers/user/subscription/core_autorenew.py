@@ -14,6 +14,7 @@ from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import (
     get_autorenew_confirm_keyboard,
 )
+from bot.keyboards.inline.user_keyboards_context import split_callback_context
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
@@ -66,7 +67,8 @@ async def disconnect_device_handler(
         return
 
     try:
-        _, hwid_token = callback_data(callback).split(":", 1)
+        data, _ = split_callback_context(callback_data(callback))
+        _, hwid_token = data.split(":", 1)
     except Exception:
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)

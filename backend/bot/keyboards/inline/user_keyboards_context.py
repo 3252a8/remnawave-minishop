@@ -30,6 +30,19 @@ def callback_context_from_back_callback(back_callback: str | None) -> str | None
     return None
 
 
+def split_callback_context(data: str) -> tuple[str, str | None]:
+    base, _, suffix = data.rpartition(":")
+    return (base, BOT_MENU_CONTEXT) if suffix == BOT_MENU_CONTEXT else (data, None)
+
+
+def subscription_status_callback(context: str | None = None) -> str:
+    return (
+        "main_action:bot_my_subscription"
+        if context == BOT_MENU_CONTEXT
+        else "main_action:my_subscription"
+    )
+
+
 def sale_mode_with_callback_context(sale_mode: str, context: str | None) -> str:
     sale_mode = sale_mode or "subscription"
     if not context or context in sale_mode_tokens(sale_mode):

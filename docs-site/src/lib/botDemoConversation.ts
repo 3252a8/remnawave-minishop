@@ -3,6 +3,13 @@ import type { BotDemoData, DemoPlan, DemoTariff } from './botDemoData';
 import type { PaymentHistoryItem } from '../../../frontend/src/lib/webapp/paymentHistory';
 
 const messageKeys = [
+  'menu_app_sections_button', 'menu_account_settings_button', 'menu_account_security_button',
+  'menu_account_notifications_button', 'menu_account_gifts_button', 'menu_account_partner_button',
+  'menu_support_tickets_button', 'menu_admin_panel_button', 'bot_payment_history_item',
+  'bot_payment_history_resume', 'bot_payment_history_page', 'wa_payment_history_empty',
+  'wa_payment_history_state_awaiting_payment', 'wa_payment_history_state_processing',
+  'wa_payment_history_state_crediting', 'wa_payment_history_state_review', 'wa_payment_history_state_completed',
+  'wa_payment_history_state_refunded', 'wa_payment_history_state_failed', 'prev_page_button', 'next_page_button',
   'welcome', 'main_menu_greeting', 'bot_interface_menu_title', 'bot_interface_menu_webapp_hint',
   'bot_command_start_description', 'bot_command_tg_description', 'menu_activate_trial_button',
   'menu_personal_account_button', 'menu_bot_interface_button', 'menu_subscribe_inline',
@@ -84,6 +91,7 @@ export const scenarios = {
   'without-app': { app: false, active: true, description: 'Действующая подписка. Личный кабинет открывает подписку в чате.' },
   'new-without-app': { app: false, active: false, description: 'Новый пользователь. Бот активирует пробный период прямо в чате.' },
   stars: { app: true, active: true, description: 'Тариф и способы оплаты из веб-сценария с Telegram Stars.' },
+  'account-tools': { app: true, active: true, description: 'Разделы Mini App с партнёрским кабинетом и встроенным статусом.' },
 } as const;
 
 export type Scenario = keyof typeof scenarios;
@@ -146,6 +154,8 @@ export class BotDemoConversation {
       data,
       phrases: () => this.locales[this.language],
       language: () => this.language,
+      hasMiniApp: () => this.settings.app,
+      mainMenu: (message) => this.showMenu(message, 'main'),
       append: (text, rows) => this.append(text, rows),
       edit: (message, text, rows) => this.edit(message, text, rows),
       setInput: (next) => { this.inputAction = next; },
@@ -183,6 +193,7 @@ export class BotDemoConversation {
 
   get webMock() {
     if (this.scenario === 'stars') return 'checkout-addons';
+    if (this.scenario === 'account-tools') return 'partner-referral-enabled';
     return this.subscribed ? 'tariffs' : this.trialUsed ? 'no-subscription' : 'trial';
   }
 
@@ -295,40 +306,110 @@ export class BotDemoConversation {
   private showMenu(message: ChatMessage, menu: Exclude<Menu, 'admin'>) {
     this.menu = menu;
     this.inputAction = undefined;
-    const rows: Button[] = [];
+    const rows: ButtonRow[] = [];
     if (!this.trialUsed && !this.subscribed) {
       rows.push(this.settings.app ? this.app('menu_activate_trial_button', '/trial', 'trial')
         : this.button('menu_activate_trial_button', () => this.activateTrial(message)));
     }
     if (this.settings.app) rows.push(this.app('menu_personal_account_button', '/home'));
     if (menu === 'main') {
-      if (!this.settings.app) rows.push(this.button('menu_personal_account_button', () => this.subscription(message, 'main')));
+      if (!this.settings.app) rows.push(this.button('menu_my_subscription_inline', () => this.subscription(message, 'main')));
       rows.push(this.button('menu_bot_interface_button', () => this.showMenu(message, 'bot')));
     } else {
-      rows.push(
+      rows.push([
         this.button('menu_subscribe_inline', () => this.catalog(message, 'bot')),
         this.button('menu_my_subscription_inline', () => this.subscription(message, 'bot')),
-      );
-      if (this.settings.app) rows.push(this.app('menu_payment_history_button', '/settings/payments'));
+      ]);
+      rows.push(this.settings.app ? this.app('menu_payment_history_button', '/settings/payments')
+        : this.button('menu_payment_history_button', () => this.paymentHistory(message, 0)));
       rows.push(
         this.button('menu_referral_inline', () => this.referral(message, 'bot')),
-        this.button('menu_apply_promo_button', () => this.promo(message)),
-        this.button('menu_language_settings_inline', () => this.languages(message, 'bot')),
+        [
+          this.button('menu_apply_promo_button', () => this.promo(message)),
+          this.button('menu_language_settings_inline', () => this.languages(message, 'bot')),
+        ],
       );
+      if (this.settings.app) rows.push(this.button('menu_app_sections_button', () => this.appSections(message)));
     }
     const { current } = this.data;
-    if (current.statusUrl) rows.push(this.link('menu_server_status_button', {
+    if (this.scenario === 'account-tools') rows.push(this.app('menu_server_status_button', '/status'));
+    else if (current.statusUrl) rows.push(this.link('menu_server_status_button', {
       kind: 'browser', title: this.t('menu_server_status_button'), address: current.statusUrl, route: '/status',
     }));
+    if (current.supportTickets && this.settings.app) rows.push(this.app('menu_support_tickets_button', '/support'));
     if (current.supportUrl) rows.push(this.link('menu_support_button', {
         kind: 'support', title: this.language === 'ru' ? 'Поддержка Minishop' : 'Minishop Support',
         address: current.supportUrl,
     }));
     if (current.privacyUrl || current.agreementUrl) rows.push(this.button('menu_info_button', () => this.information(message, menu)));
     if (menu === 'bot') rows.push(this.back(() => this.showMenu(message, 'main')));
+    if (menu === 'main' && this.canAdmin) rows.push(this.button('menu_admin_panel_button', () => {
+      this.menu = 'admin';
+      this.admin.panel(message);
+    }));
     const text = menu === 'main' ? this.t('main_menu_greeting', { user_name: escape(this.name) })
       : [this.t('bot_interface_menu_title'), this.settings.app ? this.t('bot_interface_menu_webapp_hint') : ''].filter(Boolean).join('\n\n');
     this.edit(message, text, rows);
+  }
+
+  private appSections(message: ChatMessage) {
+    const { current } = this.data;
+    this.edit(message, this.t('menu_app_sections_button'), [
+      this.app('menu_account_settings_button', '/settings'),
+      this.app('menu_account_security_button', '/settings/security'),
+      this.app('menu_account_notifications_button', '/settings/notifications'),
+      ...(current.giftsEnabled ? [this.app('menu_account_gifts_button', '/invite/gifts')] : []),
+      ...(current.partnerEnabled || this.scenario === 'account-tools' ? [this.app('menu_account_partner_button', '/partner')] : []),
+      this.back(() => this.showMenu(message, 'bot')),
+    ]);
+  }
+
+  private paymentHistory(message: ChatMessage, page: number) {
+    const previous = this.settings.active ? this.data.payments.filter((row) => row.userId === this.data.current.id) : [];
+    const current = this.completedPayments.map((row) => ({
+      id: row.payment_id, amount: row.amount, currency: row.currency ?? '', provider: row.provider ?? '',
+      status: row.status ?? '', date: row.created_at ?? '', checkoutUrl: '', checkoutExpires: '',
+    }));
+    const history = [...current, ...previous].filter((row) =>
+      !/^(pending(_|$)|active$|created$|new$|open$|waiting$)/.test(row.status)
+      || (row.checkoutUrl && Date.parse(row.checkoutExpires) > Date.now()),
+    );
+    const pageSize = 5;
+    const pages = Math.max(1, Math.ceil(history.length / pageSize));
+    const visible = history.slice(page * pageSize, (page + 1) * pageSize);
+    const lines = [`<b>${this.t('menu_payment_history_button')}</b>`];
+    const rows: ButtonRow[] = [];
+    for (const row of visible) {
+      let state: MessageKey = 'wa_payment_history_state_failed';
+      if (row.status === 'succeeded') state = 'wa_payment_history_state_completed';
+      else if (['refunded', 'reversed'].includes(row.status)) state = 'wa_payment_history_state_refunded';
+      else if (row.status === 'succeeded_pending_finalization') state = 'wa_payment_history_state_crediting';
+      else if (row.status === 'succeeded_pending_review') state = 'wa_payment_history_state_review';
+      else if (row.checkoutUrl && Date.parse(row.checkoutExpires) > Date.now()) state = 'wa_payment_history_state_awaiting_payment';
+      else if (['processing', 'process', 'paying', 'authorized', 'awaitingauthentication', 'waiting_for_capture', 'underpaid', 'refunding'].includes(row.status))
+        state = 'wa_payment_history_state_processing';
+      lines.push(this.t('bot_payment_history_item', {
+        number: row.id, amount: row.amount, currency: escape(row.currency), provider: escape(
+          [...this.methods, ...this.data.starsMethods].find((item) => item.id === row.provider)?.label
+            ?? (row.provider === 'telegram_stars' ? 'Telegram Stars' : row.provider || '—'),
+        ),
+        date: row.date.slice(0, 16).replace('T', ' ') || '—', status: this.t(state),
+      }));
+      if (state === 'wa_payment_history_state_awaiting_payment') {
+        const title = this.t('bot_payment_history_resume', { number: row.id });
+        rows.push({ label: title, external: true, activate: () => ({ kind: 'browser', title, address: row.checkoutUrl }) });
+      }
+    }
+    if (!visible.length) lines.push(this.t('wa_payment_history_empty'));
+    if (pages > 1) {
+      lines.push(this.t('bot_payment_history_page', { page: page + 1, pages }));
+      rows.push([
+        ...(page ? [this.button('prev_page_button', () => this.paymentHistory(message, page - 1))] : []),
+        ...(page + 1 < pages ? [this.button('next_page_button', () => this.paymentHistory(message, page + 1))] : []),
+      ]);
+    }
+    rows.push(this.back(() => this.showMenu(message, 'bot')));
+    this.edit(message, lines.join('\n\n'), rows);
   }
 
   private information(message: ChatMessage, menu: Exclude<Menu, 'admin'>) {
@@ -506,6 +587,7 @@ export class BotDemoConversation {
     const id = this.admin.recordPayment({
       userId: this.data.current.id, userLabel: this.name, provider, amount, currency,
       status: 'succeeded', description: order.description, date,
+      checkoutUrl: '', checkoutExpires: '',
       months: order.months, days: 0, gb: order.gb ?? 0,
       mode, tariff: this.tariff.key,
     });
@@ -561,7 +643,7 @@ export class BotDemoConversation {
   private subscription(message: ChatMessage, menu: Exclude<Menu, 'admin'>) {
     if (!this.subscribed) {
       this.edit(message, this.t('subscription_not_active'), [
-        this.button('menu_subscribe_inline', () => this.catalog(message, 'main')),
+        this.button('menu_subscribe_inline', () => this.catalog(message, menu)),
         this.back(() => this.showMenu(message, menu)),
       ]);
       return;
@@ -634,7 +716,7 @@ export class BotDemoConversation {
         this.notice = this.t('device_disconnected');
         this.deviceList(message);
       }, { hwid: device.hwid, index: index + 1 })),
-      this.back(() => this.subscription(message, 'main')),
+      this.back(() => this.subscription(message, this.menu === 'bot' ? 'bot' : 'main')),
     ]);
   }
 

@@ -7,6 +7,8 @@ export type AdminHost = {
   data: BotDemoData;
   phrases: () => AdminMessages;
   language: () => Language;
+  hasMiniApp: () => boolean;
+  mainMenu: (message: ChatMessage) => void;
   append: (text: string, rows?: ButtonRow[]) => ChatMessage;
   edit: (message: ChatMessage, text: string, rows?: ButtonRow[]) => void;
   setInput: (next?: (value: string) => void) => void;

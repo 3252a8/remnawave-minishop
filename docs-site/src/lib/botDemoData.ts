@@ -175,6 +175,9 @@ export function botDemoData(
       trialGb: numeric(settings.trial_traffic_limit_gb),
       purchaseDescription: text(settings.subscription_purchase_description),
       supportUrl: text(settings.support_url, text(config.supportUrl)),
+      supportTickets: settings.support_tickets_enabled !== false,
+      giftsEnabled: config.giftsEnabled !== false && settings.gifts_enabled !== false,
+      partnerEnabled: config.partnerProgramEnabled === true || settings.partner_program_enabled === true,
       statusUrl: text(fields.find((field) => field.key === 'SERVER_STATUS_URL')?.value),
       privacyUrl: text(config.privacyPolicyUrl),
       agreementUrl: text(config.userAgreementUrl),
@@ -215,6 +218,7 @@ export function botDemoData(
       status: text(payment.status), description: text(payment.description), date: text(payment.created_at),
       months: numeric(payment.subscription_duration_months), days: numeric(payment.subscription_duration_days),
       gb: numeric(payment.purchased_gb), mode: text(payment.sale_mode), tariff: text(payment.tariff_key),
+      checkoutUrl: text(payment.provider_payment_url), checkoutExpires: text(payment.checkout_expires_at),
     })),
     logs: rows(sourceData.adminLogs).map((log) => ({
       date: text(log.timestamp), userId: numeric(log.user_id),

@@ -17,6 +17,7 @@ from bot.utils.mini_app_url import append_query_params
 from config.settings import Settings
 from config.support_links import normalize_support_link
 
+from .payment_history import send_payment_history
 from .start_menus import send_bot_interface_menu
 
 APP_PAGES = frozenset(
@@ -138,6 +139,12 @@ async def open_start_page(
                 inline_keyboard=[[types.InlineKeyboardButton(text=label, url=support_url)]]
             ),
         )
+    elif (
+        page == "payment-history"
+        and not settings.SUBSCRIPTION_MINI_APP_URL
+        and not settings.TELEGRAM_BOT_MENU_DISABLED
+    ):
+        await send_payment_history(event, settings, i18n_data, session)
     elif page in APP_PAGES and settings.SUBSCRIPTION_MINI_APP_URL:
         await _send_app_page(message, settings.SUBSCRIPTION_MINI_APP_URL, page, _("open_mini_app"))
     else:

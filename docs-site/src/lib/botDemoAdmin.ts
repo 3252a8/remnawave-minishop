@@ -101,14 +101,19 @@ export class AdminDemo {
     return this.ui.button('back_to_admin_panel_button', () => this.panel(message));
   }
 
-  private panel(message: ChatMessage) {
+  panel(message: ChatMessage) {
     const { ui } = this;
+    const webTitle = ui.t('admin_open_web_panel_button');
     ui.view(message, ui.t('admin_panel_title'), [
       ui.button('admin_stats_and_monitoring_section', () => this.monitoring(message)),
       ui.button('admin_user_management_section', () => this.users.menu(message)),
       ui.button('admin_promo_marketing_section', () => this.promos.menu(message)),
       ui.button('admin_ads_section', () => this.ads(message)),
       ui.button('admin_system_functions_section', () => this.system(message)),
+      ...(ui.host.hasMiniApp() ? [{
+        label: webTitle, external: true, activate: () => ({ kind: 'app' as const, title: webTitle, route: '/admin/stats' }),
+      }] : []),
+      ui.button('back_to_main_menu_button', () => ui.host.mainMenu(message)),
     ]);
   }
 

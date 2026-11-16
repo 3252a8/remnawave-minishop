@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from urllib.parse import urlsplit
+from datetime import datetime
 
 from pydantic import Field
 
@@ -14,36 +13,7 @@ from bot.app.web.payment_purchases import (
     traffic_gb_split,
 )
 from db.models import Payment
-from db.payment_history import PaymentHistoryState, payment_history_state
-
-
-def _active_checkout_url(payment: Payment, state: PaymentHistoryState) -> str | None:
-    expires_at = payment.checkout_expires_at
-    if (
-        state != "awaiting_payment"
-        or expires_at is None
-        or payment.fulfilled_at is not None
-        or payment.reversed_at is not None
-    ):
-        return None
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=UTC)
-    if expires_at <= datetime.now(UTC):
-        return None
-    url = str(payment.provider_payment_url or "").strip()
-    if any(ord(character) < 32 or ord(character) == 127 for character in url):
-        return None
-    try:
-        parsed = urlsplit(url)
-        if (
-            parsed.scheme not in {"http", "https"}
-            or not parsed.hostname
-            or parsed.username is not None
-        ):
-            return None
-    except ValueError:
-        return None
-    return url
+from db.payment_history import PaymentHistoryState, active_checkout_url, payment_history_state
 
 
 class PaymentHistoryItemOut(HttpResponseModel):
@@ -84,7 +54,7 @@ class PaymentHistoryItemOut(HttpResponseModel):
             currency=payment.currency,
             status=payment.status,
             history_state=state,
-            checkout_url=_active_checkout_url(payment, state),
+            checkout_url=active_checkout_url(payment, state),
             description=payment.description,
             created_at=payment.created_at,
             traffic_regular_gb=regular_gb,

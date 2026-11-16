@@ -68,14 +68,17 @@ const registry = [
   ["personal_account", "menu_personal_account_button", "🔑", ["main", "bot"]],
   ["trial", "menu_activate_trial_button", "🆓", ["main", "bot"]],
   ["bot_interface", "menu_bot_interface_button", "🤖", ["main"]],
+  ["admin_panel", "menu_admin_panel_button", "🛠", ["main"]],
   ["subscribe", "menu_subscribe_inline", "🚀", ["bot"]],
   ["my_subscription", "menu_my_subscription_inline", "🔐", ["bot"]],
   ["payment_history", "menu_payment_history_button", "💳", ["bot"]],
   ["promo", "menu_apply_promo_button", "🎟", ["bot"]],
   ["referral", "menu_referral_inline", "🎁", ["bot"]],
   ["language", "menu_language_settings_inline", "🌐", ["bot"]],
+  ["app_sections", "menu_app_sections_button", "📱", ["bot"]],
   ["server_status", "menu_server_status_button", "", ["main", "bot"]],
   ["support", "menu_support_button", "💬", ["main", "bot"]],
+  ["support_tickets", "menu_support_tickets_button", "🎫", ["main", "bot"]],
   ["information", "menu_info_button", "ℹ️", ["main", "bot"]],
   ["back_to_main", "admin_telegram_menu_button_back_to_main", "", ["bot", "information"]],
   ["privacy", "admin_telegram_menu_button_privacy", "", ["information"]],
@@ -104,7 +107,7 @@ function configuration(language = "ru"): MenuConfiguration {
         label_key: "",
         label: button.labels[language] || button.labels.en || button.id,
         emoji_fallback: button.telegram_emoji,
-        screens: button.show_in_bot ? ["main", "bot"] : [],
+        screens: button.show_in_bot ? ["main"] : [],
       })),
     ],
   };
@@ -123,8 +126,12 @@ function preview(
     let reason = "";
     if (button.id === "trial" && (scenario !== "new" || DEV_MOCK.config.trialEnabled === false))
       reason = translate(language, "admin_telegram_menu_demo_trial_hidden");
-    if (button.id === "my_subscription" && scenario !== "active")
-      reason = translate(language, "admin_telegram_menu_demo_subscription_hidden");
+    if (button.id === "admin_panel") reason = translate(language, "admin_tg_menu_hidden_condition");
+    if (
+      button.id === "support_tickets" &&
+      DEV_MOCK.data.settings?.support_tickets_enabled === false
+    )
+      reason = translate(language, "admin_tg_menu_hidden_support");
     if (button.id === "referral" && DEV_MOCK.config.referralProgramEnabled === false)
       reason = translate(language, "admin_telegram_menu_demo_referral_hidden");
     if (reason) {
@@ -144,7 +151,7 @@ function preview(
       ? custom.kind === "webapp" || custom.kind === "page"
         ? "webapp"
         : "url"
-      : ["personal_account", "payment_history"].includes(button.id)
+      : ["personal_account", "payment_history", "support_tickets"].includes(button.id)
         ? "webapp"
         : ["support", "server_status", "privacy", "user_agreement"].includes(button.id)
           ? "url"
@@ -163,8 +170,32 @@ function preview(
       },
     ];
   });
-  const rows: MenuPreviewButton[][] = [];
-  for (let index = 0; index < items.length; index += 2) rows.push(items.slice(index, index + 2));
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const services = [["server_status"], ["support_tickets"], ["support"], ["information"]];
+  const layout = {
+    main: [
+      ["trial"],
+      ["personal_account"],
+      ["bot_interface"],
+      ...services,
+      ...items.filter((item) => item.id.startsWith("custom:")).map((item) => [item.id]),
+    ],
+    bot: [
+      ["trial"],
+      ["personal_account"],
+      ["subscribe", "my_subscription"],
+      ["payment_history"],
+      ["referral"],
+      ["promo", "language"],
+      ["app_sections"],
+      ...services,
+      ["back_to_main"],
+    ],
+    information: [["privacy"], ["user_agreement"], ["back_to_main"]],
+  };
+  const rows = layout[screen]
+    .map((row) => row.flatMap((id) => byId.get(id) ?? []))
+    .filter((row) => row.length);
   return {
     text: translate(
       language,

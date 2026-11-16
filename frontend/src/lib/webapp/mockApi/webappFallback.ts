@@ -214,18 +214,24 @@ export function webappFallbackResponse(
     };
   }
   if (cleanPath === "/me") {
-    const demo = new URLSearchParams(window.location.search).get("gift_demo") || "";
+    const params = new URLSearchParams(window.location.search);
+    const demo = params.get("gift_demo") || "";
+    const botRole = params.get("bot_demo_role");
     // /me exposes id; user_id belongs to admin rows and must not mask consumers of the wrong field.
     const { user_id: legacyUserId, ...user } = DEV_MOCK.data.user;
     return clone({
       ...DEV_MOCK.data,
       referral: issueReviewReferral(DEV_MOCK.data.referral, currentLang),
-      user: { ...user, id: user.id ?? legacyUserId },
+      user: {
+        ...user,
+        id: user.id ?? legacyUserId,
+        ...(botRole === "user" || botRole === "admin" || botRole === "owner"
+          ? { is_admin: botRole !== "user", is_owner: botRole === "owner" }
+          : {}),
+      },
       settings: {
         ...DEV_MOCK.data.settings,
-        ...(new URLSearchParams(window.location.search).get("merge_demo") === "provider-only"
-          ? { email_auth_enabled: false }
-          : {}),
+        ...(params.get("merge_demo") === "provider-only" ? { email_auth_enabled: false } : {}),
         gifts_enabled:
           DEV_MOCK.config.giftsEnabled !== false && !["disabled", "disabled-empty"].includes(demo),
       },

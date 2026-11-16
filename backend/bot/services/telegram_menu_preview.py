@@ -144,13 +144,13 @@ def preview_menu(
             )
         elif button.id == "bot_interface":
             reason = "screen_disabled"
-        elif button.id == "personal_account":
+        elif button.id in {"personal_account", "app_sections"}:
             reason = "mini_app"
         elif button.id == "referral":
             reason = "referral"
         elif button.id == "server_status":
             reason = "status"
-        elif button.id == "support":
+        elif button.id in {"support", "support_tickets"}:
             reason = "support"
         elif button.id in {"information", "privacy", "user_agreement"}:
             reason = "legal"

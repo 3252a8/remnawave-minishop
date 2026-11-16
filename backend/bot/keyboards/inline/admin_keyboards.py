@@ -1,9 +1,10 @@
 import math
 
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 
 from bot.middlewares.i18n import JsonI18n
+from bot.utils.mini_app_url import subscription_mini_app_path_url
 from config.settings import Settings
 from db.models import User
 
@@ -37,6 +38,10 @@ def get_admin_panel_keyboard(
     builder.button(
         text=_(key="admin_system_functions_section"), callback_data="admin_section:system_functions"
     )
+
+    if url := subscription_mini_app_path_url(settings, "admin/stats"):
+        builder.button(text=_("admin_open_web_panel_button"), web_app=WebAppInfo(url=url))
+    builder.button(text=_("back_to_main_menu_button"), callback_data="main_action:back_to_main")
 
     builder.adjust(1)
     return builder.as_markup()

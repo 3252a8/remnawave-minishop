@@ -12,6 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bot.keyboards.inline.user_keyboards import (
     get_back_to_main_menu_markup,
 )
+from bot.keyboards.inline.user_keyboards_context import (
+    callback_context_from_back_callback,
+    callback_suffix_for_context,
+    split_callback_context,
+    subscription_options_callback,
+    subscription_status_callback,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.services.device_topup_availability import (
     device_topup_reason_locale_key,
@@ -114,12 +121,14 @@ async def my_subscription_command_handler(
     active = await subscription_service.get_active_subscription_details(
         session, await _event_user_id(session, event)
     )
+    context = callback_context_from_back_callback(back_callback)
 
     if not active:
         text = get_text("subscription_not_active")
 
         buy_button = InlineKeyboardButton(
-            text=get_text("menu_subscribe_inline"), callback_data="main_action:subscribe"
+            text=get_text("menu_subscribe_inline"),
+            callback_data=subscription_options_callback(context),
         )
         back_markup = get_back_to_main_menu_markup(
             current_lang,
@@ -382,7 +391,7 @@ async def my_subscription_command_handler(
                 [
                     InlineKeyboardButton(
                         text=devices_button_text,
-                        callback_data="main_action:my_devices",
+                        callback_data=f"main_action:my_devices{callback_suffix_for_context(context)}",
                     )
                 ]
             )
@@ -502,11 +511,16 @@ async def my_devices_command_handler(
     subscription_service: SubscriptionService,
     session: AsyncSession,
     bot: Bot,
+    *,
+    context: str | None = None,
 ) -> None:
     target = event.message if isinstance(event, types.CallbackQuery) else event
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
+    if isinstance(event, types.CallbackQuery) and event.data:
+        _, context = split_callback_context(event.data)
+    suffix = callback_suffix_for_context(context)
 
     if not i18n or not target:
         if isinstance(event, types.Message):
@@ -596,7 +610,7 @@ async def my_devices_command_handler(
         )
 
     base_markup = get_back_to_main_menu_markup(
-        current_lang, i18n, callback_data="main_action:my_subscription"
+        current_lang, i18n, callback_data=subscription_status_callback(context)
     )
     kb = base_markup.inline_keyboard
 
@@ -634,7 +648,7 @@ async def my_devices_command_handler(
             [
                 InlineKeyboardButton(
                     text=get_text("rename_device_menu_button"),
-                    callback_data="rename_device:list",
+                    callback_data=f"rename_device:list{suffix}",
                 )
             ]
         )
@@ -650,7 +664,7 @@ async def my_devices_command_handler(
         devices_kb.append(
             [
                 InlineKeyboardButton(
-                    text=device_button_text, callback_data=f"disconnect_device:{hwid_token}"
+                    text=device_button_text, callback_data=f"disconnect_device:{hwid_token}{suffix}"
                 )
             ]
         )

@@ -21,7 +21,7 @@ const stateMocks = new Set([
   "auth",
   "emails",
 ]);
-const routeMocks = new Set([...stateMocks, "guides", "install"]);
+const routeMocks = new Set([...stateMocks, "guides", "install", "partner-referral-enabled"]);
 const params = new URLSearchParams(window.location.search);
 
 const normalizePath = (value) => {

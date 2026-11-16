@@ -171,6 +171,7 @@ async def admin_panel_actions_callback_handler(
 
         await admin_ads_handlers.ads_create_start(callback, state, settings, i18n_data)
     elif action == "main":
+        await state.clear()
         try:
             await callback_message(callback).edit_text(
                 _(key="admin_panel_title"),

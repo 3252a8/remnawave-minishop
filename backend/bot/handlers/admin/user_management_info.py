@@ -8,6 +8,7 @@ from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import can_ban_account
 from bot.services.account_roles import is_admin as account_is_admin
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
@@ -430,6 +431,12 @@ async def process_delete_user_confirmation_handler(
         return
 
     try:
+        if not await can_ban_account(session, int(admin_account.user_id), target_user_id):
+            await session.rollback()
+            await state.clear()
+            await message.answer(_("admin_user_delete_not_allowed"))
+            return
+
         panel_user_uuids = await user_dal.get_panel_user_uuids_for_user(
             session,
             target_user_id,

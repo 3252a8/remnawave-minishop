@@ -13,6 +13,7 @@ from bot.keyboards.inline.admin_keyboards import (
     get_banned_users_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import can_ban_account
 from bot.services.broadcast_personalization import (
     known_shortcodes,
     telegram_html_error,
@@ -462,6 +463,13 @@ async def process_ban_user_handler(
         if user_model.is_banned:
             await message.answer(_("admin_user_already_banned"))
             await state.clear()
+            return
+
+        actor_id = await require_telegram_account_id(session, message_from_user(message).id)
+        if not await can_ban_account(session, actor_id, user_model.user_id):
+            await session.rollback()
+            await state.clear()
+            await message.answer(_("wa_auth_access_denied"))
             return
 
         # Ban the user

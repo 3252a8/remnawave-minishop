@@ -142,6 +142,7 @@ export function mountBotDemo(demo: HTMLElement) {
     const paymentHistory = target.route === '/settings/payments';
     if (paymentHistory && !bot.settings.active) mock = 'payment-history-empty';
     const params = webParams(mock);
+    params.set('bot_demo_role', bot.role);
     if (paymentHistory && bot.completedPayments.length && storeBotDemoPayments(bot.completedPayments)) {
       params.set('bot_demo_history', '1');
     }

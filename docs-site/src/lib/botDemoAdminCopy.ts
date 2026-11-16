@@ -1,5 +1,6 @@
 // Only include strings used by the Telegram admin demo in the page payload.
 export const adminMessageKeys = [
+  'admin_open_web_panel_button', 'back_to_main_menu_button',
   'admin_ads_back_to_menu_hint', 'admin_ads_card', 'admin_ads_create_button',
   'admin_ads_create_cost_prompt', 'admin_ads_create_source_prompt', 'admin_ads_create_start_param_prompt',
   'admin_ads_created_success', 'admin_ads_delete_button', 'admin_ads_delete_confirm',
