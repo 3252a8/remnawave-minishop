@@ -23,7 +23,9 @@ function demoCheckoutQuote(body: DemoRecord) {
   const stars = method.includes("stars");
   const plan = ((DEV_MOCK.data.plans || []) as DemoRecord[]).find(
     (item) =>
-      Number(item.months || 0) === Number(body.months || 0) &&
+      (body.duration_days
+        ? Number(item.duration_days || 0) === Number(body.duration_days)
+        : Number(item.months || 0) === Number(body.months || 0)) &&
       String(item.tariff_key || "") === String(body.tariff_key || "")
   );
   const baseAmount = Number(stars ? plan?.stars_price || 0 : plan?.price || 0);
@@ -181,16 +183,23 @@ export function webappFallbackResponse(
   if (cleanPath === "/subscription/auto-renew" && method === "POST") {
     const body = jsonBody(options);
     const enabled = Boolean(body.enabled);
+    const origin = String(DEV_MOCK.data.subscription?.provider || "cloudpayments");
+    const selection = body.balance_renewal as { source?: string } | undefined;
+    const grant = origin === "trial" || origin === "admin";
+    const balanceProvider = selection?.source === "partner" ? "partner_balance" : "user_balance";
     DEV_MOCK.data.subscription = {
       ...(DEV_MOCK.data.subscription || {}),
       auto_renew_enabled: enabled,
-      auto_renew_available: true,
-      auto_renew_can_enable: true,
-      auto_renew_provider_label:
-        DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
-      provider: DEV_MOCK.data.subscription?.provider || "cloudpayments",
+      auto_renew_available: !grant || enabled,
+      auto_renew_can_enable: !grant || enabled,
+      auto_renew_provider_label: selection
+        ? selection.source === "partner"
+          ? "Partner balance"
+          : "Balance"
+        : DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
+      provider: origin,
     };
-    if (["user_balance", "partner_balance"].includes(String(DEV_MOCK.data.subscription.provider))) {
+    if (selection || grant || ["user_balance", "partner_balance"].includes(origin)) {
       DEV_MOCK.data.subscription.can_topup_regular_traffic = !enabled;
       DEV_MOCK.data.subscription.can_topup_premium_traffic = !enabled;
       DEV_MOCK.data.subscription.can_topup_traffic = !enabled;
@@ -199,7 +208,7 @@ export function webappFallbackResponse(
     return {
       ok: true,
       auto_renew_enabled: enabled,
-      provider: DEV_MOCK.data.subscription.provider,
+      provider: selection ? balanceProvider : origin,
       provider_label: DEV_MOCK.data.subscription.auto_renew_provider_label,
     };
   }

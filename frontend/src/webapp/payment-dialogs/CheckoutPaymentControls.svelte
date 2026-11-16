@@ -51,6 +51,8 @@
     setCheckoutPromoInput = () => {},
     payDisabled = false,
     createPayment = () => {},
+    scheduleBalanceRenewal,
+    scheduleBalanceRenewalDisabled = false,
     partnerPrice = null,
     promoPrice = null,
     selectedPlan = null,
@@ -96,6 +98,8 @@
     setCheckoutPromoInput?: StringAction;
     payDisabled?: boolean;
     createPayment?: () => unknown;
+    scheduleBalanceRenewal?: () => unknown;
+    scheduleBalanceRenewalDisabled?: boolean;
     partnerPrice?: LabelPricePair | null;
     promoPrice?: PlanPricePair | null;
     selectedPlan?: PlanView | null;
@@ -195,6 +199,17 @@
   bind:discount={partnerBalanceDiscount}
   {t}
 />
+{#if scheduleBalanceRenewal}
+  <small>{t("wa_balance_renewal_scheduled_hint")}</small>
+  <Button
+    variant="outline"
+    class="wide"
+    onclick={scheduleBalanceRenewal}
+    disabled={scheduleBalanceRenewalDisabled}
+  >
+    {t("wa_balance_schedule_renewal")}
+  </Button>
+{/if}
 <Button
   class="wide bottom-action payment-submit-button"
   onclick={createPayment}

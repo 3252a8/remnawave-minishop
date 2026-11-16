@@ -32,6 +32,7 @@ from bot.services.subscription_lifecycle_notifications import (
     SubscriptionNotificationStage,
 )
 from config.settings import Settings
+from db.balance_renewal import renewal_provider
 from db.dal import subscription_dal, tariff_dal, user_dal
 from db.models import Subscription, User
 
@@ -637,7 +638,7 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
         subscription_service = getattr(self, "subscription_service", None)
         if subscription_service is None:
             return False
-        provider = str(getattr(subscription, "provider", "") or "").strip().lower()
+        provider = renewal_provider(subscription)
         recurring_service = subscription_service.recurring_service_for(provider)
         return bool(recurring_service and getattr(recurring_service, "recurring_active", False))
 

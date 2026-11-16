@@ -201,11 +201,20 @@ class WebAppSubscriptionQuotePayload(WebAppPaymentCreatePayload):
     model_config = ConfigDict(extra="ignore")
 
 
+class WebAppBalanceRenewalSelection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["user", "partner"]
+    tariff_key: TariffKeyString
+    duration_days: int = Field(gt=0, strict=True)
+
+
 class WebAppAutoRenewPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     enabled: bool
     creator_cancellation_confirmed: bool = False
+    balance_renewal: WebAppBalanceRenewalSelection | None = None
 
 
 class WebAppSubscriptionReissuePayload(BaseModel):

@@ -51,6 +51,8 @@ export function billingErrorMessage(
 ): string {
   const failure = error && typeof error === "object" ? (error as WebappRecord) : {};
   if (failure.error === "tariff_switch_required") return t("wa_tariff_switch_required");
+  if (failure.error === "balance_renewal_cycle_started")
+    return t("wa_balance_renewal_cycle_started");
   if (
     ["balance_insufficient", "insufficient_user_balance", "insufficient_partner_balance"].includes(
       String(failure.error || "")
@@ -70,6 +72,7 @@ export type PartnerBalancePaymentOptions = {
   balanceOnly?: boolean;
   balanceSource?: "user" | "partner" | null;
   balanceAutoRenew?: boolean;
+  scheduleBalanceRenewal?: boolean;
   usePartnerBalance?: boolean;
   checkoutAddons?: CheckoutAddonSelection;
   payerEmail?: string;
@@ -101,7 +104,8 @@ export type BillingActions = {
   ): Promise<TariffChangePaymentResponse>;
   postAutoRenew(
     enabled: boolean,
-    creatorCancellationConfirmed?: boolean
+    creatorCancellationConfirmed?: boolean,
+    balanceRenewal?: PostPayload<"/api/subscription/auto-renew">["balance_renewal"]
   ): Promise<SubscriptionAutoRenewResponse>;
   postSubscriptionReissue(): Promise<SubscriptionReissueResponse>;
   planPaymentBody(
@@ -210,13 +214,15 @@ export function createBillingActions({
 
   async function postAutoRenew(
     enabled: boolean,
-    creatorCancellationConfirmed = false
+    creatorCancellationConfirmed = false,
+    balanceRenewal?: PostPayload<"/api/subscription/auto-renew">["balance_renewal"]
   ): Promise<SubscriptionAutoRenewResponse> {
     return api(buildSubscriptionAutoRenewPath(), {
       method: "POST",
       body: JSON.stringify({
         enabled: Boolean(enabled),
         ...(creatorCancellationConfirmed ? { creator_cancellation_confirmed: true } : {}),
+        ...(balanceRenewal ? { balance_renewal: balanceRenewal } : {}),
       }),
     });
   }

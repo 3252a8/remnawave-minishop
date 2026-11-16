@@ -9,6 +9,21 @@ for (const [device, viewport] of [
   ["desktop", { width: 1400, height: 1000 }],
   ["mobile", { width: 390, height: 844 }],
 ] as const) {
+  test(`granted access can schedule balance renewal on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const provider = device === "mobile" ? "trial" : "admin";
+    await page.goto(
+      checkout.replace("mock=balance-recurring", `mock=balance-recurring-${provider}`)
+    );
+    const schedule = page.getByRole("button", { name: "Запланировать автопродление с баланса" });
+    await expect(schedule).toHaveCount(0);
+    await page.locator(".balance-discount").getByRole("checkbox").click();
+    await expect(schedule).toBeVisible();
+    await expect(page.getByText(/При продлении с выбранного баланса/)).toBeVisible();
+    await schedule.click();
+    await expect(page.getByText("Автопродление включено", { exact: true })).toBeVisible();
+  });
+
   test(`balance provider links and recurring checkout on ${device}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     const errors: string[] = [];

@@ -32,9 +32,8 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from config.subscription_periods import positive_period
+from db.balance_renewal import BALANCE_RECURRING_PROVIDERS as BALANCE_RECURRING_PROVIDERS
 from db.models import UserPaymentMethod
-
-BALANCE_RECURRING_PROVIDERS = frozenset({"user_balance", "partner_balance"})
 
 
 @dataclass(frozen=True, slots=True)

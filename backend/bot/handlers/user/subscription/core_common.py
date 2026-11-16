@@ -23,6 +23,7 @@ from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
+from db.balance_renewal import renewal_provider
 from db.dal import subscription_dal
 from db.models import Subscription
 
@@ -82,7 +83,7 @@ def _recurring_service_for_subscription(
     subscription_service: SubscriptionService,
     sub: Subscription | None,
 ) -> object:
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not provider:
         return None
     resolver = getattr(subscription_service, "recurring_service_for", None)
@@ -98,7 +99,7 @@ def _auto_renew_control_visible(
 ) -> bool:
     if not sub:
         return False
-    provider = getattr(sub, "provider", None)
+    provider = renewal_provider(sub)
     if provider_manages_recurring(provider):
         # The provider drives the schedule, so the control exists purely to
         # stop it — showing it for an already-stopped mandate would offer a

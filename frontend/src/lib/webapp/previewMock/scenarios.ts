@@ -325,6 +325,8 @@ export function applyPreviewMock(kind: unknown): void {
 
   if (
     mode === "balance-recurring" ||
+    mode === "balance-recurring-trial" ||
+    mode === "balance-recurring-admin" ||
     mode === "balance-recurring-partial" ||
     mode === "balance-recurring-methods" ||
     mode === "balance-recurring-methods-partial"
@@ -339,6 +341,19 @@ export function applyPreviewMock(kind: unknown): void {
       ...plan,
       checkout_addons: checkoutAddons(Number(plan.months || 1)),
     }));
+    if (mode === "balance-recurring-trial" || mode === "balance-recurring-admin") {
+      Object.assign(DEV_MOCK.data.subscription, {
+        active: true,
+        provider: mode.endsWith("trial") ? "trial" : "admin",
+        auto_renew_enabled: false,
+        auto_renew_available: false,
+        auto_renew_can_enable: false,
+      });
+      DEV_MOCK.data.plans = DEV_MOCK.data.plans.map((plan) => ({
+        ...plan,
+        duration_days: plan.duration_days || Number(plan.months || 1) * 30,
+      }));
+    }
     if (mode.startsWith("balance-recurring-methods")) {
       DEV_MOCK.data.payment_methods.push(
         { id: "stars", name: "Telegram Stars", icon: "Star", balance_supported: false },

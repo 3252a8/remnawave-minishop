@@ -22,6 +22,7 @@ from sqlalchemy.sql import func
 from db import cleaned_trial_models as cleaned_trial_models
 from db import provider_mandate_models, subscription_notification_models
 from db.base import Base
+from db.subscription_renewal_columns import SubscriptionRenewalColumns
 from db.user_account_identity_columns import UserAccountIdentityColumns
 from db.user_notification_preference_columns import UserNotificationPreferenceColumns
 from db.user_telegram_state_columns import UserTelegramStateColumns
@@ -147,7 +148,7 @@ class UserPanelSquadOverride(Base):
     user = relationship("User", back_populates="panel_squad_overrides")
 
 
-class Subscription(Base):
+class Subscription(SubscriptionRenewalColumns, Base):
     __tablename__ = "subscriptions"
     __table_args__ = (
         Index("ix_subscriptions_is_active_end_date", "is_active", "end_date"),
@@ -179,8 +180,6 @@ class Subscription(Base):
     # genuinely short grants only; long or later extended rows still receive
     # the local fallback reminder spectrum.
     suppress_early_expiry_notifications = Column(Boolean, nullable=False, default=False)
-    auto_renew_enabled = Column(Boolean, default=True, index=True)
-    auto_renew_consent_version = Column(Integer, nullable=False, default=0)
     tariff_key = Column(String, nullable=True, index=True)
     tariff_binding_source = Column(String(32), nullable=True, index=True)
     tariff_bound_at = Column(DateTime(timezone=True), nullable=True)

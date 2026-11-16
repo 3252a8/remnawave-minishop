@@ -762,6 +762,20 @@ export function createBillingStore({
     if (!s.selectedPlan || !method || s.payBusy) return;
     updateState((s) => ({ ...s, payBusy: true }));
     try {
+      if (options.scheduleBalanceRenewal) {
+        const plan = s.selectedPlan;
+        if (!options.balanceSource || !plan.tariff_key || !Number(plan.duration_days)) return;
+        const result = await billing.postAutoRenew(true, false, {
+          source: options.balanceSource,
+          tariff_key: plan.tariff_key,
+          duration_days: Number(plan.duration_days),
+        });
+        if (!result.ok) throw result;
+        updateState((s) => ({ ...s, paymentModalOpen: false }));
+        showToast(t("wa_auto_renew_enabled"));
+        await loadData({ fresh: true, preserveView: true });
+        return;
+      }
       const response = await billing.postPayment(
         billing.planPaymentBody(s.selectedPlan, method, {
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),

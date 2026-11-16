@@ -27,6 +27,7 @@ from bot.utils.callback_answer import (
     message_from_user,
 )
 from config.settings import Settings
+from db.balance_renewal import renewal_provider
 from db.dal import subscription_dal
 from db.models import Subscription
 
@@ -135,7 +136,7 @@ async def toggle_autorenew_handler(
     if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not auto_renew_toggle_allowed(provider, enable=enable):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -197,7 +198,7 @@ async def confirm_autorenew_handler(
     if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not auto_renew_toggle_allowed(provider, enable=enable):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -277,7 +278,7 @@ async def autorenew_cancel_from_webhook_button(
         with contextlib.suppress(Exception):
             await callback.answer(get_text("subscription_not_active"), show_alert=True)
         return
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not auto_renew_toggle_allowed(provider, enable=False):
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)

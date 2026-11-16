@@ -18000,6 +18000,17 @@
       },
       "WebAppAutoRenewPayload": {
         "properties": {
+          "balance_renewal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebAppBalanceRenewalSelection"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
           "creator_cancellation_confirmed": {
             "default": false,
             "title": "Creator Cancellation Confirmed",
@@ -18014,6 +18025,37 @@
           "enabled"
         ],
         "title": "WebAppAutoRenewPayload",
+        "type": "object"
+      },
+      "WebAppBalanceRenewalSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_days": {
+            "exclusiveMinimum": 0,
+            "title": "Duration Days",
+            "type": "integer"
+          },
+          "source": {
+            "enum": [
+              "user",
+              "partner"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "tariff_key": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Tariff Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "tariff_key",
+          "duration_days"
+        ],
+        "title": "WebAppBalanceRenewalSelection",
         "type": "object"
       },
       "WebAppBalanceTopupPayload": {

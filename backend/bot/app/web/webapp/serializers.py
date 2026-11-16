@@ -47,6 +47,7 @@ from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
 from config.webapp_themes_config import public_themes_catalog_payload
+from db.balance_renewal import GRANT_PROVIDERS, renewal_provider
 from db.dal import payment_dal, subscription_dal, support_dal, user_dal
 from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredential
 
@@ -676,9 +677,12 @@ def _serialize_subscription(
         and end_date
         and extra_hwid_valid_until < end_date
     )
-    auto_renew_enabled = bool(getattr(local_sub, "auto_renew_enabled", False))
+    auto_renew_provider = renewal_provider(local_sub) or provider
+    auto_renew_enabled = bool(getattr(local_sub, "auto_renew_enabled", False)) and (
+        auto_renew_provider not in GRANT_PROVIDERS
+    )
     auto_renew = resolve_auto_renew_capabilities(
-        provider,
+        auto_renew_provider,
         settings=settings,
         language=lang,
         subscription_service=(

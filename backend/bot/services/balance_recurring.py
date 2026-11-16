@@ -33,6 +33,7 @@ from bot.services.user_balance_service import (
     UserBalanceService,
 )
 from config.settings import Settings
+from db.balance_renewal import renewal_provider
 from db.dal import auto_renew_dal, partner_dal, payment_dal, user_balance_dal, user_dal
 from db.models import Payment
 
@@ -59,7 +60,7 @@ def balance_recurring_available(settings: Settings, provider: str) -> bool:
 def active_balance_recurrence(subscription: Any) -> bool:
     return bool(
         subscription is not None
-        and str(getattr(subscription, "provider", "") or "").lower() in BALANCE_RECURRING_PROVIDERS
+        and renewal_provider(subscription) in BALANCE_RECURRING_PROVIDERS
         and bool(getattr(subscription, "auto_renew_enabled", False))
     )
 

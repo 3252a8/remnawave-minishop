@@ -1,3 +1,5 @@
+import type { BalanceResponse } from "./publicApi.js";
+
 export type BalanceUiState = {
   enabled?: boolean | null;
   amount_minor?: number | null;
@@ -23,6 +25,19 @@ export function balanceRecurringEligible(
     .split("@", 1)[0]
     .toLowerCase();
   return Boolean(plan) && !gift && saleMode === "subscription";
+}
+
+export function balanceSourceSupportsRenewal(
+  response: BalanceResponse | null | undefined,
+  source: string | null,
+  plan: Parameters<typeof balanceRecurringEligible>[0],
+  gift: boolean
+): boolean {
+  return Boolean(
+    balanceRecurringEligible(plan, gift) &&
+    response?.recurring_enabled &&
+    response.sources.some((entry) => entry.id === source && entry.recurring_available)
+  );
 }
 
 const SUBSCRIPTION_ONLY_METHODS = new Set([

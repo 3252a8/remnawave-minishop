@@ -1,17 +1,20 @@
 """Regression tests for provider-agnostic auto-renew wiring."""
 
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import ANY, AsyncMock, patch
 
 from bot.handlers.user.subscription import core as subscription_core
 from bot.payment_providers.shared import (
+    RecurringChargeContext,
     RecurringChargeResult,
     parse_entitlement_context_snapshot,
 )
+from bot.payment_providers.shared.entitlement_context import preflight_payment_entitlement
 from bot.services.subscription_service_impl.renewal import RenewalMixin
 from config.tariffs_config import Tariff, TariffsConfig
+from db.balance_renewal import renewal_provider
 
 
 class _FakeRecurringService:
@@ -72,6 +75,68 @@ async def _no_default_pm(session, user_id, provider="yookassa"):
 
 
 class ChargeRenewalShortCircuitTests(unittest.IsolatedAsyncioTestCase):
+    async def test_granted_subscription_charges_only_the_explicit_balance_and_period(self):
+        for origin, funding in (("trial", "user_balance"), ("admin", "partner_balance")):
+            with self.subTest(origin=origin, funding=funding):
+                service = _FakeRecurringService()
+                mixin = _make_mixin(service=service, provider=funding)
+                mixin.settings.tariffs_config = TariffsConfig.model_validate(
+                    {
+                        "schema_version": 2,
+                        "period_unit": "day",
+                        "default_tariff": "standard",
+                        "tariffs": [
+                            {
+                                "key": "standard",
+                                "billing_model": "period",
+                                "period_unit": "day",
+                                "monthly_gb": 100,
+                                "enabled_periods": [90],
+                                "prices_rub": {"90": 700},
+                            }
+                        ],
+                    }
+                )
+                mixin.settings.balance_settings = SimpleNamespace(currency="RUB")
+                end_date = datetime.now(UTC) + timedelta(hours=1)
+                sub = _FakeSub(
+                    provider=origin,
+                    tariff_key=None,
+                    duration_months=0,
+                    user_id=42,
+                    subscription_id=7,
+                    end_date=end_date,
+                    auto_renew_enabled=True,
+                    auto_renew_consent_version=5,
+                )
+                await mixin.charge_subscription_renewal(None, sub, renewal_cycle_end=end_date)
+                self.assertEqual(service.calls, [])
+
+                sub.balance_renewal_provider = funding
+                sub.balance_renewal_tariff_key = "standard"
+                sub.balance_renewal_duration_days = 90
+                self.assertEqual(renewal_provider(sub), funding)
+                self.assertTrue(
+                    await mixin.charge_subscription_renewal(None, sub, renewal_cycle_end=end_date)
+                )
+                [context] = service.calls
+                assert isinstance(context, RecurringChargeContext)
+                self.assertEqual(context.saved_method.provider, funding)
+                self.assertEqual(context.sale_mode, "subscription@standard|d90")
+                self.assertEqual(context.amount, 700)
+                self.assertEqual(context.renewal_cycle_end, end_date)
+                self.assertEqual(context.consent_version, 5)
+                payment = SimpleNamespace(
+                    provider=funding,
+                    is_auto_renew=True,
+                    auto_renew_cycle_id=8,
+                    sale_mode=context.sale_mode,
+                    entitlement_context_snapshot=context.entitlement_context_snapshot,
+                )
+                self.assertTrue(preflight_payment_entitlement(payment, sub).allowed)
+                payment.provider = "yookassa"
+                self.assertFalse(preflight_payment_entitlement(payment, sub).allowed)
+
     async def test_skips_when_traffic_sale_mode_enabled(self):
         mixin = _make_mixin(service=None)
         mixin.settings.traffic_sale_mode = True

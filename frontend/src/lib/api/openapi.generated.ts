@@ -12686,6 +12686,8 @@ export interface components {
     };
     /** WebAppAutoRenewPayload */
     WebAppAutoRenewPayload: {
+      /** @default null */
+      balance_renewal: components["schemas"]["WebAppBalanceRenewalSelection"] | null;
       /**
        * Creator Cancellation Confirmed
        * @default false
@@ -12693,6 +12695,18 @@ export interface components {
       creator_cancellation_confirmed: boolean;
       /** Enabled */
       enabled: boolean;
+    };
+    /** WebAppBalanceRenewalSelection */
+    WebAppBalanceRenewalSelection: {
+      /** Duration Days */
+      duration_days: number;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "user" | "partner";
+      /** Tariff Key */
+      tariff_key: string;
     };
     /** WebAppBalanceTopupPayload */
     WebAppBalanceTopupPayload: {

@@ -8,6 +8,7 @@ from sqlalchemy import Date, cast, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from db.balance_renewal import renewal_provider, renewal_provider_column
 from db.models import AutoRenewCycle, Payment, Subscription, UserPaymentMethod
 
 RETRYABLE_CYCLE_STATES = ("transport_retry", "financial_retry")
@@ -503,8 +504,7 @@ async def validate_dispatch_context_for_update(
         subscription is None
         or not bool(subscription.is_active)
         or not bool(subscription.auto_renew_enabled)
-        or str(subscription.provider or "").strip().lower()
-        != str(cycle.provider or "").strip().lower()
+        or renewal_provider(subscription) != str(cycle.provider or "").strip().lower()
         or int(subscription.auto_renew_consent_version or 0) != int(cycle.consent_version or 0)
     ):
         return False
@@ -589,7 +589,7 @@ async def list_due_subscriptions(
     query = select(Subscription.subscription_id, Subscription.user_id).where(
         Subscription.is_active.is_(True),
         Subscription.auto_renew_enabled.is_(True),
-        func.lower(Subscription.provider).in_(provider_keys),
+        renewal_provider_column().in_(provider_keys),
         Subscription.end_date > now,
         Subscription.end_date <= cutoff,
     )

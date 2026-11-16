@@ -29,6 +29,7 @@ from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
+from db.balance_renewal import GrantBalanceRenewal, grant_balance_renewal, renewal_provider
 from db.dal import tariff_dal
 from db.models import Subscription
 
@@ -46,6 +47,34 @@ class SubscriptionRenewalQuote:
     tariff_key: str | None
     hwid_quote: dict[str, Any] | None
     checkout_bundle_snapshot: str | None = None
+
+
+def quote_grant_balance_renewal(
+    settings: Any, subscription: Subscription, selection: GrantBalanceRenewal
+) -> SubscriptionRenewalQuote | None:
+    try:
+        tariff = settings.tariffs_config.require_for_user(
+            selection.tariff_key, subscription.tariff_key, None
+        )
+    except KeyError:
+        return None
+    if tariff.billing_model != "period":
+        return None
+    units = tariff.period_for_days(selection.duration_days)
+    if units is None:
+        return None
+    amount = tariff.period_price(units, default_currency_key_for_settings(settings))
+    currency = default_payment_currency_code_for_settings(settings)
+    if not amount or amount <= 0 or settings.balance_settings.currency.upper() != currency.upper():
+        return None
+    return SubscriptionRenewalQuote(
+        amount=float(amount),
+        currency=currency,
+        months=units,
+        sale_mode=with_period_days(f"subscription@{tariff.key}", selection.duration_days),
+        tariff_key=tariff.key,
+        hwid_quote=None,
+    )
 
 
 def _renewal_idempotence_key(
@@ -151,6 +180,9 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         in-flight YooKassa charges created by a previous application version.
         Provider callback values are deliberately not inputs to the quote.
         """
+        if selection := grant_balance_renewal(sub):
+            return quote_grant_balance_renewal(self.settings, sub, selection)
+
         months = int(sub.duration_months or 0)
         stored_days = getattr(sub, "duration_days", None)
         if months <= 0 and not stored_days:
@@ -319,7 +351,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
         from bot.payment_providers import provider_supports_recurring
         from bot.payment_providers.shared import RecurringChargeContext, service_supports_recurring
 
-        provider = str(getattr(sub, "provider", "") or "").strip().lower()
+        provider = renewal_provider(sub)
         if not provider_supports_recurring(provider):
             logger.info(
                 "Auto-renew skipped: provider %s does not support auto-renew",
@@ -394,6 +426,7 @@ class RenewalMixin(SubscriptionServiceMixinContract):
                 sale_mode=sale_mode,
                 active_subscription=sub,
                 bind_to_active_subscription=True,
+                allow_grant_balance_tariff_change=grant_balance_renewal(sub) is not None,
             )
         except EntitlementContextError:
             logger.exception(

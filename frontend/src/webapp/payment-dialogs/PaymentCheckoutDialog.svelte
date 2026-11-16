@@ -1,7 +1,10 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { billingErrorMessage } from "$lib/webapp/billingActions.js";
-  import { balanceRecurringEligible } from "$lib/webapp/balanceUiPolicy.js";
+  import {
+    balanceRecurringEligible,
+    balanceSourceSupportsRenewal,
+  } from "$lib/webapp/balanceUiPolicy.js";
   import { createCheckoutPaymentFallback } from "$lib/webapp/checkoutPaymentFallback.svelte.js";
   import CheckoutHeader from "./CheckoutHeader.svelte";
   import { checkoutUnitPrice } from "$lib/webapp/checkoutUnitPrice.js";
@@ -277,15 +280,7 @@
       onProviderUnavailable: paymentFallback.onUnavailable(),
       balanceSource,
       balanceOnly: balanceFullyCovers,
-      balanceAutoRenew:
-        balanceAutoRenew &&
-        balanceFullyCovers &&
-        balanceRecurringEligible(selectedPlan, gift) &&
-        Boolean(balancePreload.response?.recurring_enabled) &&
-        Boolean(
-          balancePreload.response?.sources.find((source) => source.id === balanceSource)
-            ?.recurring_available
-        ),
+      balanceAutoRenew: balanceAutoRenew && balanceFullyCovers && recurringBalanceSelected,
       checkoutAddons: checkoutAddonSelection,
       ...wataCheckout.wataSubscriptionContacts(effectivePaymentMethod, payerEmail, payerPhone),
     };
@@ -772,6 +767,9 @@
       partnerBalanceDiscount = 0;
     }
   );
+  const recurringBalanceSelected = $derived(
+    balanceSourceSupportsRenewal(balancePreload.response, balanceSource, selectedPlan, gift)
+  );
 
   function partnerCheckoutPriceParts(plan: PlanView | null) {
     if (!balanceSource || partnerBalanceDiscount <= 0 || !plan) return null;
@@ -857,6 +855,17 @@
         checkoutAddonsSelected() &&
         checkoutAddonsUnavailableForMethod(selectedPlan))}
     createPayment={() => createPayment(checkoutPaymentOptions())}
+    scheduleBalanceRenewal={subscription?.active &&
+    ["trial", "admin"].includes(String(subscription.provider)) &&
+    recurringBalanceSelected &&
+    selectedPlan?.tariff_key &&
+    Number(selectedPlan.duration_days) > 0 &&
+    !checkoutPromoAppliedCode &&
+    !checkoutAddonsSelected() &&
+    !(renewHwidDevices && selectedPlan.hwid_renewal?.available)
+      ? () => createPayment({ balanceSource, balanceOnly: true, scheduleBalanceRenewal: true })
+      : undefined}
+    scheduleBalanceRenewalDisabled={payBusy}
     partnerPrice={partnerCheckoutPriceParts(selectedPlan)}
     promoPrice={checkoutPromoPlanParts(selectedPlan)}
     {selectedPlan}
