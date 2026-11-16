@@ -200,6 +200,9 @@ docker context create "$context_name" \
   >/dev/null
 unset DOCKER_HOST DOCKER_TLS_VERIFY DOCKER_CERT_PATH DOCKER_TLS_CERTDIR
 export DOCKER_CONTEXT="$context_name"
+# Fetch the scanner before building candidates so a registry timeout only retries the pull.
+echo "Pulling Trivy scanner $TRIVY_IMAGE"
+retry_network_command timeout 120 docker pull "$TRIVY_IMAGE"
 docker buildx create \
   --driver docker-container \
   --name "$builder_name" \
@@ -277,7 +280,7 @@ for target in $TARGETS; do
     "$immutable_ref"
   verify_signature "$immutable_ref" "$publish_tag"
 
-  docker run --rm \
+  docker run --rm --pull=never \
     -e TRIVY_USERNAME \
     -e TRIVY_PASSWORD \
     --mount "type=volume,source=$trivy_cache_volume,target=/trivy-cache" \

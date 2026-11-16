@@ -53,7 +53,8 @@
   назначение. Если сквад удалён целиком, очищается и назначение через админку
   Minishop. Следующее редактирование пользователя проходит без устаревшего UUID.
   ([#130](https://github.com/3252a8/remnawave-minishop/issues/130),
-  [4025a5ad](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4025a5addf3be8277b9c5d1e792fb3c9067ae4bf))
+  [4025a5ad](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4025a5addf3be8277b9c5d1e792fb3c9067ae4bf),
+  [d54d5d97](https://gitlab.com/3252a8/remnawave-minishop/-/commit/d54d5d97688d0f3d6310a9d2dea0db7b382ec781))
 
 - Статус платежа «PENDING» больше не показывается как ошибка. Даты выводов и операций
   партнёра выводятся обычным форматом вместо ISO-строки, а у клиентов без имени ID
