@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from html import escape
 
 from aiogram import Bot, F, types
 from aiogram.exceptions import TelegramBadRequest
@@ -7,7 +8,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+from bot.keyboards.inline.admin_keyboards import (
+    get_back_to_admin_panel_keyboard,
+    get_banned_users_keyboard,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.services.broadcast_personalization import (
     known_shortcodes,
@@ -21,6 +25,7 @@ from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils import MessageContent, get_message_content, send_direct_message
 from bot.utils.callback_answer import (
+    callback_data,
     callback_message,
     message_bot,
     message_from_user,
@@ -392,19 +397,23 @@ async def view_banned_users_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        # Get banned users
         banned_users = await user_dal.get_banned_users(session)
+        page_token = callback_data(callback).rsplit(":", 1)[-1]
+        requested_page = int(page_token) if page_token.isascii() and page_token.isdecimal() else 0
+        page_size = max(1, settings.LOGS_PAGE_SIZE)
+        page = min(requested_page, max(0, (len(banned_users) - 1) // page_size))
+        visible_users = banned_users[page * page_size : (page + 1) * page_size]
 
         if not banned_users:
             message_text = _("admin_banned_users_empty")
         else:
             user_list = []
-            for user in banned_users:
+            for user in visible_users:
                 display_name = user.first_name or "Unknown"
                 if user.username:
                     display_name = f"@{user.username}"
                 user_list.append(
-                    f"• {display_name} (ID: {getattr(user, 'minishop_id', None) or '—'})"
+                    f"• {escape(display_name)} (ID: {getattr(user, 'minishop_id', None) or '—'})"
                 )
 
             message_text = _(
@@ -412,8 +421,12 @@ async def view_banned_users_handler(
             )
 
         await callback_message(callback).edit_text(
-            message_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            message_text,
+            reply_markup=get_banned_users_keyboard(
+                visible_users, page, len(banned_users), i18n, current_lang, settings
+            ),
         )
+        await callback.answer()
 
     except Exception as e:
         logger.error("Error displaying banned users: %s", e)

@@ -285,7 +285,7 @@ def get_banned_users_keyboard(
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
-    page_size = settings.LOGS_PAGE_SIZE
+    page_size = max(1, settings.LOGS_PAGE_SIZE)
 
     if not banned_users and total_banned == 0:
         pass

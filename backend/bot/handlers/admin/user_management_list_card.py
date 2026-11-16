@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.callback_query(F.data.startswith("admin_user_card_from_list:"))
+@router.callback_query(F.data.startswith("admin_user_card:"))
 async def user_card_from_list_handler(
     callback: types.CallbackQuery,
     state: FSMContext,
@@ -32,12 +33,12 @@ async def user_card_from_list_handler(
     panel_service: PanelApiService,
     session: AsyncSession,
 ) -> None:
-    """Display user card when clicked from user list"""
+    """Show the user card and keep the return path to its originating list."""
     try:
-        parts = callback_data(callback).split(":")
-        user_id = int(parts[1])
-        page = int(parts[2])
-    except (IndexError, ValueError):
+        source, user_id_value, page_value = callback_data(callback).split(":", 2)
+        user_id = int(user_id_value)
+        page = int(page_value)
+    except ValueError:
         await callback.answer("Invalid user data", show_alert=True)
         return
 
@@ -58,9 +59,14 @@ async def user_card_from_list_handler(
     keyboard = get_user_card_keyboard(
         user_id, i18n, current_lang, user.referred_by_id, telegram_id=user.telegram_id
     )
-    keyboard.button(
-        text=_("admin_user_back_to_list_button"), callback_data=f"admin_action:users_list:{page}"
+    from_banned_list = source == "admin_user_card"
+    back_label = (
+        "user_card_back_to_banned_list_button"
+        if from_banned_list
+        else "admin_user_back_to_list_button"
     )
+    back_action = "view_banned" if from_banned_list else "users_list"
+    keyboard.button(text=_(back_label), callback_data=f"admin_action:{back_action}:{page}")
     quick_links_width = 2 if user.referred_by_id else 1
     keyboard.adjust(2, 2, 2, 1, 2, quick_links_width, 1, 2, 1)
 

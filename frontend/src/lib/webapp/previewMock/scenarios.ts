@@ -2,7 +2,8 @@ import { DEMO_DATASET } from "../demoDataset.js";
 import { withDemoAvatar } from "../demoAvatars.js";
 import { readStoredDemoLanguage } from "../demoMockRuntime.js";
 import { currentDemoBalance } from "../mockApi/balance.js";
-import { checkoutAddons, DEV_MOCK, previewPeriodPlan } from "./devMock";
+import { checkoutAddons, DEV_MOCK } from "./devMock";
+import { demoCheckoutMethods, demoCheckoutPlans } from "./checkoutDemo";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
 import { applyPaymentProvidersDemo } from "./paymentProviders";
@@ -565,29 +566,12 @@ export function applyPreviewMock(kind: unknown): void {
       premium_baseline_bytes: 53687091200,
       max_devices: 5,
     };
-    const plans = [
-      previewPeriodPlan(1, 290, 145, "1 месяц"),
-      previewPeriodPlan(3, 790, 395, "3 месяца"),
-      previewPeriodPlan(6, 1490, 745, "6 месяцев"),
-      previewPeriodPlan(12, 2690, 1345, "1 год"),
-    ];
+    const plans = demoCheckoutPlans();
     DEV_MOCK.data.plans =
       mode === "checkout-no-addons"
         ? plans.map(({ checkout_addons: _checkoutAddons, ...plan }) => plan)
         : plans;
-    DEV_MOCK.data.payment_methods = [
-      {
-        id: "cloudpayments",
-        name: "CloudPayments",
-        icon: "CreditCard",
-        min_amount: 500,
-        min_currency: "RUB",
-      },
-      { id: "yookassa", name: "Карта", icon: "CreditCard" },
-      { id: "platega_sbp", name: "СБП", icon: "Smartphone" },
-      { id: "stars", name: "Telegram Stars", icon: "Star" },
-      { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },
-    ];
+    DEV_MOCK.data.payment_methods = demoCheckoutMethods();
     return;
   }
 

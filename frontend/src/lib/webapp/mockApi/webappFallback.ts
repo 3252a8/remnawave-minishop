@@ -1,5 +1,6 @@
 import { DEVICE_NAME_MAX_LENGTH, normalizeDeviceName } from "../deviceNames";
 import { DEV_MOCK } from "../previewMock.js";
+import { DEMO_CHECKOUT_PROMO_CODE } from "../previewMock/checkoutDemo";
 import { jsonBody } from "../demoMockRuntime.js";
 import {
   DEFAULT_DEMO_AUTH_EMAIL,
@@ -320,19 +321,25 @@ export function webappFallbackResponse(
     applyDemoTelegramAuthUser((body.auth_data || {}) as DemoRecord);
     return { ok: true, csrf_token: "local-preview-csrf" };
   }
-  if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
-  if (path === "/promo/status") {
-    const body = jsonBody(options);
+  if (path === "/promo/apply" || path === "/promo/status") {
+    const code = String(jsonBody(options).code || "DEMO");
+    const requiresCheckout = code.trim().toUpperCase() === DEMO_CHECKOUT_PROMO_CODE;
+    if (path === "/promo/apply") {
+      return requiresCheckout
+        ? { ok: true, requires_checkout: true, code, effect_summary: "−20%", discount_percent: 20 }
+        : { ok: true, end_date_text: "31.05.2026" };
+    }
     return {
       ok: true,
-      status: "standalone",
-      code: String(body.code || "DEMO"),
+      status: requiresCheckout ? "requires_checkout" : "standalone",
+      code,
       message: "",
-      effect_summary: "+7 дней",
+      effect_summary: requiresCheckout ? "−20%" : "+7 дней",
       applies_to: "all",
       min_subscription_months: null,
       min_traffic_gb: null,
-      bonus_days: 7,
+      bonus_days: requiresCheckout ? null : 7,
+      ...(requiresCheckout ? { discount_percent: 20 } : {}),
       end_date_text: null,
     };
   }

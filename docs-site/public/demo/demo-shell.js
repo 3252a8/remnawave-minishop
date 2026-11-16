@@ -17,6 +17,7 @@ const stateMocks = new Set([
   "user-balance",
   "compact",
   "server-status",
+  "checkout-addons",
   "auth",
   "emails",
 ]);

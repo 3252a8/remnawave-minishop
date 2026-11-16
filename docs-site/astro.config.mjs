@@ -33,7 +33,8 @@ export default defineConfig({
       plugins: [
         starlightThemeNova({
           nav: [
-            { label: 'Демо', href: '/demo/home' },
+            { label: 'Веб-демо', href: '/demo/home' },
+            { label: 'Демо бота', href: '/demo/bot/' },
             { label: 'Документация', href: '/getting-started/overview/' },
             { label: 'Список изменений', href: '/changelog/' },
             { label: 'minishop PRO', href: 'https://cloud.minidoc.cc' },
