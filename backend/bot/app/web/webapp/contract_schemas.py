@@ -691,6 +691,7 @@ WEBAPP_SUBSCRIPTION_SCHEMA: dict[str, Any] = {
         "auto_renew_available": BOOLEAN_SCHEMA,
         "auto_renew_can_enable": BOOLEAN_SCHEMA,
         "auto_renew_provider_label": NULLABLE_STRING_SCHEMA,
+        "balance_renewal_eligible_tariff_key": NULLABLE_STRING_SCHEMA,
         "provider": NULLABLE_STRING_SCHEMA,
     },
 }

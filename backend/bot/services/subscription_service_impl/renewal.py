@@ -29,7 +29,13 @@ from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
-from db.balance_renewal import GrantBalanceRenewal, grant_balance_renewal, renewal_provider
+from db.balance_renewal import (
+    GRANT_PROVIDERS,
+    GrantBalanceRenewal,
+    grant_balance_renewal,
+    renewal_provider,
+    subscription_provider,
+)
 from db.dal import tariff_dal
 from db.models import Subscription
 
@@ -47,6 +53,33 @@ class SubscriptionRenewalQuote:
     tariff_key: str | None
     hwid_quote: dict[str, Any] | None
     checkout_bundle_snapshot: str | None = None
+
+
+def grant_balance_renewal_tariff_key(
+    settings: Any, subscription: Subscription | None
+) -> str | None:
+    provider = subscription_provider(subscription)
+    if provider not in GRANT_PROVIDERS or not (catalog := settings.tariffs_config):
+        return None
+
+    currency = default_currency_key_for_settings(settings)
+    assigned_key = getattr(subscription, "tariff_key", None) if provider == "admin" else None
+    if assigned_key:
+        assigned = catalog.get(assigned_key)
+        candidates = [assigned] if assigned else []
+    else:
+        candidates = catalog.enabled_tariffs
+    eligible = [
+        tariff.key
+        for tariff in candidates
+        if tariff.billing_model == "period"
+        and any(
+            (tariff.period_price(period, currency) or 0) > 0 for period in tariff.enabled_periods
+        )
+    ]
+    if len(eligible) == 1:
+        return eligible[0]
+    return catalog.default_tariff if catalog.default_tariff in eligible else None
 
 
 def quote_grant_balance_renewal(

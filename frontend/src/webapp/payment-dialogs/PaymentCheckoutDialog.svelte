@@ -856,9 +856,9 @@
         checkoutAddonsUnavailableForMethod(selectedPlan))}
     createPayment={() => createPayment(checkoutPaymentOptions())}
     scheduleBalanceRenewal={subscription?.active &&
-    ["trial", "admin"].includes(String(subscription.provider)) &&
     recurringBalanceSelected &&
-    selectedPlan?.tariff_key &&
+    subscription.balance_renewal_eligible_tariff_key &&
+    selectedPlan?.tariff_key === subscription.balance_renewal_eligible_tariff_key &&
     Number(selectedPlan.duration_days) > 0 &&
     !checkoutPromoAppliedCode &&
     !checkoutAddonsSelected() &&

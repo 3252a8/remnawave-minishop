@@ -540,6 +540,8 @@ export function createBillingStore({
         null;
       const deeplinkTariff =
         preferredTariff || (options?.selectDefaultTariff ? fallbackTariff : null);
+      const activeTariffKey =
+        subscription?.balance_renewal_eligible_tariff_key || subscription?.tariff_key;
 
       if (tariffMode) {
         if (preferredPlan) {
@@ -549,10 +551,10 @@ export function createBillingStore({
         } else if (
           !preferredTariffKey &&
           subscription?.active &&
-          subscription?.tariff_key &&
-          catalog.some((t) => t.key === subscription.tariff_key)
+          activeTariffKey &&
+          catalog.some((t) => t.key === activeTariffKey)
         ) {
-          tariffKey = String(subscription.tariff_key);
+          tariffKey = activeTariffKey;
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = "checkout";
         } else if (deeplinkTariff?.key) {
@@ -565,10 +567,10 @@ export function createBillingStore({
           step = "checkout";
         } else if (
           subscription?.active &&
-          subscription?.tariff_key &&
-          catalog.some((t) => t.key === subscription.tariff_key)
+          activeTariffKey &&
+          catalog.some((t) => t.key === activeTariffKey)
         ) {
-          tariffKey = String(subscription.tariff_key);
+          tariffKey = activeTariffKey;
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = "checkout";
         } else {

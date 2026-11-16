@@ -342,9 +342,15 @@ export function applyPreviewMock(kind: unknown): void {
       checkout_addons: checkoutAddons(Number(plan.months || 1)),
     }));
     if (mode === "balance-recurring-trial" || mode === "balance-recurring-admin") {
+      const provider = mode.endsWith("trial") ? "trial" : "admin";
+      const defaultTariffKey = DEV_MOCK.data.plans.find(
+        (plan) => plan.is_default_tariff
+      )?.tariff_key;
       Object.assign(DEV_MOCK.data.subscription, {
         active: true,
-        provider: mode.endsWith("trial") ? "trial" : "admin",
+        provider,
+        balance_renewal_eligible_tariff_key:
+          (provider === "admin" ? DEV_MOCK.data.subscription.tariff_key : null) || defaultTariffKey,
         auto_renew_enabled: false,
         auto_renew_available: false,
         auto_renew_can_enable: false,

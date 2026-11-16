@@ -38162,6 +38162,12 @@
                             "null"
                           ]
                         },
+                        "balance_renewal_eligible_tariff_key": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "base_hwid_device_limit": {
                           "type": [
                             "integer",

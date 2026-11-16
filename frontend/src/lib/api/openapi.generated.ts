@@ -21634,6 +21634,7 @@ export interface operations {
               auto_renew_can_enable?: boolean;
               auto_renew_enabled?: boolean;
               auto_renew_provider_label?: string | null;
+              balance_renewal_eligible_tariff_key?: string | null;
               base_hwid_device_limit?: number | null;
               billing_model?: string | null;
               can_topup_devices?: boolean;

@@ -34,7 +34,10 @@ from bot.services.balance_recurring import balance_recurring_available
 from bot.services.code_attempts import check_code_attempt
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
-from bot.services.subscription_service_impl.renewal import quote_grant_balance_renewal
+from bot.services.subscription_service_impl.renewal import (
+    grant_balance_renewal_tariff_key,
+    quote_grant_balance_renewal,
+)
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
@@ -244,10 +247,6 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                     return _json_error(
                         400, "auto_renew_unavailable", "Selected balance is unavailable"
                     )
-                if quote_grant_balance_renewal(settings, sub, selection) is None:
-                    return _json_error(
-                        400, "invalid_plan", "Selected renewal period is unavailable"
-                    )
 
             if not auto_renew_toggle_allowed(provider, enable=enabled):
                 await session.rollback()
@@ -342,6 +341,23 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         "The payment provider did not confirm the cancellation",
                     )
                 if selection is not None:
+                    locked_sub = await subscription_dal.get_subscription_by_id_for_update(
+                        session, sub.subscription_id
+                    )
+                    if locked_sub is None or not locked_sub.is_active:
+                        await session.rollback()
+                        return _json_error(
+                            409, "entitlement_context_changed", "Subscription has changed"
+                        )
+                    if (
+                        grant_balance_renewal_tariff_key(settings, locked_sub)
+                        != selection.tariff_key
+                        or quote_grant_balance_renewal(settings, locked_sub, selection) is None
+                    ):
+                        await session.rollback()
+                        return _json_error(
+                            400, "invalid_plan", "Selected renewal tariff or period is unavailable"
+                        )
                     updated = await subscription_dal.set_auto_renew(
                         session, sub.subscription_id, True, balance_renewal=selection
                     )

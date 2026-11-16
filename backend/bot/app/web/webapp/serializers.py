@@ -31,6 +31,7 @@ from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
 from bot.services.referral_welcome_trial import referral_welcome_trial_bonus_days
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.renewal import grant_balance_renewal_tariff_key
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     normalize_telegram_notification_status,
@@ -784,6 +785,9 @@ def _serialize_subscription(
         "device_topup_renewal_available": device_topup_renewal_available,
         "auto_renew_enabled": auto_renew_enabled,
         **auto_renew.payload_fields(enabled=auto_renew_enabled),
+        "balance_renewal_eligible_tariff_key": grant_balance_renewal_tariff_key(
+            settings, local_sub
+        ),
         "provider": getattr(local_sub, "provider", None),
     }
 
