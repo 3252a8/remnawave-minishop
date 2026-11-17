@@ -1,4 +1,5 @@
 import { withDemoIdentities } from '../../../frontend/src/lib/webapp/demoIdentities';
+import { DEMO_AUTO_RENEW_SUBSCRIPTION } from '../../../frontend/src/lib/webapp/previewMock/devMock';
 
 type RecordData = Record<string, unknown>;
 type Language = 'ru' | 'en';
@@ -185,6 +186,11 @@ export function botDemoData(
       deviceExtra: numeric(deviceTopup.extra_hwid_devices),
       deviceExtraExpiry: text(deviceTopup.extra_hwid_devices_valid_until_text),
       renewDevices: deviceTopup.renewal_available === true,
+      autoRenew: { enabled: subscription.auto_renew_enabled === true, available: subscription.auto_renew_available === true },
+    },
+    recurring: {
+      enabled: DEMO_AUTO_RENEW_SUBSCRIPTION.auto_renew_enabled,
+      available: DEMO_AUTO_RENEW_SUBSCRIPTION.auto_renew_available,
     },
     referral: {
       telegram: text(referral.bot_link), webapp: text(referral.webapp_link),

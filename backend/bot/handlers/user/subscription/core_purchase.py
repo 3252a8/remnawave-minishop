@@ -14,7 +14,6 @@ from bot.keyboards.inline.user_keyboards import (
     PROMO_ID_TOKEN_PREFIX,
     callback_context_from_back_callback,
     callback_suffix_for_checkout,
-    callback_suffix_for_context,
     get_back_to_main_menu_markup,
     get_payment_method_keyboard,
     get_subscription_options_keyboard,
@@ -23,6 +22,11 @@ from bot.keyboards.inline.user_keyboards import (
     sale_mode_with_callback_context,
     sale_mode_with_token,
     tariff_purchase_back_callback,
+)
+from bot.keyboards.inline.user_keyboards_context import (
+    TARIFF_SWITCH_ORIGIN,
+    TELEGRAM_SUBSCRIPTION_CHECKOUT,
+    payment_options_back_callback,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.behavior_events import emit_plans_viewed
@@ -597,6 +601,8 @@ async def select_tariff_period_callback(
         with_period_days(f"subscription@{tariff.key}", tariff.period_duration_days(months)),
         callback_context,
     )
+    if TARIFF_SWITCH_ORIGIN in callback_tokens:
+        sale_mode = sale_mode_with_token(sale_mode, TARIFF_SWITCH_ORIGIN)
     promo_quote: CheckoutPromoResult | None = None
     stars_promo_quote: CheckoutPromoResult | None = None
     if promo_enabled:
@@ -639,10 +645,7 @@ async def select_tariff_period_callback(
         i18n,
         settings,
         sale_mode=sale_mode,
-        back_callback=(
-            f"tariff:select:{tariff.key}"
-            f"{callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)}"
-        ),
+        back_callback=payment_options_back_callback(sale_mode),
         user_id=account_user_id,
         hwid_renewal_quote=hwid_renewal_quote,
         hwid_renewal_stars_quote=hwid_renewal_stars_quote,
@@ -677,7 +680,8 @@ async def select_tariff_package_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     tariff_key, gb_raw = parts[2], parts[3]
-    callback_context = parts[4] if len(parts) > 4 else None
+    callback_tokens = parts[4:]
+    callback_context = BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in callback_tokens else None
     try:
         assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
@@ -704,11 +708,10 @@ async def select_tariff_package_callback(
         f"{'traffic_package' if tariff.billing_model == 'traffic' else 'topup'}@{tariff.key}"
     )
     sale_mode = sale_mode_with_callback_context(sale_mode, callback_context)
-    back_callback = (
-        f"tariff:select:{tariff.key}{callback_suffix_for_context(callback_context)}"
-        if tariff.billing_model == "traffic"
-        else "tariff_topup:list"
-    )
+    if TARIFF_SWITCH_ORIGIN in callback_tokens:
+        sale_mode = sale_mode_with_token(sale_mode, TARIFF_SWITCH_ORIGIN)
+    elif tariff.billing_model != "traffic":
+        sale_mode = sale_mode_with_token(sale_mode, TELEGRAM_SUBSCRIPTION_CHECKOUT)
     markup = get_payment_method_keyboard(
         gb,
         package.price,
@@ -718,7 +721,7 @@ async def select_tariff_package_callback(
         i18n,
         settings,
         sale_mode=sale_mode,
-        back_callback=back_callback,
+        back_callback=payment_options_back_callback(sale_mode),
         user_id=account_user_id,
     )
     await callback_message(callback).edit_text(

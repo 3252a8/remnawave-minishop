@@ -12,6 +12,10 @@ from bot.keyboards.inline.user_keyboards import (
     get_language_selection_keyboard,
     telegram_bot_menu_enabled_for_user,
 )
+from bot.keyboards.inline.user_keyboards_context import (
+    BOT_MENU_CONTEXT,
+    subscription_menu_back_callback,
+)
 from bot.keyboards.inline.user_keyboards_menus import get_bot_app_sections_keyboard
 from bot.middlewares.i18n import JsonI18n, normalize_locale_language_code
 from bot.services.legal_document_links import legal_document_links
@@ -321,8 +325,9 @@ async def main_action_callback_handler(
         "bot_payment_history",
     }
     from_bot_menu = action in bot_interface_actions or (
-        action == "my_devices" and arguments == ["bot"]
+        action == "my_devices" and arguments[-1:] == [BOT_MENU_CONTEXT]
     )
+    preserve_message = arguments[:1] == ["keep"]
     if from_bot_menu and not telegram_bot_menu_enabled_for_user(
         settings, user_id=await require_telegram_account_id(session, callback.from_user.id)
     ):
@@ -343,11 +348,7 @@ async def main_action_callback_handler(
             session,
             back_callback="main_action:bot_interface",
         )
-    elif action == "my_subscription":
-        await user_subscription_handlers.my_subscription_command_handler(
-            callback, i18n_data, settings, panel_service, subscription_service, session, bot
-        )
-    elif action == "bot_my_subscription":
+    elif action in {"my_subscription", "bot_my_subscription"}:
         await user_subscription_handlers.my_subscription_command_handler(
             callback,
             i18n_data,
@@ -356,11 +357,21 @@ async def main_action_callback_handler(
             subscription_service,
             session,
             bot,
-            back_callback="main_action:bot_interface",
+            back_callback=subscription_menu_back_callback(
+                BOT_MENU_CONTEXT if from_bot_menu else None
+            ),
+            preserve_message=preserve_message,
         )
     elif action == "my_devices":
         await user_subscription_handlers.my_devices_command_handler(
-            callback, i18n_data, settings, panel_service, subscription_service, session, bot
+            callback,
+            i18n_data,
+            settings,
+            panel_service,
+            subscription_service,
+            session,
+            bot,
+            preserve_message=preserve_message,
         )
     elif action == "referral":
         await user_referral_handlers.referral_command_handler(

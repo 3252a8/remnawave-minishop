@@ -15,11 +15,14 @@ from .user_keyboards_context import (
     HWID_RENEWAL_TOKEN,
     PROMO_DISABLED_TOKEN,
     callback_context_from_sale_mode,
+    callback_suffix_for_context,
     payment_methods_back_callback,
     payment_options_back_callback,
     sale_mode_has_token,
     sale_mode_with_token,
     sale_mode_without_token,
+    subscription_status_callback,
+    tariff_switch_suffix,
 )
 
 
@@ -71,7 +74,9 @@ def get_payment_method_keyboard(
             tariff_key = sale_mode_main.split("@", 1)[1]
         context = callback_context_from_sale_mode(sale_mode)
         toggle_period = f"d{duration_days}" if duration_days is not None else value_str
-        toggle_tokens = [f"tariff:period:{tariff_key}:{toggle_period}"]
+        toggle_tokens = [
+            f"tariff:period:{tariff_key}:{toggle_period}{tariff_switch_suffix(sale_mode)}"
+        ]
         if context:
             toggle_tokens.append(context)
         if sale_mode_has_token(sale_mode, PROMO_DISABLED_TOKEN):
@@ -403,15 +408,17 @@ def get_autorenew_cancel_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineK
 
 
 def get_autorenew_confirm_keyboard(
-    enable: bool, sub_id: int, lang: str, i18n_instance: JsonI18n
+    enable: bool, sub_id: int, lang: str, i18n_instance: JsonI18n, *, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
             text=_(key="yes_button"),
-            callback_data=f"autorenew:confirm:{sub_id}:{1 if enable else 0}",
+            callback_data=f"autorenew:confirm:{sub_id}:{int(enable)}{callback_suffix_for_context(context)}",
         ),
-        InlineKeyboardButton(text=_(key="no_button"), callback_data="main_action:my_subscription"),
+        InlineKeyboardButton(
+            text=_(key="no_button"), callback_data=subscription_status_callback(context)
+        ),
     )
     return builder.as_markup()

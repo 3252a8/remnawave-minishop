@@ -3,6 +3,8 @@ import type { BotDemoData, DemoPlan, DemoTariff } from './botDemoData';
 import type { PaymentHistoryItem } from '../../../frontend/src/lib/webapp/paymentHistory';
 
 const messageKeys = [
+  'autorenew_enable_button', 'autorenew_disable_button', 'autorenew_confirm_enable', 'autorenew_confirm_disable',
+  'subscription_autorenew_updated', 'yes_button', 'no_button',
   'menu_app_sections_button', 'menu_account_settings_button', 'menu_account_security_button',
   'menu_account_notifications_button', 'menu_account_gifts_button', 'menu_account_partner_button',
   'menu_support_tickets_button', 'menu_admin_panel_button', 'bot_payment_history_item',
@@ -31,7 +33,7 @@ const messageKeys = [
   'wa_tariff_change_confirm_action', 'payment_successful_tariff_upgrade_full',
   'wa_tariff_change_confirm_payment', 'wa_tariff_change_applied', 'tariff_change_confirm_button',
   'tariff_change_confirm_pay_button', 'select_subscription_period', 'wa_checkout_price_from',
-  'subscribe_for_period_button', 'wa_sub_term_month_one', 'wa_sub_term_month_few', 'wa_sub_term_month_many',
+  'subscribe_for_months_button', 'subscribe_for_period_button', 'wa_sub_term_month_one', 'wa_sub_term_month_few', 'wa_sub_term_month_many',
   'choose_payment_method', 'cancel_button', 'pay_button', 'payment_description_subscription_days',
   'payment_description_hwid_devices', 'payment_invoice_sent_message', 'payment_link_message',
   'payment_successful_full', 'payment_successful_hwid_devices_full', 'promo_code_prompt',
@@ -89,6 +91,7 @@ export const scenarios = {
   new: { app: true, active: false, description: 'Новый пользователь. Пробный период открывается в Mini App.' },
   active: { app: true, active: true, description: 'Действующая подписка и устройства из веб-демо.' },
   'without-app': { app: false, active: true, description: 'Действующая подписка. Личный кабинет открывает подписку в чате.' },
+  'auto-renew': { app: false, active: true, description: 'Действующая подписка с автопродлением из веб-демо.' },
   'new-without-app': { app: false, active: false, description: 'Новый пользователь. Бот активирует пробный период прямо в чате.' },
   stars: { app: true, active: true, description: 'Тариф и способы оплаты из веб-сценария с Telegram Stars.' },
   'account-tools': { app: true, active: true, description: 'Разделы Mini App с партнёрским кабинетом и встроенным статусом.' },
@@ -107,6 +110,7 @@ type Order = {
   currency: string;
   stars?: number;
   back: () => void;
+  receiptBack?: (message: ChatMessage) => void;
   complete: (renewDevices: boolean) => string;
   devices?: boolean;
   gb?: number;
@@ -126,6 +130,7 @@ export class BotDemoConversation {
   menu: Menu = 'main';
   scenario: Scenario;
   subscribed = false;
+  private autoRenewEnabled = false;
   completedPayments: PaymentHistoryItem[] = [];
   notice = '';
   private trial = false;
@@ -192,6 +197,7 @@ export class BotDemoConversation {
   }
 
   get webMock() {
+    if (this.scenario === 'auto-renew') return 'auto-renew';
     if (this.scenario === 'stars') return 'checkout-addons';
     if (this.scenario === 'account-tools') return 'partner-referral-enabled';
     return this.subscribed ? 'tariffs' : this.trialUsed ? 'no-subscription' : 'trial';
@@ -214,6 +220,7 @@ export class BotDemoConversation {
 
   reset(scenario = this.scenario) {
     this.scenario = scenario;
+    this.autoRenewEnabled = this.autoRenewDemo.enabled;
     this.clearConversation();
     const { current } = this.data;
     this.subscribed = this.settings.active;
@@ -480,7 +487,7 @@ export class BotDemoConversation {
     ]);
   }
 
-  private checkoutPlan(message: ChatMessage, tariff: DemoTariff, period: DemoPlan, back: () => void) {
+  private checkoutPlan(message: ChatMessage, tariff: DemoTariff, period: DemoPlan, back: () => void, receiptBack?: Order['receiptBack']) {
     const packagePlan = this.data.devicePlans.find((item) => item.count === this.extraDevices);
     const renewal = !tariff.isTraffic && this.data.current.renewDevices && packagePlan
       ? { count: this.extraDevices, price: packagePlan.price, stars: packagePlan.stars ?? 0, selected: true } : undefined;
@@ -492,6 +499,7 @@ export class BotDemoConversation {
       description: tariff.isTraffic ? this.t('payment_description_traffic', { traffic_gb: period.gb })
         : this.t('payment_description_subscription_days', { days: period.days }),
       back,
+      receiptBack,
       complete: (renewDevices) => {
         this.expiryLabel = '';
         this.days = tariff.isTraffic ? 0 : (this.subscribed && !this.trial && !this.tariff.isTraffic ? this.days : 0) + period.days;
@@ -600,7 +608,10 @@ export class BotDemoConversation {
       checkout_discount_amount: null, purchases: [], funding_source: 'external',
     });
     const message = this.append(text + this.installDetails());
-    message.rows = this.connectAndBack(message, true);
+    const { receiptBack } = order;
+    message.rows = receiptBack
+      ? [...this.connectRows(), this.back(() => receiptBack(this.append('')))]
+      : this.connectAndBack(message, true);
   }
 
   private installDetails() {
@@ -641,6 +652,7 @@ export class BotDemoConversation {
   }
 
   private subscription(message: ChatMessage, menu: Exclude<Menu, 'admin'>) {
+    const backToSubscription = (target = message) => this.subscription(target, menu);
     if (!this.subscribed) {
       this.edit(message, this.t('subscription_not_active'), [
         this.button('menu_subscribe_inline', () => this.catalog(message, menu)),
@@ -672,34 +684,55 @@ export class BotDemoConversation {
     }) : '';
     const tariffActions: Button[] = [];
     if (!this.trial && this.scenario !== 'stars') {
-      if (this.data.tariffChanges.length) tariffActions.push(this.button('tariff_change_button', () => this.chooseTariffChange(message)));
-      if (this.data.trafficPlans.length) tariffActions.push(this.button('traffic_topup_button', () => this.trafficPackages(message)));
+      if (this.data.tariffChanges.length) tariffActions.push(this.button('tariff_change_button', () => this.chooseTariffChange(message, backToSubscription)));
+      if (this.data.trafficPlans.length) tariffActions.push(this.button('traffic_topup_button', () => this.trafficPackages(message, backToSubscription)));
     }
     this.edit(message, tariffPrefix + account + premium + this.installDetails(), [
       ...this.connectRows(),
       ...(this.data.current.deviceSection ? [
-        this.button('devices_button', () => this.deviceList(message), { current_devices: this.devices.length, max_devices: this.limit }),
+        this.button('devices_button', () => this.deviceList(message, backToSubscription), { current_devices: this.devices.length, max_devices: this.limit }),
       ] : []),
-      ...(this.devicePurchaseAvailable ? [this.devicePurchaseButton(message)] : []),
+      ...(this.devicePurchaseAvailable ? [this.devicePurchaseButton(message, backToSubscription)] : []),
+      ...(this.autoRenewDemo.available && !this.trial && !this.tariff.isTraffic ? [
+        this.button(this.autoRenewEnabled ? 'autorenew_disable_button' : 'autorenew_enable_button',
+          () => this.confirmAutoRenew(message, backToSubscription)),
+      ] : []),
       ...(tariffActions.length ? [tariffActions] : []),
       this.back(() => this.showMenu(message, menu)),
     ]);
+  }
+
+  private get autoRenewDemo() {
+    return this.scenario === 'auto-renew' ? this.data.recurring : this.data.current.autoRenew;
+  }
+
+  private confirmAutoRenew(message: ChatMessage, back: () => void) {
+    const enable = !this.autoRenewEnabled;
+    this.edit(message, this.t(enable ? 'autorenew_confirm_enable' : 'autorenew_confirm_disable'), [[
+      this.button('yes_button', () => {
+        this.autoRenewEnabled = enable;
+        this.notice = this.t('subscription_autorenew_updated');
+        back();
+      }),
+      this.button('no_button', back),
+    ]]);
   }
 
   private get devicePurchaseAvailable() {
     return this.scenario !== 'stars' && this.data.devicePlans.length > 0;
   }
 
-  private devicePurchaseButton(message: ChatMessage) {
+  private devicePurchaseButton(message: ChatMessage, back: (target?: ChatMessage) => void) {
     return this.trial
       ? this.button('device_topup_unavailable_menu_button', () => {
         this.notice = this.t('device_topup_unavailable_trial_subscription');
       })
-      : this.button('buy_hwid_devices_menu_button', () => this.devicePackages(message));
+      : this.button('buy_hwid_devices_menu_button', () => this.devicePackages(message, back));
   }
 
-  private deviceList(message: ChatMessage) {
+  private deviceList(message: ChatMessage, back: (target?: ChatMessage) => void) {
     this.inputAction = undefined;
+    const showDevices = (target = message) => this.deviceList(target, back);
     const text = this.devices.length ? this.t('my_devices_details', {
       current_devices: this.devices.length, max_devices: this.limit,
       devices: this.devices.map((device, index) => this.t('device_details', {
@@ -709,18 +742,18 @@ export class BotDemoConversation {
       })).join('\n\n'),
     }) : this.t('no_devices_details_found_message', { max_devices: this.limit });
     this.edit(message, text + (this.trial ? `\n\n${this.t('device_topup_unavailable_trial_subscription')}` : ''), [
-      ...(this.devicePurchaseAvailable ? [this.devicePurchaseButton(message)] : []),
-      ...(this.devices.length ? [this.button('rename_device_menu_button', () => this.chooseDeviceName(message))] : []),
+      ...(this.devicePurchaseAvailable ? [this.devicePurchaseButton(message, showDevices)] : []),
+      ...(this.devices.length ? [this.button('rename_device_menu_button', () => this.chooseDeviceName(message, showDevices))] : []),
       ...this.devices.map((device, index) => this.button('disconnect_device_button', () => {
         this.devices = this.devices.filter((other) => other !== device);
         this.notice = this.t('device_disconnected');
-        this.deviceList(message);
+        showDevices();
       }, { hwid: device.hwid, index: index + 1 })),
-      this.back(() => this.subscription(message, this.menu === 'bot' ? 'bot' : 'main')),
+      this.back(() => back(message)),
     ]);
   }
 
-  private chooseDeviceName(message: ChatMessage) {
+  private chooseDeviceName(message: ChatMessage, back: () => void) {
     this.inputAction = undefined;
     this.edit(message, this.t('rename_device_pick_prompt'), [
       ...this.devices.map((device, index) => this.button('rename_device_pick_button', () => {
@@ -728,9 +761,9 @@ export class BotDemoConversation {
           ...(device.name ? [this.button('rename_device_reset_button', () => {
             delete device.name;
             this.notice = this.t('rename_device_reset_done');
-            this.deviceList(message);
+            back();
           })] : []),
-          this.button('cancel_button', () => this.deviceList(message)),
+          this.button('cancel_button', back),
         ]);
         this.inputAction = (name) => {
           if ([...name].length > 32) {
@@ -740,37 +773,39 @@ export class BotDemoConversation {
           device.name = name;
           this.inputAction = undefined;
           this.append(this.t('rename_device_saved', { name: escape(name) }));
-          this.deviceList(message);
+          back();
         };
       }, { index: index + 1, name: device.name ?? device.model })),
-      this.back(() => this.deviceList(message)),
+      this.back(back),
     ]);
   }
 
-  private devicePackages(message: ChatMessage) {
+  private devicePackages(message: ChatMessage, back: (target?: ChatMessage) => void) {
     this.edit(message, this.t('select_hwid_device_package', { date: this.expiry }), [
       ...this.data.devicePlans.map((plan) => this.button('buy_hwid_devices_button', () => this.paymentMethods(message, {
         ...plan, devices: true, mode: plan.kind,
         description: this.t('payment_description_hwid_devices', { count: plan.count }),
-        back: () => this.devicePackages(message),
+        back: () => this.devicePackages(message, back),
+        receiptBack: back,
         complete: () => {
           this.limit += plan.count;
           this.extraDevices += plan.count;
           return this.t('payment_successful_hwid_devices_full', { count: plan.count });
         },
       }), { count: plan.count, price: plan.price, currency_symbol: plan.currency })),
-      this.back(() => this.deviceList(message)),
+      this.back(back),
     ]);
   }
 
-  private trafficPackages(message: ChatMessage) {
+  private trafficPackages(message: ChatMessage, back: (target?: ChatMessage) => void) {
     this.edit(message, `${this.t('select_traffic_package')}\n\n${this.t('traffic_topup_carryover_note')}`, [
       ...this.data.trafficPlans.map((plan) => this.button(
         plan.kind === 'premium_topup' ? 'traffic_topup_premium_package_button' : 'traffic_topup_regular_package_button',
         () => this.paymentMethods(message, {
           ...plan, mode: plan.kind,
           description: this.t('payment_description_traffic', { traffic_gb: plan.gb }),
-          back: () => this.trafficPackages(message),
+          back: () => this.trafficPackages(message, back),
+          receiptBack: back,
           complete: () => {
             if (plan.kind === 'premium_topup') {
               this.premiumBalance += plan.gb;
@@ -782,11 +817,11 @@ export class BotDemoConversation {
           },
         }), { gb: plan.gb, price: plan.price, currency: plan.currency },
       )),
-      this.back(() => this.subscription(message, 'main')),
+      this.back(back),
     ]);
   }
 
-  private chooseTariffChange(message: ChatMessage) {
+  private chooseTariffChange(message: ChatMessage, back: (target?: ChatMessage) => void) {
     type Change = BotDemoData['tariffChanges'][number];
     const names: Record<string, MessageKey> = {
       recalc_days: 'wa_tariff_change_recalc_days', paid_diff: 'wa_tariff_change_pay_diff',
@@ -799,7 +834,7 @@ export class BotDemoConversation {
           names[action.mode], () => confirm(target, change, action),
           { days: action.days, gb: action.gb, price: `${action.price} ${action.currency}` },
         )),
-        this.back(() => this.chooseTariffChange(message)),
+        this.back(() => this.chooseTariffChange(message, back)),
       ]);
     };
     const confirm = (target: DemoTariff, change: Change, action: Change['actions'][number]) => {
@@ -814,6 +849,19 @@ export class BotDemoConversation {
         this.trafficLimit = `${target.isTraffic ? gb : target.limit} GB`;
         this.premiumLimit = target.premiumLimit + this.premiumBalance;
       };
+      const pay = (returnTo: () => void) => this.paymentMethods(message, {
+        description: `${this.t('tariff_change_button')} · ${escape(title)}`,
+        months: 0, price, currency, gb, mode: action.mode,
+        back: returnTo, receiptBack: back, complete: () => {
+          apply();
+          return gb ? this.t('payment_successful_traffic_full', { traffic_gb: gb })
+            : this.t('payment_successful_tariff_upgrade_full', { end_date: this.expiry });
+        },
+      });
+      if (action.mode === 'buy_package') {
+        pay(() => options(target, change));
+        return;
+      }
       this.edit(message, [
         this.t('wa_tariff_change_confirm_title'),
         '',
@@ -825,25 +873,31 @@ export class BotDemoConversation {
         !price ? this.button('tariff_change_confirm_button', () => {
           apply();
           this.notice = this.t('wa_tariff_change_applied');
-          this.subscription(message, 'main');
-        }) : this.button('tariff_change_confirm_pay_button', () => this.paymentMethods(message, {
-          description: `${this.t('tariff_change_button')} · ${escape(title)}`,
-          months: 0, price, currency, gb, mode: action.mode,
-          back: () => confirm(target, change, action), complete: () => {
-            apply();
-            return gb ? this.t('payment_successful_traffic_full', { traffic_gb: gb })
-              : this.t('payment_successful_tariff_upgrade_full', { end_date: this.expiry });
-          },
-        })),
+          back();
+        }) : this.button('tariff_change_confirm_pay_button', () => pay(() => confirm(target, change, action))),
         this.back(() => options(target, change)),
       ]);
     };
+    const fromTraffic = this.tariff.isTraffic;
+    const periodOptions = (target: DemoTariff) => {
+      const title = target.names[this.language];
+      this.edit(message, `<b>${escape(title)}</b>\n${escape(target.descriptions[this.language])}`, [
+        ...target.periods.map((period) => this.button('subscribe_for_months_button',
+          () => this.checkoutPlan(message, target, period, () => periodOptions(target), back), {
+            months: period.months, price: period.price, currency_symbol: period.currency,
+          })),
+        this.back(() => this.chooseTariffChange(message, back)),
+      ]);
+    };
+    const targets = fromTraffic ? this.tariffs.filter((target) => !target.isTraffic).map((target) => ({
+      label: target.names[this.language], activate: () => periodOptions(target),
+    })) : this.data.tariffChanges.flatMap((change) => {
+      const target = this.tariffs.find((item) => item.key === change.key && item !== this.tariff);
+      return target ? [{ label: target.names[this.language], activate: () => options(target, change) }] : [];
+    });
     this.edit(message, this.t('wa_tariffs_choose'), [
-      ...this.data.tariffChanges.flatMap((change) => {
-        const target = this.tariffs.find((item) => item.key === change.key && item !== this.tariff);
-        return target ? [{ label: target.names[this.language], activate: () => options(target, change) }] : [];
-      }),
-      this.back(() => this.subscription(message, 'main')),
+      ...targets,
+      this.back(back),
     ]);
   }
 

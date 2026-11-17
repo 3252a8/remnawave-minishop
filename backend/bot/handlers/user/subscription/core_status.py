@@ -15,6 +15,7 @@ from bot.keyboards.inline.user_keyboards import (
 from bot.keyboards.inline.user_keyboards_context import (
     callback_context_from_back_callback,
     callback_suffix_for_context,
+    hwid_origin_suffix,
     split_callback_context,
     subscription_options_callback,
     subscription_status_callback,
@@ -103,6 +104,8 @@ async def my_subscription_command_handler(
     session: AsyncSession,
     bot: Bot,
     back_callback: str = "main_action:back_to_main",
+    *,
+    preserve_message: bool = False,
 ) -> None:
     target = event.message if isinstance(event, types.CallbackQuery) else event
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -122,6 +125,7 @@ async def my_subscription_command_handler(
         session, await _event_user_id(session, event)
     )
     context = callback_context_from_back_callback(back_callback)
+    suffix = callback_suffix_for_context(context)
 
     if not active:
         text = get_text("subscription_not_active")
@@ -141,12 +145,11 @@ async def my_subscription_command_handler(
         if isinstance(event, types.CallbackQuery):
             with contextlib.suppress(Exception):
                 await event.answer()
-            try:
-                await callback_message(event).edit_text(text, reply_markup=kb)
-            except Exception:
-                await callback_message(event).answer(text, reply_markup=kb)
-        else:
-            await event.answer(text, reply_markup=kb)
+            if not preserve_message:
+                with contextlib.suppress(Exception):
+                    await callback_message(event).edit_text(text, reply_markup=kb)
+                    return
+        await target.answer(text, reply_markup=kb)
         return
 
     tariffs_config = settings.tariffs_config
@@ -391,7 +394,7 @@ async def my_subscription_command_handler(
                 [
                     InlineKeyboardButton(
                         text=devices_button_text,
-                        callback_data=f"main_action:my_devices{callback_suffix_for_context(context)}",
+                        callback_data=f"main_action:my_devices{suffix}",
                     )
                 ]
             )
@@ -404,12 +407,15 @@ async def my_subscription_command_handler(
                 tariff_key=local_sub.tariff_key if local_sub else None,
                 max_devices=max_devices_value,
             )
+            slots_callback = (
+                f"hwid_devices:list{hwid_origin_suffix(context, from_subscription=True)}"
+            )
             if device_topup_availability.allowed:
                 prepend_rows.append(
                     [
                         InlineKeyboardButton(
                             text=get_text("buy_hwid_devices_menu_button"),
-                            callback_data="hwid_devices:list",
+                            callback_data=slots_callback,
                         )
                     ]
                 )
@@ -418,7 +424,7 @@ async def my_subscription_command_handler(
                     [
                         InlineKeyboardButton(
                             text=get_text("device_topup_unavailable_menu_button"),
-                            callback_data="hwid_devices:list",
+                            callback_data=slots_callback,
                         )
                     ]
                 )
@@ -434,11 +440,12 @@ async def my_subscription_command_handler(
                 if local_sub.auto_renew_enabled
                 else get_text("autorenew_enable_button")
             )
+            enable = int(not local_sub.auto_renew_enabled)
             prepend_rows.append(
                 [
                     InlineKeyboardButton(
                         text=toggle_text,
-                        callback_data=f"toggle_autorenew:{local_sub.subscription_id}:{1 if not local_sub.auto_renew_enabled else 0}",  # noqa: E501
+                        callback_data=f"toggle_autorenew:{local_sub.subscription_id}:{enable}{suffix}",
                     )
                 ]
             )
@@ -459,7 +466,7 @@ async def my_subscription_command_handler(
                 tariff_actions.append(
                     InlineKeyboardButton(
                         text=get_text("tariff_change_button"),
-                        callback_data="tariff_change:list",
+                        callback_data=f"tariff_change:list{suffix}",
                     )
                 )
             # Mirror the web app: the top-up offer stays hidden until usage
@@ -469,7 +476,7 @@ async def my_subscription_command_handler(
                 tariff_actions.append(
                     InlineKeyboardButton(
                         text=get_text("traffic_topup_button"),
-                        callback_data="tariff_topup:list",
+                        callback_data=f"tariff_topup:list{suffix}",
                     )
                 )
             if tariff_actions:
@@ -484,6 +491,7 @@ async def my_subscription_command_handler(
     if isinstance(event, types.CallbackQuery):
         with contextlib.suppress(Exception):
             await event.answer()
+    if isinstance(event, types.CallbackQuery) and not preserve_message:
         try:
             await callback_message(event).edit_text(
                 text, reply_markup=markup, parse_mode="HTML", disable_web_page_preview=True
@@ -513,6 +521,7 @@ async def my_devices_command_handler(
     bot: Bot,
     *,
     context: str | None = None,
+    preserve_message: bool = False,
 ) -> None:
     target = event.message if isinstance(event, types.CallbackQuery) else event
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -626,7 +635,7 @@ async def my_devices_command_handler(
             [
                 InlineKeyboardButton(
                     text=get_text("buy_hwid_devices_menu_button"),
-                    callback_data="hwid_devices:list",
+                    callback_data=f"hwid_devices:list{suffix}",
                 )
             ]
         )
@@ -639,7 +648,7 @@ async def my_devices_command_handler(
             [
                 InlineKeyboardButton(
                     text=get_text("device_topup_unavailable_menu_button"),
-                    callback_data="hwid_devices:list",
+                    callback_data=f"hwid_devices:list{suffix}",
                 )
             ]
         )
@@ -674,6 +683,7 @@ async def my_devices_command_handler(
     if isinstance(event, types.CallbackQuery):
         with contextlib.suppress(Exception):
             await event.answer()
+    if isinstance(event, types.CallbackQuery) and not preserve_message:
         try:
             await callback_message(event).edit_text(text, reply_markup=markup)
         except Exception:

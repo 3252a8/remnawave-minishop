@@ -324,6 +324,8 @@ def get_hwid_device_packages_keyboard(
     back_callback: str = "main_action:my_subscription",
     renewal: bool = False,
     stars_packages: list[Any] | None = None,
+    *,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -343,7 +345,7 @@ def get_hwid_device_packages_keyboard(
                 ),
                 callback_data=(
                     f"hwid_devices:{'renewal_package' if renewal else 'package'}:"
-                    f"{tariff.key}:{count}"
+                    f"{tariff.key}:{count}{origin_suffix}"
                 ),
             )
         )

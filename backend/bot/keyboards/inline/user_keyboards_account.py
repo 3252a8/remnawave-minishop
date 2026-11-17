@@ -118,6 +118,8 @@ def get_connect_and_main_keyboard(
     connect_button_url: str | None = None,
     preserve_message: bool = False,
     install_share_url: str | None = None,
+    *,
+    back_callback: str | None = None,
 ) -> InlineKeyboardMarkup:
     """Keyboard with a connect button and a back to main menu button."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -156,7 +158,7 @@ def get_connect_and_main_keyboard(
             )
         )
 
-    back_callback = (
+    back_callback = back_callback or (
         "main_action:back_to_main_keep" if preserve_message else "main_action:back_to_main"
     )
     builder.row(

@@ -14,7 +14,10 @@ from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import (
     get_autorenew_confirm_keyboard,
 )
-from bot.keyboards.inline.user_keyboards_context import split_callback_context
+from bot.keyboards.inline.user_keyboards_context import (
+    split_callback_context,
+    subscription_menu_back_callback,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
@@ -125,7 +128,8 @@ async def toggle_autorenew_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
-        _, payload = callback_data(callback).split(":", 1)
+        data, context = split_callback_context(callback_data(callback))
+        _, payload = data.split(":", 1)
         sub_id_str, enable_str = payload.split(":")
         sub_id = int(sub_id_str)
         enable = bool(int(enable_str))
@@ -161,7 +165,9 @@ async def toggle_autorenew_handler(
     confirm_text = (
         get_text("autorenew_confirm_enable") if enable else get_text("autorenew_confirm_disable")
     )
-    kb = get_autorenew_confirm_keyboard(enable, sub.subscription_id, current_lang, i18n)
+    kb = get_autorenew_confirm_keyboard(
+        enable, sub.subscription_id, current_lang, i18n, context=context
+    )
     try:
         await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
     except Exception:
@@ -188,7 +194,8 @@ async def confirm_autorenew_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
-        _, _, sub_id_str, enable_str = callback_data(callback).split(":", 3)
+        data, context = split_callback_context(callback_data(callback))
+        _, _, sub_id_str, enable_str = data.split(":", 3)
         sub_id = int(sub_id_str)
         enable = bool(int(enable_str))
     except Exception:
@@ -196,6 +203,7 @@ async def confirm_autorenew_handler(
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
+    back_callback = subscription_menu_back_callback(context)
     sub = await session.get(Subscription, sub_id)
     if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -210,7 +218,14 @@ async def confirm_autorenew_handler(
             await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
             with contextlib.suppress(Exception):
                 await my_subscription_command_handler(
-                    callback, i18n_data, settings, panel_service, subscription_service, session, bot
+                    callback,
+                    i18n_data,
+                    settings,
+                    panel_service,
+                    subscription_service,
+                    session,
+                    bot,
+                    back_callback=back_callback,
                 )
             return
         has_saved_card = await has_recurring_payment_method(
@@ -223,7 +238,14 @@ async def confirm_autorenew_handler(
                 await callback.answer(get_text("autorenew_enable_requires_card"), show_alert=True)
             with contextlib.suppress(Exception):
                 await my_subscription_command_handler(
-                    callback, i18n_data, settings, panel_service, subscription_service, session, bot
+                    callback,
+                    i18n_data,
+                    settings,
+                    panel_service,
+                    subscription_service,
+                    session,
+                    bot,
+                    back_callback=back_callback,
                 )
             return
 
@@ -253,7 +275,14 @@ async def confirm_autorenew_handler(
     with contextlib.suppress(Exception):
         await callback.answer(get_text("subscription_autorenew_updated"))
     await my_subscription_command_handler(
-        callback, i18n_data, settings, panel_service, subscription_service, session, bot
+        callback,
+        i18n_data,
+        settings,
+        panel_service,
+        subscription_service,
+        session,
+        bot,
+        back_callback=back_callback,
     )
 
 

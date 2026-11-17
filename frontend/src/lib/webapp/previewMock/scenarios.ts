@@ -2,7 +2,7 @@ import { DEMO_DATASET } from "../demoDataset.js";
 import { withDemoAvatar } from "../demoAvatars.js";
 import { readStoredDemoLanguage } from "../demoMockRuntime.js";
 import { currentDemoBalance } from "../mockApi/balance.js";
-import { checkoutAddons, DEV_MOCK } from "./devMock";
+import { checkoutAddons, DEMO_AUTO_RENEW_SUBSCRIPTION, DEV_MOCK } from "./devMock";
 import { demoCheckoutMethods, demoCheckoutPlans } from "./checkoutDemo";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
@@ -779,13 +779,7 @@ export function applyPreviewMock(kind: unknown): void {
     mode === "subscription-auto-renew"
   ) {
     DEV_MOCK.data.settings.traffic_mode = false;
-    applyDemoTariffScenario({
-      auto_renew_enabled: true,
-      auto_renew_available: true,
-      auto_renew_can_enable: true,
-      auto_renew_provider_label: "CloudPayments",
-      provider: "cloudpayments",
-    });
+    applyDemoTariffScenario(DEMO_AUTO_RENEW_SUBSCRIPTION);
   } else if (mode === "depleted") {
     DEV_MOCK.data.settings.traffic_mode = false;
     DEV_MOCK.data.settings.trial_available = false;

@@ -2,6 +2,9 @@ from config.settings import Settings
 from config.subscription_periods import sale_mode_duration_days
 
 BOT_MENU_CONTEXT = "bot"
+HWID_SUBSCRIPTION_ORIGIN = "s"
+TARIFF_SWITCH_ORIGIN = "sw"
+TELEGRAM_SUBSCRIPTION_CHECKOUT = "t"
 HWID_RENEWAL_TOKEN = "hwid_renewal"
 # Telegram limits callback payloads to 64 bytes, so checkout-only tokens stay compact.
 PROMO_DISABLED_TOKEN = "pd"
@@ -41,6 +44,31 @@ def subscription_status_callback(context: str | None = None) -> str:
         if context == BOT_MENU_CONTEXT
         else "main_action:my_subscription"
     )
+
+
+def subscription_menu_back_callback(context: str | None) -> str:
+    return (
+        "main_action:bot_interface" if context == BOT_MENU_CONTEXT else "main_action:back_to_main"
+    )
+
+
+def hwid_origin_suffix(context: str | None, *, from_subscription: bool = False) -> str:
+    origin = f":{HWID_SUBSCRIPTION_ORIGIN}" if from_subscription else ""
+    return f"{origin}{callback_suffix_for_context(context)}"
+
+
+def payment_receipt_back_callback(sale_mode: str) -> str | None:
+    context = callback_context_from_sale_mode(sale_mode)
+    if sale_mode_has_token(sale_mode, HWID_SUBSCRIPTION_ORIGIN) or sale_mode_has_token(
+        sale_mode, TARIFF_SWITCH_ORIGIN
+    ):
+        return f"{subscription_status_callback(context)}:keep"
+    if not sale_mode_has_token(sale_mode, TELEGRAM_SUBSCRIPTION_CHECKOUT):
+        return None
+    base = sale_mode.split("|", 1)[0].split("@", 1)[0]
+    if base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
+        return f"main_action:my_devices:keep{callback_suffix_for_context(context)}"
+    return f"{subscription_status_callback(context)}:keep"
 
 
 def sale_mode_with_callback_context(sale_mode: str, context: str | None) -> str:
@@ -128,19 +156,26 @@ def payment_methods_back_callback(
         days = sale_mode_duration_days(sale_mode)
         if days is not None:
             value = f"d{days}"
-        return f"tariff:period:{tariff_key}:{value}{context_suffix}"
+        return (
+            f"tariff:period:{tariff_key}:{value}{context_suffix}{tariff_switch_suffix(sale_mode)}"
+        )
     if sale_base == "traffic_package" and tariff_key:
-        return f"tariff:package:{tariff_key}:{value}{context_suffix}"
+        return (
+            f"tariff:package:{tariff_key}:{value}{context_suffix}{tariff_switch_suffix(sale_mode)}"
+        )
     if sale_base == "topup" and tariff_key:
-        return f"tariff:package:{tariff_key}:{value}"
+        return f"tariff:package:{tariff_key}:{value}{callback_suffix_for_context(context)}"
     if sale_base == "premium_topup" and tariff_key:
-        return f"tariff:premium_package:{tariff_key}:{value}"
+        return f"tariff:premium_package:{tariff_key}:{value}{callback_suffix_for_context(context)}"
     if sale_base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"} and tariff_key:
         action = "renewal_package" if sale_base == "hwid_devices_renewal" else "package"
-        return f"hwid_devices:{action}:{tariff_key}:{value}"
+        suffix = hwid_origin_suffix(
+            context, from_subscription=sale_mode_has_token(sale_mode, HWID_SUBSCRIPTION_ORIGIN)
+        )
+        return f"hwid_devices:{action}:{tariff_key}:{value}{suffix}"
     if sale_base == "tariff_upgrade" and tariff_key:
         amount = str(price) if price is not None else value
-        return f"tariff_change:pay:{tariff_key}:{amount}"
+        return f"tariff_change:pay:{tariff_key}:{amount}{callback_suffix_for_context(context)}"
     if sale_base in {"subscription", "traffic"}:
         return f"subscribe_period:{value}{context_suffix}"
     return subscription_options_callback(context, promo_enabled=promo_enabled)
@@ -156,9 +191,20 @@ def payment_options_back_callback(sale_mode: str = "subscription") -> str:
     tariff_key = sale_mode_main.split("@", 1)[1] if "@" in sale_mode_main else None
 
     if sale_base in {"subscription", "traffic_package"} and tariff_key:
+        if sale_mode_has_token(sale_mode, TARIFF_SWITCH_ORIGIN):
+            return f"tariff_change:select:{tariff_key}{callback_suffix_for_context(context)}"
         return f"tariff:select:{tariff_key}{context_suffix}"
     if sale_base in {"topup", "premium_topup"}:
-        return "tariff_topup:list"
+        return f"tariff_topup:list{callback_suffix_for_context(context)}"
     if sale_base in {"hwid_device", "hwid_devices", "hwid_devices_renewal"}:
-        return "hwid_devices:list"
+        suffix = hwid_origin_suffix(
+            context, from_subscription=sale_mode_has_token(sale_mode, HWID_SUBSCRIPTION_ORIGIN)
+        )
+        return f"hwid_devices:list{suffix}"
     return subscription_options_callback(context, promo_enabled=promo_enabled)
+
+
+def tariff_switch_suffix(sale_mode: str) -> str:
+    return (
+        f":{TARIFF_SWITCH_ORIGIN}" if sale_mode_has_token(sale_mode, TARIFF_SWITCH_ORIGIN) else ""
+    )
