@@ -1,0 +1,65 @@
+name: Publish documentation
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == '3252a8/remnawave-minishop' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: documentation-${{ github.ref_name }}
+    env:
+      CF_PAGES_COMMIT_SHA: ${{ github.sha }}
+      CF_PAGES_BRANCH: ${{ github.ref_name }}
+      PYTHON: /usr/bin/python3
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            docs-site/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install documentation build tools
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update --error-on=any
+          sudo apt-get -o Acquire::Retries=5 install --yes --no-install-recommends python3-pil
+          "$PYTHON" -c "import sys; from PIL import Image; assert sys.version_info >= (3, 12)"
+          npm install --prefix "$RUNNER_TEMP/pages-cli" --no-save --package-lock=false --no-audit --no-fund wrangler@4.162.0
+          echo "$RUNNER_TEMP/pages-cli/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Build and check documentation
+        run: |
+          npm --prefix docs-site ci --no-audit --no-fund
+          npm run check:docs
+          npm run build:docs
+
+      - name: Publish and verify Cloudflare Pages deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: '"$PYTHON" scripts/publish_docs.py'
+
+      - name: Upload deployment evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pages-deployment
+          path: pages-deployment.ndjson
+          if-no-files-found: ignore
