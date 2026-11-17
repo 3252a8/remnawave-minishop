@@ -112,6 +112,7 @@ def test_wrong_build_identity_cannot_be_published(tmp_path, field, value):
 
 @pytest.mark.parametrize("branch", ["dev", "main"])
 def test_only_gitlab_dev_and_main_can_publish(monkeypatch, branch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
     monkeypatch.setenv("CI_PROJECT_PATH", docs.REPOSITORY)
     monkeypatch.setenv("CI_SERVER_URL", "https://gitlab.com")
     monkeypatch.setenv("CI_COMMIT_SHA", SHA)
@@ -119,6 +120,32 @@ def test_only_gitlab_dev_and_main_can_publish(monkeypatch, branch):
     assert docs.inputs() == (SHA, branch)
     monkeypatch.setenv("CI_SERVER_URL", "https://github.com")
     with pytest.raises(ValueError, match="Only a pinned GitLab"):
+        docs.inputs()
+
+
+@pytest.mark.parametrize("branch", ["dev", "main"])
+def test_github_publication_uses_the_pinned_branch_and_source(monkeypatch, branch):
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_REPOSITORY", docs.REPOSITORY)
+    monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    monkeypatch.setenv("GITHUB_SHA", SHA)
+    monkeypatch.setenv("GITHUB_REF_NAME", branch)
+    monkeypatch.setenv("GITHUB_REF", f"refs/heads/{branch}")
+    assert docs.inputs() == (SHA, branch)
+
+    def ls_remote(command, **kwargs):
+        assert command == [
+            "git",
+            "ls-remote",
+            f"https://github.com/{docs.REPOSITORY}.git",
+            f"refs/heads/{branch}",
+        ]
+        return docs.subprocess.CompletedProcess(command, 0, stdout=f"{SHA}\trefs/heads/{branch}\n")
+
+    monkeypatch.setattr(docs.subprocess, "run", ls_remote)
+    docs.assert_source_head(SHA, branch)
+    monkeypatch.setenv("GITHUB_REF", f"refs/tags/{branch}")
+    with pytest.raises(ValueError, match="Only a pinned GitHub"):
         docs.inputs()
 
 
