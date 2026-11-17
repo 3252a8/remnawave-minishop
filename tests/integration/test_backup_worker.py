@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from bot.services import backup_telegram
 from bot.services.backup_worker import BACKUP_FILENAME_PREFIX, BackupWorker
 from bot.services.settings_override_service import refresh_overrides_from_db
 from config.settings import Settings
@@ -354,15 +355,14 @@ def test_backup_preserves_only_installed_packages_once_and_retains_legacy_restor
 
 
 def test_backup_worker_routes_large_archives_to_telegram_album(tmp_path, monkeypatch):
-    from bot.services import backup_telegram
-
     monkeypatch.setattr(backup_telegram, "BACKUP_PART_BYTES", 17)
     settings = _settings(tmp_path, tmp_path / "compose", BACKUP_COMPOSE_ENABLED=False)
     bot = _FakeBot()
     result = asyncio.run(_FakePgDumpBackupWorker(settings, bot).create_and_send_backup())
 
-    bot.send_document.assert_not_awaited()
     assert bot.send_media_group.await_count >= 1
+    for call in bot.send_document.await_args_list:
+        assert Path(call.kwargs["document"].path) != result.archive_path
     assert result.archive_path.is_file()
     assert not list(Path(settings.BACKUP_DIR).glob("telegram-parts-*"))
 
