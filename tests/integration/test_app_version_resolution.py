@@ -154,9 +154,7 @@ class BuildPipelineVersionMetadataTests(unittest.TestCase):
     def test_github_dev_build_forwards_branch_to_dockerfile(self):
         workflows = REPOSITORY_ROOT / ".github" / "workflows"
         pipeline = (workflows / "docker-dev.yml").read_text(encoding="utf-8")
-        publisher = (workflows / "_docker-publish-ghcr.yml").read_text(
-            encoding="utf-8"
-        )
+        publisher = (workflows / "_docker-publish-ghcr.yml").read_text(encoding="utf-8")
         build_script = (REPOSITORY_ROOT / "scripts" / "docker-build-images.sh").read_text(
             encoding="utf-8"
         )
@@ -171,7 +169,9 @@ class BuildPipelineVersionMetadataTests(unittest.TestCase):
 
     def test_github_dispatches_verified_dev_images_to_the_configured_consumer(self):
         gitlab = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-        workflow = (REPOSITORY_ROOT / ".github/workflows/docker-dev.yml").read_text(encoding="utf-8")
+        workflow = (REPOSITORY_ROOT / ".github/workflows/docker-dev.yml").read_text(
+            encoding="utf-8"
+        )
 
         self.assertNotIn("publish-dev-images:", gitlab)
         self.assertNotIn("dispatch-dev-image-consumer:", gitlab)
