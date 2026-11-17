@@ -11,7 +11,7 @@ from aiogram import F, Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import (
     PromoEffects,
@@ -47,6 +47,7 @@ from .manage_format import (  # noqa: F401
     _threshold_text,
     get_promo_detail_text_and_keyboard,
     get_promo_status_emoji_and_text,
+    promo_list_page,
 )
 
 router = Router(name="promo_manage_router")
@@ -74,7 +75,9 @@ async def view_promo_codes_handler(
     )
 
     await callback_message(callback).edit_text(
-        text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n), parse_mode="HTML"
+        text,
+        reply_markup=get_admin_back_keyboard(current_lang, i18n, "admin_section:promo_marketing"),
+        parse_mode="HTML",
     )
     await callback.answer()
 
@@ -94,19 +97,22 @@ async def promo_management_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     page_size = 10  # Number of promo codes per page
-    offset = page * page_size
 
     # Get the total number of promo codes
     total_count = await promo_code_dal.get_promo_codes_count(session)
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
 
+    page = min(max(0, page), total_pages - 1)
+    offset = page * page_size
     promo_models = await promo_code_dal.get_all_promo_codes_with_details(
         session, limit=page_size, offset=offset
     )
     if not promo_models and page == 0:
         await callback_message(callback).edit_text(
             _("admin_promo_management_empty"),
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
         await callback.answer()
@@ -120,7 +126,7 @@ async def promo_management_handler(
         )
         builder.row(
             InlineKeyboardButton(
-                text=button_text, callback_data=f"promo_detail:{promo.promo_code_id}"
+                text=button_text, callback_data=f"promo_detail:{promo.promo_code_id}:{page}"
             )
         )
 
@@ -151,7 +157,7 @@ async def promo_management_handler(
     )
     builder.row(
         InlineKeyboardButton(
-            text=_("back_to_admin_panel_button"), callback_data="admin_action:main"
+            text=_("back_to_main_menu_button"), callback_data="admin_section:promo_marketing"
         )
     )
 
@@ -188,9 +194,10 @@ async def promo_detail_handler(
         return
 
     try:
-        promo_id = int(callback_data(callback).split(":")[1])
+        parts = callback_data(callback).split(":")
+        promo_id = int(parts[1])
         text, keyboard = await get_promo_detail_text_and_keyboard(
-            promo_id, session, i18n, current_lang
+            promo_id, session, i18n, current_lang, list_page=promo_list_page(parts, 2)
         )
         if text:
             await callback_message(callback).edit_text(
@@ -217,7 +224,8 @@ async def promo_toggle_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        promo_id = int(callback_data(callback).split(":")[1])
+        parts = callback_data(callback).split(":")
+        promo_id = int(parts[1])
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
         if not promo:
             await callback.answer(_("admin_promo_not_found"), show_alert=True)
@@ -236,7 +244,7 @@ async def promo_toggle_handler(
             )
 
             text, keyboard = await get_promo_detail_text_and_keyboard(
-                promo_id, session, i18n, current_lang
+                promo_id, session, i18n, current_lang, list_page=promo_list_page(parts, 2)
             )
             if text:
                 await callback_message(callback).edit_text(
@@ -263,6 +271,7 @@ async def promo_activations_handler(
         parts = callback_data(callback).split(":")
         promo_id = int(parts[1])
         page = int(parts[2])
+        list_page = promo_list_page(parts, 3)
         page_size = settings.LOGS_PAGE_SIZE
 
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
@@ -288,13 +297,13 @@ async def promo_activations_handler(
         if page > 0:
             nav_buttons.append(
                 InlineKeyboardButton(
-                    text="⬅️", callback_data=f"promo_activations:{promo_id}:{page - 1}"
+                    text="⬅️", callback_data=f"promo_activations:{promo_id}:{page - 1}:{list_page}"
                 )
             )
         if (page + 1) * page_size < total_activations:
             nav_buttons.append(
                 InlineKeyboardButton(
-                    text="➡️", callback_data=f"promo_activations:{promo_id}:{page + 1}"
+                    text="➡️", callback_data=f"promo_activations:{promo_id}:{page + 1}:{list_page}"
                 )
             )
         if nav_buttons:
@@ -308,7 +317,7 @@ async def promo_activations_handler(
         builder.row(
             InlineKeyboardButton(
                 text=_("admin_promo_back_to_detail_button"),
-                callback_data=f"promo_detail:{promo_id}",
+                callback_data=f"promo_detail:{promo_id}:{list_page}",
             )
         )
 
@@ -333,7 +342,8 @@ async def promo_export_activations_handler(
     export_lang = "en"
 
     try:
-        promo_id = int(callback_data(callback).split(":")[1])
+        parts = callback_data(callback).split(":")
+        promo_id = int(parts[1])
         promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
         if not promo:
             await callback.answer(_("admin_promo_not_found"), show_alert=True)
@@ -512,14 +522,17 @@ async def promo_delete_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        promo_id = int(callback_data(callback).split(":")[1])
+        parts = callback_data(callback).split(":")
+        promo_id = int(parts[1])
         promo = await promo_code_dal.delete_promo_code(session, promo_id)
         if promo:
             await session.commit()
             await callback.answer(
                 _("admin_promo_deleted_success", code=promo.code), show_alert=True
             )
-            await promo_management_handler(callback, i18n_data, settings, session, 0)
+            await promo_management_handler(
+                callback, i18n_data, settings, session, promo_list_page(parts, 2)
+            )
         else:
             await callback.answer(_("admin_promo_not_found"), show_alert=True)
     except (ValueError, IndexError):

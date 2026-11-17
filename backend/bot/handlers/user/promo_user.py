@@ -78,6 +78,7 @@ async def prompt_promo_code_input(
     else:
         await event.answer(text=text, reply_markup=markup)
         user_id = message_from_user(event).id
+    await state.update_data(promo_return_callback=back_callback)
     await state.set_state(UserPromoStates.waiting_for_promo_code)
     logger.info(
         "User %s entered state UserPromoStates.waiting_for_promo_code. FSM state: %s",
@@ -135,6 +136,10 @@ async def process_promo_code_input(
             code_input,
         )
 
+    back_callback = (await state.get_data()).get(
+        "promo_return_callback", "main_action:back_to_main"
+    )
+    back_markup = get_back_to_main_menu_markup(current_lang, i18n, callback_data=back_callback)
     response_to_user_text = ""
     if is_suspicious and settings.LOG_SUSPICIOUS_ACTIVITY:
         # Send notification through NotificationService if enabled
@@ -165,7 +170,7 @@ async def process_promo_code_input(
             account_user_id,
         )
         checkout_url = subscription_mini_app_checkout_code_url(settings, result.code or code_input)
-        reply_markup = None
+        reply_markup = back_markup
         if checkout_url:
             reply_markup = types.InlineKeyboardMarkup(
                 inline_keyboard=[
@@ -174,7 +179,8 @@ async def process_promo_code_input(
                             text=_("open_mini_app"),
                             web_app=types.WebAppInfo(url=checkout_url),
                         )
-                    ]
+                    ],
+                    *back_markup.inline_keyboard,
                 ]
             )
 
@@ -234,6 +240,7 @@ async def process_promo_code_input(
             config_link_display,
             connect_button_url=connect_button_url,
             install_share_url=install_share_url,
+            back_callback=back_callback,
         )
     else:
         await session.commit()
@@ -244,7 +251,7 @@ async def process_promo_code_input(
             result,
         )
         response_to_user_text = result
-        reply_markup = get_back_to_main_menu_markup(current_lang, i18n)
+        reply_markup = back_markup
 
     await message.answer(
         response_to_user_text,

@@ -5,6 +5,11 @@ import type { PaymentHistoryItem } from '../../../frontend/src/lib/webapp/paymen
 const messageKeys = [
   'autorenew_enable_button', 'autorenew_disable_button', 'autorenew_confirm_enable', 'autorenew_confirm_disable',
   'subscription_autorenew_updated', 'yes_button', 'no_button',
+  'payment_methods_manage_button', 'payment_methods_title', 'payment_method_bind_button',
+  'payment_method_card_title', 'payment_method_added_at', 'payment_method_last_tx',
+  'payment_method_delete_button', 'payment_method_delete_confirm', 'payment_method_deleted_success',
+  'payment_method_none', 'payment_method_tx_history_title', 'payment_method_no_history',
+  'payment_method_bound_success',
   'menu_app_sections_button', 'menu_account_settings_button', 'menu_account_security_button',
   'menu_account_notifications_button', 'menu_account_gifts_button', 'menu_account_partner_button',
   'menu_support_tickets_button', 'menu_admin_panel_button', 'bot_payment_history_item',
@@ -131,6 +136,7 @@ export class BotDemoConversation {
   scenario: Scenario;
   subscribed = false;
   private autoRenewEnabled = false;
+  private savedCardAvailable = false;
   completedPayments: PaymentHistoryItem[] = [];
   notice = '';
   private trial = false;
@@ -221,6 +227,7 @@ export class BotDemoConversation {
   reset(scenario = this.scenario) {
     this.scenario = scenario;
     this.autoRenewEnabled = this.autoRenewDemo.enabled;
+    this.savedCardAvailable = this.autoRenewDemo.enabled;
     this.clearConversation();
     const { current } = this.data;
     this.subscribed = this.settings.active;
@@ -458,13 +465,12 @@ export class BotDemoConversation {
     return `${months} ${this.t(unit)}`;
   }
 
-  private catalog(message: ChatMessage, menu: Exclude<Menu, 'admin'>) {
-    const back = () => this.showMenu(message, menu);
-    if (this.tariffs.length === 1) return this.periods(message, this.tariffs[0], back);
+  private catalog(message: ChatMessage, menu: Exclude<Menu, 'admin'>, back = () => this.showMenu(message, menu), receiptBack?: Order['receiptBack']) {
+    if (this.tariffs.length === 1) return this.periods(message, this.tariffs[0], back, receiptBack);
     this.edit(message, this.purchaseDescription(this.t('select_subscription_period')), [
       ...this.tariffs.map((tariff): Button => ({
         label: `${tariff.names[this.language]} ${this.t('wa_checkout_price_from', { price: tariff.periods[0].price })}${tariff.isTraffic ? ` / ${tariff.periods[0].gb} GB` : ''}`,
-        activate: () => this.periods(message, tariff, () => this.catalog(message, menu)),
+        activate: () => this.periods(message, tariff, () => this.catalog(message, menu, back, receiptBack), receiptBack),
       })),
       this.back(back),
     ]);
@@ -474,12 +480,12 @@ export class BotDemoConversation {
     return [this.data.current.purchaseDescription, text].filter(Boolean).join('\n\n');
   }
 
-  private periods(message: ChatMessage, tariff: DemoTariff, back: () => void) {
+  private periods(message: ChatMessage, tariff: DemoTariff, back: () => void, receiptBack?: Order['receiptBack']) {
     const text = this.tariffs.length > 1 ? `${tariff.names[this.language]}\n${tariff.descriptions[this.language]}`.trim()
       : this.t(tariff.isTraffic ? 'select_traffic_package' : 'select_subscription_period');
     this.edit(message, tariff.isTraffic ? text : this.purchaseDescription(text), [
       ...tariff.periods.map((period) => this.button(tariff.isTraffic ? 'buy_traffic_package_button' : 'subscribe_for_period_button',
-        () => this.checkoutPlan(message, tariff, period, () => this.periods(message, tariff, back)), {
+        () => this.checkoutPlan(message, tariff, period, () => this.periods(message, tariff, back, receiptBack), receiptBack), {
           period: period.days === 365 ? `1 ${this.t('wa_sub_term_year_one')}` : this.duration(period.months),
           traffic_gb: period.gb, price: period.price, currency_symbol: period.currency,
         })),
@@ -631,9 +637,9 @@ export class BotDemoConversation {
     ];
   }
 
-  private connectAndBack(message: ChatMessage, preserve = false) {
+  private connectAndBack(message: ChatMessage, preserve = false, menu: Exclude<Menu, 'admin'> = 'main') {
     return [...this.connectRows(), this.back(() => {
-      this.showMenu(preserve ? this.append('') : message, 'main');
+      this.showMenu(preserve ? this.append('') : message, menu);
     })];
   }
 
@@ -655,7 +661,7 @@ export class BotDemoConversation {
     const backToSubscription = (target = message) => this.subscription(target, menu);
     if (!this.subscribed) {
       this.edit(message, this.t('subscription_not_active'), [
-        this.button('menu_subscribe_inline', () => this.catalog(message, menu)),
+        this.button('menu_subscribe_inline', () => this.catalog(message, menu, backToSubscription, backToSubscription)),
         this.back(() => this.showMenu(message, menu)),
       ]);
       return;
@@ -697,8 +703,54 @@ export class BotDemoConversation {
         this.button(this.autoRenewEnabled ? 'autorenew_disable_button' : 'autorenew_enable_button',
           () => this.confirmAutoRenew(message, backToSubscription)),
       ] : []),
+      ...(this.scenario === 'auto-renew' && !this.trial && !this.tariff.isTraffic ? [
+        this.button('payment_methods_manage_button', () => this.savedPaymentMethods(message, backToSubscription)),
+      ] : []),
       ...(tariffActions.length ? [tariffActions] : []),
       this.back(() => this.showMenu(message, menu)),
+    ]);
+  }
+
+  private savedPaymentMethods(message: ChatMessage, back: () => void) {
+    const title = this.t('payment_methods_title');
+    const bind = this.t('payment_method_bind_button');
+    const card = this.t('payment_method_card_title', { network: 'Visa', last4: '4242' });
+    const showList = () => this.savedPaymentMethods(message, back);
+    const history = this.data.payments.filter((row) => row.userId === this.data.current.id
+      && row.provider === 'yookassa' && row.status === 'succeeded');
+    const latest = history[0]?.date?.slice(0, 10) || '—';
+    const details = () => this.edit(message, [
+      card, this.t('payment_method_added_at', { date: '—' }), this.t('payment_method_last_tx', { date: latest }),
+    ].join('\n'), [
+      this.button('payment_method_tx_history_title', () => this.edit(message, [
+        this.t('payment_method_tx_history_title'),
+        ...history.map((row) => [row.date.slice(0, 10), escape(row.description), row.amount + ' ' + row.currency].join(' — ')),
+        ...(history.length ? [] : [this.t('payment_method_no_history')]),
+      ].join('\n\n'), [this.back(details)])),
+      this.button('payment_method_delete_button', () => this.edit(message, this.t('payment_method_delete_confirm'), [[
+        this.button('yes_button', () => {
+          this.savedCardAvailable = false;
+          this.notice = this.t('payment_method_deleted_success');
+          showList();
+        }),
+        this.button('cancel_button', details),
+      ]])),
+      this.back(showList),
+    ]);
+    this.edit(message, this.savedCardAvailable ? title : title + '\n\n' + this.t('payment_method_none'), [
+      ...(this.savedCardAvailable ? [{ label: card, activate: details }] : []),
+      this.button('payment_method_bind_button', () => this.edit(message, title, [
+        { label: bind, external: true, activate: () => ({
+          kind: 'browser', title: bind, address: 'checkout.demo.example/yookassa',
+          confirm: () => {
+            this.savedCardAvailable = true;
+            this.notice = this.t('payment_method_bound_success');
+            showList();
+          },
+        }) },
+        this.back(showList),
+      ])),
+      this.back(back),
     ]);
   }
 
@@ -930,8 +982,11 @@ export class BotDemoConversation {
       const promo = this.admin.findPromo(code);
       const available = promo?.enabled && promo.count < promo.limit && (!promo.expires || Date.parse(promo.expires) > Date.now());
       if (code === this.data.checkoutPromoCode || (available && !promo.bonus)) {
-        this.append(this.t('promo_code_requires_checkout'), this.settings.app
-          ? [this.app('open_mini_app', '/home', `promo_${code}`)] : undefined);
+        const reply = this.append('');
+        this.edit(reply, this.t('promo_code_requires_checkout'), [
+          ...(this.settings.app ? [this.app('open_mini_app', '/home', 'promo_' + code)] : []),
+          this.back(() => this.showMenu(reply, 'bot')),
+        ]);
         return;
       }
       const reply = this.append('');
@@ -943,10 +998,10 @@ export class BotDemoConversation {
         this.promoUsed.add(code);
         this.admin.recordPromoActivation(promo.id);
         this.edit(reply, this.t('promo_code_applied_success_full', { end_date: this.expiry, config_link: this.data.current.configUrl })
-          + this.installDetails(), this.connectAndBack(reply));
+          + this.installDetails(), this.connectAndBack(reply, false, 'bot'));
       } else {
         const key = this.promoUsed.has(code) ? 'promo_code_already_used_by_user' : 'promo_code_not_found';
-        this.edit(reply, this.t(key, { code: escape(input) }), [this.back(() => this.showMenu(reply, 'main'))]);
+        this.edit(reply, this.t(key, { code: escape(input) }), [this.back(() => this.showMenu(reply, 'bot'))]);
       }
     };
   }

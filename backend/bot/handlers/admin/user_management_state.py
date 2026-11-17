@@ -9,7 +9,7 @@ from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
-    get_back_to_admin_panel_keyboard,
+    get_admin_back_keyboard,
     get_banned_users_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
@@ -138,6 +138,7 @@ async def process_subscription_days_handler(
                     current_lang,
                     user.referred_by_id,
                     telegram_id=user.telegram_id,
+                    origin=data.get("card_origin", ""),
                 )
 
                 await _send_with_profile_link_fallback(
@@ -303,6 +304,7 @@ async def process_direct_message_handler(
                 current_lang,
                 target_user.referred_by_id,
                 telegram_id=target_user.telegram_id,
+                origin=data.get("card_origin", ""),
             )
 
             await _send_with_profile_link_fallback(
@@ -339,12 +341,18 @@ async def ban_user_prompt_handler(
 
     try:
         await callback_message(callback).edit_text(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management"
+            ),
         )
     except Exception as e:
         logger.warning("Could not edit message for ban prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management"
+            ),
         )
 
     await callback.answer()
@@ -370,12 +378,18 @@ async def unban_user_prompt_handler(
 
     try:
         await callback_message(callback).edit_text(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management"
+            ),
         )
     except Exception as e:
         logger.warning("Could not edit message for unban prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management"
+            ),
         )
 
     await callback.answer()
@@ -643,6 +657,7 @@ async def process_premium_override_bonus_handler(
             current_lang,
             target_user.referred_by_id,
             telegram_id=target_user.telegram_id,
+            origin=data.get("card_origin", ""),
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -765,6 +780,7 @@ async def process_hwid_device_limit_handler(
             current_lang,
             target_user.referred_by_id,
             telegram_id=target_user.telegram_id,
+            origin=data.get("card_origin", ""),
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -882,6 +898,7 @@ async def process_traffic_grant_gb_handler(
             current_lang,
             target_user.referred_by_id,
             telegram_id=target_user.telegram_id,
+            origin=data.get("card_origin", ""),
         )
         await _send_with_profile_link_fallback(
             message.answer,

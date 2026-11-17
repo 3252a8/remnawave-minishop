@@ -127,6 +127,7 @@ def _tariff_purchase_markup(
     promo_available: bool = False,
     promo_enabled: bool = True,
     promo_toggle_callback: str | None = None,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     if tariff.billing_model == "period":
         return cast(
@@ -142,6 +143,7 @@ def _tariff_purchase_markup(
                 promo_available=promo_available,
                 promo_enabled=promo_enabled,
                 promo_toggle_callback=promo_toggle_callback,
+                origin_suffix=origin_suffix,
             ),
         )
     default_currency = default_currency_key_for_settings(settings)
@@ -155,6 +157,7 @@ def _tariff_purchase_markup(
             currency_symbol=default_payment_currency_code_for_settings(settings),
             back_callback=back_callback,
             callback_context=callback_context,
+            origin_suffix=origin_suffix,
         ),
     )
 

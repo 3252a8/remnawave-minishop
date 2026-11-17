@@ -168,7 +168,7 @@ export class AdminDemo {
   private payments(message: ChatMessage, page: number) {
     const { ui } = this;
     if (this.paymentRows.length === 0) {
-      ui.view(message, ui.t('admin_no_payments_found'), [this.back(message)]);
+      ui.view(message, ui.t('admin_no_payments_found'), [ui.button('back_to_stats_monitoring_button', () => this.monitoring(message))]);
       return;
     }
     const pageSize = 5;
@@ -204,7 +204,7 @@ export class AdminDemo {
             ...this.paymentRows.map((row) => [row.id, row.userId, row.amount, row.currency, row.provider, row.status, row.description, row.date])])),
         ui.button('admin_refresh_payments', () => this.payments(message, page)),
       ],
-      ui.button('back_to_admin_panel_button', () => this.monitoring(message)),
+      ui.button('back_to_stats_monitoring_button', () => this.monitoring(message)),
     ]);
   }
 
@@ -223,7 +223,7 @@ export class AdminDemo {
         ]);
         ui.answer('admin_logs_csv_export_success');
       }),
-      this.back(message),
+      ui.button('back_to_stats_monitoring_button', () => this.monitoring(message)),
     ]);
   }
 
@@ -235,8 +235,9 @@ export class AdminDemo {
         ui.answer('admin_log_user_not_found', { input: escape(input) });
         return;
       }
-      this.logs(ui.host.append(''), 0, user);
-    }, [ui.button('admin_logs_menu_title', () => this.logsMenu(message))]);
+      const results = ui.host.append('');
+      this.logs(results, 0, user, () => this.lookupLogs(results));
+    }, [ui.button('back_to_main_menu_button', () => this.logsMenu(message))]);
   }
 
   private logEntries(user?: DemoAdminUser) {
@@ -248,12 +249,12 @@ export class AdminDemo {
     const text = this.logEntries(user).slice(0, 5).map(({ date, event, text }) =>
       `🕐 <code>${formatDemoDate(date)}</code> - <code>${escape(event)}</code>\n   ${escape(text)}`).join('\n\n');
     ui.view(message, `${ui.t('admin_user_recent_actions_title', { user_id: user.minishop })}\n\n${text || ui.t('admin_no_logs_found')}`, [
-      ui.button('admin_user_view_all_logs_button', () => this.logs(message, 0, user)),
+      ui.button('admin_user_view_all_logs_button', () => this.logs(message, 0, user, () => this.recentActions(message, user, fromCard))),
       ui.button('admin_user_back_to_card_button', fromCard),
     ]);
   }
 
-  private logs(message: ChatMessage, page: number, user?: DemoAdminUser) {
+  private logs(message: ChatMessage, page: number, user?: DemoAdminUser, back?: () => void) {
     const { ui } = this;
     const entries = this.logEntries(user);
     const perPage = 10;
@@ -267,8 +268,8 @@ export class AdminDemo {
         user_id: entry.userId, event_type: escape(entry.event), content_preview: escape(entry.text),
       })).join('\n\n');
     ui.view(message, `${title}\n\n${text || ui.t('admin_no_logs_found')}`, [
-      ...ui.pager(page, totalPages, (next) => this.logs(message, next, user)),
-      ui.button('admin_logs_menu_title', () => this.logsMenu(message)),
+      ...ui.pager(page, totalPages, (next) => this.logs(message, next, user, back)),
+      back ? ui.button('back_to_main_menu_button', back) : ui.button('admin_logs_menu_title', () => this.logsMenu(message)),
     ]);
   }
 
@@ -287,7 +288,7 @@ export class AdminDemo {
         ui.view(message, ui.t('admin_queue_status_info', {
           user_queue_size: this.empty ? 0 : ui.host.data.stats.userQueue, user_processing: `❌ ${ui.t('no_button')}`, user_recent: this.sentRecently,
           group_queue_size: this.empty ? 0 : ui.host.data.stats.groupQueue, group_processing: `❌ ${ui.t('no_button')}`, group_recent: 0,
-        }), [this.back(message)]);
+        }), [ui.button('back_to_main_menu_button', () => this.system(message))]);
       }),
       this.back(message),
     ]);
@@ -308,7 +309,7 @@ export class AdminDemo {
   }
 
   private broadcast(message: ChatMessage) {
-    this.ui.prompt(message, this.ui.t('admin_broadcast_enter_message'), (input) => this.broadcastPreview(input), [this.back(message)]);
+    this.ui.prompt(message, this.ui.t('admin_broadcast_enter_message'), (input) => this.broadcastPreview(input), [this.ui.button('back_to_main_menu_button', () => this.system(message))]);
     this.ui.acceptsAttachment = true;
   }
 
@@ -339,11 +340,11 @@ export class AdminDemo {
             const done = ui.host.append('');
             ui.view(done, ui.t('broadcast_queue_result', {
               sent_count: count, failed_count: 0, user_queue_size: 0, group_queue_size: 0,
-            }), [this.back(done)]);
+            }), [ui.button('back_to_main_menu_button', () => this.system(done))]);
           }),
           ui.button('cancel_button', () => {
             completed = true;
-            ui.view(confirmation, ui.t('admin_broadcast_cancelled'), [this.back(confirmation)]);
+            ui.view(confirmation, ui.t('admin_broadcast_cancelled'), [ui.button('back_to_main_menu_button', () => this.broadcast(confirmation))]);
           }),
         ],
       ]);
@@ -358,7 +359,7 @@ export class AdminDemo {
       revenue: sum.revenue + campaign.revenue, cost: sum.cost + campaign.cost,
     }), { revenue: 0, cost: 0 });
     const extra: ButtonRow[] = [
-      ui.button('admin_ads_create_button', () => this.createAd(message)),
+      ui.button('admin_ads_create_button', () => this.createAd(message, page)),
       this.back(message),
     ];
     const overview = ui.t('admin_ads_overview', { revenue: totals.revenue.toFixed(2), cost: totals.cost.toFixed(2) });
@@ -390,7 +391,7 @@ export class AdminDemo {
     ]);
   }
 
-  private createAd(message: ChatMessage) {
+  private createAd(message: ChatMessage, page: number) {
     const { ui } = this;
     ui.prompt(message, ui.t('admin_ads_create_source_prompt'), (source) => {
       if (source.length > 64) return void ui.answer('admin_ads_invalid_source');
@@ -406,11 +407,10 @@ export class AdminDemo {
           ui.answer('admin_ads_created_success', { id: campaign.id, source: escape(source), start_param: param, cost: cost.toFixed(2) });
           const done = ui.answer('admin_ads_back_to_menu_hint');
           done.rows = [
-            ui.button('admin_ads_create_button', () => this.createAd(done)),
-            this.back(done),
+            ui.button('back_to_main_menu_button', () => this.ads(done, page)),
           ];
         });
       });
-    });
+    }, [ui.button('back_to_main_menu_button', () => this.ads(message, page))]);
   }
 }

@@ -9,11 +9,14 @@ from sqlalchemy.future import select
 from bot.infra.auto_renew import auto_renew_user_lock_name
 from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import (
+    get_back_to_payment_method_details_keyboard,
+    get_back_to_payment_methods_keyboard,
     get_bind_url_keyboard,
     get_payment_method_delete_confirm_keyboard,
     get_payment_method_details_keyboard,
     get_payment_methods_list_keyboard,
 )
+from bot.keyboards.inline.user_keyboards_context import split_callback_context
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers.shared.common import detached_payment_snapshot
 from bot.services.telegram_account import require_telegram_account_id
@@ -32,7 +35,15 @@ from .shared import _format_saved_payment_method_title
 logger = logging.getLogger(__name__)
 
 
-@router.callback_query(F.data == "pm:manage")
+def _payment_method_navigation(data: str | None) -> tuple[str, int, str | None]:
+    base, context = split_callback_context(data or "")
+    payload, _, page = base.rpartition(":p")
+    if page.isascii() and page.isdecimal():
+        return payload, int(page), context
+    return base, 0, context
+
+
+@router.callback_query(F.data.in_({"pm:manage", "pm:manage:bot"}))
 async def payment_methods_manage(
     callback: types.CallbackQuery,
     settings: Settings,
@@ -71,14 +82,18 @@ async def payment_methods_manage(
     if not cards:
         text += "\n\n" + get_text("payment_method_none")
 
+    _base, _page, context = _payment_method_navigation(callback.data)
     await message.edit_text(
-        text, reply_markup=get_payment_methods_list_keyboard(cards, 0, current_lang, i18n)
+        text,
+        reply_markup=get_payment_methods_list_keyboard(
+            cards, 0, current_lang, i18n, context=context
+        ),
     )
     with contextlib.suppress(Exception):
         await callback.answer()
 
 
-@router.callback_query(F.data == "pm:bind")
+@router.callback_query(F.data.startswith("pm:bind"))
 async def payment_method_bind(
     callback: types.CallbackQuery,
     settings: Settings,
@@ -102,6 +117,7 @@ async def payment_method_bind(
         return
 
     user_id = await require_telegram_account_id(session, callback.from_user.id)
+    _base, page, context = _payment_method_navigation(callback.data)
     metadata = {"user_id": str(user_id), "bind_only": "1"}
     resp = await yookassa_service.create_payment(
         amount=1.00,
@@ -123,7 +139,9 @@ async def payment_method_bind(
         return
     await message.edit_text(
         _("payment_methods_title"),
-        reply_markup=get_bind_url_keyboard(resp["confirmation_url"], current_lang, i18n),
+        reply_markup=get_bind_url_keyboard(
+            resp["confirmation_url"], current_lang, i18n, page=page, context=context
+        ),
     )
     with contextlib.suppress(Exception):
         await callback.answer()
@@ -147,11 +165,14 @@ async def payment_method_delete_confirm(
     if message is None:
         await callback.answer(_("error_try_again"), show_alert=True)
         return
-    parts = (callback.data or "").split(":", 2)
+    base, page, context = _payment_method_navigation(callback.data)
+    parts = base.split(":", 2)
     pm_id = parts[2] if len(parts) >= 3 else ""
     await message.edit_text(
         _("payment_method_delete_confirm"),
-        reply_markup=get_payment_method_delete_confirm_keyboard(pm_id, current_lang, i18n),
+        reply_markup=get_payment_method_delete_confirm_keyboard(
+            pm_id, current_lang, i18n, page=page, context=context
+        ),
     )
     with contextlib.suppress(Exception):
         await callback.answer()
@@ -178,7 +199,8 @@ async def payment_method_delete(
     if message is None:
         await callback.answer(_("error_try_again"), show_alert=True)
         return
-    parts = (callback.data or "").split(":", 2)
+    base, page, context = _payment_method_navigation(callback.data)
+    parts = base.split(":", 2)
     pm_id_raw = parts[2] if len(parts) >= 3 else ""
     deleted = False
 
@@ -225,7 +247,9 @@ async def payment_method_delete(
         msg = _("payment_method_deleted_success") if deleted else _("error_try_again")
         await message.edit_text(
             f"{msg}\n\n{text}",
-            reply_markup=get_payment_methods_list_keyboard(cards, 0, current_lang, i18n),
+            reply_markup=get_payment_methods_list_keyboard(
+                cards, page, current_lang, i18n, context=context
+            ),
         )
         with contextlib.suppress(Exception):
             await callback.answer()
@@ -259,6 +283,7 @@ async def payment_method_view(
         return
 
     user_id = await require_telegram_account_id(session, callback.from_user.id)
+    base, page, context = _payment_method_navigation(callback.data)
     billing = await user_billing_dal.get_user_billing(session, user_id)
     if not billing or not billing.yookassa_payment_method_id:
         from db.dal.user_billing_dal import list_user_payment_methods
@@ -267,7 +292,7 @@ async def payment_method_view(
         if not methods:
             await callback.answer(_("payment_method_none"), show_alert=True)
             return
-        parts = (callback.data or "").split(":", 2)
+        parts = base.split(":", 2)
         pm_id = parts[2] if len(parts) >= 3 else str(methods[0].method_id)
         sel = next(
             (
@@ -302,7 +327,7 @@ async def payment_method_view(
         await message.edit_text(
             details,
             reply_markup=get_payment_method_details_keyboard(
-                str(sel.method_id), current_lang, i18n
+                str(sel.method_id), current_lang, i18n, page=page, context=context
             ),
         )
         with contextlib.suppress(Exception):
@@ -336,7 +361,7 @@ async def payment_method_view(
     await message.edit_text(
         details,
         reply_markup=get_payment_method_details_keyboard(
-            billing.yookassa_payment_method_id, current_lang, i18n
+            billing.yookassa_payment_method_id, current_lang, i18n, page=page, context=context
         ),
     )
     with contextlib.suppress(Exception):
@@ -372,9 +397,17 @@ async def payment_method_history(
 
     selected_pm_provider_id: str | None = None
     pm_filter_requested: bool = False
-    callback_data = callback.data or ""
+    base, page, context = _payment_method_navigation(callback.data)
+    method_id = base.split(":", 2)[-1] if base.count(":") >= 2 else ""
+    back_markup = (
+        get_back_to_payment_method_details_keyboard(
+            method_id, current_lang, i18n, page=page, context=context
+        )
+        if method_id
+        else get_back_to_payment_methods_keyboard(current_lang, i18n, page=page, context=context)
+    )
     try:
-        _, _, split_pm_id = callback_data.split(":", 2)
+        split_pm_id = method_id
         if split_pm_id:
             pm_filter_requested = True
             if split_pm_id.isdigit():
@@ -413,18 +446,6 @@ async def payment_method_history(
         user_payments = filtered
 
     if not user_payments:
-        from bot.keyboards.inline.user_keyboards import get_back_to_payment_method_details_keyboard
-
-        back_pm_id = ""
-        try:
-            _, _, back_pm_id = callback_data.split(":", 2)
-        except Exception:
-            back_pm_id = ""
-        back_markup = (
-            get_back_to_payment_method_details_keyboard(back_pm_id, current_lang, i18n)
-            if back_pm_id
-            else get_payment_methods_list_keyboard([], 0, current_lang, i18n)
-        )
         await message.edit_text(_("payment_method_no_history"), reply_markup=back_markup)
         return
 
@@ -446,17 +467,6 @@ async def payment_method_history(
 
     lines = [_format_item(p) for p in user_payments]
     text = _("payment_method_tx_history_title") + "\n\n" + "\n".join(lines)
-    try:
-        _split_a, _split_b, split_pm_id_for_back = callback_data.split(":", 2)
-    except Exception:
-        split_pm_id_for_back = ""
-    from bot.keyboards.inline.user_keyboards import get_back_to_payment_method_details_keyboard
-
-    back_markup = (
-        get_back_to_payment_method_details_keyboard(split_pm_id_for_back, current_lang, i18n)
-        if split_pm_id_for_back
-        else get_payment_methods_list_keyboard([], 0, current_lang, i18n)
-    )
     await message.edit_text(text, reply_markup=back_markup)
 
 
@@ -487,7 +497,8 @@ async def payment_methods_list(
         cards.append((str(m.method_id), title))
 
     try:
-        _, _, page_str = (callback.data or "").split(":", 2)
+        base, context = split_callback_context(callback.data or "")
+        _, _, page_str = base.split(":", 2)
         page = int(page_str)
     except Exception:
         page = 0
@@ -496,7 +507,10 @@ async def payment_methods_list(
     if not cards:
         text += "\n\n" + get_text("payment_method_none")
     await message.edit_text(
-        text, reply_markup=get_payment_methods_list_keyboard(cards, page, current_lang, i18n)
+        text,
+        reply_markup=get_payment_methods_list_keyboard(
+            cards, page, current_lang, i18n, context=context
+        ),
     )
     with contextlib.suppress(Exception):
         await callback.answer()

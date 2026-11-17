@@ -193,7 +193,10 @@ def get_ads_list_keyboard(
         if row:
             builder.row(*row)
 
-    builder.button(text=_(key="admin_ads_create_button"), callback_data="admin_action:ads_create")
+    builder.button(
+        text=_(key="admin_ads_create_button"),
+        callback_data=f"admin_action:ads_create:{current_page}",
+    )
     builder.button(text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main")
     builder.adjust(1)
     return builder.as_markup()
@@ -229,7 +232,8 @@ def get_logs_menu_keyboard(i18n_instance: JsonI18n, lang: str) -> InlineKeyboard
     )
     builder.row(
         InlineKeyboardButton(
-            text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main"
+            text=_(key="back_to_stats_monitoring_button"),
+            callback_data="admin_section:stats_monitoring",
         )
     )
     builder.adjust(2, 1, 1)
@@ -243,6 +247,9 @@ def get_logs_pagination_keyboard(
     i18n_instance: JsonI18n,
     lang: str,
     back_to_logs_menu: bool = False,
+    *,
+    pagination_suffix: str = "",
+    back_to_user_logs: str | None = None,
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -251,21 +258,27 @@ def get_logs_pagination_keyboard(
         row_buttons.append(
             InlineKeyboardButton(
                 text="⬅️ " + _("prev_page_button"),
-                callback_data=f"{base_callback_data}:{current_page - 1}",
+                callback_data=f"{base_callback_data}:{current_page - 1}{pagination_suffix}",
             )
         )
     if current_page < total_pages - 1:
         row_buttons.append(
             InlineKeyboardButton(
                 text=_("next_page_button") + " ➡️",
-                callback_data=f"{base_callback_data}:{current_page + 1}",
+                callback_data=f"{base_callback_data}:{current_page + 1}{pagination_suffix}",
             )
         )
 
     if row_buttons:
         builder.row(*row_buttons)
 
-    if back_to_logs_menu:
+    if back_to_user_logs:
+        builder.row(
+            InlineKeyboardButton(
+                text=_("back_to_main_menu_button"), callback_data=back_to_user_logs
+            )
+        )
+    elif back_to_logs_menu:
         builder.row(
             InlineKeyboardButton(
                 text=_(key="admin_logs_menu_title"), callback_data="admin_action:view_logs_menu"
@@ -346,7 +359,7 @@ def get_banned_users_keyboard(
 
     builder.row(
         InlineKeyboardButton(
-            text=_("back_to_admin_panel_button"), callback_data="admin_action:main"
+            text=_("back_to_main_menu_button"), callback_data="admin_section:ban_management"
         )
     )
     return builder.as_markup()
@@ -498,11 +511,18 @@ def get_broadcast_confirmation_keyboard(
     return builder.as_markup()
 
 
-def get_back_to_admin_panel_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineKeyboardMarkup:
-    _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
+def get_admin_back_keyboard(
+    lang: str, i18n: JsonI18n, target: str, label: str = "back_to_main_menu_button"
+) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main")
+    builder.button(text=i18n.gettext(lang, label), callback_data=target)
     return builder.as_markup()
+
+
+def get_back_to_admin_panel_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineKeyboardMarkup:
+    return get_admin_back_keyboard(
+        lang, i18n_instance, "admin_action:main", "back_to_admin_panel_button"
+    )
 
 
 def get_back_to_stats_monitoring_keyboard(

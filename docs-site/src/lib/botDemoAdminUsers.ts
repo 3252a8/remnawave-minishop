@@ -2,7 +2,7 @@ import { escape, type Button, type ButtonRow, type ChatMessage } from './botDemo
 import { AdminUi, formatDemoDate, type AdminView } from './botDemoAdminUi';
 import type { DemoAdminUser } from './botDemoData';
 
-type CardOrigin = { page?: number; banned?: boolean; viaLink?: boolean };
+type CardOrigin = { page?: number; banned?: boolean; viaLink?: boolean; back?: AdminView };
 type LogView = (message: ChatMessage, user: DemoAdminUser, back: () => void) => void;
 const trafficPeriods: Record<string, string> = { DAY: 'day', WEEK: 'week', MONTH: 'month', NO_RESET: 'no_reset' };
 
@@ -88,13 +88,14 @@ export class AdminUserDemo {
     ]);
   }
 
-  private search(message: ChatMessage) {
+  private search(message: ChatMessage, fromCard?: AdminView) {
     const { ui } = this;
     ui.prompt(message, ui.t('admin_user_management_prompt'), (input) => {
       const user = this.find(input);
       if (!user) return void ui.answer('admin_user_not_found', { input: `<code>${escape(input)}</code>` });
-      this.card(ui.host.append(''), user);
-    }, [this.back(message)]);
+      this.card(ui.host.append(''), user, { back: (target) => this.search(target, fromCard) });
+    }, [fromCard ? ui.button('admin_user_back_to_card_button', () => fromCard(message))
+      : ui.button('back_to_user_management_button', () => this.menu(message))]);
   }
 
   private bans(message: ChatMessage) {
@@ -118,7 +119,7 @@ export class AdminUserDemo {
       if (user.banned === ban) return void ui.answer(ban ? 'admin_user_already_banned' : 'admin_user_not_banned');
       user.banned = ban;
       ui.answer(ban ? 'admin_user_ban_success' : 'admin_user_unban_success', { input: `<code>${escape(input)}</code>` });
-    }, [this.back(message)]);
+    }, [ui.button('back_to_main_menu_button', () => this.bans(message))]);
   }
 
   private bannedList(message: ChatMessage, page: number) {
@@ -137,7 +138,7 @@ export class AdminUserDemo {
         });
       }),
       ...ui.pager(page, Math.ceil(users.length / 10), (index) => this.bannedList(message, index)),
-      this.back(message),
+      ui.button('back_to_main_menu_button', () => this.bans(message)),
     ]);
   }
 
@@ -200,20 +201,20 @@ export class AdminUserDemo {
         ui.alert('admin_user_trial_reset_success');
         this.card(message, user, origin);
       }),
-      ui.button('admin_user_add_subscription_button', () => this.addDays(message, user)),
-      ui.button('admin_user_change_tariff_button', () => this.changeTariff(message, user)),
+      ui.button('admin_user_add_subscription_button', () => this.addDays(message, user, origin)),
+      ui.button('admin_user_change_tariff_button', () => this.changeTariff(message, user, origin)),
       ui.button('admin_user_toggle_ban_button', () => {
         user.banned = !user.banned;
         ui.alert('admin_user_ban_toggle_success', { status: ui.t(user.banned ? 'admin_user_ban_action_banned' : 'admin_user_ban_action_unbanned') });
         this.card(message, user, origin);
       }),
-      ui.button('admin_user_send_message_button', () => this.directMessage(message, user)),
+      ui.button('admin_user_send_message_button', () => this.directMessage(message, user, origin)),
       ui.button('admin_user_view_logs_button', () => this.logs(message, user, () => this.card(message, user, origin))),
       ui.button('admin_user_refresh_button', () => this.card(message, user, origin)),
-      ui.button('admin_user_invitees_button', () => this.invitees(message, user, 0)),
-      ui.button('admin_user_premium_override_button', () => this.premium(message, user)),
-      ui.button('admin_user_traffic_grant_button', () => this.traffic(message, user)),
-      ui.button('admin_user_hwid_limit_button', () => this.hwid(message, user)),
+      ui.button('admin_user_invitees_button', () => this.invitees(message, user, 0, origin)),
+      ui.button('admin_user_premium_override_button', () => this.premium(message, user, origin)),
+      ui.button('admin_user_traffic_grant_button', () => this.traffic(message, user, origin)),
+      ui.button('admin_user_hwid_limit_button', () => this.hwid(message, user, origin)),
     ];
     if (hasProfile) controls.push({
       ...ui.button('user_card_open_profile_button', () => ({
@@ -223,18 +224,15 @@ export class AdminUserDemo {
     });
     controls.push(
       ui.button('admin_user_delete_button', () => this.deleteUser(user)),
-      ui.button('admin_user_search_new_button', () => this.search(message)),
-      this.back(message),
+      ui.button('admin_user_search_new_button', () => this.search(message, (target) => this.card(target, user, origin))),
     );
-    if (origin.page !== undefined) {
-      const page = origin.page;
-      controls.push(origin.banned
+    const { page, back } = origin;
+    controls.push(page !== undefined
+      ? origin.banned
         ? ui.button('user_card_back_to_banned_list_button', () => this.bannedList(message, page))
-        : ui.button('admin_user_back_to_list_button', () => this.list(message, page)));
-    }
-    const widths = origin.page !== undefined
-      ? [2, 2, 2, 1, 2, user.referredBy ? 2 : 1, 1, 2, 1]
-      : [2, 1, 2, 2, 1, 3, ...(hasProfile ? [1] : []), 1, 2];
+        : ui.button('admin_user_back_to_list_button', () => this.list(message, page))
+      : back ? ui.button('back_to_main_menu_button', () => back(message)) : this.back(message));
+    const widths = [2, 1, 2, 2, 1, 3, ...(hasProfile ? [1] : []), 1, 2];
     ui.view(message, [
       `👤 <b>${ui.t('admin_user_card_title')}</b>`, '',
       field('admin_user_id_label', user.minishop),
@@ -268,11 +266,11 @@ export class AdminUserDemo {
     ].join('\n'), separateRows(controls, widths));
   }
 
-  private backToCard(message: ChatMessage, user: DemoAdminUser) {
-    return this.ui.button('admin_user_back_to_card_button', () => this.card(message, user));
+  private backToCard(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
+    return this.ui.button('admin_user_back_to_card_button', () => this.card(message, user, origin));
   }
 
-  private addDays(message: ChatMessage, user: DemoAdminUser) {
+  private addDays(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     ui.view(message, ui.t('admin_user_add_subscription_tariff_prompt', { user_id: user.minishop }), [
       ...ui.host.data.tariffs.filter((tariff) => !tariff.isTraffic).map((tariff): Button => ({
@@ -291,14 +289,14 @@ export class AdminUserDemo {
           user.trafficLimit = tariff.limit;
           ui.clearInput();
           ui.answer('admin_user_subscription_added_success', { days, user_id: user.minishop });
-          this.card(ui.host.append(''), user);
-        }),
+          this.card(ui.host.append(''), user, origin);
+        }, [ui.button('back_to_main_menu_button', () => this.addDays(message, user, origin))]),
       })),
-      this.backToCard(message, user),
+      this.backToCard(message, user, origin),
     ]);
   }
 
-  private changeTariff(message: ChatMessage, user: DemoAdminUser) {
+  private changeTariff(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     if (user.days <= 0) return ui.alert('admin_user_tariff_no_subscription');
     ui.view(message, [
@@ -312,23 +310,23 @@ export class AdminUserDemo {
           user.tariff = tariff.key;
           user.trafficLimit = tariff.limit;
           ui.alert('admin_user_tariff_change_success', { tariff: escape(tariff.names[ui.host.language()]) });
-          this.card(message, user);
+          this.card(message, user, origin);
         },
       })),
-      this.backToCard(message, user),
+      this.backToCard(message, user, origin),
     ]);
   }
 
-  private directMessage(message: ChatMessage, user: DemoAdminUser) {
+  private directMessage(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     ui.prompt(message, ui.t('admin_user_send_message_prompt', { user_id: user.minishop }), (input) => {
       if (input.length > 4000) return void ui.answer('admin_user_message_too_long');
       ui.clearInput();
       ui.answer(user.telegram ? 'admin_user_message_sent_success' : 'admin_user_message_sent_error', { user_id: user.minishop });
-    }, [this.backToCard(message, user)]);
+    }, [this.backToCard(message, user, origin)]);
   }
 
-  private invitees(message: ChatMessage, user: DemoAdminUser, page: number) {
+  private invitees(message: ChatMessage, user: DemoAdminUser, page: number, origin: CardOrigin) {
     const { ui } = this;
     const all = this.records.filter((record) => record.referredBy === user.id);
     const totalPages = Math.max(1, Math.ceil(all.length / 10));
@@ -338,14 +336,14 @@ export class AdminUserDemo {
     });
     ui.view(message, `${text}\n\n${selected.length ? selected.map((record) =>
       `${escape(record.name)} · <code>${record.minishop}</code>`).join('\n') : ui.t('admin_user_invitees_empty')}`, [
-      ...selected.map((record): Button => ({ label: record.name, activate: () => this.card(message, record) })),
-      ...ui.pager(page, totalPages, (next) => this.invitees(message, user, next)),
-      this.backToCard(message, user),
+      ...selected.map((record): Button => ({ label: record.name, activate: () => this.card(message, record, { back: (target) => this.invitees(target, user, page, origin) }) })),
+      ...ui.pager(page, totalPages, (next) => this.invitees(message, user, next, origin)),
+      this.backToCard(message, user, origin),
       this.back(message),
     ]);
   }
 
-  private premium(message: ChatMessage, user: DemoAdminUser) {
+  private premium(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     if (user.days <= 0) return ui.alert('admin_premium_override_no_subscription');
     const state = user.premium === 'unlimited' ? ui.t('admin_premium_override_state_unlimited')
@@ -353,7 +351,7 @@ export class AdminUserDemo {
     const apply = (value?: DemoAdminUser['premium']) => {
       user.premium = value;
       ui.alert('admin_premium_override_saved');
-      this.card(message, user);
+      this.card(message, user, origin);
     };
     ui.view(message, [
       `<b>${ui.t('admin_premium_override_title')}</b>`, '', ui.t('admin_premium_override_hint'), '',
@@ -366,15 +364,15 @@ export class AdminUserDemo {
           if (!Number.isFinite(gb) || gb < 0) return void ui.answer('admin_premium_override_invalid_gb');
           user.premium = gb;
           ui.answer('admin_premium_override_bonus_set', { gb: gb.toFixed(2), user_id: user.minishop });
-          this.card(ui.host.append(''), user);
-        });
+          this.card(ui.host.append(''), user, origin);
+        }, [ui.button('back_to_main_menu_button', () => this.premium(message, user, origin))]);
       }),
       ui.button('admin_premium_override_btn_clear', () => apply()),
-      this.backToCard(message, user),
+      this.backToCard(message, user, origin),
     ]);
   }
 
-  private hwid(message: ChatMessage, user: DemoAdminUser) {
+  private hwid(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     if (user.days <= 0) return ui.alert('admin_hwid_limit_no_subscription');
     const current = (value?: number) => value === undefined ? ui.t('admin_hwid_limit_state_default')
@@ -382,7 +380,7 @@ export class AdminUserDemo {
     const apply = (limit?: number) => {
       user.limit = limit;
       ui.alert('admin_hwid_limit_saved');
-      this.card(message, user);
+      this.card(message, user, origin);
     };
     ui.view(message, [
       `<b>${ui.t('admin_hwid_limit_title')}</b>`, '', ui.t('admin_hwid_limit_hint'), '',
@@ -394,16 +392,16 @@ export class AdminUserDemo {
           if (!Number.isInteger(limit) || limit < 0 || limit > 1e6) return void ui.answer('admin_hwid_limit_invalid');
           ui.answer('admin_hwid_limit_set', { user_id: user.minishop, current: current(limit) });
           user.limit = limit;
-          this.card(ui.host.append(''), user);
-        });
+          this.card(ui.host.append(''), user, origin);
+        }, [ui.button('back_to_main_menu_button', () => this.hwid(message, user, origin))]);
       }),
       ui.button('admin_hwid_limit_btn_unlimited', () => apply(0)),
       ui.button('admin_hwid_limit_btn_reset', () => apply()),
-      this.backToCard(message, user),
+      this.backToCard(message, user, origin),
     ]);
   }
 
-  private traffic(message: ChatMessage, user: DemoAdminUser) {
+  private traffic(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     const prompt = (premium: boolean) => ui.prompt(message, ui.t(
       premium ? 'admin_traffic_grant_prompt_premium' : 'admin_traffic_grant_prompt_regular', { user_id: user.minishop }), (input) => {
@@ -417,12 +415,12 @@ export class AdminUserDemo {
       ui.answer(premium ? 'admin_traffic_grant_premium_done' : 'admin_traffic_grant_regular_done', {
         gb, user: escape(user.name), user_id: user.minishop,
       });
-      this.card(ui.host.append(''), user);
-    });
+      this.card(ui.host.append(''), user, origin);
+    }, [ui.button('back_to_main_menu_button', () => this.traffic(message, user, origin))]);
     ui.view(message, `<b>${ui.t('admin_traffic_grant_title')}</b>\n\n${ui.t('admin_traffic_grant_hint')}`, [
       ui.button('admin_traffic_grant_btn_regular', () => prompt(false)),
       ui.button('admin_traffic_grant_btn_premium', () => prompt(true)),
-      this.backToCard(message, user),
+      this.backToCard(message, user, origin),
     ]);
   }
 

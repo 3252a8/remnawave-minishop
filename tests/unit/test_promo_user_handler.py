@@ -16,6 +16,7 @@ class PromoUserHandlerTests(IsolatedAsyncioTestCase):
         )
         state = SimpleNamespace(
             get_state=AsyncMock(return_value="UserPromoStates:waiting_for_promo_code"),
+            get_data=AsyncMock(return_value={"promo_return_callback": "main_action:bot_interface"}),
             clear=AsyncMock(),
         )
         settings = SimpleNamespace(
@@ -67,4 +68,7 @@ class PromoUserHandlerTests(IsolatedAsyncioTestCase):
         assert kwargs["parse_mode"] == "HTML"
         assert kwargs["reply_markup"].inline_keyboard[0][0].web_app.url == (
             "https://app.example.com/webapp?lang=en&startapp=promo_SAVE20"
+        )
+        assert kwargs["reply_markup"].inline_keyboard[1][0].callback_data == (
+            "main_action:bot_interface"
         )

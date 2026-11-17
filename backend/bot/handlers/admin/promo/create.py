@@ -8,8 +8,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
+    get_admin_back_keyboard,
     get_admin_panel_keyboard,
-    get_back_to_admin_panel_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_code_service import PromoCodeService
@@ -44,14 +44,18 @@ async def create_promo_prompt_handler(
     try:
         await callback_message(callback).edit_text(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
     except Exception as e:
         logger.warning("Could not edit message for promo prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
     await callback.answer()
@@ -97,7 +101,9 @@ async def process_promo_code_handler(
 
         await message.answer(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
         await state.set_state(AdminStates.waiting_for_promo_bonus_days)
@@ -135,7 +141,9 @@ async def process_promo_bonus_days_handler(
 
         await message.answer(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
         await state.set_state(AdminStates.waiting_for_promo_max_activations)
@@ -242,13 +250,17 @@ async def process_promo_set_validity(
     try:
         await callback_message(callback).edit_text(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
     except Exception:
         await callback_message(callback).answer(
             prompt_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:promo_marketing"
+            ),
             parse_mode="HTML",
         )
     await callback.answer()
@@ -352,20 +364,26 @@ async def create_promo_code_final(
             try:
                 await message.edit_text(
                     success_text,
-                    reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                    reply_markup=get_admin_back_keyboard(
+                        current_lang, i18n, "admin_section:promo_marketing"
+                    ),
                     parse_mode="HTML",
                 )
             except Exception:
                 await message.answer(
                     success_text,
-                    reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                    reply_markup=get_admin_back_keyboard(
+                        current_lang, i18n, "admin_section:promo_marketing"
+                    ),
                     parse_mode="HTML",
                 )
             await callback_or_message.answer()
         else:  # Message
             await callback_or_message.answer(
                 success_text,
-                reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:promo_marketing"
+                ),
                 parse_mode="HTML",
             )
 

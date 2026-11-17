@@ -47,7 +47,6 @@ async def user_card_from_list_handler(
     if not i18n:
         await callback.answer("Language service error", show_alert=True)
         return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     # Get user from database
     user = await user_dal.get_user_by_id(session, user_id)
@@ -56,19 +55,15 @@ async def user_card_from_list_handler(
         return
 
     # Create keyboard with back to list button
+    origin = f"{'b' if source == 'admin_user_card' else 'l'}{max(0, page)}"
     keyboard = get_user_card_keyboard(
-        user_id, i18n, current_lang, user.referred_by_id, telegram_id=user.telegram_id
+        user_id,
+        i18n,
+        current_lang,
+        user.referred_by_id,
+        telegram_id=user.telegram_id,
+        origin=origin,
     )
-    from_banned_list = source == "admin_user_card"
-    back_label = (
-        "user_card_back_to_banned_list_button"
-        if from_banned_list
-        else "admin_user_back_to_list_button"
-    )
-    back_action = "view_banned" if from_banned_list else "users_list"
-    keyboard.button(text=_(back_label), callback_data=f"admin_action:{back_action}:{page}")
-    quick_links_width = 2 if user.referred_by_id else 1
-    keyboard.adjust(2, 2, 2, 1, 2, quick_links_width, 1, 2, 1)
 
     # Format user card
     try:

@@ -90,17 +90,17 @@ export class AdminPromoDemo {
     ui.view(message, this.records.length ? title : ui.t('admin_promo_management_empty'), [
       ...this.records.slice(page * 10, (page + 1) * 10).map((record): Button => ({
         label: `${ui.t(this.status(record)).split(' ')[0]} ${record.code} (${record.count}/${record.limit})`,
-        activate: () => this.card(message, record),
+        activate: () => this.card(message, record, page),
       })),
       ...(nav.length ? [nav] : []),
       ...(this.records.length ? [ui.button('admin_promo_export_csv_button', () => {
         ui.document('promocodes-demo.csv', this.csv(this.records), ui.t('admin_promo_export_all_caption', { count: this.records.length }));
       })] : []),
-      this.back(message),
+      ui.button('back_to_main_menu_button', () => this.menu(message)),
     ]);
   }
 
-  private card(message: ChatMessage, promo: Promo) {
+  private card(message: ChatMessage, promo: Promo, listPage: number) {
     const { ui } = this;
     const effects = [
       promo.discount ? `🏷 −${promo.discount}%` : '',
@@ -120,25 +120,25 @@ export class AdminPromoDemo {
       ui.t('admin_promo_card_created', { created: formatDemoDate(promo.created) }),
       ui.t('admin_promo_card_created_by', { creator: promo.creator }),
     ].join('\n'), [
-      ui.button('admin_promo_edit_button', () => this.editMenu(message, promo)),
+      ui.button('admin_promo_edit_button', () => this.editMenu(message, promo, listPage)),
       ui.button('admin_promo_toggle_status_button', () => {
         promo.enabled = !promo.enabled;
         ui.alert('admin_promo_toggle_success', {
           code: promo.code, status: ui.t(promo.enabled ? 'admin_promo_status_activated' : 'admin_promo_status_deactivated'),
         });
-        this.card(message, promo);
+        this.card(message, promo, listPage);
       }),
-      ui.button('admin_promo_view_activations_button', () => this.activations(message, promo)),
+      ui.button('admin_promo_view_activations_button', () => this.activations(message, promo, listPage)),
       ui.button('admin_promo_delete_button', () => {
         this.records = this.records.filter((item) => item !== promo);
         ui.alert('admin_promo_deleted_success', { code: promo.code });
-        this.list(message);
+        this.list(message, Math.min(listPage, Math.max(0, Math.ceil(this.records.length / 10) - 1)));
       }),
-      ui.button('admin_promo_back_to_list_button', () => this.list(message)),
+      ui.button('admin_promo_back_to_list_button', () => this.list(message, listPage)),
     ]);
   }
 
-  private activations(message: ChatMessage, promo: Promo, page = 0) {
+  private activations(message: ChatMessage, promo: Promo, listPage: number, page = 0) {
     const { ui } = this;
     const format = { code: promo.code };
     const text = promo.activations.length ? ui.t('admin_promo_activations_header', format) + promo.activations
@@ -146,8 +146,8 @@ export class AdminPromoDemo {
         user_id: userId, date: formatDemoDate(date),
       })).join('\n') : ui.t('admin_promo_no_activations', format);
     const nav: Button[] = [
-      ...(page > 0 ? [{ label: '⬅️', activate: () => this.activations(message, promo, page - 1) }] : []),
-      ...((page + 1) * 10 < promo.activations.length ? [{ label: '➡️', activate: () => this.activations(message, promo, page + 1) }] : []),
+      ...(page > 0 ? [{ label: '⬅️', activate: () => this.activations(message, promo, listPage, page - 1) }] : []),
+      ...((page + 1) * 10 < promo.activations.length ? [{ label: '➡️', activate: () => this.activations(message, promo, listPage, page + 1) }] : []),
     ];
     ui.view(message, text, [
       ...(nav.length ? [nav] : []),
@@ -157,18 +157,18 @@ export class AdminPromoDemo {
           ...promo.activations.map(({ userId, date }) => [promo.code, userId, date]),
         ], ui.t('admin_promo_export_caption', format));
       }),
-      ui.button('admin_promo_back_to_detail_button', () => this.card(message, promo)),
+      ui.button('admin_promo_back_to_detail_button', () => this.card(message, promo, listPage)),
     ]);
   }
 
-  private editMenu(message: ChatMessage, promo: Promo) {
+  private editMenu(message: ChatMessage, promo: Promo, listPage: number) {
     const { ui } = this;
-    const rows: ButtonRow[] = editRows.map((row) => row.map((field) => ui.button(field.label, () => this.editField(message, promo, field))));
-    rows.push(ui.button('admin_promo_back_to_detail_button', () => this.card(message, promo)));
+    const rows: ButtonRow[] = editRows.map((row) => row.map((field) => ui.button(field.label, () => this.editField(message, promo, field, listPage))));
+    rows.push(ui.button('admin_promo_back_to_detail_button', () => this.card(message, promo, listPage)));
     ui.view(message, ui.t('admin_promo_edit_select_field'), rows);
   }
 
-  private editField(message: ChatMessage, promo: Promo, field: Edit) {
+  private editField(message: ChatMessage, promo: Promo, field: Edit, listPage: number) {
     const { ui } = this;
     const prompt = field.prompt ? ui.t(field.prompt) : `Send new value for ${field.label}`;
     const hint = field.key === 'scope' ? `\nAllowed: ${scopes.join(', ')}`
@@ -190,13 +190,13 @@ export class AdminPromoDemo {
       }
       ui.clearInput();
       ui.answer('admin_promo_edit_success');
-      this.card(ui.host.append(''), promo);
-    });
+      this.card(ui.host.append(''), promo, listPage);
+    }, [ui.button('back_to_main_menu_button', () => this.editMenu(message, promo, listPage))]);
   }
 
   private create(message: ChatMessage, bulk: boolean) {
     const { ui } = this;
-    const back = this.back(message);
+    const back = (target: ChatMessage) => ui.button('back_to_main_menu_button', () => this.menu(target));
     const wrong = (key: string) => { ui.answer(key); };
     const int = (input: string, max: number) => {
       const num = Number(input);
@@ -246,7 +246,7 @@ export class AdminPromoDemo {
               code, bonus_days: bonus, max_activations: limit, valid_until_str: validityText,
             });
             const reply = fromInput ? ui.host.append('') : validity;
-            ui.view(reply, text, [this.back(reply)]);
+            ui.view(reply, text, [back(reply)]);
             if (bulk) ui.document('bulk-promocodes-demo.csv', this.csv(created), ui.t('admin_bulk_promo_csv_caption', { count: qty, days: bonus }));
           };
           validity.rows = [
@@ -258,11 +258,11 @@ export class AdminPromoDemo {
                 finish(days, true);
               })),
             ],
-            this.back(validity),
+            back(validity),
           ];
         });
       });
-    }, [back]);
+    }, [back(message)]);
   }
 
   private expiry(days = 0) {

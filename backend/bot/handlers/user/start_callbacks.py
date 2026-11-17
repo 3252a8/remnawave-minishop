@@ -14,7 +14,9 @@ from bot.keyboards.inline.user_keyboards import (
 )
 from bot.keyboards.inline.user_keyboards_context import (
     BOT_MENU_CONTEXT,
+    SUBSCRIPTION_CATALOG_ORIGIN,
     subscription_menu_back_callback,
+    subscription_status_callback,
 )
 from bot.keyboards.inline.user_keyboards_menus import get_bot_app_sections_keyboard
 from bot.middlewares.i18n import JsonI18n, normalize_locale_language_code
@@ -336,17 +338,18 @@ async def main_action_callback_handler(
         )
         return
 
-    if action == "subscribe":
-        await user_subscription_handlers.display_subscription_options(
-            callback, i18n_data, settings, session
-        )
-    elif action == "bot_subscribe":
+    if action in {"subscribe", "bot_subscribe"}:
+        context = BOT_MENU_CONTEXT if from_bot_menu else None
         await user_subscription_handlers.display_subscription_options(
             callback,
             i18n_data,
             settings,
             session,
-            back_callback="main_action:bot_interface",
+            back_callback=(
+                subscription_status_callback(context)
+                if SUBSCRIPTION_CATALOG_ORIGIN in arguments
+                else subscription_menu_back_callback(context)
+            ),
         )
     elif action in {"my_subscription", "bot_my_subscription"}:
         await user_subscription_handlers.my_subscription_command_handler(

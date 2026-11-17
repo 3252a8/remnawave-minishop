@@ -6,6 +6,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
@@ -62,8 +63,13 @@ async def show_ads_menu(
 
 @router.callback_query(F.data.startswith("admin_ads:page:"))
 async def ads_list_pagination(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict,
+    session: AsyncSession,
+    state: FSMContext,
 ) -> None:
+    await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -282,7 +288,7 @@ async def ads_delete_confirm(
         await callback.answer(_("admin_ads_deleted_success"), show_alert=True)
 
 
-@router.callback_query(F.data == "admin_action:ads_create")
+@router.callback_query(F.data.startswith("admin_action:ads_create"))
 async def ads_create_start(
     callback: types.CallbackQuery, state: FSMContext, settings: Settings, i18n_data: dict
 ) -> None:
@@ -296,8 +302,15 @@ async def ads_create_start(
         await callback.answer("Language error.", show_alert=True)
         return
 
+    parts = callback_data(callback).split(":")
+    token = parts[2] if len(parts) > 2 else ""
+    page = int(token) if token.isascii() and token.isdecimal() else 0
+    await state.update_data(ad_list_page=page)
     await state.set_state(AdminStates.waiting_for_ad_source)
-    await callback_message(callback).edit_text(_("admin_ads_create_source_prompt"))
+    await callback_message(callback).edit_text(
+        _("admin_ads_create_source_prompt"),
+        reply_markup=get_admin_back_keyboard(current_lang, i18n, f"admin_ads:page:{page}"),
+    )
     with contextlib.suppress(Exception):
         await callback.answer()
 
@@ -396,8 +409,13 @@ async def ads_create_flow(
             )
         )
         # Offer back to ads menu
-        from bot.keyboards.inline.admin_keyboards import get_ads_menu_keyboard
-
         await message.answer(
-            _("admin_ads_back_to_menu_hint"), reply_markup=get_ads_menu_keyboard(i18n, current_lang)
+            _("admin_ads_back_to_menu_hint"),
+            reply_markup=(
+                get_admin_back_keyboard(
+                    current_lang, i18n, f"admin_ads:page:{data.get('ad_list_page', 0)}"
+                )
+                if i18n
+                else None
+            ),
         )

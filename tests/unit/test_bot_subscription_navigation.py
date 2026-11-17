@@ -5,13 +5,60 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from bot.handlers.admin.user_management_cards import get_user_card_keyboard, user_card_back_callback
 from bot.handlers.user.subscription import core_autorenew, core_topup
 from bot.keyboards.inline.user_keyboards_context import (
     payment_methods_back_callback,
     payment_options_back_callback,
     payment_receipt_back_callback,
 )
-from bot.keyboards.inline.user_keyboards_payments import get_autorenew_confirm_keyboard
+from bot.keyboards.inline.user_keyboards_payments import (
+    get_autorenew_confirm_keyboard,
+    get_back_to_payment_method_details_keyboard,
+    get_bind_url_keyboard,
+    get_payment_method_delete_confirm_keyboard,
+    get_payment_method_details_keyboard,
+    get_payment_methods_list_keyboard,
+)
+from bot.payment_providers.yookassa.payment_methods import _payment_method_navigation
+
+
+@pytest.mark.parametrize("context", [None, "bot"])
+def test_saved_cards_keep_page_from_details_history_and_binding(context):
+    i18n = SimpleNamespace(gettext=lambda lang, key: key)
+    cards = [(str(i), f"Card {i}") for i in range(1, 8)]
+    methods = get_payment_methods_list_keyboard(cards, 1, "en", i18n, context=context)
+    target = methods.inline_keyboard[0][0].callback_data
+    assert _payment_method_navigation(target) == ("pm:view:6", 1, context)
+    suffix = ":bot" if context else ""
+    assert methods.inline_keyboard[-1][0].callback_data == (
+        "main_action:bot_my_subscription" if context else "main_action:my_subscription"
+    )
+    details = get_payment_method_details_keyboard("6", "en", i18n, page=1, context=context)
+    assert details.inline_keyboard[-1][0].callback_data == f"pm:list:1{suffix}"
+    history = get_back_to_payment_method_details_keyboard("6", "en", i18n, page=1, context=context)
+    assert history.inline_keyboard[0][0].callback_data == target
+    delete = get_payment_method_delete_confirm_keyboard("6", "en", i18n, page=1, context=context)
+    assert delete.inline_keyboard[0][1].callback_data == target
+    bind = get_bind_url_keyboard("https://example.com", "en", i18n, page=1, context=context)
+    assert bind.inline_keyboard[-1][0].callback_data == f"pm:list:1{suffix}"
+
+
+@pytest.mark.parametrize(
+    ("origin", "target"),
+    [
+        ("b2", "admin_action:view_banned:2"),
+        ("l3", "admin_action:users_list:3"),
+        ("s", "admin_action:users_search_prompt"),
+        ("i25.2.l3", "ui:25:2:l3"),
+    ],
+)
+def test_admin_card_refresh_keeps_original_screen(origin, target):
+    i18n = SimpleNamespace(gettext=lambda lang, key: key)
+    markup = get_user_card_keyboard(42, i18n, "en", origin=origin).as_markup()
+    callback = SimpleNamespace(data=None, message=SimpleNamespace(reply_markup=markup))
+    assert user_card_back_callback(callback, 42) == f"uc:42:{origin}"
+    assert markup.inline_keyboard[-1][-1].callback_data == target
 
 
 @pytest.mark.parametrize("suffix", ["", ":bot"])
@@ -57,6 +104,7 @@ def test_checkout_back_preserves_origin(sale_mode, provider_back, options_back, 
         ("hwid_devices@plan|t|bot", "main_action:my_devices:keep:bot"),
         ("subscription@plan|bot", None),
         ("topup@plan", None),
+        ("subscription@plan|cs|bot", "main_action:bot_my_subscription:keep"),
     ],
 )
 def test_receipt_back_opens_origin_without_replacing_receipt(sale_mode, callback):

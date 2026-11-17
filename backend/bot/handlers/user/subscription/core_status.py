@@ -132,7 +132,7 @@ async def my_subscription_command_handler(
 
         buy_button = InlineKeyboardButton(
             text=get_text("menu_subscribe_inline"),
-            callback_data=subscription_options_callback(context),
+            callback_data=subscription_options_callback(context, from_subscription=True),
         )
         back_markup = get_back_to_main_menu_markup(
             current_lang,
@@ -455,7 +455,8 @@ async def my_subscription_command_handler(
             prepend_rows.append(
                 [
                     InlineKeyboardButton(
-                        text=get_text("payment_methods_manage_button"), callback_data="pm:manage"
+                        text=get_text("payment_methods_manage_button"),
+                        callback_data=f"pm:manage{suffix}",
                     )
                 ]
             )

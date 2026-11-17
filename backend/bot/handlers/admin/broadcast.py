@@ -8,8 +8,8 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
+    get_admin_back_keyboard,
     get_admin_panel_keyboard,
-    get_back_to_admin_panel_keyboard,
     get_broadcast_confirmation_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
@@ -66,13 +66,17 @@ async def broadcast_message_prompt_handler(
         try:
             await callback_message(callback).edit_text(
                 prompt_text,
-                reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:system_functions"
+                ),
             )
         except Exception as e:
             logger.warning("Could not edit message for broadcast prompt: %s. Sending new.", e)
             await callback_message(callback).answer(
                 prompt_text,
-                reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:system_functions"
+                ),
             )
     await callback.answer()
     await state.set_state(AdminStates.waiting_for_broadcast_message)
@@ -483,7 +487,9 @@ async def confirm_broadcast_callback_handler(
 
         # Prepare queue stats presentation
         queue_stats = queue_manager.get_queue_stats()
-        back_keyboard = get_back_to_admin_panel_keyboard(current_lang, i18n)
+        back_keyboard = get_admin_back_keyboard(
+            current_lang, i18n, "admin_section:system_functions"
+        )
         initial_user_failed = queue_stats.get("user_failed_messages", 0)
         initial_group_failed = queue_stats.get("group_failed_messages", 0)
 
@@ -556,7 +562,7 @@ async def confirm_broadcast_callback_handler(
     elif action == "cancel":
         await callback_message(callback).edit_text(
             _("admin_broadcast_cancelled"),
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(current_lang, i18n, "admin_action:broadcast"),
         )
         await callback.answer()
 

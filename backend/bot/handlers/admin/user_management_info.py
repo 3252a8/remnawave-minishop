@@ -25,6 +25,7 @@ from .user_management_cards import (
     _send_with_profile_link_fallback,
     format_user_card,
     get_user_card_keyboard,
+    user_card_return_origin,
 )
 from .user_management_common import (
     _admin_user_button_label,
@@ -43,6 +44,8 @@ async def handle_view_user_logs(
     settings: Settings,
     i18n_instance: JsonI18n,
     lang: str,
+    *,
+    origin: str | None = None,
 ) -> None:
     """Show recent user logs"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -73,15 +76,19 @@ async def handle_view_user_logs(
 
         logs_text = "\n\n".join(logs_text_parts)
 
-        # Create inline keyboard for full logs
+        # Keep the card origin through both log views and their pagination.
+        origin = origin if origin is not None else user_card_return_origin(callback, user.user_id)
+        card_target = f"uc:{user.user_id}"
+        if origin:
+            card_target += f":{origin}"
         builder = InlineKeyboardBuilder()
         builder.button(
             text=_(key="admin_user_view_all_logs_button"),
-            callback_data=f"admin_logs:view_user:{user.user_id}:0",
+            callback_data=f"ul:{user.user_id}:0:{origin}",
         )
         builder.button(
             text=_(key="admin_user_back_to_card_button"),
-            callback_data=f"user_action:refresh:{user.user_id}",
+            callback_data=card_target,
         )
         builder.adjust(1)
 
@@ -109,10 +116,14 @@ async def handle_view_user_invitees(
     lang: str,
     *,
     page: int = 0,
+    origin: str | None = None,
 ) -> None:
     """Show users invited by the selected account."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     page_size = 10
+    origin = origin if origin is not None else user_card_return_origin(callback, user.user_id)
+    suffix = f":{origin}" if origin else ""
+    card_target = f"uc:{user.user_id}{suffix}"
     safe_page = max(0, int(page or 0))
 
     try:
@@ -159,10 +170,13 @@ async def handle_view_user_invitees(
 
         builder = InlineKeyboardBuilder()
         for invitee in invitees:
+            return_origin = f"i{user.user_id}.{safe_page}"
+            if origin and len(f"uc:{invitee.user_id}:{return_origin}.{origin}") <= 62:
+                return_origin += f".{origin}"
             builder.row(
                 types.InlineKeyboardButton(
                     text=_admin_user_button_label(invitee),
-                    callback_data=f"user_action:refresh:{invitee.user_id}",
+                    callback_data=f"uc:{invitee.user_id}:{return_origin}",
                 )
             )
 
@@ -171,14 +185,14 @@ async def handle_view_user_invitees(
             pagination_buttons.append(
                 types.InlineKeyboardButton(
                     text=_("prev_page_button"),
-                    callback_data=f"user_action:invitees:{user.user_id}:{safe_page - 1}",
+                    callback_data=f"ui:{user.user_id}:{safe_page - 1}{suffix}",
                 )
             )
         if safe_page < total_pages - 1:
             pagination_buttons.append(
                 types.InlineKeyboardButton(
                     text=_("next_page_button"),
-                    callback_data=f"user_action:invitees:{user.user_id}:{safe_page + 1}",
+                    callback_data=f"ui:{user.user_id}:{safe_page + 1}{suffix}",
                 )
             )
         if pagination_buttons:
@@ -186,7 +200,7 @@ async def handle_view_user_invitees(
         builder.row(
             types.InlineKeyboardButton(
                 text=_("admin_user_back_to_card_button"),
-                callback_data=f"user_action:refresh:{user.user_id}",
+                callback_data=card_target,
             )
         )
         builder.row(
@@ -218,6 +232,8 @@ async def handle_refresh_user_card(
     settings: Settings,
     i18n_instance: JsonI18n,
     lang: str,
+    *,
+    origin: str | None = None,
 ) -> None:
     """Refresh user card with latest information"""
     try:
@@ -247,6 +263,9 @@ async def handle_refresh_user_card(
             lang,
             fresh_user.referred_by_id,
             telegram_id=fresh_user.telegram_id,
+            origin=origin
+            if origin is not None
+            else user_card_return_origin(callback, user.user_id),
         )
         markup = keyboard.as_markup()
 
