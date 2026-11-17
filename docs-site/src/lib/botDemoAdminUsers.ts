@@ -94,8 +94,7 @@ export class AdminUserDemo {
       const user = this.find(input);
       if (!user) return void ui.answer('admin_user_not_found', { input: `<code>${escape(input)}</code>` });
       this.card(ui.host.append(''), user, { back: (target) => this.search(target, fromCard) });
-    }, [fromCard ? ui.button('admin_user_back_to_card_button', () => fromCard(message))
-      : ui.button('back_to_user_management_button', () => this.menu(message))]);
+    }, [ui.button('cancel_button', () => fromCard ? fromCard(message) : this.menu(message))]);
   }
 
   private bans(message: ChatMessage) {
@@ -119,7 +118,7 @@ export class AdminUserDemo {
       if (user.banned === ban) return void ui.answer(ban ? 'admin_user_already_banned' : 'admin_user_not_banned');
       user.banned = ban;
       ui.answer(ban ? 'admin_user_ban_success' : 'admin_user_unban_success', { input: `<code>${escape(input)}</code>` });
-    }, [ui.button('back_to_main_menu_button', () => this.bans(message))]);
+    }, [ui.button('cancel_button', () => this.bans(message))]);
   }
 
   private bannedList(message: ChatMessage, page: number) {
@@ -223,7 +222,7 @@ export class AdminUserDemo {
       external: true,
     });
     controls.push(
-      ui.button('admin_user_delete_button', () => this.deleteUser(user)),
+      ui.button('admin_user_delete_button', () => this.deleteUser(user, origin)),
       ui.button('admin_user_search_new_button', () => this.search(message, (target) => this.card(target, user, origin))),
     );
     const { page, back } = origin;
@@ -290,7 +289,7 @@ export class AdminUserDemo {
           ui.clearInput();
           ui.answer('admin_user_subscription_added_success', { days, user_id: user.minishop });
           this.card(ui.host.append(''), user, origin);
-        }, [ui.button('back_to_main_menu_button', () => this.addDays(message, user, origin))]),
+        }, [ui.button('cancel_button', () => this.addDays(message, user, origin))]),
       })),
       this.backToCard(message, user, origin),
     ]);
@@ -323,7 +322,7 @@ export class AdminUserDemo {
       if (input.length > 4000) return void ui.answer('admin_user_message_too_long');
       ui.clearInput();
       ui.answer(user.telegram ? 'admin_user_message_sent_success' : 'admin_user_message_sent_error', { user_id: user.minishop });
-    }, [this.backToCard(message, user, origin)]);
+    }, [ui.button('cancel_button', () => this.card(message, user, origin))]);
   }
 
   private invitees(message: ChatMessage, user: DemoAdminUser, page: number, origin: CardOrigin) {
@@ -365,7 +364,7 @@ export class AdminUserDemo {
           user.premium = gb;
           ui.answer('admin_premium_override_bonus_set', { gb: gb.toFixed(2), user_id: user.minishop });
           this.card(ui.host.append(''), user, origin);
-        }, [ui.button('back_to_main_menu_button', () => this.premium(message, user, origin))]);
+        }, [ui.button('cancel_button', () => this.premium(message, user, origin))]);
       }),
       ui.button('admin_premium_override_btn_clear', () => apply()),
       this.backToCard(message, user, origin),
@@ -393,7 +392,7 @@ export class AdminUserDemo {
           ui.answer('admin_hwid_limit_set', { user_id: user.minishop, current: current(limit) });
           user.limit = limit;
           this.card(ui.host.append(''), user, origin);
-        }, [ui.button('back_to_main_menu_button', () => this.hwid(message, user, origin))]);
+        }, [ui.button('cancel_button', () => this.hwid(message, user, origin))]);
       }),
       ui.button('admin_hwid_limit_btn_unlimited', () => apply(0)),
       ui.button('admin_hwid_limit_btn_reset', () => apply()),
@@ -416,7 +415,7 @@ export class AdminUserDemo {
         gb, user: escape(user.name), user_id: user.minishop,
       });
       this.card(ui.host.append(''), user, origin);
-    }, [ui.button('back_to_main_menu_button', () => this.traffic(message, user, origin))]);
+    }, [ui.button('cancel_button', () => this.traffic(message, user, origin))]);
     ui.view(message, `<b>${ui.t('admin_traffic_grant_title')}</b>\n\n${ui.t('admin_traffic_grant_hint')}`, [
       ui.button('admin_traffic_grant_btn_regular', () => prompt(false)),
       ui.button('admin_traffic_grant_btn_premium', () => prompt(true)),
@@ -424,14 +423,19 @@ export class AdminUserDemo {
     ]);
   }
 
-  private deleteUser(user: DemoAdminUser) {
+  private deleteUser(user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
-    ui.prompt(undefined, ui.t('admin_user_delete_confirmation_prompt', { user_id: `<code>${user.minishop}</code>` }), (input) => {
+    const prompt = ui.host.append('');
+    ui.prompt(prompt, ui.t('admin_user_delete_confirmation_prompt', { user_id: `<code>${user.minishop}</code>` }), (input) => {
       ui.clearInput();
-      if (['cancel', '/cancel'].includes(input.toLowerCase())) return void ui.answer('admin_user_delete_cancelled');
+      if (['cancel', '/cancel'].includes(input.toLowerCase())) {
+        ui.answer('admin_user_delete_cancelled');
+        this.card(ui.host.append(''), user, origin);
+        return;
+      }
       if (input !== String(user.id) && input.toLowerCase() !== user.minishop) return void ui.answer('admin_user_delete_mismatch');
       this.records = this.records.filter((item) => item !== user);
       ui.answer('admin_user_delete_success', { user_id: user.minishop });
-    });
+    }, [ui.button('cancel_button', () => this.card(prompt, user, origin))]);
   }
 }

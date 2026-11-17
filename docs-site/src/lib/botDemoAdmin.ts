@@ -237,7 +237,7 @@ export class AdminDemo {
       }
       const results = ui.host.append('');
       this.logs(results, 0, user, () => this.lookupLogs(results));
-    }, [ui.button('back_to_main_menu_button', () => this.logsMenu(message))]);
+    }, [ui.button('cancel_button', () => this.logsMenu(message))]);
   }
 
   private logEntries(user?: DemoAdminUser) {
@@ -309,7 +309,7 @@ export class AdminDemo {
   }
 
   private broadcast(message: ChatMessage) {
-    this.ui.prompt(message, this.ui.t('admin_broadcast_enter_message'), (input) => this.broadcastPreview(input), [this.ui.button('back_to_main_menu_button', () => this.system(message))]);
+    this.ui.prompt(message, this.ui.t('admin_broadcast_enter_message'), (input) => this.broadcastPreview(input), [this.ui.button('cancel_button', () => this.system(message))]);
     this.ui.acceptsAttachment = true;
   }
 
@@ -328,7 +328,7 @@ export class AdminDemo {
         label: `${target === audience ? '• ' : ''}${ui.t(`broadcast_target_${audience}_button`)}`,
         activate: () => { if (!completed) choose(audience); },
       }));
-      ui.view(confirmation, ui.t('admin_broadcast_confirm_prompt_short'), [
+      ui.confirmation(confirmation, ui.t('admin_broadcast_confirm_prompt_short'), [
         choices.slice(0, 2), choices.slice(2),
         [
           ui.button('confirm_broadcast_send_button', () => {
@@ -344,7 +344,8 @@ export class AdminDemo {
           }),
           ui.button('cancel_button', () => {
             completed = true;
-            ui.view(confirmation, ui.t('admin_broadcast_cancelled'), [ui.button('back_to_main_menu_button', () => this.broadcast(confirmation))]);
+            this.system(confirmation);
+            ui.alert('admin_broadcast_cancelled');
           }),
         ],
       ]);
@@ -377,7 +378,7 @@ export class AdminDemo {
       cost: campaign.cost.toFixed(2), revenue: campaign.revenue.toFixed(2),
     }), [
       ui.button('admin_ads_delete_button', () => {
-        ui.view(message, ui.t('admin_ads_delete_confirm', { id: campaign.id }), [[
+        ui.confirmation(message, ui.t('admin_ads_delete_confirm', { id: campaign.id }), [[
           ui.button('yes_button', () => {
             this.campaigns = this.campaigns.filter((row) => row !== campaign);
             ui.alert('admin_ads_deleted_success');
@@ -393,11 +394,14 @@ export class AdminDemo {
 
   private createAd(message: ChatMessage, page: number) {
     const { ui } = this;
+    const cancel = (target: ChatMessage) => ui.button('cancel_button', () => this.ads(target, page));
     ui.prompt(message, ui.t('admin_ads_create_source_prompt'), (source) => {
       if (source.length > 64) return void ui.answer('admin_ads_invalid_source');
-      ui.prompt(undefined, ui.t('admin_ads_create_start_param_prompt'), (param) => {
+      const parameters = ui.host.append('');
+      ui.prompt(parameters, ui.t('admin_ads_create_start_param_prompt'), (param) => {
         if (!/^[A-Za-z0-9_-]{2,64}$/.test(param)) return void ui.answer('admin_ads_invalid_start_param');
-        ui.prompt(undefined, ui.t('admin_ads_create_cost_prompt'), (value) => {
+        const costPrompt = ui.host.append('');
+        ui.prompt(costPrompt, ui.t('admin_ads_create_cost_prompt'), (value) => {
           const cost = Number(value.replace(',', '.'));
           if (!Number.isFinite(cost) || cost < 0 || cost > 1e8) return void ui.answer('admin_ads_invalid_cost');
           if (this.campaigns.some((campaign) => campaign.param === param)) return void ui.answer('admin_ads_start_param_exists');
@@ -409,8 +413,8 @@ export class AdminDemo {
           done.rows = [
             ui.button('back_to_main_menu_button', () => this.ads(done, page)),
           ];
-        });
-      });
-    }, [ui.button('back_to_main_menu_button', () => this.ads(message, page))]);
+        }, [cancel(costPrompt)]);
+      }, [cancel(parameters)]);
+    }, [cancel(message)]);
   }
 }

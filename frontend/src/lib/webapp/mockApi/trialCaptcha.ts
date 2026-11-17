@@ -1,6 +1,7 @@
 import image from "./trialCaptcha.png?inline";
 import { DEV_MOCK } from "../previewMock.js";
 import { jsonBody } from "../demoMockRuntime.js";
+import { DEMO_TRIAL_CAPTCHA_ANSWER } from "../previewMock/devMock";
 
 let challenge = 0;
 let verifiedUntil = 0;
@@ -28,7 +29,7 @@ export function trialCaptchaDemoResponse(path: string, options: RequestInit): un
     if (body.challenge_id !== `demo-trial-${challenge}` || Date.now() - issuedAt >= 180_000)
       return { ok: false, error: "trial_captcha_expired" };
     issuedAt = 0;
-    if (String(body.answer || "").trim() !== "73146")
+    if (String(body.answer || "").trim() !== DEMO_TRIAL_CAPTCHA_ANSWER)
       return { ok: false, error: "trial_captcha_invalid" };
     verifiedUntil = Date.now() + 600_000;
     return { ok: true };

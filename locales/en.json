@@ -384,6 +384,7 @@
   "admin_promo_valid_indefinitely": "indefinite",
   "admin_promo_edit_button": "✏️ Edit",
   "admin_promo_delete_button": "🗑 Delete",
+  "admin_promo_delete_confirm": "Delete activation code {code}?",
   "admin_promo_deleted_success": "Promo {code} deleted.",
   "admin_promo_not_found": "Promo not found.",
   "admin_promo_export_csv_button": "📄 Export to CSV",

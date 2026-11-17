@@ -741,3 +741,9 @@
     height: clamp(31rem, calc(100svh - 13rem), 39.25rem);
   }
 }
+
+.bot-chat-captcha {
+  display: block;
+  width: min(100%, 220px);
+  margin-bottom: 0.5rem;
+}

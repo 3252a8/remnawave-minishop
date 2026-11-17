@@ -19,6 +19,8 @@ from bot.utils.callback_answer import callback_message
 from config.settings import Settings
 from db.dal import promo_code_dal
 
+from .draft import accept_promo_validity_callback
+
 logger = logging.getLogger(__name__)
 
 router = Router(name="promo_create_router")
@@ -45,7 +47,7 @@ async def create_promo_prompt_handler(
         await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:promo_marketing"
+                current_lang, i18n, "admin_section:promo_marketing", "cancel_button"
             ),
             parse_mode="HTML",
         )
@@ -54,7 +56,7 @@ async def create_promo_prompt_handler(
         await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:promo_marketing"
+                current_lang, i18n, "admin_section:promo_marketing", "cancel_button"
             ),
             parse_mode="HTML",
         )
@@ -102,7 +104,7 @@ async def process_promo_code_handler(
         await message.answer(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:promo_marketing"
+                current_lang, i18n, "admin_section:promo_marketing", "cancel_button"
             ),
             parse_mode="HTML",
         )
@@ -142,7 +144,7 @@ async def process_promo_bonus_days_handler(
         await message.answer(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:promo_marketing"
+                current_lang, i18n, "admin_section:promo_marketing", "cancel_button"
             ),
             parse_mode="HTML",
         )
@@ -197,11 +199,16 @@ async def process_promo_max_activations_handler(
             )
         )
         builder.row(
-            InlineKeyboardButton(text=_("admin_back_to_panel"), callback_data="admin_action:main")
+            InlineKeyboardButton(
+                text=_("cancel_button"), callback_data="admin_section:promo_marketing"
+            )
         )
 
-        await message.answer(prompt_text, reply_markup=builder.as_markup(), parse_mode="HTML")
-        await state.set_state(AdminStates.waiting_for_promo_validity_days)
+        prompt = await message.answer(
+            prompt_text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        )
+        await state.update_data(promo_validity_message_id=prompt.message_id)
+        await state.set_state(AdminStates.choosing_promo_validity)
 
     except ValueError:
         await message.answer(_("admin_promo_invalid_number"))
@@ -212,7 +219,8 @@ async def process_promo_max_activations_handler(
 
 # Step 4: Handle unlimited validity
 @router.callback_query(
-    F.data == "promo_unlimited_validity", StateFilter(AdminStates.waiting_for_promo_validity_days)
+    F.data == "promo_unlimited_validity",
+    StateFilter(AdminStates.choosing_promo_validity, AdminStates.waiting_for_promo_validity_days),
 )
 async def process_promo_unlimited_validity(
     callback: types.CallbackQuery,
@@ -221,13 +229,17 @@ async def process_promo_unlimited_validity(
     settings: Settings,
     session: AsyncSession,
 ) -> None:
+    data = await state.get_data()
+    if not await accept_promo_validity_callback(callback, data, i18n_data, settings):
+        return
     await state.update_data(validity_days=None)
     await create_promo_code_final(callback, state, i18n_data, settings, session)
 
 
 # Step 4: Handle set validity
 @router.callback_query(
-    F.data == "promo_set_validity", StateFilter(AdminStates.waiting_for_promo_validity_days)
+    F.data == "promo_set_validity",
+    StateFilter(AdminStates.choosing_promo_validity, AdminStates.waiting_for_promo_validity_days),
 )
 async def process_promo_set_validity(
     callback: types.CallbackQuery, state: FSMContext, i18n_data: dict, settings: Settings
@@ -240,6 +252,8 @@ async def process_promo_set_validity(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     data = await state.get_data()
+    if not await accept_promo_validity_callback(callback, data, i18n_data, settings):
+        return
     prompt_text = _(
         "admin_promo_enter_validity_days",
         code=data.get("promo_code"),
@@ -251,18 +265,20 @@ async def process_promo_set_validity(
         await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:promo_marketing"
+                current_lang, i18n, "admin_section:promo_marketing", "cancel_button"
             ),
             parse_mode="HTML",
         )
     except Exception:
-        await callback_message(callback).answer(
+        prompt = await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:promo_marketing"
+                current_lang, i18n, "admin_section:promo_marketing", "cancel_button"
             ),
             parse_mode="HTML",
         )
+        await state.update_data(promo_validity_message_id=prompt.message_id)
+    await state.set_state(AdminStates.waiting_for_promo_validity_days)
     await callback.answer()
 
 

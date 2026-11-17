@@ -1,12 +1,13 @@
 import logging
 from datetime import UTC, datetime
 
-from aiogram import F, types
+from aiogram import Bot, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.services.account_roles import can_ban_account
 from bot.services.account_roles import is_admin as account_is_admin
@@ -25,6 +26,7 @@ from .user_management_cards import (
     _send_with_profile_link_fallback,
     format_user_card,
     get_user_card_keyboard,
+    user_card_back_callback,
     user_card_return_origin,
 )
 from .user_management_common import (
@@ -224,6 +226,38 @@ async def handle_view_user_invitees(
         await callback.answer(_("admin_user_invitees_error"), show_alert=True)
 
 
+async def _user_card_content(
+    user: User,
+    bot: Bot | None,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    settings: Settings,
+    i18n: JsonI18n,
+    lang: str,
+    origin: str,
+) -> tuple[str, types.InlineKeyboardMarkup]:
+    referral_service = ReferralService(settings, subscription_service, bot, i18n)
+    text = await format_user_card(
+        user,
+        session,
+        subscription_service,
+        i18n,
+        lang,
+        referral_service,
+        settings=settings,
+        bot_username=await _resolve_bot_username(bot),
+    )
+    markup = get_user_card_keyboard(
+        user.user_id,
+        i18n,
+        lang,
+        user.referred_by_id,
+        telegram_id=user.telegram_id,
+        origin=origin,
+    ).as_markup()
+    return text, markup
+
+
 async def handle_refresh_user_card(
     callback: types.CallbackQuery,
     user: User,
@@ -243,31 +277,16 @@ async def handle_refresh_user_card(
             await callback.answer("User not found", show_alert=True)
             return
 
-        referral_service = ReferralService(
-            settings, subscription_service, callback_message(callback).bot, i18n_instance
-        )
-        bot_username = await _resolve_bot_username(callback_message(callback).bot)
-        user_card_text = await format_user_card(
+        user_card_text, markup = await _user_card_content(
             fresh_user,
-            session,
+            callback_message(callback).bot,
             subscription_service,
+            session,
+            settings,
             i18n_instance,
             lang,
-            referral_service,
-            settings=settings,
-            bot_username=bot_username,
+            origin if origin is not None else user_card_return_origin(callback, user.user_id),
         )
-        keyboard = get_user_card_keyboard(
-            fresh_user.user_id,
-            i18n_instance,
-            lang,
-            fresh_user.referred_by_id,
-            telegram_id=fresh_user.telegram_id,
-            origin=origin
-            if origin is not None
-            else user_card_return_origin(callback, user.user_id),
-        )
-        markup = keyboard.as_markup()
 
         try:
             await _send_with_profile_link_fallback(
@@ -325,6 +344,7 @@ async def handle_delete_user_prompt(
         target_user_id=user.user_id,
         target_minishop_id=getattr(user, "minishop_id", None),
         delete_initiator_id=int(admin_account.user_id),
+        delete_return_origin=user_card_return_origin(callback, user.user_id),
     )
     await state.set_state(AdminStates.waiting_for_user_delete_confirmation)
 
@@ -333,11 +353,14 @@ async def handle_delete_user_prompt(
         user_id=hcode(str(getattr(user, "minishop_id", None) or "—")),
     )
 
+    markup = get_admin_back_keyboard(
+        lang, i18n_instance, user_card_back_callback(callback, user.user_id), "cancel_button"
+    )
     try:
-        await callback_message(callback).answer(prompt_text, parse_mode="HTML")
+        await callback_message(callback).answer(prompt_text, parse_mode="HTML", reply_markup=markup)
     except Exception as e:
         logger.error("Failed to send delete confirmation prompt for user %s: %s", user.user_id, e)
-        await callback_message(callback).reply(prompt_text, parse_mode="HTML")
+        await callback_message(callback).reply(prompt_text, parse_mode="HTML", reply_markup=markup)
 
     await callback.answer()
 
@@ -382,6 +405,7 @@ async def process_delete_user_confirmation_handler(
     i18n_data: dict,
     panel_service: PanelApiService,
     session: AsyncSession,
+    subscription_service: SubscriptionService | None = None,
 ) -> None:
     """Confirm and execute destructive user deletion."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -418,12 +442,24 @@ async def process_delete_user_confirmation_handler(
 
     confirmation_input = (message.text or "").strip() if message.text else ""
     if confirmation_input.lower() in {"/cancel", "cancel"}:
-        await message.answer(
-            _(
-                "admin_user_delete_cancelled",
-            )
-        )
         await state.clear()
+        await message.answer(_("admin_user_delete_cancelled"))
+        if subscription_service is not None and message.bot is not None:
+            user = await user_dal.get_user_by_id(session, int(target_user_id))
+            if user is not None:
+                text, markup = await _user_card_content(
+                    user,
+                    message.bot,
+                    subscription_service,
+                    session,
+                    settings,
+                    i18n,
+                    current_lang,
+                    data.get("delete_return_origin", ""),
+                )
+                await _send_with_profile_link_fallback(
+                    message.answer, text=text, markup=markup, user_id=user.user_id
+                )
         return
 
     target_minishop_id = str(data.get("target_minishop_id") or "").strip()

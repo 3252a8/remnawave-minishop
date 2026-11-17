@@ -8,15 +8,18 @@ import io
 from datetime import UTC, datetime
 
 from aiogram import F, Router, types
+from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard, get_confirmation_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import (
     PromoEffects,
     summarize_effects,
 )
+from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
 from bot.utils.csv_export import SpreadsheetWriter
 from config.settings import Settings
@@ -185,8 +188,13 @@ async def promo_management_pagination_handler(
 
 @router.callback_query(F.data.startswith("promo_detail:"))
 async def promo_detail_handler(
-    callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
+    if state is not None:
+        await state.clear()
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
@@ -511,8 +519,53 @@ async def promo_export_all_handler(
 
 
 @router.callback_query(F.data.startswith("promo_delete:"))
+async def promo_delete_prompt(
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession,
+    state: FSMContext,
+) -> None:
+    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
+    lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+    if not i18n or not callback.message:
+        await callback.answer("Error processing request.", show_alert=True)
+        return
+    parts = callback_data(callback).split(":")
+    if not parts[1].isascii() or not parts[1].isdecimal():
+        await callback.answer(i18n.gettext(lang, "admin_promo_not_found"), show_alert=True)
+        return
+    promo_id = int(parts[1])
+    promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
+    if not promo:
+        await callback.answer(i18n.gettext(lang, "admin_promo_not_found"), show_alert=True)
+        return
+    await state.clear()
+    list_page = promo_list_page(parts, 2)
+    await callback_message(callback).edit_text(
+        i18n.gettext(lang, "admin_promo_delete_confirm", code=hd.quote(promo.code)),
+        reply_markup=get_confirmation_keyboard(
+            yes_callback_data=f"promo_delete_confirm:{promo_id}:{list_page}",
+            no_callback_data=f"promo_detail:{promo_id}:{list_page}",
+            i18n_instance=i18n,
+            lang=lang,
+        ),
+        parse_mode="HTML",
+    )
+    await state.update_data(
+        record_id=promo_id, list_page=list_page, confirmation_message_id=callback.message.message_id
+    )
+    await state.set_state(AdminStates.confirming_promo_delete)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("promo_delete_confirm:"))
 async def promo_delete_handler(
-    callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession,
+    state: FSMContext,
 ) -> None:
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
@@ -524,6 +577,17 @@ async def promo_delete_handler(
     try:
         parts = callback_data(callback).split(":")
         promo_id = int(parts[1])
+        page = promo_list_page(parts, 2)
+        data = await state.get_data()
+        if (
+            await state.get_state() != AdminStates.confirming_promo_delete.state
+            or data.get("confirmation_message_id") != callback.message.message_id
+            or data.get("record_id") != promo_id
+            or data.get("list_page") != page
+        ):
+            await callback.answer(_("error_try_again"), show_alert=True)
+            return
+        await state.clear()
         promo = await promo_code_dal.delete_promo_code(session, promo_id)
         if promo:
             await session.commit()

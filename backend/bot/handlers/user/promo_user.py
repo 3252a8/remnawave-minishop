@@ -65,7 +65,11 @@ async def prompt_promo_code_input(
         return
 
     text = _("promo_code_prompt")
-    markup = get_back_to_main_menu_markup(current_lang, i18n, callback_data=back_callback)
+    markup = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text=_("cancel_button"), callback_data=back_callback)]
+        ]
+    )
     if isinstance(event, types.CallbackQuery):
         message = callback_message(event)
         try:
@@ -87,7 +91,7 @@ async def prompt_promo_code_input(
     )
 
 
-@router.message(UserPromoStates.waiting_for_promo_code, F.text)
+@router.message(UserPromoStates.waiting_for_promo_code, F.text, ~F.text.startswith("/"))
 async def process_promo_code_input(
     message: types.Message,
     state: FSMContext,

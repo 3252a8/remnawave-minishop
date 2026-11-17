@@ -2,6 +2,7 @@
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import ru from '../../../../locales/ru.json';
 import en from '../../../../locales/en.json';
+import trialCaptcha from '../../../../frontend/src/lib/webapp/mockApi/trialCaptcha.png?inline';
 import { DEMO_DATASET } from '../../../../frontend/src/lib/webapp/demoDataset.js';
 import {
   DEMO_CHECKOUT_PROMO_CODE, demoCheckoutMethods, demoCheckoutPlans,
@@ -24,7 +25,7 @@ const directPromo = data.promos.find((promo) => promo.enabled && promo.bonus > 0
     editUrl: false,
   }}
 >
-  <div class="bot-demo not-content" data-bot-demo data-messages={JSON.stringify(messages)}>
+  <div class="bot-demo not-content" data-bot-demo data-messages={JSON.stringify(messages)} data-captcha={trialCaptcha}>
     <script is:inline type="application/json" data-fixtures set:html={fixturesJson}></script>
     <details class="bot-demo-options" data-demo-options open>
       <summary>Настройки демо</summary>
@@ -39,6 +40,7 @@ const directPromo = data.promos.find((promo) => promo.enabled && promo.bonus > 0
             <option value="without-app">Без Mini App</option>
             <option value="auto-renew">Автопродление в чате</option>
             <option value="new-without-app">Новый пользователь без Mini App</option>
+            <option value="trial-captcha">Проверка перед триалом в чате</option>
             <option value="stars">Оплата Telegram Stars</option>
             <option value="account-tools">Кабинет с партнёркой</option>
           </select>

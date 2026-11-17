@@ -12,6 +12,7 @@ export type AdminHost = {
   append: (text: string, rows?: ButtonRow[]) => ChatMessage;
   edit: (message: ChatMessage, text: string, rows?: ButtonRow[]) => void;
   setInput: (next?: (value: string) => void) => void;
+  isInput: (next: (value: string) => void) => boolean;
   notify: (text: string) => void;
 };
 
@@ -48,6 +49,16 @@ export class AdminUi {
   view(message: ChatMessage, text: string, rows?: ButtonRow[]) {
     this.clearInput();
     this.host.edit(message, text, rows);
+  }
+
+  confirmation(message: ChatMessage, text: string, rows: ButtonRow[]) {
+    const pending = () => {};
+    const guard = (button: Button): Button => ({
+      ...button,
+      activate: () => { if (this.host.isInput(pending)) return button.activate(); },
+    });
+    this.view(message, text, rows.map((row) => Array.isArray(row) ? row.map(guard) : guard(row)));
+    this.host.setInput(pending);
   }
 
   prompt(message: ChatMessage | undefined, text: string, next: (value: string) => void, rows?: ButtonRow[]) {

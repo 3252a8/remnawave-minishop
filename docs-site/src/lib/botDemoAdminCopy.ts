@@ -36,7 +36,7 @@ export const adminMessageKeys = [
   'admin_promo_card_bonus_days', 'admin_promo_card_created', 'admin_promo_card_created_by',
   'admin_promo_card_status', 'admin_promo_card_title', 'admin_promo_card_validity',
   'admin_promo_code_already_exists', 'admin_promo_created_success', 'admin_promo_days_value',
-  'admin_promo_delete_button', 'admin_promo_deleted_success', 'admin_promo_edit_bonus_days',
+  'admin_promo_delete_button', 'admin_promo_delete_confirm', 'admin_promo_deleted_success', 'admin_promo_edit_bonus_days',
   'admin_promo_edit_button', 'admin_promo_edit_max_activations', 'admin_promo_edit_select_field',
   'admin_promo_edit_success', 'admin_promo_edit_validity', 'admin_promo_enter_validity_days',
   'admin_promo_export_all_caption', 'admin_promo_export_caption', 'admin_promo_export_csv_button',

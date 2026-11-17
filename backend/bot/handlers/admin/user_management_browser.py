@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
     get_admin_back_keyboard,
-    get_back_to_user_management_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
@@ -124,16 +123,16 @@ async def user_search_prompt_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     prompt_text = _("admin_user_management_prompt")
-    markup = get_back_to_user_management_keyboard(current_lang, i18n)
+    markup = get_admin_back_keyboard(
+        current_lang, i18n, "admin_section:user_management", "cancel_button"
+    )
     result_origin = "s"
     if from_user_id is not None:
         card_callback = user_card_back_callback(callback, from_user_id)
         previous_origin = card_callback.split(":", 2)
         suffix = "." + previous_origin[2] if len(previous_origin) > 2 else ""
         result_origin = f"s{from_user_id}{suffix}"
-        markup = get_admin_back_keyboard(
-            current_lang, i18n, card_callback, "admin_user_back_to_card_button"
-        )
+        markup = get_admin_back_keyboard(current_lang, i18n, card_callback, "cancel_button")
     await state.update_data(search_result_origin=result_origin)
 
     try:

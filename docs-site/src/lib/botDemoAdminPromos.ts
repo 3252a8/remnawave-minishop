@@ -129,11 +129,15 @@ export class AdminPromoDemo {
         this.card(message, promo, listPage);
       }),
       ui.button('admin_promo_view_activations_button', () => this.activations(message, promo, listPage)),
-      ui.button('admin_promo_delete_button', () => {
-        this.records = this.records.filter((item) => item !== promo);
-        ui.alert('admin_promo_deleted_success', { code: promo.code });
-        this.list(message, Math.min(listPage, Math.max(0, Math.ceil(this.records.length / 10) - 1)));
-      }),
+      ui.button('admin_promo_delete_button', () => ui.confirmation(message,
+        ui.t('admin_promo_delete_confirm', { code: escape(promo.code) }), [[
+          ui.button('yes_button', () => {
+            this.records = this.records.filter((item) => item !== promo);
+            ui.alert('admin_promo_deleted_success', { code: promo.code });
+            this.list(message, Math.min(listPage, Math.max(0, Math.ceil(this.records.length / 10) - 1)));
+          }),
+          ui.button('no_button', () => this.card(message, promo, listPage)),
+        ]])),
       ui.button('admin_promo_back_to_list_button', () => this.list(message, listPage)),
     ]);
   }
@@ -191,12 +195,16 @@ export class AdminPromoDemo {
       ui.clearInput();
       ui.answer('admin_promo_edit_success');
       this.card(ui.host.append(''), promo, listPage);
-    }, [ui.button('back_to_main_menu_button', () => this.editMenu(message, promo, listPage))]);
+    }, [ui.button('cancel_button', () => this.editMenu(message, promo, listPage))]);
   }
 
   private create(message: ChatMessage, bulk: boolean) {
     const { ui } = this;
-    const back = (target: ChatMessage) => ui.button('back_to_main_menu_button', () => this.menu(target));
+    let completed = false;
+    const cancel = (target: ChatMessage) => ui.button('cancel_button', () => {
+      completed = true;
+      this.menu(target);
+    });
     const wrong = (key: string) => { ui.answer(key); };
     const int = (input: string, max: number) => {
       const num = Number(input);
@@ -208,11 +216,13 @@ export class AdminPromoDemo {
       if (!qty) return wrong('admin_bulk_promo_invalid_quantity');
       if (!bulk && !/^[\p{L}\p{N}]{3,30}$/u.test(code)) return wrong('admin_promo_invalid_code_format');
       if (!bulk && this.records.some((record) => record.code === code)) return wrong('admin_promo_code_already_exists');
-      ui.prompt(undefined, ui.t(bulk ? 'admin_bulk_promo_step2_bonus_days' : 'admin_promo_step2_bonus_days',
+      const daysPrompt = ui.host.append('');
+      ui.prompt(daysPrompt, ui.t(bulk ? 'admin_bulk_promo_step2_bonus_days' : 'admin_promo_step2_bonus_days',
         { quantity: qty, code }), (days) => {
         const bonus = int(days, 365);
         if (!bonus) return wrong('admin_promo_invalid_bonus_days');
-        ui.prompt(undefined, ui.t(bulk ? 'admin_bulk_promo_step3_max_activations' : 'admin_promo_step3_max_activations',
+        const maxPrompt = ui.host.append('');
+        ui.prompt(maxPrompt, ui.t(bulk ? 'admin_bulk_promo_step3_max_activations' : 'admin_promo_step3_max_activations',
           { quantity: qty, code, bonus_days: bonus }), (activations) => {
           const limit = int(activations, 10000);
           if (!limit) return wrong('admin_promo_invalid_max_activations');
@@ -220,7 +230,6 @@ export class AdminPromoDemo {
           const validity = ui.host.append(ui.t(bulk ? 'admin_bulk_promo_step4_validity' : 'admin_promo_step4_validity', {
             code, quantity: qty, bonus_days: bonus, max_activations: limit,
           }));
-          let completed = false;
           const finish = (validityDays?: number, fromInput = false) => {
             if (completed) return;
             completed = true;
@@ -246,23 +255,25 @@ export class AdminPromoDemo {
               code, bonus_days: bonus, max_activations: limit, valid_until_str: validityText,
             });
             const reply = fromInput ? ui.host.append('') : validity;
-            ui.view(reply, text, [back(reply)]);
+            ui.view(reply, text, [ui.button('back_to_main_menu_button', () => this.menu(reply))]);
             if (bulk) ui.document('bulk-promocodes-demo.csv', this.csv(created), ui.t('admin_bulk_promo_csv_caption', { count: qty, days: bonus }));
           };
-          validity.rows = [
+          ui.confirmation(validity, validity.text, [
             [
               ui.button('admin_promo_unlimited', () => finish()),
-              ui.button('admin_promo_set_validity_days', () => ui.prompt(validity, ui.t(bulk ? 'admin_bulk_promo_enter_validity_days' : 'admin_promo_enter_validity_days'), (value) => {
-                const days = int(value, 365);
-                if (!days) return wrong('admin_promo_invalid_validity_days');
-                finish(days, true);
-              })),
+              ui.button('admin_promo_set_validity_days', () => {
+                if (!completed) ui.prompt(validity, ui.t(bulk ? 'admin_bulk_promo_enter_validity_days' : 'admin_promo_enter_validity_days'), (value) => {
+                  const days = int(value, 365);
+                  if (!days) return wrong('admin_promo_invalid_validity_days');
+                  finish(days, true);
+                }, [cancel(validity)]);
+              }),
             ],
-            back(validity),
-          ];
-        });
-      });
-    }, [back(message)]);
+            cancel(validity),
+          ]);
+        }, [cancel(maxPrompt)]);
+      }, [cancel(daysPrompt)]);
+    }, [cancel(message)]);
   }
 
   private expiry(days = 0) {

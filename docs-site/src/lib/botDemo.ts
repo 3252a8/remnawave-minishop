@@ -59,7 +59,7 @@ export function mountBotDemo(demo: HTMLElement) {
     role === 'admin' || role === 'owner' ? role : 'user',
     search.get('menu') === 'admin' && (role === 'admin' || role === 'owner') ? 'admin'
       : search.get('menu') === 'bot' ? 'bot' : 'main',
-    search.get('admin_data') === 'empty',
+    search.get('admin_data') === 'empty', demo.dataset.captcha ?? '',
   );
   const chat = demo.querySelector<HTMLElement>('.bot-chat')!;
   const options = element<HTMLDetailsElement>('demo-options');
@@ -211,6 +211,13 @@ export function mountBotDemo(demo: HTMLElement) {
     if (message.invoice) bubble.classList.add('bot-chat-invoice');
     if (!message.outgoing && !message.rows) row.classList.add('bot-chat-simple');
     else row.classList.add(message.outgoing ? 'bot-chat-outgoing' : 'bot-chat-reply');
+    if (message.image) {
+      const image = document.createElement('img');
+      image.className = 'bot-chat-captcha';
+      image.src = message.image;
+      image.alt = bot.t('trial_captcha_bot_prompt');
+      bubble.append(image);
+    }
     bubble.append(chatText(message.text, Boolean(message.outgoing)), clock);
     row.append(bubble);
     if (message.rows?.length) {

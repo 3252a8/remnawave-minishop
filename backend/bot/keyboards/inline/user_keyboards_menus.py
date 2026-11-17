@@ -9,10 +9,12 @@ from config.settings import Settings
 from config.support_links import normalize_support_link
 
 from .menu_appearance import MenuButton, MenuKeyboardBuilder, menu_button
-from .user_keyboards_context import telegram_bot_menu_enabled_for_user
+from .user_keyboards_context import BOT_MENU_CONTEXT, telegram_bot_menu_enabled_for_user
 
 
-def _trial_activation_button(lang: str, i18n_instance: JsonI18n, settings: Settings) -> MenuButton:
+def _trial_activation_button(
+    lang: str, i18n_instance: JsonI18n, settings: Settings, *, context: str | None = None
+) -> MenuButton:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     if settings.SUBSCRIPTION_MINI_APP_URL:
         trial_url = subscription_mini_app_trial_url(settings) or settings.SUBSCRIPTION_MINI_APP_URL
@@ -24,7 +26,7 @@ def _trial_activation_button(lang: str, i18n_instance: JsonI18n, settings: Setti
     return menu_button(
         "trial",
         text=_(key="menu_activate_trial_button"),
-        callback_data="main_action:request_trial",
+        callback_data="main_action:request_trial" + (f":{context}" if context else ""),
     )
 
 
@@ -168,7 +170,9 @@ def get_bot_interface_inline_keyboard(
     builder = MenuKeyboardBuilder(settings, button_ids)
 
     if show_trial_button and settings.TRIAL_ENABLED:
-        builder.row(_trial_activation_button(lang, i18n_instance, settings))
+        builder.row(
+            _trial_activation_button(lang, i18n_instance, settings, context=BOT_MENU_CONTEXT)
+        )
 
     if settings.SUBSCRIPTION_MINI_APP_URL:
         builder.row(

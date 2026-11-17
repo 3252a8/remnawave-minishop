@@ -403,6 +403,7 @@
   "admin_promo_valid_indefinitely": "бессрочно",
   "admin_promo_edit_button": "✏️ Изменить",
   "admin_promo_delete_button": "🗑 Удалить",
+  "admin_promo_delete_confirm": "Удалить код активации {code}?",
   "admin_promo_deleted_success": "Промокод {code} удален.",
   "admin_promo_not_found": "Промокод не найден.",
   "admin_promo_export_csv_button": "📄 Экспорт в CSV",

@@ -293,15 +293,6 @@ async def main_action_callback_handler(
 ) -> None:
     _, action, *arguments = callback_data(callback).split(":")
 
-    if action in {
-        "back_to_main",
-        "back_to_main_keep",
-        "bot_interface",
-        "bot_sections",
-        "bot_payment_history",
-    }:
-        await state.clear()
-
     from . import promo_user as user_promo_handlers
     from . import referral as user_referral_handlers
     from . import subscription as user_subscription_handlers
@@ -315,6 +306,7 @@ async def main_action_callback_handler(
         )
         return
 
+    await state.clear()
     bot_interface_actions = {
         "bot_interface",
         "bot_subscribe",
@@ -327,7 +319,7 @@ async def main_action_callback_handler(
         "bot_payment_history",
     }
     from_bot_menu = action in bot_interface_actions or (
-        action == "my_devices" and arguments[-1:] == [BOT_MENU_CONTEXT]
+        action in {"my_devices", "request_trial"} and arguments[-1:] == [BOT_MENU_CONTEXT]
     )
     preserve_message = arguments[:1] == ["keep"]
     if from_bot_menu and not telegram_bot_menu_enabled_for_user(

@@ -1,5 +1,6 @@
 import { AdminDemo, adminMessages, type AdminMessages } from './botDemoAdmin';
 import type { BotDemoData, DemoPlan, DemoTariff } from './botDemoData';
+import { DEMO_TRIAL_CAPTCHA_ANSWER } from '../../../frontend/src/lib/webapp/previewMock/devMock';
 import type { PaymentHistoryItem } from '../../../frontend/src/lib/webapp/paymentHistory';
 
 const messageKeys = [
@@ -47,6 +48,8 @@ const messageKeys = [
   'referral_webapp_link_line', 'referral_bonus_per_period', 'referral_share_message_button',
   'referral_friend_message', 'referral_friend_message_with_webapp', 'trial_activated_details_message',
   'trial_already_had_subscription_or_trial', 'wa_trial_activated',
+  'trial_captcha_bot_prompt', 'trial_captcha_bot_cancel', 'trial_captcha_bot_success',
+  'trial_captcha_bot_continue', 'trial_captcha_invalid', 'trial_captcha_expired',
   'payment_hwid_renewal_toggle_on', 'payment_hwid_renewal_toggle_off',
   'select_traffic_package', 'buy_traffic_package_button', 'choose_payment_method_traffic',
   'payment_description_traffic', 'payment_invoice_sent_message_traffic', 'payment_link_message_traffic',
@@ -82,6 +85,7 @@ export type ChatMessage = {
   outgoing?: boolean;
   rows?: ButtonRow[];
   invoice?: boolean;
+  image?: string;
 };
 
 export function chatMessages(locale: Record<string, string>): Messages {
@@ -98,6 +102,7 @@ export const scenarios = {
   'without-app': { app: false, active: true, description: 'Действующая подписка. Личный кабинет открывает подписку в чате.' },
   'auto-renew': { app: false, active: true, description: 'Действующая подписка с автопродлением из веб-демо.' },
   'new-without-app': { app: false, active: false, description: 'Новый пользователь. Бот активирует пробный период прямо в чате.' },
+  'trial-captcha': { app: false, active: false, description: 'Проверка перед активацией пробного периода в чате.' },
   stars: { app: true, active: true, description: 'Тариф и способы оплаты из веб-сценария с Telegram Stars.' },
   'account-tools': { app: true, active: true, description: 'Разделы Mini App с партнёрским кабинетом и встроенным статусом.' },
 } as const;
@@ -140,6 +145,7 @@ export class BotDemoConversation {
   completedPayments: PaymentHistoryItem[] = [];
   notice = '';
   private trial = false;
+  private trialProofUntil = 0;
   private trialUsed = false;
   private promoUsed = new Set<string>();
   private tariff: DemoTariff;
@@ -156,7 +162,7 @@ export class BotDemoConversation {
   private inputAction?: (value: string) => void;
   private readonly admin: AdminDemo;
 
-  constructor(readonly locales: Record<Language, Messages>, readonly data: BotDemoData, language: Language, scenario: Scenario, role: BotRole, firstMenu: Menu, public emptyAdmin: boolean) {
+  constructor(readonly locales: Record<Language, Messages>, readonly data: BotDemoData, language: Language, scenario: Scenario, role: BotRole, firstMenu: Menu, public emptyAdmin: boolean, private readonly captchaImage: string) {
     this.language = language;
     this.scenario = scenario;
     this.role = role;
@@ -170,6 +176,7 @@ export class BotDemoConversation {
       append: (text, rows) => this.append(text, rows),
       edit: (message, text, rows) => this.edit(message, text, rows),
       setInput: (next) => { this.inputAction = next; },
+      isInput: (next) => this.inputAction === next,
       notify: (text) => { this.notice = text; },
     });
     this.reset(scenario);
@@ -203,7 +210,7 @@ export class BotDemoConversation {
   }
 
   get webMock() {
-    if (this.scenario === 'auto-renew') return 'auto-renew';
+    if (this.scenario === 'auto-renew' || this.scenario === 'trial-captcha') return this.scenario;
     if (this.scenario === 'stars') return 'checkout-addons';
     if (this.scenario === 'account-tools') return 'partner-referral-enabled';
     return this.subscribed ? 'tariffs' : this.trialUsed ? 'no-subscription' : 'trial';
@@ -226,6 +233,7 @@ export class BotDemoConversation {
 
   reset(scenario = this.scenario) {
     this.scenario = scenario;
+    this.trialProofUntil = 0;
     this.autoRenewEnabled = this.autoRenewDemo.enabled;
     this.savedCardAvailable = this.autoRenewDemo.enabled;
     this.clearConversation();
@@ -290,13 +298,14 @@ export class BotDemoConversation {
     }
   }
 
-  private append(text: string, rows?: ButtonRow[]) {
+  private append(text: string, rows?: ButtonRow[]): ChatMessage {
     const message = { text, rows };
     this.messages.push(message);
     return message;
   }
 
   private edit(message: ChatMessage, text: string, rows?: ButtonRow[]) {
+    this.admin.clearInput();
     Object.assign(message, { text, rows });
   }
 
@@ -323,7 +332,7 @@ export class BotDemoConversation {
     const rows: ButtonRow[] = [];
     if (!this.trialUsed && !this.subscribed) {
       rows.push(this.settings.app ? this.app('menu_activate_trial_button', '/trial', 'trial')
-        : this.button('menu_activate_trial_button', () => this.activateTrial(message)));
+        : this.button('menu_activate_trial_button', () => this.activateTrial(message, menu)));
     }
     if (this.settings.app) rows.push(this.app('menu_personal_account_button', '/home'));
     if (menu === 'main') {
@@ -643,9 +652,36 @@ export class BotDemoConversation {
     })];
   }
 
-  activateTrial(message?: ChatMessage) {
+  private verifyTrial(menu: Exclude<Menu, 'admin'>) {
+    const challenge = this.append(this.t('trial_captcha_bot_prompt'));
+    const expiresAt = Date.now() + 180_000;
+    challenge.image = this.captchaImage;
+    const answer = (input: string) => {
+      this.admin.clearInput();
+      const expired = expiresAt <= Date.now();
+      const valid = !expired && input === DEMO_TRIAL_CAPTCHA_ANSWER;
+      if (valid) this.trialProofUntil = Date.now() + 600_000;
+      const reply = this.append('');
+      this.edit(reply, this.t(valid ? 'trial_captcha_bot_success'
+        : expired ? 'trial_captcha_expired' : 'trial_captcha_invalid'), [
+        this.button('trial_captcha_bot_continue', () => this.activateTrial(reply, menu)),
+      ]);
+    };
+    challenge.rows = [this.button('trial_captcha_bot_cancel', () => {
+      const active = this.inputAction === answer;
+      this.messages.splice(this.messages.indexOf(challenge), 1);
+      if (active) this.showMenu(this.append(''), menu);
+    })];
+    this.inputAction = answer;
+  }
+
+  activateTrial(message?: ChatMessage, menu: Exclude<Menu, 'admin'> = 'main') {
     if (this.trialUsed || this.subscribed) {
       this.notice = this.t('trial_already_had_subscription_or_trial');
+      return;
+    }
+    if (this.scenario === 'trial-captcha' && this.trialProofUntil <= Date.now()) {
+      this.verifyTrial(menu);
       return;
     }
     this.subscribed = this.trial = this.trialUsed = true;
@@ -654,7 +690,7 @@ export class BotDemoConversation {
     this.trafficLimit = `${this.data.current.trialGb} GB`;
     if (message) this.edit(message, this.t('trial_activated_details_message', {
       days: this.days, end_date: this.expiry, config_link: this.data.current.configUrl,
-    }) + this.installDetails(), this.connectAndBack(message));
+    }) + this.installDetails(), this.connectAndBack(message, false, menu));
   }
 
   private subscription(message: ChatMessage, menu: Exclude<Menu, 'admin'>) {
@@ -815,7 +851,7 @@ export class BotDemoConversation {
             this.notice = this.t('rename_device_reset_done');
             back();
           })] : []),
-          this.button('cancel_button', back),
+          this.button('cancel_button', () => this.chooseDeviceName(message, back)),
         ]);
         this.inputAction = (name) => {
           if ([...name].length > 32) {
@@ -975,7 +1011,7 @@ export class BotDemoConversation {
   }
 
   private promo(message: ChatMessage) {
-    this.edit(message, this.t('promo_code_prompt'), [this.back(() => this.showMenu(message, 'bot'))]);
+    this.edit(message, this.t('promo_code_prompt'), [this.button('cancel_button', () => this.showMenu(message, 'bot'))]);
     this.inputAction = (input) => {
       this.inputAction = undefined;
       const code = input.trim().toUpperCase();

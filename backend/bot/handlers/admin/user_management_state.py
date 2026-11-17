@@ -343,7 +343,7 @@ async def ban_user_prompt_handler(
         await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:ban_management"
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
             ),
         )
     except Exception as e:
@@ -351,7 +351,7 @@ async def ban_user_prompt_handler(
         await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:ban_management"
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
             ),
         )
 
@@ -380,7 +380,7 @@ async def unban_user_prompt_handler(
         await callback_message(callback).edit_text(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:ban_management"
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
             ),
         )
     except Exception as e:
@@ -388,7 +388,7 @@ async def unban_user_prompt_handler(
         await callback_message(callback).answer(
             prompt_text,
             reply_markup=get_admin_back_keyboard(
-                current_lang, i18n, "admin_section:ban_management"
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
             ),
         )
 

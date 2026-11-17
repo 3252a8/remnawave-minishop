@@ -89,6 +89,7 @@ async def admin_panel_actions_callback_handler(
         await callback.answer("Error processing action: message context lost.", show_alert=True)
         return
 
+    await state.clear()
     if action == "stats":
         await admin_stats_handlers.show_statistics_handler(callback, i18n_data, settings, session)
     elif action == "broadcast":
@@ -141,7 +142,6 @@ async def admin_panel_actions_callback_handler(
             callback, state, i18n_data, settings, session
         )
     elif action == "view_logs_menu":
-        await state.clear()
         await admin_logs_handlers.display_logs_menu(callback, i18n_data, settings, session)
     elif action == "promo_management":
         await admin_promo_manage_handlers.promo_management_handler(
@@ -165,7 +165,6 @@ async def admin_panel_actions_callback_handler(
     elif action == "user_ratings":
         await admin_stats_handlers.show_user_ratings_handler(callback, i18n_data, settings, session)
     elif action == "ads":
-        await state.clear()
         from . import ads as admin_ads_handlers
 
         await admin_ads_handlers.show_ads_menu(callback, settings, i18n_data, session)
@@ -174,7 +173,6 @@ async def admin_panel_actions_callback_handler(
 
         await admin_ads_handlers.ads_create_start(callback, state, settings, i18n_data)
     elif action == "main":
-        await state.clear()
         try:
             await callback_message(callback).edit_text(
                 _(key="admin_panel_title"),

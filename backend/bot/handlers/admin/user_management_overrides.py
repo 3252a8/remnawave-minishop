@@ -181,7 +181,7 @@ async def handle_premium_override_bonus_prompt(
         lang,
         i18n_instance,
         user_card_section_callback(callback, user.user_id, "p"),
-        "back_to_main_menu_button",
+        "cancel_button",
     )
     try:
         await callback_message(callback).edit_text(prompt, reply_markup=back)
@@ -353,7 +353,7 @@ async def handle_hwid_limit_prompt(
         lang,
         i18n_instance,
         user_card_section_callback(callback, user.user_id, "h"),
-        "back_to_main_menu_button",
+        "cancel_button",
     )
     try:
         await callback_message(callback).edit_text(prompt, reply_markup=back)

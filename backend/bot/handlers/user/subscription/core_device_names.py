@@ -113,7 +113,10 @@ async def rename_device_list_callback(
     session: AsyncSession,
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
+    state: FSMContext | None = None,
 ) -> None:
+    if state is not None:
+        await state.clear()
     get_text = _get_text(i18n_data, settings)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         await _alert(callback, get_text("my_devices_feature_disabled"))
@@ -173,6 +176,7 @@ async def rename_device_pick_callback(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
 ) -> None:
+    await state.clear()
     get_text = _get_text(i18n_data, settings)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         await _alert(callback, get_text("my_devices_feature_disabled"))
@@ -269,11 +273,9 @@ async def rename_device_cancel_callback(
     session: AsyncSession,
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
-    bot: Bot,
 ) -> None:
-    await state.clear()
-    await my_devices_command_handler(
-        callback, i18n_data, settings, panel_service, subscription_service, session, bot
+    await rename_device_list_callback(
+        callback, settings, i18n_data, session, subscription_service, panel_service, state
     )
 
 

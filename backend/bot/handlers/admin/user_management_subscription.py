@@ -104,7 +104,7 @@ async def handle_traffic_grant_prompt(
         lang,
         i18n_instance,
         user_card_section_callback(callback, user.user_id, "t"),
-        "back_to_main_menu_button",
+        "cancel_button",
     )
     try:
         await callback_message(callback).edit_text(prompt, reply_markup=back)
@@ -241,7 +241,7 @@ async def handle_add_subscription_days_prompt(
             if (callback.data or "").startswith("user_action:add_subscription_tariff:")
             else user_card_back_callback(callback, user.user_id)
         ),
-        "back_to_main_menu_button",
+        "cancel_button",
     )
     try:
         await callback_message(callback).edit_text(prompt_text, reply_markup=back)
@@ -453,7 +453,7 @@ async def handle_send_message_prompt(
         lang,
         i18n_instance,
         user_card_back_callback(callback, user.user_id),
-        "admin_user_back_to_card_button",
+        "cancel_button",
     )
     try:
         await callback_message(callback).edit_text(prompt_text, reply_markup=back)

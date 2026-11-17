@@ -277,7 +277,9 @@ async def prompt_user_for_logs_handler(
 
     await callback_message(callback).edit_text(
         text=_("admin_prompt_for_user_id_or_username_logs"),
-        reply_markup=get_admin_back_keyboard(current_lang, i18n, "admin_action:view_logs_menu"),
+        reply_markup=get_admin_back_keyboard(
+            current_lang, i18n, "admin_action:view_logs_menu", "cancel_button"
+        ),
     )
     await state.set_state(AdminStates.waiting_for_user_id_for_logs)
     await callback.answer()

@@ -147,7 +147,7 @@ async def promo_edit_field_handler(
     await callback_message(callback).edit_text(
         prompt,
         reply_markup=get_admin_back_keyboard(
-            current_lang, i18n, f"promo_edit_select:{promo_id}:{list_page}"
+            current_lang, i18n, f"promo_edit_select:{promo_id}:{list_page}", "cancel_button"
         ),
     )
     await callback.answer()
