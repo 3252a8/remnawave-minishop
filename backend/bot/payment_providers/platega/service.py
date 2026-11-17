@@ -493,6 +493,8 @@ async def _create_payment(
                 "source": "webapp",
             }
         )
+    payer_id = str(request.user_id)
+    metadata = {"userId": payer_id, "userName": payer_id, "user_email": f"{payer_id}@mail.ru"}
     if variant == "subscription":
         return await service.create_subscription(
             amount=request.amount,
@@ -500,14 +502,14 @@ async def _create_payment(
             description=request.description,
             months=request.months,
             payload=json.dumps(payload_data),
+            metadata=metadata,
         )
-    payer_id = str(request.user_id)
     return await service.create_transaction(
         amount=request.amount,
         currency=request.currency,
         description=request.description,
         payload=json.dumps(payload_data),
-        metadata={"userId": payer_id, "userName": payer_id},
+        metadata=metadata,
         payment_method=_platega_method_id(service, variant),
         allow_method_selection=variant == "all_methods",
     )

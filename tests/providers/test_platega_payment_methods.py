@@ -123,13 +123,11 @@ def test_hosted_chooser_uses_v2_endpoint_without_payment_method(monkeypatch) -> 
     assert captured["body"]["metadata"] == {"userId": "42", "userName": "42"}
 
 
-def test_create_payment_includes_antifraud_payer_metadata(monkeypatch) -> None:
+@pytest.mark.parametrize("variant", ["sbp", "card", "all_methods", "subscription"])
+def test_create_payment_includes_antifraud_payer_metadata(monkeypatch, variant) -> None:
     service = _service(SBP_ENABLED=True)
-    create_transaction = AsyncMock(
-        return_value=(True, {"transactionId": "tx-1", "redirect": "https://pay.platega.io/t/1"})
-    )
-    monkeypatch.setattr(service, "create_transaction", create_transaction)
-    request = SimpleNamespace(
+    captured = _capture_create_request(monkeypatch, service)
+    request = platega_service.CreatePaymentRequest(
         payment=SimpleNamespace(payment_id=17),
         user_id=42,
         amount=150.0,
@@ -137,16 +135,16 @@ def test_create_payment_includes_antifraud_payer_metadata(monkeypatch) -> None:
         description="Subscription",
         months=1,
         sale_mode="subscription",
-        provider_context={"platega_variant": "sbp"},
+        provider_context={"platega_variant": variant},
     )
 
-    asyncio.run(platega_service._create_payment(service, request))
+    success, _data = asyncio.run(platega_service._create_payment(service, request))
 
-    create_call = create_transaction.await_args
-    assert create_call is not None
-    assert create_call.kwargs["metadata"] == {
+    assert success
+    assert captured["body"]["metadata"] == {
         "userId": "42",
         "userName": "42",
+        "user_email": "42@mail.ru",
     }
 
 
