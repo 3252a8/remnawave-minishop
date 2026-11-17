@@ -1,7 +1,6 @@
-name: Publish GHCR images (reusable)
+name: Publish Core images (reusable)
 
-# Publishes the three public Core images to GHCR only. GitLab remains the
-# source of the wider release pipeline and all non-GHCR publication work.
+# Push each candidate to both registries from one BuildKit export.
 
 on:
   workflow_call:
@@ -25,6 +24,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
   packages: write
 
 jobs:
@@ -105,6 +106,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Generate GHCR metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -116,6 +123,7 @@ jobs:
             type=raw,value=${{ inputs.version }},enable=${{ inputs.channel == 'release' }}
             type=raw,value=latest,enable=${{ inputs.channel == 'release' }}
           labels: |
+            org.opencontainers.image.ref.name=${{ inputs.channel == 'release' && format('v{0}', inputs.version) || 'dev' }}
             org.opencontainers.image.revision=${{ inputs.source_commit }}
 
       - name: Build and push ${{ matrix.image }}
@@ -129,10 +137,12 @@ jobs:
           push: true
           pull: true
           no-cache: ${{ inputs.channel == 'release' }}
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+            docker.io/${{ github.repository_owner }}/${{ matrix.image }}:candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GITHUB_REF_NAME=${{ inputs.channel == 'release' && 'main' || 'dev' }}
+            REMNAWAVE_MINISHOP_BRANCH=${{ inputs.channel == 'release' && 'main' || 'dev' }}
             REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official
             REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ inputs.source_commit }}
             REMNAWAVE_MINISHOP_APK_REFRESH=${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -147,7 +157,7 @@ jobs:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:
-          version: v0.75.0
+          version: v0.76.2
           scan-type: image
           image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
           scanners: vuln
@@ -155,13 +165,53 @@ jobs:
           exit-code: "1"
           ignore-unfixed: false
 
-      - name: Publish verified channel tags
+      - name: Install Cosign for Docker Hub
+        uses: sigstore/cosign-installer@v4.1.2
+        with:
+          cosign-release: v3.1.4
+
+      - name: Sign and verify the Docker Hub candidate
         env:
-          IMAGE_REFERENCE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
-          CHANNEL_TAGS: ${{ steps.meta.outputs.tags }}
+          COSIGN_EXPERIMENTAL: "1"
+          IMAGE: docker.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          CHANNEL_TAG: ${{ inputs.channel == 'release' && inputs.version || 'dev' }}
         run: |
-          while IFS= read -r tag; do
-            if [ -n "$tag" ]; then
-              docker buildx imagetools create --prefer-index=false --tag "$tag" "$IMAGE_REFERENCE"
+          set -euo pipefail
+          cosign sign --yes --registry-referrers-mode oci-1-1 \
+            --annotations "tag=$CHANNEL_TAG" \
+            --annotations "org.opencontainers.image.revision=$SOURCE_COMMIT" "$IMAGE"
+          for attempt in 1 2 3 4 5; do
+            if cosign verify --experimental-oci11 \
+              --annotations "tag=$CHANNEL_TAG" \
+              --annotations "org.opencontainers.image.revision=$SOURCE_COMMIT" \
+              --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/_docker-publish-ghcr.yml@$GITHUB_REF" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE" > /dev/null; then
+              break
             fi
-          done <<< "$CHANNEL_TAGS"
+            [ "$attempt" != 5 ] || exit 1
+            sleep "$((attempt * 5))"
+          done
+
+      - name: Attest the stable image
+        if: inputs.channel == 'release'
+        uses: actions/attest@v4
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Record verified digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TARGET: ${{ matrix.target }}
+        run: printf '%s\n' "$DIGEST" > "$TARGET.digest"
+
+      - name: Upload verified digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-image-digest-${{ matrix.target }}
+          path: ${{ matrix.target }}.digest
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7

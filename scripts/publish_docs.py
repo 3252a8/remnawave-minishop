@@ -1,4 +1,4 @@
-"""Publish a GitLab-built documentation artifact without the Pages build scheduler."""
+"""Publish a CI-built documentation artifact without the Pages build scheduler."""
 
 from __future__ import annotations
 
@@ -33,6 +33,19 @@ def object_dict(value: object) -> dict[str, object]:
 
 
 def inputs() -> tuple[str, str]:
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        sha = os.environ.get("GITHUB_SHA", "")
+        branch = os.environ.get("GITHUB_REF_NAME", "")
+        if (
+            os.environ.get("GITHUB_REPOSITORY") != REPOSITORY
+            or os.environ.get("GITHUB_SERVER_URL") != "https://github.com"
+            or os.environ.get("GITHUB_REF") != f"refs/heads/{branch}"
+            or not re.fullmatch(r"[0-9a-f]{40}", sha)
+            or branch not in PROJECTS
+        ):
+            raise ValueError("Only a pinned GitHub 3252a8 Core dev/main commit can be published")
+        return sha, branch
+
     sha, branch = os.environ.get("CI_COMMIT_SHA", ""), os.environ.get("CI_COMMIT_BRANCH", "")
     if (
         os.environ.get("CI_PROJECT_PATH") != REPOSITORY
@@ -89,14 +102,17 @@ def request_bytes(
 
 
 def assert_source_head(sha: str, branch: str) -> None:
+    server = (
+        "https://github.com" if os.environ.get("GITHUB_ACTIONS") == "true" else "https://gitlab.com"
+    )
     result = subprocess.run(
-        ["git", "ls-remote", f"https://gitlab.com/{REPOSITORY}.git", f"refs/heads/{branch}"],
+        ["git", "ls-remote", f"{server}/{REPOSITORY}.git", f"refs/heads/{branch}"],
         capture_output=True,
         text=True,
         check=True,
     )
     if result.stdout.split() != [sha, f"refs/heads/{branch}"]:
-        raise ValueError("The GitLab branch moved; refusing a stale documentation deployment")
+        raise ValueError("The source branch moved; refusing a stale documentation deployment")
 
 
 def file_hashes(dist: Path, sha: str, branch: str) -> dict[str, str]:
@@ -170,7 +186,7 @@ def configure_project(project: str, branch: str) -> None:
         or updated.get("preview_deployment_setting") != "none"
     ):
         raise ValueError(f"Native Pages builds are still enabled for {project}")
-    print(f"GitLab CI owns documentation builds: {project}", flush=True)
+    print(f"Native Pages builds are disabled for {project}", flush=True)
 
 
 def deployment_origin(record: dict[str, object], project: str, sha: str, branch: str) -> str:
@@ -295,7 +311,7 @@ def publish(dist: Path, sha: str, branch: str, output: Path) -> str:
     )
     verify_publication([origin, f"https://{project}.pages.dev"], files)
     assert_source_head(sha, branch)
-    print(f"Verified GitLab documentation: {origin} ({branch}, {sha})", flush=True)
+    print(f"Verified documentation deployment: {origin} ({branch}, {sha})", flush=True)
     return origin
 
 
