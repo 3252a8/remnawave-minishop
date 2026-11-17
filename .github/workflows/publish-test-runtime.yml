@@ -1,0 +1,56 @@
+name: Publish test runtime
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - deploy/docker/Dockerfile
+      - deploy/docker/refresh_pip_vendor.py
+      - backend/requirements.txt
+      - requirements-dev.txt
+      - scripts/test_runtime.mjs
+      - .github/workflows/publish-test-runtime.yml
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: Refresh pinned test dependency inputs before validation
+        type: boolean
+        default: false
+
+concurrency:
+  group: core-test-runtime-publication
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == '3252a8/remnawave-minishop' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    env:
+      MINISHOP_TEST_RUNTIME_CANDIDATE: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Refresh pinned inputs
+        if: inputs.refresh
+        run: node scripts/test_runtime.mjs refresh
+      - name: Validate the candidate runtime
+        env:
+          MINISHOP_LOCAL_TEST_RUNTIME: container
+        run: node scripts/run_pytest.mjs tests/unit/test_full_test_run.py tests/unit/test_source_files.py
+      - name: Publish the validated runtime
+        run: node scripts/test_runtime.mjs publish
+      - uses: actions/upload-artifact@v7
+        with:
+          name: test-runtime-lock
+          path: deploy/docker/test-runtime.lock.json
+          if-no-files-found: error
+          retention-days: 90

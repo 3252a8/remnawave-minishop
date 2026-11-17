@@ -6,18 +6,73 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: core-ghcr-dev
+  group: core-dev-images
   cancel-in-progress: false
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   publish:
+    if: github.repository == '3252a8/remnawave-minishop' && github.ref == 'refs/heads/dev'
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+      packages: write
     uses: ./.github/workflows/_docker-publish-ghcr.yml
     with:
       source_ref: ${{ github.sha }}
       source_commit: ${{ github.sha }}
       channel: dev
     secrets: inherit
+
+  promote:
+    name: Promote all verified dev images
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: core-image-digest-*
+          path: verified-digests
+          merge-multiple: true
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify revisions and update both registries
+        id: images
+        run: bash scripts/github-promote-images.sh dev "$GITHUB_SHA" dev verified-digests
+
+      - name: Request downstream dev images from the verified Core revision
+        if: steps.images.outputs.digests != ''
+        env:
+          GH_TOKEN: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_TOKEN }}
+          DOWNSTREAM_REPOSITORY: ${{ secrets.IMAGE_CHANNEL_DOWNSTREAM_REPOSITORY }}
+          DIGESTS: ${{ steps.images.outputs.digests }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DOWNSTREAM_REPOSITORY" ]; then
+            echo 'No downstream image consumer is configured.'
+            exit 0
+          fi
+          test -n "$GH_TOKEN"
+          jq -cn --arg commit "$GITHUB_SHA" --arg digests "$DIGESTS" \
+            '{channel: "dev", core_commit: $commit, core_digests: $digests}' |
+            gh workflow run publish-internal-staging-images.yml --repo "$DOWNSTREAM_REPOSITORY" --json --ref dev

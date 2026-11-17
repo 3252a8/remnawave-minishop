@@ -12,7 +12,7 @@ on:
         type: string
 
 concurrency:
-  group: core-ghcr-release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  group: core-stable-images
   cancel-in-progress: false
 
 permissions:
@@ -22,7 +22,10 @@ permissions:
 jobs:
   validate:
     name: Validate release source
+    if: github.repository == '3252a8/remnawave-minishop'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       commit: ${{ steps.release.outputs.commit }}
       tag: ${{ steps.release.outputs.tag }}
@@ -41,6 +44,7 @@ jobs:
           EVENT_REF_NAME: ${{ github.ref_name }}
           EVENT_REF_TYPE: ${{ github.ref_type }}
           EVENT_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -65,8 +69,18 @@ jobs:
               exit 1
             fi
           fi
-          if ! git merge-base --is-ancestor "$tag_commit" origin/main; then
-            echo "Release tag must be reachable from main" >&2
+          if [ "$tag_commit" != "$(git rev-parse origin/main)" ]; then
+            echo "Release tag must point at current main" >&2
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$EVENT_REF_NAME" != "main" ]; then
+            echo "Stable retries must run from main" >&2
+            exit 1
+          fi
+          if ! gh release view "$release_tag" --json isDraft --jq .isDraft > draft-state; then
+            gh release create "$release_tag" --verify-tag --draft --title "$release_tag" --generate-notes
+          elif [ "$(cat draft-state)" != true ]; then
+            echo "Release $release_tag has already been published" >&2
             exit 1
           fi
 
@@ -78,6 +92,11 @@ jobs:
 
   publish:
     needs: validate
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+      packages: write
     uses: ./.github/workflows/_docker-publish-ghcr.yml
     with:
       source_ref: refs/tags/${{ needs.validate.outputs.tag }}
@@ -85,3 +104,69 @@ jobs:
       channel: release
       version: ${{ needs.validate.outputs.version }}
     secrets: inherit
+
+  release:
+    name: Promote verified stable images and publish the release
+    needs: [validate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+      packages: write
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: core-image-digest-*
+          path: verified-digests
+          merge-multiple: true
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Promote version and latest tags in both registries
+        id: images
+        run: bash scripts/github-promote-images.sh release "$RELEASE_COMMIT" "$RELEASE_TAG" verified-digests
+
+      - name: Write immutable image digest manifest
+        env:
+          DIGESTS: ${{ steps.images.outputs.digests }}
+        run: |
+          set -euo pipefail
+          jq -n --arg repo "$GITHUB_REPOSITORY" --arg tag "$RELEASE_TAG" --arg version "$RELEASE_VERSION" \
+            --arg commit "$RELEASE_COMMIT" --arg workflow_commit "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" \
+            --arg attempt "$GITHUB_RUN_ATTEMPT" --arg owner "$GITHUB_REPOSITORY_OWNER" --argjson digests "$DIGESTS" '
+              {schema_version: 1, release: {repository: $repo, tag: $tag, version: $version, commit: $commit},
+               workflow: {commit: $workflow_commit, run_id: $run, run_attempt: $attempt},
+               images: ($digests | to_entries | map(
+                 .key as $target | .value as $digest | "\($owner)/remnawave-minishop-\($target)" as $image |
+                 {target: $target, digest: $digest, ghcr: "ghcr.io/\($image)", ghcr_ref: "ghcr.io/\($image)@\($digest)",
+                  dockerhub: "docker.io/\($image)", dockerhub_ref: "docker.io/\($image)@\($digest)"}))}
+              ' > release-images.json
+          sha256sum release-images.json > release-images.json.sha256
+
+      - name: Attest the digest manifest
+        uses: actions/attest@v4
+        with:
+          subject-path: release-images.json
+
+      - name: Upload the digest manifest and publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256 --clobber
+          gh release edit "$RELEASE_TAG" --draft=false

@@ -142,52 +142,44 @@ class BuildVersionFileTests(unittest.TestCase):
 
 
 class BuildPipelineVersionMetadataTests(unittest.TestCase):
-    def test_gitlab_image_publications_retry_transient_registry_failures(self):
+    def test_gitlab_pipeline_only_builds_and_publishes_documentation(self):
         pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
 
-        self.assertIn(
-            "retry:\n"
-            "    max: 1\n"
-            "    when:\n"
-            "      - runner_external_dependency_failure\n"
-            "      - script_failure",
-            pipeline,
-        )
+        self.assertIn("build-docs:", pipeline)
+        self.assertIn("publish-docs:", pipeline)
+        self.assertNotIn("publish-dockerhub-images", pipeline)
+        self.assertNotIn("publish-test-runtime:", pipeline)
+        self.assertNotIn("publish-release-images:", pipeline)
 
-    def test_gitlab_dev_build_forwards_branch_to_dockerfile(self):
-        pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
-        publish_script = (REPOSITORY_ROOT / "scripts" / "gitlab-publish-images.sh").read_text(
+    def test_github_dev_build_forwards_branch_to_dockerfile(self):
+        workflows = REPOSITORY_ROOT / ".github" / "workflows"
+        pipeline = (workflows / "docker-dev.yml").read_text(encoding="utf-8")
+        publisher = (workflows / "_docker-publish-ghcr.yml").read_text(
             encoding="utf-8"
         )
         build_script = (REPOSITORY_ROOT / "scripts" / "docker-build-images.sh").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn("PUBLISH_CHANNEL: dev", pipeline)
-        self.assertIn('build_branch="$CI_COMMIT_REF_NAME"', publish_script)
-        self.assertIn(
-            '--build-arg "REMNAWAVE_MINISHOP_BRANCH=$build_branch"',
-            publish_script,
-        )
+        self.assertIn("channel: dev", pipeline)
+        self.assertIn("REMNAWAVE_MINISHOP_BRANCH=", publisher)
+        self.assertIn("inputs.channel == 'release' && 'main' || 'dev'", publisher)
         self.assertIn(
             '--build-arg "REMNAWAVE_MINISHOP_BRANCH=$REMNAWAVE_MINISHOP_BRANCH"',
             build_script,
         )
 
-    def test_gitlab_dev_publish_triggers_the_pro_dev_pipeline(self):
-        pipeline = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    def test_github_dispatches_verified_dev_images_to_the_configured_consumer(self):
+        gitlab = (REPOSITORY_ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+        workflow = (REPOSITORY_ROOT / ".github/workflows/docker-dev.yml").read_text(encoding="utf-8")
 
-        self.assertIn("dispatch-dev-image-consumer:", pipeline)
-        self.assertIn("needs:\n    - publish-dev-images", pipeline)
-        self.assertIn("project: $IMAGE_CHANNEL_DOWNSTREAM_PROJECT", pipeline)
-        self.assertNotIn("IMAGE_CHANNEL_DOWNSTREAM_REF", pipeline)
-        self.assertIn("strategy: mirror", pipeline)
-        self.assertIn("CORE_DEV_COMMIT: $CI_COMMIT_SHA", pipeline)
-        self.assertIn(
-            "CORE_DEV_IMAGE_PREFIX: docker.io/3252a8/remnawave-minishop",
-            pipeline,
-        )
-        self.assertNotIn("remnawave-minishop-pro", pipeline)
+        self.assertNotIn("publish-dev-images:", gitlab)
+        self.assertNotIn("dispatch-dev-image-consumer:", gitlab)
+        self.assertIn("needs: publish", workflow)
+        self.assertIn("steps.images.outputs.digests != ''", workflow)
+        self.assertIn("secrets.IMAGE_CHANNEL_DOWNSTREAM_REPOSITORY", workflow)
+        self.assertIn("core_commit: $commit, core_digests: $digests", workflow)
+        self.assertNotIn("remnawave-minishop-pro", workflow)
 
 
 class LiveGitFallbackTests(unittest.TestCase):
