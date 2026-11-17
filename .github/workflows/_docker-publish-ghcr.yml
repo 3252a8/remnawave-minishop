@@ -172,6 +172,7 @@ jobs:
 
       - name: Sign and verify the Docker Hub candidate
         env:
+          COSIGN_EXPERIMENTAL: "1"
           IMAGE: docker.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           CHANNEL_TAG: ${{ inputs.channel == 'release' && inputs.version || 'dev' }}
