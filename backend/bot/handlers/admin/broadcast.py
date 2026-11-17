@@ -12,6 +12,7 @@ from bot.keyboards.inline.admin_keyboards import (
     get_broadcast_confirmation_keyboard,
     get_system_functions_keyboard,
 )
+from bot.middlewares.confirmation import answer_confirmation, edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.broadcast_personalization import (
     BroadcastUserContext,
@@ -233,9 +234,11 @@ async def process_broadcast_message_handler(
     # Show a short confirmation without duplicating text; the message above is the preview
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
 
-    confirmation = await message.answer(
+    confirmation = await answer_confirmation(
+        message,
+        state,
         confirmation_prompt,
-        reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target="all"),
+        get_broadcast_confirmation_keyboard(current_lang, i18n, target="all"),
     )
     await state.update_data(broadcast_confirmation_message_id=confirmation.message_id)
     await state.set_state(AdminStates.confirming_broadcast)
@@ -272,10 +275,13 @@ async def change_broadcast_target_handler(
     await state.update_data(broadcast_target=new_target)
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
     with contextlib.suppress(Exception):
-        await callback_message(callback).edit_text(
+        confirmation = await edit_confirmation(
+            callback_message(callback),
+            state,
             confirmation_prompt,
-            reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target=new_target),
+            get_broadcast_confirmation_keyboard(current_lang, i18n, target=new_target),
         )
+        await state.update_data(broadcast_confirmation_message_id=confirmation.message_id)
     await callback.answer()
 
 
@@ -317,6 +323,7 @@ async def confirm_broadcast_callback_handler(
         return
 
     if action == "send":
+        await state.clear()
         # Create the content object from saved data
         content = MessageContent(
             content_type=user_fsm_data.get("broadcast_content_type", "text"),
@@ -327,7 +334,6 @@ async def confirm_broadcast_callback_handler(
 
         if not content.text and content.content_type == "text":
             await callback_message(callback).edit_text(_("admin_broadcast_error_no_message"))
-            await state.clear()
             await callback.answer(_("admin_broadcast_error_no_message_alert"), show_alert=True)
             return
 
@@ -363,7 +369,10 @@ async def confirm_broadcast_callback_handler(
         queue_manager = get_queue_manager()
         if not queue_manager:
             await callback_message(callback).edit_text(
-                _("admin_broadcast_queue_not_initialized"), reply_markup=None
+                _("admin_broadcast_queue_not_initialized"),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:system_functions"
+                ),
             )
             return
 
@@ -548,5 +557,3 @@ async def confirm_broadcast_callback_handler(
         task = asyncio.create_task(auto_update_queue_status())
         _BROADCAST_STATUS_TASKS.add(task)
         task.add_done_callback(_BROADCAST_STATUS_TASKS.discard)
-
-    await state.clear()

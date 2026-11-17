@@ -5,7 +5,7 @@ import type { PaymentHistoryItem } from '../../../frontend/src/lib/webapp/paymen
 
 const messageKeys = [
   'autorenew_enable_button', 'autorenew_disable_button', 'autorenew_confirm_enable', 'autorenew_confirm_disable',
-  'subscription_autorenew_updated', 'yes_button', 'no_button',
+  'subscription_autorenew_updated', 'yes_button', 'no_button', 'telegram_confirmation_expired',
   'payment_methods_manage_button', 'payment_methods_title', 'payment_method_bind_button',
   'payment_method_card_title', 'payment_method_added_at', 'payment_method_last_tx',
   'payment_method_delete_button', 'payment_method_delete_confirm', 'payment_method_deleted_success',
@@ -48,6 +48,7 @@ const messageKeys = [
   'referral_webapp_link_line', 'referral_bonus_per_period', 'referral_share_message_button',
   'referral_friend_message', 'referral_friend_message_with_webapp', 'trial_activated_details_message',
   'trial_already_had_subscription_or_trial', 'wa_trial_activated',
+  'trial_confirm_activate_button',
   'trial_captcha_bot_prompt', 'trial_captcha_bot_cancel', 'trial_captcha_bot_success',
   'trial_captcha_bot_continue', 'trial_captcha_invalid', 'trial_captcha_expired',
   'payment_hwid_renewal_toggle_on', 'payment_hwid_renewal_toggle_off',
@@ -122,6 +123,7 @@ type Order = {
   back: () => void;
   receiptBack?: (message: ChatMessage) => void;
   complete: (renewDevices: boolean) => string;
+  completed?: boolean;
   devices?: boolean;
   gb?: number;
   mode?: string;
@@ -160,6 +162,7 @@ export class BotDemoConversation {
   private premiumBalance = 0;
   private devices: (BotDemoData['current']['devices'][number] & { name?: string })[] = [];
   private inputAction?: (value: string) => void;
+  private activeOrder?: Order;
   private readonly admin: AdminDemo;
 
   constructor(readonly locales: Record<Language, Messages>, readonly data: BotDemoData, language: Language, scenario: Scenario, role: BotRole, firstMenu: Menu, public emptyAdmin: boolean, private readonly captchaImage: string) {
@@ -287,6 +290,19 @@ export class BotDemoConversation {
         this.inputAction = undefined;
         this.showMenu(this.append(''), 'bot');
         break;
+      case '/start trial': {
+        this.showMenu(this.append(''), 'main');
+        const prompt = this.append('');
+        if (this.settings.app) {
+          this.edit(prompt, this.t('menu_activate_trial_button'), [this.app('open_mini_app', '/trial')]);
+        } else {
+          this.confirmation(prompt, this.t('menu_activate_trial_button'), [
+            this.button('trial_confirm_activate_button', () => this.activateTrial(prompt)),
+            this.button('cancel_button', () => this.showMenu(prompt, 'main')),
+          ]);
+        }
+        break;
+      }
       case '/language':
         this.languages(this.append(''), 'main');
         break;
@@ -306,7 +322,25 @@ export class BotDemoConversation {
 
   private edit(message: ChatMessage, text: string, rows?: ButtonRow[]) {
     this.admin.clearInput();
+    this.activeOrder = undefined;
     Object.assign(message, { text, rows });
+  }
+
+  private confirmation(message: ChatMessage, text: string, rows: ButtonRow[]) {
+    const pending = () => {};
+    const guard = (button: Button): Button => ({
+      ...button,
+      activate: () => {
+        if (this.inputAction !== pending) {
+          this.notice = this.t('telegram_confirmation_expired');
+          return;
+        }
+        this.inputAction = undefined;
+        return button.activate();
+      },
+    });
+    this.edit(message, text, rows.map((row) => Array.isArray(row) ? row.map(guard) : guard(row)));
+    this.inputAction = pending;
   }
 
   private button(label: MessageKey, activate: Activate, values?: Format): Button {
@@ -533,6 +567,11 @@ export class BotDemoConversation {
   }
 
   private paymentMethods(message: ChatMessage, order: Order) {
+    if (order.completed) {
+      if (order.receiptBack) order.receiptBack(message);
+      else order.back();
+      return;
+    }
     const renewal = order.renewal;
     const renewDevices = Boolean(renewal?.selected);
     const rows: Button[] = [];
@@ -554,19 +593,20 @@ export class BotDemoConversation {
     rows.push(this.button('cancel_button', order.back));
     this.edit(message, this.t(order.devices ? 'choose_payment_method_hwid_devices'
       : order.gb ? 'choose_payment_method_traffic' : 'choose_payment_method'), rows);
+    this.activeOrder = order;
   }
 
   private sendInvoice(message: ChatMessage, order: Order, stars: number, renewDevices: boolean) {
+    if (!this.canPay(order)) return;
     this.edit(message, this.t(order.gb ? 'payment_invoice_sent_message_traffic' : 'payment_invoice_sent_message', { traffic_gb: order.gb ?? 0 }), [
       this.back(() => this.paymentMethods(message, order)),
     ]);
     const invoice: ChatMessage = { text: `<b>${order.description}</b>\n${order.description}`, invoice: true };
-    let paid = false;
+    this.activeOrder = order;
     const popup = (): Popup => ({
       kind: 'stars', title: order.description, total: stars,
-      confirm: paid ? undefined : () => {
-        if (paid) return;
-        paid = true;
+      confirm: !this.canPay(order) ? undefined : () => {
+        if (!this.canPay(order)) return;
         invoice.rows = [{
           label: this.language === 'ru' ? 'Посмотреть квитанцию' : 'View receipt',
           activate: popup,
@@ -583,7 +623,7 @@ export class BotDemoConversation {
   }
 
   private sendPaymentLink(message: ChatMessage, order: Order, method: BotDemoData['methods'][number], amount: number, renewDevices: boolean) {
-    let paid = false;
+    if (!this.canPay(order)) return;
     this.edit(message, this.t(order.gb ? 'payment_link_message_traffic' : 'payment_link_message', {
       months: order.months, traffic_gb: order.gb ?? 0,
     }), [
@@ -591,9 +631,7 @@ export class BotDemoConversation {
         ...this.button('pay_button', () => ({
           kind: 'browser', title: method.label, address: `checkout.demo.example/${method.id}`,
           body: order.description, total: `${amount} ${order.currency === 'RUB' ? '₽' : order.currency}`,
-          confirm: paid ? undefined : () => {
-            if (paid) return;
-            paid = true;
+          confirm: !this.canPay(order) ? undefined : () => {
             this.finishPayment(order, renewDevices, method.id, amount, order.currency);
           },
         })),
@@ -601,9 +639,17 @@ export class BotDemoConversation {
       },
       this.back(() => this.paymentMethods(message, order)),
     ]);
+    this.activeOrder = order;
+  }
+
+  private canPay(order: Order) {
+    return this.activeOrder === order && !order.completed;
   }
 
   private finishPayment(order: Order, renewDevices: boolean, provider: string, amount: number, currency: string) {
+    if (!this.canPay(order)) return;
+    order.completed = true;
+    this.activeOrder = undefined;
     const text = order.complete(renewDevices);
     const date = new Date().toISOString();
     const mode = order.mode || 'subscription';
@@ -763,7 +809,7 @@ export class BotDemoConversation {
         ...history.map((row) => [row.date.slice(0, 10), escape(row.description), row.amount + ' ' + row.currency].join(' — ')),
         ...(history.length ? [] : [this.t('payment_method_no_history')]),
       ].join('\n\n'), [this.back(details)])),
-      this.button('payment_method_delete_button', () => this.edit(message, this.t('payment_method_delete_confirm'), [[
+      this.button('payment_method_delete_button', () => this.confirmation(message, this.t('payment_method_delete_confirm'), [[
         this.button('yes_button', () => {
           this.savedCardAvailable = false;
           this.notice = this.t('payment_method_deleted_success');
@@ -796,7 +842,7 @@ export class BotDemoConversation {
 
   private confirmAutoRenew(message: ChatMessage, back: () => void) {
     const enable = !this.autoRenewEnabled;
-    this.edit(message, this.t(enable ? 'autorenew_confirm_enable' : 'autorenew_confirm_disable'), [[
+    this.confirmation(message, this.t(enable ? 'autorenew_confirm_enable' : 'autorenew_confirm_disable'), [[
       this.button('yes_button', () => {
         this.autoRenewEnabled = enable;
         this.notice = this.t('subscription_autorenew_updated');
@@ -950,7 +996,7 @@ export class BotDemoConversation {
         pay(() => options(target, change));
         return;
       }
-      this.edit(message, [
+      this.confirmation(message, [
         this.t('wa_tariff_change_confirm_title'),
         '',
         this.t('wa_tariff_change_confirm_target', { tariff: escape(title) }),

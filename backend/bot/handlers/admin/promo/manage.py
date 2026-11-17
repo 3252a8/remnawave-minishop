@@ -14,6 +14,7 @@ from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard, get_confirmation_keyboard
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import (
     PromoEffects,
@@ -542,9 +543,11 @@ async def promo_delete_prompt(
         return
     await state.clear()
     list_page = promo_list_page(parts, 2)
-    await callback_message(callback).edit_text(
+    prompt = await edit_confirmation(
+        callback_message(callback),
+        state,
         i18n.gettext(lang, "admin_promo_delete_confirm", code=hd.quote(promo.code)),
-        reply_markup=get_confirmation_keyboard(
+        get_confirmation_keyboard(
             yes_callback_data=f"promo_delete_confirm:{promo_id}:{list_page}",
             no_callback_data=f"promo_detail:{promo_id}:{list_page}",
             i18n_instance=i18n,
@@ -553,7 +556,7 @@ async def promo_delete_prompt(
         parse_mode="HTML",
     )
     await state.update_data(
-        record_id=promo_id, list_page=list_page, confirmation_message_id=callback.message.message_id
+        record_id=promo_id, list_page=list_page, confirmation_message_id=prompt.message_id
     )
     await state.set_state(AdminStates.confirming_promo_delete)
     await callback.answer()

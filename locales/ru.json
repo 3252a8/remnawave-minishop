@@ -241,6 +241,7 @@
   "referral_welcome_bonus_applied": "🎁 Вам начислено {days} бонусных дн. за регистрацию по реферальной ссылке!\nПодписка активна до {end_date}.",
   "referral_welcome_bonus_added_to_trial": "🎁 За регистрацию по приглашению ваш пробный период длиннее на {days} дн. — всего {trial_days} дн. Активируйте его, когда будете готовы.",
   "registration_invite_required": "Регистрация доступна только по приглашению. Попросите ссылку у действующего пользователя.",
+  "telegram_confirmation_expired": "Это подтверждение устарело. Откройте действие заново.",
   "yes_button": "Да",
   "no_button": "Нет",
   "referral_program_info_new": "🎁 <b>Реферальная программа</b>\n\n📊 <b>Твоя статистика:</b>\n👥 Приглашено друзей: <b>{invited_count}</b>\n💳 Купили подписку: <b>{purchased_count}</b>\n\n🔗 Telegram ссылка:\n<code>{referral_link}</code>{webapp_link_section}\n\n💰 <b>Бонусы за приглашения:</b>\n{bonus_details}\n\n📢 Поделись ссылкой с друзьями и получай бонусы!",

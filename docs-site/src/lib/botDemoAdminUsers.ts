@@ -225,12 +225,7 @@ export class AdminUserDemo {
       ui.button('admin_user_delete_button', () => this.deleteUser(user, origin)),
       ui.button('admin_user_search_new_button', () => this.search(message, (target) => this.card(target, user, origin))),
     );
-    const { page, back } = origin;
-    controls.push(page !== undefined
-      ? origin.banned
-        ? ui.button('user_card_back_to_banned_list_button', () => this.bannedList(message, page))
-        : ui.button('admin_user_back_to_list_button', () => this.list(message, page))
-      : back ? ui.button('back_to_main_menu_button', () => back(message)) : this.back(message));
+    controls.push(this.originBack(message, origin));
     const widths = [2, 1, 2, 2, 1, 3, ...(hasProfile ? [1] : []), 1, 2];
     ui.view(message, [
       `👤 <b>${ui.t('admin_user_card_title')}</b>`, '',
@@ -263,6 +258,16 @@ export class AdminUserDemo {
       field('admin_user_ref_purchased_label', user.id === current.id ? referral.paid : invitees.filter((item) => item.revenue > 0).length),
       ...(links.length ? ['', ui.t('admin_user_links_section_title'), ...links] : []),
     ].join('\n'), separateRows(controls, widths));
+  }
+
+  private originBack(message: ChatMessage, origin: CardOrigin) {
+    const { ui } = this;
+    const { page, back } = origin;
+    return (page !== undefined
+      ? origin.banned
+        ? ui.button('user_card_back_to_banned_list_button', () => this.bannedList(message, page))
+        : ui.button('admin_user_back_to_list_button', () => this.list(message, page))
+      : back ? ui.button('back_to_main_menu_button', () => back(message)) : this.back(message));
   }
 
   private backToCard(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
@@ -298,7 +303,7 @@ export class AdminUserDemo {
   private changeTariff(message: ChatMessage, user: DemoAdminUser, origin: CardOrigin) {
     const { ui } = this;
     if (user.days <= 0) return ui.alert('admin_user_tariff_no_subscription');
-    ui.view(message, [
+    ui.confirmation(message, [
       `<b>${ui.t('admin_user_tariff_change_title')}</b>`, '', ui.t('admin_user_tariff_change_hint'),
       ui.t('admin_user_tariff_current', { tariff: escape(this.tariffName(user.tariff)) }),
     ].join('\n'), [
@@ -435,7 +440,8 @@ export class AdminUserDemo {
       }
       if (input !== String(user.id) && input.toLowerCase() !== user.minishop) return void ui.answer('admin_user_delete_mismatch');
       this.records = this.records.filter((item) => item !== user);
-      ui.answer('admin_user_delete_success', { user_id: user.minishop });
+      const done = ui.answer('admin_user_delete_success', { user_id: user.minishop });
+      done.rows = [this.originBack(done, origin)];
     }, [ui.button('cancel_button', () => this.card(prompt, user, origin))]);
   }
 }

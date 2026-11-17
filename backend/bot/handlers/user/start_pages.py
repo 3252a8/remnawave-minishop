@@ -8,6 +8,7 @@ from bot.keyboards.inline.user_keyboards_menus import (
     get_information_links_keyboard,
     get_trial_confirmation_keyboard,
 )
+from bot.middlewares.confirmation import answer_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.legal_document_links import legal_document_links
 from bot.services.referral_service import ReferralService
@@ -123,9 +124,11 @@ async def open_start_page(
         if not settings.TRIAL_ENABLED:
             return False
         if not settings.SUBSCRIPTION_MINI_APP_URL:
-            await message.answer(
+            await answer_confirmation(
+                message,
+                state,
                 _("menu_activate_trial_button"),
-                reply_markup=get_trial_confirmation_keyboard(current_lang, i18n),
+                get_trial_confirmation_keyboard(current_lang, i18n),
             )
             return True
         await _send_app_page(message, settings.SUBSCRIPTION_MINI_APP_URL, page, _("open_mini_app"))

@@ -1,4 +1,5 @@
 from aiogram import F, types
+from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,7 @@ from bot.keyboards.inline.user_keyboards_context import (
     subscription_menu_back_callback,
     subscription_status_callback,
 )
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.device_topup_availability import (
     device_topup_reason_locale_key,
@@ -572,6 +574,7 @@ async def tariff_change_confirm_apply_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -625,16 +628,21 @@ async def tariff_change_confirm_apply_callback(
             get_text("wa_tariff_change_confirm_action", action=action_text),
         ]
     )
-    await callback_message(callback).edit_text(
+    await edit_confirmation(
+        callback_message(callback),
+        state,
         message_text,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("tariff_change:confirm_pay:"))
 async def tariff_change_confirm_pay_callback(
-    callback: types.CallbackQuery, i18n_data: dict, settings: Settings
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    state: FSMContext | None = None,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
@@ -673,9 +681,11 @@ async def tariff_change_confirm_pay_callback(
             get_text("wa_tariff_change_confirm_action", action=payment_text),
         ]
     )
-    await callback_message(callback).edit_text(
+    await edit_confirmation(
+        callback_message(callback),
+        state,
         message_text,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
 
@@ -721,7 +731,11 @@ async def tariff_change_apply_callback(
 
 @router.callback_query(F.data.startswith("tariff_change:pay:"))
 async def tariff_change_pay_callback(
-    callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession,
+    subscription_service: SubscriptionService,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -729,7 +743,19 @@ async def tariff_change_pay_callback(
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
     data, context = split_callback_context(callback_data(callback))
     _, _, tariff_key, amount_raw = data.split(":", 3)
-    amount = float(amount_raw)
+    config = settings.tariffs_config
+    active = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
+    if not config or not active:
+        await callback.answer(get_text("telegram_confirmation_expired"), show_alert=True)
+        return
+    target = config.require(tariff_key)
+    options = await subscription_service.calculate_tariff_switch_options_with_hwid(
+        session, active, target
+    )
+    amount = float(options.get("paid_diff_rub") or 0)
+    if options.get("mode") != "period_to_period" or amount <= 0 or amount != float(amount_raw):
+        await callback.answer(get_text("telegram_confirmation_expired"), show_alert=True)
+        return
     currency_code = default_payment_currency_code_for_settings(settings)
     markup = get_payment_method_keyboard(
         1,

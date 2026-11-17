@@ -27,6 +27,7 @@ from .user_management_cards import (
     format_user_card,
     get_user_card_keyboard,
     user_card_back_callback,
+    user_card_origin_target,
     user_card_return_origin,
 )
 from .user_management_common import (
@@ -475,6 +476,7 @@ async def process_delete_user_confirmation_handler(
         await state.clear()
         return
 
+    await state.clear()
     user_model = await user_dal.get_user_by_id(session, target_user_id)
     if not user_model:
         await message.answer(
@@ -528,6 +530,7 @@ async def process_delete_user_confirmation_handler(
         )
         await session.commit()
 
+        label, target = user_card_origin_target(data.get("delete_return_origin", ""))
         await message.answer(
             _(
                 "admin_user_delete_success",
@@ -535,6 +538,7 @@ async def process_delete_user_confirmation_handler(
                     str(target_minishop_id or getattr(user_model, "minishop_id", None) or "—")
                 ),
             ),
+            reply_markup=get_admin_back_keyboard(current_lang, i18n, target, label),
             parse_mode="HTML",
         )
     except Exception as e:

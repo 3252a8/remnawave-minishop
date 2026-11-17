@@ -55,7 +55,14 @@ export class AdminUi {
     const pending = () => {};
     const guard = (button: Button): Button => ({
       ...button,
-      activate: () => { if (this.host.isInput(pending)) return button.activate(); },
+      activate: () => {
+        if (!this.host.isInput(pending)) {
+          this.alert('telegram_confirmation_expired');
+          return;
+        }
+        this.clearInput();
+        return button.activate();
+      },
     });
     this.view(message, text, rows.map((row) => Array.isArray(row) ? row.map(guard) : guard(row)));
     this.host.setInput(pending);

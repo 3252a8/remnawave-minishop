@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.account_roles import can_ban_account
 from bot.services.panel_api_service import PanelApiService
@@ -259,6 +260,8 @@ async def handle_change_tariff_menu(
     session: AsyncSession,
     i18n_instance: JsonI18n,
     lang: str,
+    *,
+    state: FSMContext | None = None,
 ) -> None:
     """Show period tariff choices for an active subscription."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -294,14 +297,9 @@ async def handle_change_tariff_menu(
             _("admin_user_tariff_current", tariff=current_key or _("admin_user_tariff_none")),
         ]
     )
-    try:
-        await callback_message(callback).edit_text(
-            text, reply_markup=builder.as_markup(), parse_mode="HTML"
-        )
-    except Exception:
-        await callback_message(callback).answer(
-            text, reply_markup=builder.as_markup(), parse_mode="HTML"
-        )
+    await edit_confirmation(
+        callback_message(callback), state, text, builder.as_markup(), parse_mode="HTML"
+    )
     await callback.answer()
 
 

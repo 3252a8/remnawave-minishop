@@ -91,7 +91,7 @@ export const adminMessageKeys = [
   'back_to_stats_monitoring_button', 'back_to_user_management_button', 'broadcast_queue_result',
   'broadcast_target_active_button', 'broadcast_target_all_button', 'broadcast_target_expired_button',
   'broadcast_target_inactive_button', 'cancel_button', 'confirm_broadcast_send_button',
-  'next_page_button', 'no_button', 'prev_page_button',
+  'next_page_button', 'no_button', 'prev_page_button', 'telegram_confirmation_expired',
   'sync_success_simple', 'user_card_back_to_banned_list_button', 'user_card_open_profile_button', 'yes_button',
   'admin_hwid_limit_state_with_extra', 'admin_user_actions_count_label', 'admin_user_hwid_limit_label',
   'admin_user_install_share_link_label', 'admin_user_invited_by_label', 'admin_user_invited_friends_label',

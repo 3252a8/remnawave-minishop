@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
@@ -187,12 +188,12 @@ async def ads_delete_prompt(
         lang=current_lang,
     )
     try:
-        await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
         await state.clear()
+        prompt = await edit_confirmation(callback_message(callback), state, confirm_text, kb)
         await state.update_data(
             record_id=camp_id,
             list_page=back_page,
-            confirmation_message_id=callback.message.message_id,
+            confirmation_message_id=prompt.message_id,
         )
         await state.set_state(AdminStates.confirming_ad_delete)
         await callback.answer()

@@ -279,6 +279,7 @@ async def user_action_handler(
             session,
             i18n,
             current_lang,
+            state=state,
         )
     elif action == "set_tariff":
         tariff_key = parts[3] if len(parts) > 3 else ""

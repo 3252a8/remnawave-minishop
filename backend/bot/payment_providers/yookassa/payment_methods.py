@@ -3,6 +3,7 @@ import logging
 from typing import Any
 
 from aiogram import F, types
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -17,6 +18,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_payment_methods_list_keyboard,
 )
 from bot.keyboards.inline.user_keyboards_context import split_callback_context
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers.shared.common import detached_payment_snapshot
 from bot.services.telegram_account import require_telegram_account_id
@@ -149,7 +151,10 @@ async def payment_method_bind(
 
 @router.callback_query(F.data.startswith("pm:delete_confirm"))
 async def payment_method_delete_confirm(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict[str, Any]
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict[str, Any],
+    state: FSMContext | None = None,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -168,9 +173,11 @@ async def payment_method_delete_confirm(
     base, page, context = _payment_method_navigation(callback.data)
     parts = base.split(":", 2)
     pm_id = parts[2] if len(parts) >= 3 else ""
-    await message.edit_text(
+    await edit_confirmation(
+        message,
+        state,
         _("payment_method_delete_confirm"),
-        reply_markup=get_payment_method_delete_confirm_keyboard(
+        get_payment_method_delete_confirm_keyboard(
             pm_id, current_lang, i18n, page=page, context=context
         ),
     )
@@ -220,18 +227,30 @@ async def payment_method_delete(
             if not acquired:
                 await callback.answer(_("error_try_again"), show_alert=True)
                 return
-            if pm_id_raw:
-                if pm_id_raw.isdigit():
-                    deleted = await delete_user_payment_method(session, user_id, int(pm_id_raw))
-                else:
-                    deleted = await delete_user_payment_method_by_provider_id(
-                        session, user_id, pm_id_raw
+            provider_id: str | None = pm_id_raw
+            if pm_id_raw.isdecimal():
+                method_id = int(pm_id_raw)
+                candidates = await list_user_payment_methods(session, user_id, provider="yookassa")
+                provider_id = next(
+                    (
+                        method.provider_payment_method_id
+                        for method in candidates
+                        if method.method_id == method_id
+                    ),
+                    None,
+                )
+                deleted = await delete_user_payment_method(session, user_id, method_id)
+            elif pm_id_raw:
+                deleted = await delete_user_payment_method_by_provider_id(
+                    session, user_id, pm_id_raw
+                )
+            if provider_id:
+                billing = await user_billing_dal.get_user_billing(session, user_id)
+                if billing and billing.yookassa_payment_method_id == provider_id:
+                    legacy_deleted = await user_billing_dal.delete_yk_payment_method(
+                        session, user_id
                     )
-            try:
-                legacy_deleted = await user_billing_dal.delete_yk_payment_method(session, user_id)
-                deleted = deleted or legacy_deleted
-            except Exception:
-                pass
+                    deleted = deleted or legacy_deleted
             await session.commit()
 
         methods = await list_user_payment_methods(session, user_id)
@@ -285,23 +304,31 @@ async def payment_method_view(
     user_id = await require_telegram_account_id(session, callback.from_user.id)
     base, page, context = _payment_method_navigation(callback.data)
     billing = await user_billing_dal.get_user_billing(session, user_id)
-    if not billing or not billing.yookassa_payment_method_id:
+    requested = base.split(":", 2)
+    method_ref = requested[2] if len(requested) >= 3 else ""
+    if (
+        not billing
+        or not billing.yookassa_payment_method_id
+        or (method_ref and method_ref != billing.yookassa_payment_method_id)
+    ):
         from db.dal.user_billing_dal import list_user_payment_methods
 
         methods = await list_user_payment_methods(session, user_id)
         if not methods:
             await callback.answer(_("payment_method_none"), show_alert=True)
             return
-        parts = base.split(":", 2)
-        pm_id = parts[2] if len(parts) >= 3 else str(methods[0].method_id)
+        pm_id = method_ref or str(methods[0].method_id)
         sel = next(
             (
                 m
                 for m in methods
                 if str(m.method_id) == pm_id or m.provider_payment_method_id == pm_id
             ),
-            methods[0],
+            None,
         )
+        if sel is None:
+            await callback.answer(_("payment_method_none"), show_alert=True)
+            return
 
         title = _format_saved_payment_method_title(_, sel.card_network, sel.card_last4, False)
         added_at = sel.created_at.strftime("%Y-%m-%d") if getattr(sel, "created_at", None) else "—"

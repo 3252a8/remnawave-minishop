@@ -14,6 +14,7 @@ from bot.keyboards.inline.admin_keyboards import (
     get_admin_back_keyboard,
     get_admin_panel_keyboard,
 )
+from bot.middlewares.confirmation import answer_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_code_service import PromoCodeService
 from bot.services.promo_effects import PROMO_APPLIES_TO_SUBSCRIPTION, PromoEffects
@@ -205,8 +206,8 @@ async def process_bulk_promo_max_activations_handler(
             )
         )
 
-        prompt = await message.answer(
-            prompt_text, reply_markup=builder.as_markup(), parse_mode="HTML"
+        prompt = await answer_confirmation(
+            message, state, prompt_text, builder.as_markup(), parse_mode="HTML"
         )
         await state.update_data(promo_validity_message_id=prompt.message_id)
         await state.set_state(AdminStates.choosing_bulk_promo_validity)

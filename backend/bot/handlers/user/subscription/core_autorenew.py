@@ -3,6 +3,7 @@ import logging
 
 from aiogram import Bot, F, types
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.auto_renew import (
@@ -18,6 +19,7 @@ from bot.keyboards.inline.user_keyboards_context import (
     split_callback_context,
     subscription_menu_back_callback,
 )
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
@@ -121,6 +123,7 @@ async def toggle_autorenew_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     bot: Bot,
+    state: FSMContext | None = None,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -168,11 +171,7 @@ async def toggle_autorenew_handler(
     kb = get_autorenew_confirm_keyboard(
         enable, sub.subscription_id, current_lang, i18n, context=context
     )
-    try:
-        await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
-    except Exception:
-        with contextlib.suppress(Exception):
-            await callback_message(callback).answer(confirm_text, reply_markup=kb)
+    await edit_confirmation(callback_message(callback), state, confirm_text, kb)
     with contextlib.suppress(Exception):
         await callback.answer()
     return

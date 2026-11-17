@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.memory import MemoryStorage, SimpleEventIsolation
 from sqlalchemy.orm import sessionmaker
 
 if TYPE_CHECKING:
@@ -44,7 +44,10 @@ def build_dispatcher(
         else MemoryStorage()
     )
 
-    dp = Dispatcher(storage=storage)
+    isolation = (
+        SimpleEventIsolation() if isinstance(storage, MemoryStorage) else storage.create_isolation()
+    )
+    dp = Dispatcher(storage=storage, events_isolation=isolation)
     set_dispatcher_core_context(
         dp,
         bot=bot,

@@ -74,6 +74,34 @@ def user_card_section_callback(callback: types.CallbackQuery, user_id: int, sect
     return f"us:{section}:{user_id}:{origin}"
 
 
+def user_card_origin_target(origin: str) -> tuple[str, str]:
+    back_label = "back_to_admin_panel_button"
+    back_target = "admin_action:main"
+    if origin == "s":
+        back_label, back_target = "back_to_main_menu_button", "admin_action:users_search_prompt"
+    elif origin.startswith("s"):
+        previous_user, _separator, previous_origin = origin[1:].partition(".")
+        if previous_user.isascii() and previous_user.isdecimal():
+            back_label = "back_to_main_menu_button"
+            back_target = f"us:s:{previous_user}:{previous_origin}"
+    elif origin.startswith(("l", "b")) and origin[1:].isascii() and origin[1:].isdecimal():
+        if origin[0] == "l":
+            back_label = "admin_user_back_to_list_button"
+            back_target = f"admin_action:users_list:{origin[1:]}"
+        else:
+            back_label = "user_card_back_to_banned_list_button"
+            back_target = f"admin_action:view_banned:{origin[1:]}"
+    elif origin.startswith("i"):
+        inviter, _separator, payload = origin[1:].partition(".")
+        page, _separator, parent = payload.partition(".")
+        if inviter.isascii() and inviter.isdecimal() and page.isascii() and page.isdecimal():
+            back_label = "back_to_main_menu_button"
+            back_target = f"ui:{inviter}:{page}"
+            if parent:
+                back_target += f":{parent}"
+    return back_label, back_target
+
+
 def get_user_card_keyboard(
     user_id: int,
     i18n_instance: JsonI18n,
@@ -157,30 +185,7 @@ def get_user_card_keyboard(
     builder.button(
         text=_(key="admin_user_search_new_button"), callback_data=f"us:s:{user_id}:{origin}"
     )
-    back_label = "back_to_admin_panel_button"
-    back_target = "admin_action:main"
-    if origin == "s":
-        back_label, back_target = "back_to_main_menu_button", "admin_action:users_search_prompt"
-    elif origin.startswith("s"):
-        previous_user, _separator, previous_origin = origin[1:].partition(".")
-        if previous_user.isascii() and previous_user.isdecimal():
-            back_label = "back_to_main_menu_button"
-            back_target = f"us:s:{previous_user}:{previous_origin}"
-    elif origin.startswith(("l", "b")) and origin[1:].isascii() and origin[1:].isdecimal():
-        if origin[0] == "l":
-            back_label = "admin_user_back_to_list_button"
-            back_target = f"admin_action:users_list:{origin[1:]}"
-        else:
-            back_label = "user_card_back_to_banned_list_button"
-            back_target = f"admin_action:view_banned:{origin[1:]}"
-    elif origin.startswith("i"):
-        inviter, _separator, payload = origin[1:].partition(".")
-        page, _separator, parent = payload.partition(".")
-        if inviter.isascii() and inviter.isdecimal() and page.isascii() and page.isdecimal():
-            back_label = "back_to_main_menu_button"
-            back_target = f"ui:{inviter}:{page}"
-            if parent:
-                back_target += f":{parent}"
+    back_label, back_target = user_card_origin_target(origin)
     builder.button(text=_(back_label), callback_data=back_target)
 
     quick_links_count = 1 if telegram_id is not None else 0
