@@ -17,6 +17,7 @@
   релиз GitHub содержит манифест с digest всех трёх образов.
   [6e4c8a43](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6e4c8a434265bec22e6dc6cc04f9f881756dcff7),
   [fbdbfa7d](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fbdbfa7d5bf31bd6bf9166e4602af4cd71afa12f)
+  Конфигурация прежних сборок GitLab сохранена для ручного запуска на своём раннере.
 
 - Бот-меню группирует покупку и подписку, показывает разделы Mini App, обращения
   и встроенный статус при соответствующих настройках. Без Mini App история
