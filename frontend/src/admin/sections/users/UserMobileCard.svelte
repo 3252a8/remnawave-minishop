@@ -6,6 +6,7 @@
     AdminSubscriptionPlan,
   } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type { AdminUserExtensionColumn } from "$lib/admin/stores/usersStoreState";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -34,6 +35,7 @@
     rowBalance,
     userBalanceEnabled,
     partnerBalanceEnabled,
+    extensionColumns,
     fmtDateShort,
   }: {
     at: TranslateFn;
@@ -51,6 +53,7 @@
     rowBalance: (user: AdminUser, source: "user" | "partner") => string;
     userBalanceEnabled: boolean;
     partnerBalanceEnabled: boolean;
+    extensionColumns: AdminUserExtensionColumn[];
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
 
@@ -143,6 +146,12 @@
           </AdminBadge>
         </li>
       {/if}
+      {#each extensionColumns as column (column.id)}
+        <li class="admin-user-mobile-extension">
+          <span>{column.label}</span>
+          <strong>{user.extension_values?.[column.id] ?? "—"}</strong>
+        </li>
+      {/each}
       <li class="admin-user-mobile-registered">
         <span>{at("users_col_registration", {}, "Registered")}</span>
         <strong>{fmtDateShort(user.registration_date)}</strong>
@@ -239,5 +248,10 @@
 
   .admin-user-mobile-registered {
     margin-left: auto;
+  }
+
+  .admin-user-mobile-extension {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
   }
 </style>

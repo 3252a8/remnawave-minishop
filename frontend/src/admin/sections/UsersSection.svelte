@@ -8,6 +8,8 @@
   import { USERS_PAGE_SIZE } from "../../lib/admin/stores/usersStoreState";
   import {
     normalizeUsersRouteFilters,
+    type UsersBuiltInFilterKey,
+    type UsersExtensionSelections,
     type UsersRouteFilters,
   } from "../../lib/admin/usersRouteFilters";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
@@ -28,9 +30,10 @@
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = keyof UsersRouteFilters;
-  type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
-  type FilterChip = { key: FilterKey; label: string; value: string };
+  type FilterPatch = Partial<Record<UsersBuiltInFilterKey, string>> & {
+    usersExtensionFilters?: UsersExtensionSelections;
+  };
+  type FilterChip = { key: string; label: string; value: string };
   type UsersSectionProps = {
     routePrefix?: string;
     at?: TranslateFn;
@@ -91,6 +94,9 @@
   const usersPanelStatus = $derived(usersState.usersPanelStatus);
   const usersPremiumTraffic = $derived(usersState.usersPremiumTraffic);
   const usersTariffFilter = $derived(usersState.usersTariffFilter);
+  const usersExtensionColumns = $derived(usersState.usersExtensionColumns);
+  const usersExtensionFilterOptions = $derived(usersState.usersExtensionFilterOptions);
+  const usersExtensionFilters = $derived(usersState.usersExtensionFilters);
   const USERS_TARIFF_OPTIONS = $derived(
     tariffFilterOptions(usersState.usersTariffOptions, usersTariffFilter, currentLang, at)
   );
@@ -198,8 +204,9 @@
       usersPanelStatus: patch.usersPanelStatus ?? usersPanelStatus,
       usersPremiumTraffic: patch.usersPremiumTraffic ?? usersPremiumTraffic,
       usersTariffFilter: patch.usersTariffFilter ?? usersTariffFilter,
+      usersExtensionFilters: patch.usersExtensionFilters ?? usersExtensionFilters,
     });
-    usersStore.updateState({ ...patch, usersPage: 0 });
+    usersStore.updateState({ ...filters, usersPage: 0 });
     onUsersFiltersChange(filters);
     void usersStore.loadUsers();
   }
@@ -222,20 +229,34 @@
     updateUsersFilterState({ usersPremiumTraffic: value });
   }) as ComponentCallback;
 
+  function updateUsersExtensionFilter(id: string, value: string): void {
+    const selections = { ...usersExtensionFilters };
+    if (value) selections[id] = value;
+    else delete selections[id];
+    updateUsersFilterState({ usersExtensionFilters: selections });
+  }
+
   function resetUsersFilters(): void {
     updateUsersFilterState({
       usersFilter: "all",
       usersPanelStatus: "all",
       usersPremiumTraffic: "all",
       usersTariffFilter: "all",
+      usersExtensionFilters: {},
     });
   }
 
-  function clearUsersFilter(key: FilterKey): void {
-    if (key === "usersFilter") updateUsersFilterState({ usersFilter: "all" });
-    if (key === "usersPanelStatus") updateUsersFilterState({ usersPanelStatus: "all" });
-    if (key === "usersPremiumTraffic") updateUsersFilterState({ usersPremiumTraffic: "all" });
-    if (key === "usersTariffFilter") updateUsersFilterState({ usersTariffFilter: "all" });
+  function clearUsersFilter(key: string): void {
+    switch (key) {
+      case "usersFilter":
+      case "usersPanelStatus":
+      case "usersPremiumTraffic":
+      case "usersTariffFilter":
+        updateUsersFilterState({ [key]: "all" });
+        break;
+      default:
+        updateUsersExtensionFilter(key, "");
+    }
   }
 
   function isFilterChip(value: FilterChip | false): value is FilterChip {
@@ -301,6 +322,7 @@
         label: at("users_col_registration", {}, "Registered"),
         sort: SORT_COLUMNS.registration,
       },
+      ...usersExtensionColumns.map(({ id, label }) => ({ key: id, label })),
     ];
   }
 
@@ -383,6 +405,12 @@
           label: at("users_col_tariff", {}, "Tariff / trial"),
           value: optionLabel(USERS_TARIFF_OPTIONS, usersTariffFilter),
         },
+        ...usersExtensionFilterOptions.map((filter) => {
+          const option = filter.options.find(
+            ({ value }) => value === usersExtensionFilters[filter.id]
+          );
+          return option ? { key: filter.id, label: filter.label, value: option.label } : false;
+        }),
       ] satisfies (FilterChip | false)[]
     ).filter(isFilterChip)
   );
@@ -400,6 +428,7 @@
     "96px",
     "112px",
     "112px",
+    ...usersExtensionColumns.map(() => "144px"),
   ]);
   const userTableColumnCount = $derived(userTableHeaders.length);
 
@@ -437,6 +466,10 @@
     {usersPanelStatus}
     {usersPremiumTraffic}
     {usersTariffFilter}
+    {usersExtensionColumns}
+    {usersExtensionFilterOptions}
+    {usersExtensionFilters}
+    {updateUsersExtensionFilter}
     {usersQuery}
     {usersTotal}
     {usersPage}

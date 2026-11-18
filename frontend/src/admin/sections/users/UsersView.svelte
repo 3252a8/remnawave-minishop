@@ -18,8 +18,12 @@
     VirtualTableRows,
   } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type {
+    AdminUserExtensionColumn,
+    AdminUserExtensionFilter,
+  } from "$lib/admin/stores/usersStoreState";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
-  import type { UsersRouteFilters } from "$lib/admin/usersRouteFilters";
+  import type { UsersExtensionSelections } from "$lib/admin/usersRouteFilters";
   import UserMobileCard from "./UserMobileCard.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -35,8 +39,8 @@
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = keyof UsersRouteFilters;
-  type FilterChip = { key: FilterKey; label: string; value: string };
+  type FilterChip = { key: string; label: string; value: string };
+  const ALL_EXTENSION_OPTIONS = "*";
   type TrafficBadge =
     | {
         state?: string;
@@ -64,6 +68,10 @@
     usersPanelStatus,
     usersPremiumTraffic,
     usersTariffFilter,
+    usersExtensionColumns,
+    usersExtensionFilterOptions,
+    usersExtensionFilters,
+    updateUsersExtensionFilter,
     usersQuery,
     usersTotal,
     usersPage,
@@ -118,6 +126,10 @@
     usersPanelStatus: string;
     usersPremiumTraffic: string;
     usersTariffFilter: string;
+    usersExtensionColumns: AdminUserExtensionColumn[];
+    usersExtensionFilterOptions: AdminUserExtensionFilter[];
+    usersExtensionFilters: UsersExtensionSelections;
+    updateUsersExtensionFilter: (id: string, value: string) => void;
     usersQuery: string;
     usersTotal: number;
     usersPage: number;
@@ -143,7 +155,7 @@
     updateToolbarPanelStatus: ComponentCallback;
     updateToolbarPremiumTraffic: ComponentCallback;
     resetUsersFilters: () => void;
-    clearUsersFilter: (key: FilterKey) => void;
+    clearUsersFilter: (key: string) => void;
     handleUsersSearchInput: (event: Event) => void;
     handleUsersSearchKeydown: (event: KeyboardEvent) => void;
     userTableColumns: () => UserTableColumn[];
@@ -162,6 +174,28 @@
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
 </script>
+
+{#snippet renderExtensionFilters()}
+  {#each usersExtensionFilterOptions as filter (filter.id)}
+    {@const selected = filter.options.find(
+      ({ value }) => value === usersExtensionFilters[filter.id]
+    )}
+    <Label.Root class="admin-toolbar-field admin-users-filter-field">
+      <span class="admin-toolbar-field-label">{filter.label}</span>
+      <AdminSelect
+        value={selected?.value ?? ALL_EXTENSION_OPTIONS}
+        items={[
+          { value: ALL_EXTENSION_OPTIONS, label: at("filter_all", {}, "All") },
+          ...filter.options,
+        ]}
+        class="admin-toolbar-select"
+        ariaLabel={filter.label}
+        onValueChange={(value) =>
+          updateUsersExtensionFilter(filter.id, value === ALL_EXTENSION_OPTIONS ? "" : value)}
+      />
+    </Label.Root>
+  {/each}
+{/snippet}
 
 {#snippet renderUserFilterControls()}
   {@render renderTariffFilter()}
@@ -199,6 +233,7 @@
       onValueChange={updateUsersPremiumTraffic}
     />
   </Label.Root>
+  {@render renderExtensionFilters()}
 {/snippet}
 
 {#snippet renderTariffFilter()}
@@ -321,6 +356,7 @@
         onValueChange={updateToolbarPremiumTraffic}
       />
     </Label.Root>
+    {@render renderExtensionFilters()}
   {/snippet}
   {#snippet footer()}
     {@render renderActiveUserFilterChips()}
@@ -377,6 +413,7 @@
   class="admin-users-table-wrap"
   class:has-user-balance={userBalanceEnabled}
   class:has-partner-balance={partnerBalanceEnabled}
+  style:--users-extension-width={`${usersExtensionColumns.length * 144}px`}
 >
   {#if usersLoading}
     <AdminTableSkeleton
@@ -522,6 +559,11 @@
             >
               {fmtDateShort(user.registration_date)}
             </td>
+            {#each usersExtensionColumns as column (column.id)}
+              <td class="admin-users-cell-extension" data-label={column.label}>
+                {user.extension_values?.[column.id] ?? "—"}
+              </td>
+            {/each}
           </tr>
         {/snippet}
       </VirtualTableRows>
@@ -545,6 +587,7 @@
           {rowBalance}
           {userBalanceEnabled}
           {partnerBalanceEnabled}
+          extensionColumns={usersExtensionColumns}
           {fmtDateShort}
         />
       {/each}
@@ -696,19 +739,19 @@
     /* Fits the 1120px content column of a 1440px screen; extra balance columns
        still scroll horizontally. */
     .admin-users-table-wrap :global(.admin-users-table) {
-      min-width: 1100px;
+      min-width: calc(1100px + var(--users-extension-width));
     }
 
     .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
-      min-width: 1220px;
+      min-width: calc(1220px + var(--users-extension-width));
     }
 
     .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
-      min-width: 1240px;
+      min-width: calc(1240px + var(--users-extension-width));
     }
 
     .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
-      min-width: 1360px;
+      min-width: calc(1360px + var(--users-extension-width));
     }
   }
 
@@ -762,6 +805,11 @@
     white-space: nowrap;
     font-size: 12px;
     color: var(--admin-muted);
+  }
+
+  .admin-users-cell-extension {
+    min-width: 144px;
+    overflow-wrap: anywhere;
   }
 
   .admin-users-table-wrap :global(.admin-users-table tbody tr.is-clickable:focus-visible) {

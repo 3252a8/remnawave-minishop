@@ -119,6 +119,7 @@ async def _filter_and_sort_users(
     valid_tariff_keys: set[str] | None = None,
     tariff_filter: str = "all",
     now: datetime | None = None,
+    extension_predicates: tuple[ColumnElement[bool], ...] = (),
 ) -> tuple[list[User], int]:
     """Return paginated users with optional search, filter and sort applied."""
 
@@ -130,8 +131,8 @@ async def _filter_and_sort_users(
         "premium_ratio_desc",
     }
 
-    stmt = select(User)
-    count_stmt = select(sa_func.count(User.user_id))
+    stmt = select(User).where(*extension_predicates)
+    count_stmt = select(sa_func.count(User.user_id)).where(*extension_predicates)
 
     sq = None
     plim_expr = None

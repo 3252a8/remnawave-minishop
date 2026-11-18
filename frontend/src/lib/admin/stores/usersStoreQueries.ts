@@ -1,4 +1,5 @@
 import { adminErrorMessage } from "../errors.js";
+import { writeUsersExtensionFilters } from "../usersRouteFilters";
 import {
   buildAdminUserLogsPath,
   buildAdminUserPath,
@@ -62,6 +63,7 @@ export function createUsersStoreQueries({
     if (s.usersSort) params.set("sort", s.usersSort);
     if (s.usersTariffFilter && s.usersTariffFilter !== "all")
       params.set("tariff_filter", s.usersTariffFilter);
+    writeUsersExtensionFilters(params, s.usersExtensionFilters);
     return params;
   }
 
@@ -75,6 +77,7 @@ export function createUsersStoreQueries({
         panelStatus: s.usersPanelStatus,
         premiumTraffic: s.usersPremiumTraffic,
         tariffFilter: s.usersTariffFilter,
+        extensionFilters: s.usersExtensionFilters,
         query: s.usersQuery.trim(),
         sort: s.usersSort,
       },

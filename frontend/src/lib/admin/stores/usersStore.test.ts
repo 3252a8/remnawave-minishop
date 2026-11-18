@@ -52,6 +52,31 @@ describe("usersStore", () => {
     });
   });
 
+  it("sends the selected plugin filters and retains the returned columns and values", async () => {
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      users: [{ user_id: 42, extension_values: { "example:group": "Staff" } }],
+      extension_columns: [{ id: "example:group", label: "Group" }],
+      extension_filters: [
+        { id: "example:group", label: "Group", options: [{ value: "staff", label: "Staff" }] },
+      ],
+    });
+    const store = makeStore(api);
+    store.updateState({
+      usersExtensionFilters: { "example:group": "staff", "example:region": "west" },
+    });
+    await store.loadUsers();
+
+    expect(api).toHaveBeenCalledWith(
+      "/admin/users?page=0&page_size=25&extension_filter=example%3Agroup%3Dstaff&extension_filter=example%3Aregion%3Dwest"
+    );
+    expect(store.users[0]?.extension_values).toEqual({ "example:group": "Staff" });
+    expect(store.usersExtensionColumns).toEqual([{ id: "example:group", label: "Group" }]);
+    expect(store.usersExtensionFilterOptions[0]?.options).toEqual([
+      { value: "staff", label: "Staff" },
+    ]);
+  });
+
   it("opens user details and derives editable subscription drafts", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

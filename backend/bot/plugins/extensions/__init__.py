@@ -1,6 +1,15 @@
 """Stable public SDK for extension contracts v1; implementations remain private."""
 
 from .contracts import (
+    AdminUserColumn as AdminUserColumn,
+)
+from .contracts import (
+    AdminUserFilter as AdminUserFilter,
+)
+from .contracts import (
+    AdminUserFilterOption as AdminUserFilterOption,
+)
+from .contracts import (
     BackupContributor as BackupContributor,
 )
 from .contracts import (

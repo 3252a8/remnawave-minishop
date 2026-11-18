@@ -24,6 +24,33 @@ def split_key(value: str) -> tuple[str, str]:
     return identifier(parts[0]), identifier(parts[1])
 
 
+def _valid_label(label: str) -> bool:
+    return isinstance(label, str) and 1 <= len(label.strip()) <= 200
+
+
+def _validate_user_table(value: ExtensionContributions) -> None:
+    for collection in (value.admin_user_columns, value.admin_user_filters):
+        if len(collection) > 32:
+            raise ExtensionError("too_many_admin_user_table_contributions")
+        for item in collection:
+            if not _valid_label(item.label) or (
+                type(item.order) is not int or not -10000 <= item.order <= 10000
+            ):
+                raise ExtensionError("invalid_admin_user_table_contribution")
+    for column in value.admin_user_columns:
+        if not callable(column.resolve):
+            raise ExtensionError("invalid_admin_user_column")
+    for user_filter in value.admin_user_filters:
+        if not callable(user_filter.predicate) or not 1 <= len(user_filter.options) <= 50:
+            raise ExtensionError("invalid_admin_user_filter")
+        option_ids: set[str] = set()
+        for option in user_filter.options:
+            option_id = identifier(option.id)
+            if option_id in option_ids or not _valid_label(option.label):
+                raise ExtensionError("invalid_admin_user_filter_option")
+            option_ids.add(option_id)
+
+
 @dataclass(frozen=True)
 class RegisteredExtension:
     version: str
@@ -51,6 +78,8 @@ class ExtensionRegistry:
             value.storage,
             value.message_shortcodes,
             value.login_providers,
+            value.admin_user_columns,
+            value.admin_user_filters,
         ):
             seen: set[str] = set()
             for item in collection:
@@ -58,6 +87,7 @@ class ExtensionRegistry:
                 if item.id in seen:
                     raise ExtensionError("duplicate_extension_identifier")
                 seen.add(item.id)
+        _validate_user_table(value)
         for provider in value.login_providers:
             if (
                 not isinstance(provider.name, str)

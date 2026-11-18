@@ -28,6 +28,7 @@ import {
 import { demoTranslationsPayload } from "./translations";
 import { demoTariffOptions, demoActiveTariffs } from "./subscriptionPlans";
 import { sortAdminRows, type AdminSortColumn, type AdminSortValue } from "$lib/admin/tableSort.js";
+import { USERS_EXTENSION_FILTER_QUERY_PARAM } from "$lib/admin/usersRouteFilters";
 import {
   demoInviteesForUser,
   demoSupportCounts,
@@ -255,11 +256,29 @@ export function demoApiResponse(
 
   if (cleanPath === "/admin/users/relationships") return demoUserRelationships();
   if (cleanPath === "/admin/users") {
-    const filtered = filterDemoUsers(params);
+    const withExtension = new URLSearchParams(window.location.search).has("users_extensions_demo");
+    const extension = { id: "example:segment", label: "Demo segment" };
+    const staffSelected =
+      withExtension &&
+      params.getAll(USERS_EXTENSION_FILTER_QUERY_PARAM).includes(`${extension.id}=staff`);
+    const users = filterDemoUsers(params);
+    const filtered = staffSelected ? users.filter((user) => user.user_id === 910001) : users;
     const page = paged(filtered, params, 25);
+    const items = withDemoAvatars(page.items);
     return {
       ok: true,
-      users: clone(withDemoAvatars(page.items)),
+      users: clone(
+        withExtension
+          ? items.map((user) => ({
+              ...user,
+              extension_values: { [extension.id]: user.user_id === 910001 ? "Staff" : null },
+            }))
+          : items
+      ),
+      ...(withExtension && {
+        extension_columns: [extension],
+        extension_filters: [{ ...extension, options: [{ value: "staff", label: "Staff" }] }],
+      }),
       tariff_options: demoTariffOptions(),
       total: page.total,
       page: page.page,

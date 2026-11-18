@@ -11,6 +11,42 @@ const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
 for (const width of [1440, 390]) {
+  test(`user table plugin columns and filters work at ${width}px`, async ({ page }, testInfo) => {
+    const mobile = width < 720;
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/demo/runtime/admin/users?theme_preview=dark&users_extensions_demo=1");
+    if (!mobile) {
+      await expect(page.getByRole("columnheader", { name: "Demo segment" })).toBeVisible();
+    }
+    const filter = page.getByRole("combobox", { name: "Demo segment", exact: true });
+    if (mobile) await page.locator(".admin-users-filter-toggle").click();
+    await filter.click();
+    await expect(page.getByRole("option", { name: "Staff", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`users-extension-menu-${width}.png`) });
+    await page.getByRole("option", { name: "Staff", exact: true }).click();
+    await expect(page).toHaveURL(/extension_filter=example%3Asegment%3Dstaff/);
+    if (mobile) await page.keyboard.press("Escape");
+
+    const row = page.locator(mobile ? '[data-mobile-user-id="910001"]' : '[data-user-id="910001"]');
+    const cell = row.getByText("Staff", { exact: true });
+    await cell.scrollIntoViewIfNeeded();
+    await expect(cell).toBeVisible();
+    await expect(page.locator(mobile ? "[data-mobile-user-id]" : "tr[data-user-id]")).toHaveCount(
+      1
+    );
+    await page.screenshot({ path: testInfo.outputPath(`users-extension-value-${width}.png`) });
+
+    await page.reload();
+    await expect(cell).toBeVisible();
+    if (mobile) await page.locator(".admin-users-filter-toggle").click();
+    await expect(filter).toContainText("Staff");
+    await filter.click();
+    await page.getByRole("option", { name: /^(Все|All)$/ }).click();
+    await expect(page).not.toHaveURL(/extension_filter/);
+  });
+}
+
+for (const width of [1440, 390]) {
   test(`invitation link prefix can be edited and saved at ${width}px`, async ({
     page,
   }, testInfo) => {

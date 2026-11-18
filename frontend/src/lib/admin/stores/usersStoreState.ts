@@ -1,6 +1,7 @@
 import type { components, operations } from "../../api/openapi.generated";
 import type { ApiClient, ApiResponse } from "../../webapp/publicApi";
 import type { TariffOption } from "../subscriptionPlans";
+import type { UsersExtensionSelections } from "../usersRouteFilters";
 
 export const USERS_PAGE_SIZE = 25;
 export const USER_LOGS_PAGE_SIZE = 20;
@@ -10,9 +11,18 @@ export type AdminApi = <Path extends Parameters<ApiClient["api"]>[0]>(
   path: Path,
   options?: Parameters<ApiClient["api"]>[1]
 ) => Promise<ApiResponse<Path> | AdminErrorResponse>;
+export type AdminUserExtensionColumn = { id: string; label: string };
+export type AdminUserExtensionFilter = {
+  id: string;
+  label: string;
+  options: { value: string; label: string }[];
+};
 export type AdminUsersListResponse = NonNullable<
   operations["get_admin_users_list_route"]["responses"][200]["content"]["application/json"]
->;
+> & {
+  extension_columns?: AdminUserExtensionColumn[];
+  extension_filters?: AdminUserExtensionFilter[];
+};
 export type AdminUserDetailResponse = NonNullable<
   operations["get_admin_user_detail_route"]["responses"][200]["content"]["application/json"]
 >;
@@ -43,6 +53,9 @@ export type AdminStoreState = {
   usersPremiumTraffic: string;
   usersTariffFilter: string;
   usersTariffOptions: TariffOption[];
+  usersExtensionColumns: AdminUserExtensionColumn[];
+  usersExtensionFilterOptions: AdminUserExtensionFilter[];
+  usersExtensionFilters: UsersExtensionSelections;
   usersSort: string;
   usersLoading: boolean;
   userBalanceEnabled: boolean;
@@ -107,7 +120,7 @@ export type AdminUser = Partial<
     components["schemas"]["AdminUserWithAvatarOut"] &
     components["schemas"]["AdminUserRelationshipNodeOut"] &
     AdminListUser
-> & { user_id: number | string };
+> & { user_id: number | string; extension_values?: Record<string, string | null> };
 export type ToastFn = (message: string) => void;
 export type TranslateFn = (
   key: string,
@@ -146,6 +159,9 @@ export function createInitialUsersState(): AdminStoreState {
     usersPremiumTraffic: "all",
     usersTariffFilter: "all",
     usersTariffOptions: [],
+    usersExtensionColumns: [],
+    usersExtensionFilterOptions: [],
+    usersExtensionFilters: {},
     usersSort: "",
     usersLoading: false,
     userBalanceEnabled: false,
