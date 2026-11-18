@@ -104,9 +104,7 @@ async def _load_admin_users_list_payload(
     extensions: UsersTableExtensions = _NO_TABLE_EXTENSIONS,
     extension_predicates: tuple[ColumnElement[bool], ...] = (),
 ) -> dict[str, Any]:
-    cache = (
-        None if extensions.columns or extension_predicates else _admin_users_list_cache(settings)
-    )
+    cache = None if extension_predicates else _admin_users_list_cache(settings)
     valid_tariff_keys = _admin_tariff_keys(settings)
     balance_config = settings.balance_settings
     balance_enabled = bool(balance_config.enabled)
@@ -146,7 +144,7 @@ async def _load_admin_users_list_payload(
             partner_balance_enabled=partner_balance_enabled,
             balance_currency=balance_currency,
             balance_currency_scale=balance_currency_scale,
-            extensions=extensions,
+            extensions=extensions if cache is None else _NO_TABLE_EXTENSIONS,
             extension_predicates=extension_predicates,
         )
 
@@ -155,6 +153,16 @@ async def _load_admin_users_list_payload(
         if cache is None
         else cast(dict[str, Any], await cache.get_or_load(cache_key, load))
     )
+    if cache is not None and extensions.columns and payload["users"]:
+        rows = payload["users"]
+        async with async_session_factory() as session:
+            values = await extensions.column_values(session, tuple(row["user_id"] for row in rows))
+        # The cached base page can be shared across requests and plugin generations.
+        # Attach fresh column values to copies owned by this response.
+        payload = {
+            **payload,
+            "users": [{**row, "extension_values": values.get(row["user_id"], {})} for row in rows],
+        }
     return (
         {**payload, **extensions.metadata()}
         if extensions.columns or extensions.filters
