@@ -138,6 +138,7 @@ class JobHandler:
 class DurableSubscription:
     event: str
     job: str
+    enabled_when: ColumnElement[bool] | None = None
 
 
 BackupCollect = Callable[[Path], dict[str, JsonValue]]

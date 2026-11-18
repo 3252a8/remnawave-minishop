@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from sqlalchemy.sql.elements import ColumnElement
+
 from .contracts import ExtensionContributions, ExtensionError
 
 IDENTIFIER = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
@@ -113,6 +115,8 @@ class ExtensionRegistry:
                 raise ExtensionError("invalid_extension_job_interval")
         event_keys: set[tuple[str, str]] = set()
         for event in value.events:
+            if event.enabled_when is not None and not isinstance(event.enabled_when, ColumnElement):
+                raise ExtensionError("invalid_extension_subscription")
             if event.job not in jobs or not event.event or len(event.event) > 128:
                 raise ExtensionError("invalid_extension_subscription")
             key = (event.event, event.job)
@@ -156,13 +160,18 @@ def set_registry(registry: ExtensionRegistry) -> None:
 
 
 def _configure_payment_events(registry: ExtensionRegistry) -> None:
-    from db.dal.extension_dal import configure_payment_subscribers
+    from db.dal.extension_dal import PaymentSubscriber, configure_payment_subscribers
 
-    subscribers: list[tuple[str, str, int]] = []
+    subscribers: list[PaymentSubscriber] = []
     for owner, entry in registry.owners().items():
         jobs = {job.id: job for job in entry.contributions.jobs}
         subscribers.extend(
-            (owner, subscription.job, jobs[subscription.job].max_attempts)
+            (
+                owner,
+                subscription.job,
+                jobs[subscription.job].max_attempts,
+                subscription.enabled_when,
+            )
             for subscription in entry.contributions.events
             if subscription.event == "payment.succeeded"
         )

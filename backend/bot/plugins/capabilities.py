@@ -9,7 +9,7 @@ CORE_PLUGIN_CAPABILITIES: dict[str, int] = {
     "message_composition": 1,
     "install_guides": 1,
     "external_orders": 1,
-    "durable_jobs": 1,
+    "durable_jobs": 2,
     "rewards": 1,
     "backups": 1,
 }

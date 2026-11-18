@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.plugins.packages import generation_is_current
+from db.dal.extension_dal import subscription_enabled
 from db.extension_models import ExtensionOperation
 
 from .contracts import ExtensionError, OperationContext
@@ -132,6 +133,10 @@ async def publish(
     for owner, entry in get_registry().owners().items():
         for subscription in entry.contributions.events:
             if subscription.event != event:
+                continue
+            if not await subscription_enabled(
+                session, owner, subscription.job, subscription.enabled_when
+            ):
                 continue
             key = hashlib.sha256(f"{event}:{event_id}".encode()).hexdigest()
             await enqueue(

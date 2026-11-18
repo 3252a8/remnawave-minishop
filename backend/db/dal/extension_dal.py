@@ -2,11 +2,14 @@
 
 import hashlib
 import json
+import logging
 import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from db.extension_models import ExtensionOperation, ExtensionOrder
 from db.models import Payment
@@ -32,12 +35,32 @@ async def bind_payment(session: AsyncSession, payment: Payment) -> None:
     await session.flush()
 
 
-_payment_subscribers: tuple[tuple[str, str, int], ...] = ()
+PaymentSubscriber = tuple[str, str, int, ColumnElement[bool] | None]
+_payment_subscribers: tuple[PaymentSubscriber, ...] = ()
+logger = logging.getLogger(__name__)
 
 
-def configure_payment_subscribers(subscribers: tuple[tuple[str, str, int], ...]) -> None:
+def configure_payment_subscribers(subscribers: tuple[PaymentSubscriber, ...]) -> None:
     global _payment_subscribers
     _payment_subscribers = subscribers
+
+
+async def subscription_enabled(
+    session: AsyncSession, owner: str, job: str, condition: ColumnElement[bool] | None
+) -> bool:
+    if condition is None:
+        return True
+    # A missing plugin table during a rolling upgrade must not abort the
+    # payment or lose the notification. The worker can recheck its settings.
+    try:
+        async with session.begin_nested():
+            enabled = await session.scalar(select(condition))
+    except SQLAlchemyError as exc:
+        if not session.is_active or (isinstance(exc, DBAPIError) and exc.connection_invalidated):
+            raise
+        logger.warning("Could not read delivery setting for %s:%s; queuing event", owner, job)
+        return True
+    return enabled is not False
 
 
 async def record_payment_succeeded(session: AsyncSession, payment: Payment) -> None:
@@ -60,7 +83,9 @@ async def record_payment_succeeded(session: AsyncSession, payment: Payment) -> N
             "sale_mode": str(payment.sale_mode or ""),
         },
     }
-    for owner, job, attempts in _payment_subscribers:
+    for owner, job, attempts, condition in _payment_subscribers:
+        if not await subscription_enabled(session, owner, job, condition):
+            continue
         existing = await session.scalar(
             select(ExtensionOperation.id).where(
                 ExtensionOperation.owner == owner,
