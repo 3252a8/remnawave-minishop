@@ -5,6 +5,7 @@ import json
 import os
 import uuid
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_snapshot import capture_subscription_snapshot
+from bot.infra.redis import close_redis
 from bot.middlewares.i18n import JsonI18n
 from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
 from bot.services.balance_recurring import BalanceRecurringService
@@ -537,6 +539,7 @@ def test_funded_grant_renews_once_without_checkout(
     settings = Settings(
         _env_file=None,
         TARIFFS_CONFIG_PATH=str(tariff_path if target else tmp_path / "absent.json"),
+        REDIS_KEY_PREFIX=f"wallet-renewal-test:{uuid.uuid4().hex}",
         USER_BALANCE_ENABLED=True,
         USER_BALANCE_RECURRING_ENABLED=False,
     )
@@ -574,7 +577,8 @@ def test_funded_grant_renews_once_without_checkout(
 
     async def scenario(factory: Any) -> None:
         worker = AutoRenewRetryWorker(settings, factory, service)
-        async with factory() as session:
+        async with AsyncExitStack() as cleanup, factory() as session:
+            cleanup.push_async_callback(close_redis)
             session.add(User(user_id=42, panel_user_uuid=panel_uuid, language_code="en"))
             await session.flush()
             sub = Subscription(
