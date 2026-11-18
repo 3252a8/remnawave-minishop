@@ -2207,6 +2207,26 @@
         "updated_at": null
       },
       {
+        "key": "STARS_RUB_PER_STAR",
+        "type": "float",
+        "section": "payments",
+        "section_order": 4,
+        "subsection": "Telegram Stars",
+        "label": "Rubles per Telegram Star",
+        "description": "Convert ruble prices to whole Stars, rounded up. Set to 0 to use manual Stars prices.",
+        "i18n_label_key": "admin_settings_field_stars_rub_per_star_label",
+        "i18n_description_key": "admin_settings_field_stars_rub_per_star_description",
+        "i18n_subsection_key": "admin_settings_subsection_telegram_stars",
+        "i18n_placeholder_key": null,
+        "placeholder": "",
+        "optional": true,
+        "secret": false,
+        "min": 0,
+        "value": "",
+        "overridden": false,
+        "updated_at": null
+      },
+      {
         "key": "PAYMENT_METHODS_DISPLAY_MODE",
         "type": "string",
         "section": "payments",

@@ -3260,6 +3260,8 @@
   "admin_settings_field_pally_min_payment_amount_eur_label": "Minimum payment amount (EUR)",
   "admin_settings_field_pally_min_payment_amount_eur_description": "Minimum external Pally invoice in EUR. Set 0 to disable the limit.",
   "admin_settings_field_stars_enabled_label": "Stars Enabled",
+  "admin_settings_field_stars_rub_per_star_label": "Rubles per Telegram Star",
+  "admin_settings_field_stars_rub_per_star_description": "Convert ruble prices to whole Stars, rounded up. Set to 0 to use manual Stars prices.",
   "admin_settings_field_yookassa_default_receipt_email_label": "YooKassa Default Receipt Email",
   "admin_settings_field_yookassa_autopayments_enabled_label": "YooKassa Autopayments Enabled",
   "admin_settings_field_yookassa_autopayments_require_card_binding_label": "YooKassa Autopayments Require Card Binding",

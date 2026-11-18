@@ -520,6 +520,7 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU` / `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` | Текст кнопки в Telegram. |
 | `PAYMENT_<METHOD>_TELEGRAM_EMOJI` | Emoji кнопки в Telegram. |
 | `STARS_ENABLED` | Включает Telegram Stars. |
+| `STARS_RUB_PER_STAR` | Рублей за одну звезду. Положительное значение включает расчёт цен из RUB с округлением вверх, `0` по умолчанию сохраняет ручные цены Stars. |
 | `YOOKASSA_ENABLED` | Включает YooKassa. |
 | `FREEKASSA_ENABLED` | Включает FreeKassa. |
 | `PLATEGA_ENABLED` | Включает Platega. |

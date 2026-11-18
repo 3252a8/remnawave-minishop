@@ -59,6 +59,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
             TRIAL_PAYMENT_ENABLED=True,
             TRIAL_PAYMENT_PRICE=149.0,
             TRIAL_PAYMENT_STARS_PRICE=75,
+            STARS_RUB_PER_STAR=0.95,
         )
         subscription_service = SimpleNamespace(
             has_trial_blocking_subscription=AsyncMock(return_value=False)
@@ -113,7 +114,7 @@ class TrialCheckoutTests(IsolatedAsyncioTestCase):
         self.assertEqual(kwargs["sale_mode"], "trial")
         self.assertEqual(kwargs["months"], 1)
         self.assertEqual(kwargs["price"], 149.0)
-        self.assertEqual(kwargs["stars_price"], 75)
+        self.assertEqual(kwargs["stars_price"], 157)
         self.assertNotIn("promo_code", kwargs)
         self.assertNotIn("balance_source", kwargs)
 

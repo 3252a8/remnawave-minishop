@@ -330,6 +330,7 @@ class Settings(
     STARS_PRICE_3_MONTHS: int | None = Field(default=None)
     STARS_PRICE_6_MONTHS: int | None = Field(default=None)
     STARS_PRICE_12_MONTHS: int | None = Field(default=None)
+    STARS_RUB_PER_STAR: float = Field(default=0, ge=0, allow_inf_nan=False)
     PANEL_WEBHOOK_SECRET: str | None = Field(default=None)
 
     TRAFFIC_PACKAGES: str | None = Field(

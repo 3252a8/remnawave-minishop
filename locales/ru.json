@@ -3260,6 +3260,8 @@
   "admin_settings_field_pally_min_payment_amount_eur_label": "Минимальная сумма платежа (EUR)",
   "admin_settings_field_pally_min_payment_amount_eur_description": "Минимальная внешняя сумма счёта Pally в евро. Значение 0 отключает ограничение.",
   "admin_settings_field_stars_enabled_label": "Telegram Stars",
+  "admin_settings_field_stars_rub_per_star_label": "Рублей за одну звезду",
+  "admin_settings_field_stars_rub_per_star_description": "Пересчитывает цены в рублях в целые звёзды с округлением вверх. Значение 0 оставляет ручные цены в звёздах.",
   "admin_settings_field_yookassa_default_receipt_email_label": "Email для чека по умолчанию",
   "admin_settings_field_yookassa_autopayments_enabled_label": "Автоплатежи (recurring)",
   "admin_settings_field_yookassa_autopayments_require_card_binding_label": "Принудительная привязка карты",

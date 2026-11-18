@@ -605,6 +605,15 @@ SETTINGS_MANIFEST: list[SettingField] = [
         i18n_description_key="admin_settings_provider_admin_only_description",
     ),
     SettingField(
+        "STARS_RUB_PER_STAR",
+        "float",
+        "payments",
+        "Rubles per Telegram Star",
+        "Convert ruble prices to whole Stars, rounded up. Set to 0 to use manual Stars prices.",
+        min=0,
+        subsection="Telegram Stars",
+    ),
+    SettingField(
         "PAYMENT_METHODS_DISPLAY_MODE",
         "string",
         "payments",

@@ -154,6 +154,7 @@ if TYPE_CHECKING:
         STARS_PRICE_3_MONTHS: int | None
         STARS_PRICE_6_MONTHS: int | None
         STARS_PRICE_12_MONTHS: int | None
+        STARS_RUB_PER_STAR: float
         TRAFFIC_PACKAGES: str | None
         STARS_TRAFFIC_PACKAGES: str | None
         TARIFF_TRAFFIC_WARNING_LEVELS: str
