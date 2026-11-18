@@ -67,3 +67,28 @@ def test_official_api_origin_does_not_implicitly_approve_private_dns_answers() -
         policy.check_address("api.cloudpayments.ru", 443, "10.0.0.2")
     with pytest.raises(ValueError):
         policy.check_url("http://api.cloudpayments.ru:443/orders")
+
+
+def test_payment_resolver_only_returns_eligible_dns_answers_in_order() -> None:
+    async def run() -> None:
+        host = "app.platega.io"
+        addresses = ["10.1.2.3", "93.184.216.34", "169.254.1.2", "93.184.216.35", "127.0.0.1"]
+        answers: list[ResolveResult] = [
+            {
+                "hostname": host,
+                "host": address,
+                "port": 443,
+                "family": socket.AF_INET,
+                "proto": socket.IPPROTO_TCP,
+                "flags": 0,
+            }
+            for address in addresses
+        ]
+        resolver = GuardedResolver(CredentialPolicy([f"https://{host}"]), filter_blocked=True)
+        try:
+            with patch.object(ThreadedResolver, "resolve", return_value=answers):
+                assert await resolver.resolve(host, 443) == [answers[1], answers[3]]
+        finally:
+            await resolver.close()
+
+    asyncio.run(run())

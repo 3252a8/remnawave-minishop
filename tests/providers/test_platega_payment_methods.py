@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from aiohttp.abc import ResolveResult
+from aiohttp.resolver import ThreadedResolver
 
 from bot.payment_providers.platega import service as platega_service
 
@@ -45,6 +48,42 @@ def _capture_create_request(monkeypatch, service: platega_service.PlategaService
         AsyncMock(return_value=SimpleNamespace()),
     )
     return captured
+
+
+def test_create_reports_local_block_when_platega_only_resolves_privately(
+    monkeypatch, caplog
+) -> None:
+    async def run() -> None:
+        monkeypatch.delenv("PLATEGA_BASE_URL", raising=False)
+        service = _service()
+        service._init_http_client()
+        answer: ResolveResult = {
+            "hostname": "app.platega.io",
+            "host": "127.0.0.1",
+            "port": 443,
+            "family": socket.AF_INET,
+            "proto": socket.IPPROTO_TCP,
+            "flags": 0,
+        }
+        resolve = AsyncMock(return_value=[answer])
+        monkeypatch.setattr(ThreadedResolver, "resolve", resolve)
+        try:
+            result = await service.create_transaction(
+                amount=100, currency="RUB", description="Test"
+            )
+            assert result == (
+                False,
+                {"message": "unsafe_outbound_address", "source": "local_outbound_policy"},
+            )
+            resolve.assert_awaited_once()
+            assert (
+                "local outbound policy blocked host=app.platega.io port=443 address=127.0.0.1"
+                in caplog.text
+            )
+        finally:
+            await service.close()
+
+    asyncio.run(run())
 
 
 def test_new_payment_buttons_are_opt_in_with_documented_international_method() -> None:
