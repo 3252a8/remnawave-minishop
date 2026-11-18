@@ -47,11 +47,12 @@ async def has_user_relationships(session: AsyncSession, user_id: int) -> bool:
 
 async def load_relationship_subscription_and_revenue(
     session: AsyncSession,
-) -> tuple[dict[int, tuple[bool, str | None]], dict[int, dict[str, float]]]:
+) -> tuple[dict[int, tuple[bool, bool, str | None]], dict[int, dict[str, float]]]:
     edges = relationship_edges_query().cte("relationship_metrics_edges")
     connected_ids = union(select(edges.c.source), select(edges.c.target))
+    now = datetime.now(UTC)
     active = case(
-        (Subscription.is_active.is_(True) & (Subscription.end_date > datetime.now(UTC)), True),
+        (Subscription.is_active.is_(True) & (Subscription.end_date > now), True),
         else_=False,
     )
     subscriptions = (
@@ -59,6 +60,7 @@ async def load_relationship_subscription_and_revenue(
             Subscription.user_id,
             Subscription.tariff_key,
             active.label("active"),
+            (Subscription.end_date <= now).label("expired"),
             func.row_number()
             .over(
                 partition_by=Subscription.user_id,
@@ -74,9 +76,12 @@ async def load_relationship_subscription_and_revenue(
         .subquery()
     )
     subscription_rows = await session.execute(
-        select(subscriptions.c.user_id, subscriptions.c.active, subscriptions.c.tariff_key).where(
-            subscriptions.c.position == 1
-        )
+        select(
+            subscriptions.c.user_id,
+            subscriptions.c.active,
+            subscriptions.c.expired,
+            subscriptions.c.tariff_key,
+        ).where(subscriptions.c.position == 1)
     )
     currency = func.upper(Payment.currency)
     payment_rows = await session.execute(
@@ -93,8 +98,8 @@ async def load_relationship_subscription_and_revenue(
     for user_id, code, amount in payment_rows:
         revenue.setdefault(int(user_id), {})[str(code)] = float(amount)
     return {
-        int(user_id): (bool(is_active), tariff_key)
-        for user_id, is_active, tariff_key in subscription_rows
+        int(user_id): (bool(is_active), bool(is_expired), tariff_key)
+        for user_id, is_active, is_expired, tariff_key in subscription_rows
     }, revenue
 
 

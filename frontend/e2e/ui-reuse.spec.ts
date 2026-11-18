@@ -78,13 +78,33 @@ for (const width of [1440, 768, 390, 320]) {
       await expect(graph).toBeVisible();
       await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
       await expect(page).toHaveURL(/view=relationships.*focus=910083/);
-      await expect(graph.locator('[data-graph-user-id="910083"]')).toBeVisible();
+      const activeNode = graph.locator('[data-graph-user-id="910083"]');
+      await expect(activeNode).toBeVisible();
+      await expect(activeNode).toHaveCSS("opacity", "1");
+      const edgeAppearance = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const { cy } = (element as RelationshipCanvas)._cyreg;
+        return ["910083", "910094", "910154"].map((target) => {
+          const edge = cy.edges(`edge[kind="referral"][target="${target}"]`).first();
+          return [edge.style("line-color"), edge.style("target-arrow-color")];
+        });
+      });
+      expect(edgeAppearance).toEqual([
+        ["rgb(59,130,246)", "rgb(59,130,246)"],
+        ["rgb(59,130,246)", "rgb(59,130,246)"],
+        ["rgb(128,128,128)", "rgb(128,128,128)"],
+      ]);
+      const search = graph.locator('input[type="search"]');
+      await search.fill("910154");
+      await search.press("Enter");
+      await expect(graph.locator('[data-graph-user-id="910154"]')).toHaveCSS("opacity", "0.8");
+      await search.fill("910083");
+      await search.press("Enter");
       // A middle generation includes both its inviter and its own invitees.
       await expect(
         graph.locator('.relationships-selection li[data-relationship-kind="referral"]')
       ).toHaveCount(5);
-      await graph.locator('input[type="search"]').fill("910001");
-      await graph.locator('input[type="search"]').press("Enter");
+      await search.fill("910001");
+      await search.press("Enter");
       await expect(graph.locator('[data-graph-user-id="910001"]')).toHaveClass(/selected/);
       const selectedDetails = graph.locator(".relationships-selection dl");
       await expect(selectedDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();

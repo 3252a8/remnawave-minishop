@@ -8453,6 +8453,11 @@
             ],
             "title": "Subscription Active"
           },
+          "subscription_expired": {
+            "default": false,
+            "title": "Subscription Expired",
+            "type": "boolean"
+          },
           "telegram_id": {
             "anyOf": [
               {

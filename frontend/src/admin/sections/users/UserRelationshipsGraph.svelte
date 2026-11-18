@@ -254,6 +254,7 @@
         elements: [
           ...users.map((user) => ({ data: { id: String(user.user_id) }, pannable: true })),
           ...edges.map((edge, index) => ({
+            classes: byId.get(String(edge.target))?.subscription_expired ? "expired-target" : "",
             data: {
               id: `edge-${index}`,
               source: String(edge.source),
@@ -298,6 +299,10 @@
               "target-arrow-color": "#d97706",
               "line-style": "dashed",
             },
+          },
+          {
+            selector: "edge.expired-target",
+            style: { "line-color": "#808080", "target-arrow-color": "#808080" },
           },
           { selector: "edge.related", style: { width: 4 } },
           { selector: ".filtered", style: { display: "none" } },
@@ -540,6 +545,7 @@
             <button
               type="button"
               class="relationships-node"
+              class:expired={item.user.subscription_expired === true}
               class:selected={selectedId === String(item.user.user_id)}
               style={`width:${cardWidth}px;height:${cardHeight}px;transform:translate(${item.x}px,${item.y}px)`}
               data-graph-user-id={item.user.user_id}
@@ -739,6 +745,9 @@
   }
   .relationships-node.selected {
     border: 2px solid var(--admin-accent, #3b82f6);
+  }
+  .relationships-node.expired {
+    opacity: 0.8;
   }
   .relationships-node:focus-visible {
     outline: 3px solid var(--admin-accent, #3b82f6);

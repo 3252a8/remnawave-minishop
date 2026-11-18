@@ -8510,6 +8510,11 @@ export interface components {
       /** Subscription Active */
       subscription_active: boolean | null;
       /**
+       * Subscription Expired
+       * @default false
+       */
+      subscription_expired: boolean;
+      /**
        * Telegram Id
        * @default null
        */
