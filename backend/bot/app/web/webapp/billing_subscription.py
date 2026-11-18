@@ -32,12 +32,10 @@ from bot.infra.auto_renew import (
 from bot.infra.redis import redis_lock
 from bot.services.balance_recurring import balance_recurring_available
 from bot.services.code_attempts import check_code_attempt
+from bot.services.grant_wallet_renewal import grant_balance_renewal_tariff_key
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
-from bot.services.subscription_service_impl.renewal import (
-    grant_balance_renewal_tariff_key,
-    quote_grant_balance_renewal,
-)
+from bot.services.subscription_service_impl.renewal import quote_grant_balance_renewal
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings

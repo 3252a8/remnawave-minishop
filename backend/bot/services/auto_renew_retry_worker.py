@@ -15,6 +15,7 @@ from bot.payment_providers.shared.recurring import (
     BALANCE_RECURRING_PROVIDERS,
     get_recurring_payment_method,
 )
+from bot.services.grant_wallet_renewal import schedule_funded_grants
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
 from db.balance_renewal import renewal_provider
@@ -101,6 +102,10 @@ class AutoRenewRetryWorker:
         balances = tuple(
             provider for provider in providers if provider in BALANCE_RECURRING_PROVIDERS
         )
+        if "user_balance" in balances:
+            async with self.session_factory() as session:
+                await schedule_funded_grants(session, self.settings, self._batch_size())
+                await session.commit()
         if balances:
             # This is an initial charge, equivalent to the panel's expiry webhook.
             await self._process_due_subscriptions(balances, dry_run=False, initial_only=True)

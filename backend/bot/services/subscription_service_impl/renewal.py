@@ -21,6 +21,7 @@ from bot.payment_providers.shared import (
 from bot.services.subscription_order_terms import freeze_subscription_terms
 from config.subscription_periods import (
     checkout_duration_days,
+    days_to_legacy_months,
     fixed_day_metadata,
     legacy_months_to_days,
     with_period_days,
@@ -30,11 +31,9 @@ from config.tariffs_config import (
     default_payment_currency_code_for_settings,
 )
 from db.balance_renewal import (
-    GRANT_PROVIDERS,
     GrantBalanceRenewal,
     grant_balance_renewal,
     renewal_provider,
-    subscription_provider,
 )
 from db.dal import tariff_dal
 from db.models import Subscription
@@ -55,48 +54,28 @@ class SubscriptionRenewalQuote:
     checkout_bundle_snapshot: str | None = None
 
 
-def grant_balance_renewal_tariff_key(
-    settings: Any, subscription: Subscription | None
-) -> str | None:
-    provider = subscription_provider(subscription)
-    if provider not in GRANT_PROVIDERS or not (catalog := settings.tariffs_config):
-        return None
-
-    currency = default_currency_key_for_settings(settings)
-    assigned_key = getattr(subscription, "tariff_key", None) if provider == "admin" else None
-    if assigned_key:
-        assigned = catalog.get(assigned_key)
-        candidates = [assigned] if assigned else []
-    else:
-        candidates = catalog.enabled_tariffs
-    eligible = [
-        tariff.key
-        for tariff in candidates
-        if tariff.billing_model == "period"
-        and any(
-            (tariff.period_price(period, currency) or 0) > 0 for period in tariff.enabled_periods
-        )
-    ]
-    if len(eligible) == 1:
-        return eligible[0]
-    return catalog.default_tariff if catalog.default_tariff in eligible else None
-
-
 def quote_grant_balance_renewal(
     settings: Any, subscription: Subscription, selection: GrantBalanceRenewal
 ) -> SubscriptionRenewalQuote | None:
-    try:
-        tariff = settings.tariffs_config.require_for_user(
-            selection.tariff_key, subscription.tariff_key, None
-        )
-    except KeyError:
-        return None
-    if tariff.billing_model != "period":
-        return None
-    units = tariff.period_for_days(selection.duration_days)
-    if units is None:
-        return None
-    amount = tariff.period_price(units, default_currency_key_for_settings(settings))
+    catalog = settings.tariffs_config
+    if selection.tariff_key:
+        if catalog is None:
+            return None
+        try:
+            tariff = catalog.require_for_user(selection.tariff_key, subscription.tariff_key, None)
+        except KeyError:
+            return None
+        units = tariff.period_for_days(selection.duration_days)
+        if tariff.billing_model != "period" or units is None:
+            return None
+        amount = tariff.period_price(units, default_currency_key_for_settings(settings))
+        sale_mode = f"subscription@{tariff.key}"
+    else:
+        units = days_to_legacy_months(selection.duration_days)
+        if catalog is not None or units is None:
+            return None
+        amount = settings.subscription_options.get(units)
+        sale_mode = "subscription"
     currency = default_payment_currency_code_for_settings(settings)
     if not amount or amount <= 0 or settings.balance_settings.currency.upper() != currency.upper():
         return None
@@ -104,8 +83,8 @@ def quote_grant_balance_renewal(
         amount=float(amount),
         currency=currency,
         months=units,
-        sale_mode=with_period_days(f"subscription@{tariff.key}", selection.duration_days),
-        tariff_key=tariff.key,
+        sale_mode=with_period_days(sale_mode, selection.duration_days),
+        tariff_key=selection.tariff_key or None,
         hwid_quote=None,
     )
 

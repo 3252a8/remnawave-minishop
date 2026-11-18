@@ -27,11 +27,11 @@ from bot.infra.promo_policies import (
     resolve_promo_checkout_suggestion,
 )
 from bot.services.device_topup_availability import resolve_device_topup_availability
+from bot.services.grant_wallet_renewal import grant_balance_renewal_tariff_key
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
 from bot.services.referral_welcome_trial import referral_welcome_trial_bonus_days
 from bot.services.subscription_service_impl.core import SubscriptionService
-from bot.services.subscription_service_impl.renewal import grant_balance_renewal_tariff_key
 from bot.services.telegram_notifications import (
     TELEGRAM_NOTIFICATIONS_ENABLED,
     normalize_telegram_notification_status,

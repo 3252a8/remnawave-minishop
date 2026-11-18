@@ -35,7 +35,7 @@ def grant_balance_renewal(subscription: Any) -> GrantBalanceRenewal | None:
     if (
         provider in BALANCE_RECURRING_PROVIDERS
         and isinstance(tariff_key, str)
-        and tariff_key
+        and (tariff_key or provider == "user_balance")
         and isinstance(duration_days, int)
         and duration_days > 0
     ):
@@ -54,7 +54,11 @@ def renewal_provider_column() -> ColumnElement[str]:
         (
             provider.in_(GRANT_PROVIDERS)
             & Subscription.balance_renewal_provider.in_(BALANCE_RECURRING_PROVIDERS)
-            & (Subscription.balance_renewal_tariff_key != "")
+            & Subscription.balance_renewal_tariff_key.is_not(None)
+            & (
+                (Subscription.balance_renewal_tariff_key != "")
+                | (Subscription.balance_renewal_provider == "user_balance")
+            )
             & (Subscription.balance_renewal_duration_days > 0),
             Subscription.balance_renewal_provider,
         ),

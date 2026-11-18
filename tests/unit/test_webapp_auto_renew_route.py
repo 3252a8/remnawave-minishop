@@ -58,7 +58,7 @@ class WebAppAutoRenewRouteTests(IsolatedAsyncioTestCase):
             billing_subscription.grant_balance_renewal_tariff_key(settings, trial), wallet.key
         )
 
-    async def test_granted_subscription_requires_explicit_balance_terms(self):
+    async def test_granted_subscription_accepts_explicit_balance_terms(self):
         for origin, source in (("trial", "user"), ("admin", "partner")):
             with self.subTest(origin=origin, source=source):
                 await self._check_grant_balance_setup(origin, source)

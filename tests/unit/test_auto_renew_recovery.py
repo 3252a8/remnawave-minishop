@@ -734,6 +734,10 @@ class AutoRenewSchedulerTests(IsolatedAsyncioTestCase):
                 AUTO_RENEW_RETRY_ENABLED=False,
                 AUTO_RENEW_RETRY_DRY_RUN=True,
                 AUTO_RENEW_SCHEDULER_ENABLED=scheduler,
+                tariffs_config=None,
+                subscription_options={},
+                DEFAULT_CURRENCY_SYMBOL="RUB",
+                balance_settings=SimpleNamespace(currency="RUB"),
             ),
         )
         sub = SimpleNamespace(
