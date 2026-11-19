@@ -8,18 +8,20 @@ aiohttp>=3.14.5,<3.15
 aiohttp-socks==0.12.0
 python-dotenv==1.2.4
 # aiogram 3.32.0 supports pydantic<2.15.
-pydantic==2.14.3
+pydantic==2.14.4
 yookassa==3.13.0
 httpx>=0.27.0
 pydantic-settings==2.16.3
 email-validator==2.4.0
+# Resolver security fix, GHSA-vvf4-9x63-8xvv.
+dnspython>=2.9.2
 # SQLAlchemy 2.1 changes autoflush, PostgreSQL named types, and Row typing;
 # keep 2.0 until transaction, migration, and type compatibility is validated.
 # https://docs.sqlalchemy.org/en/21/changelog/migration_21.html
 sqlalchemy[asyncio]==2.0.57
 asyncpg==0.32.0
 # GHSA-6q48-6c7w-9gw2: require the corrected emSign trust bundle.
-certifi>=2026.10.19
+certifi>=2026.10.23
 PyJWT[crypto]==2.15.1
 webauthn==3.0.1
 # pyasn1 0.6.5 fixes quadratic ASN.1 decoding (GHSA-mm57-4v3p-rchx and related).

@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.43.1",
-    "astro": "^7.4.12",
+    "astro": "^7.4.13",
     "starlight-theme-nova": "^0.12.3",
-    "swagger-ui-dist": "^5.35.0",
+    "swagger-ui-dist": "^5.35.1",
     "typescript": "^6.0.3"
   },
   "overrides": {

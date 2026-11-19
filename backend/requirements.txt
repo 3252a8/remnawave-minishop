@@ -51,7 +51,9 @@ deprecated==3.0.1
 distro==1.9.0
     # via yookassa
 dnspython==2.9.2
-    # via email-validator
+    # via
+    #   -r backend/requirements.in
+    #   email-validator
 email-validator==2.4.0
     # via -r backend/requirements.in
 frozenlist==1.8.0
@@ -100,12 +102,12 @@ pyasn1-modules==0.4.2
     # via webauthn
 pycparser==3.12
     # via cffi
-pydantic==2.14.3
+pydantic==2.14.4
     # via
     #   -r backend/requirements.in
     #   aiogram
     #   pydantic-settings
-pydantic-core==2.50.4
+pydantic-core==2.50.5
     # via pydantic
 pydantic-settings==2.16.3
     # via -r backend/requirements.in
@@ -119,7 +121,7 @@ python-dotenv==1.2.4
     # via
     #   -r backend/requirements.in
     #   pydantic-settings
-python-socks[asyncio]==3.2.1
+python-socks[asyncio]==3.2.2
     # via aiohttp-socks
 redis==8.1.0
     # via -r backend/requirements.in
