@@ -3126,6 +3126,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/note": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Note Get */
+    get: operations["get_admin_user_note_get_route"];
+    /** Admin User Note Put */
+    put: operations["put_admin_user_note_put_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/notification-preferences": {
     parameters: {
       query?: never;
@@ -8345,6 +8363,18 @@ export interface components {
        * @default
        */
       text: unknown;
+    };
+    /** AdminUserNoteBody */
+    AdminUserNoteBody: {
+      /** Note */
+      note: string;
+      /** Previous Note */
+      previous_note: string;
+    };
+    /** AdminUserNoteOut */
+    AdminUserNoteOut: {
+      /** Note */
+      note: string;
     };
     /** AdminUserOut */
     AdminUserOut: {
@@ -19647,6 +19677,60 @@ export interface operations {
             /** @constant */
             ok: true;
           };
+        };
+      };
+    };
+  };
+  get_admin_user_note_get_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserNoteOut"];
+        };
+      };
+    };
+  };
+  put_admin_user_note_put_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserNoteBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserNoteOut"];
         };
       };
     };

@@ -113,6 +113,10 @@ async def _exercise_panel_contract() -> None:
         )
         assert updated and updated.get("description") == "core compatibility live smoke"
         assert int(updated.get("telegramId") or 0) == updated_telegram_id
+        cleared = await service.update_user_details_on_panel(user_ref, {"description": None})
+        assert cleared is not None and not cleared.get("description")
+        fresh = await service.get_user_by_uuid_lookup(user_ref)
+        assert fresh["ok"] and not fresh["user"].get("description")
         assert updated.get("tag") == updated_tag
 
         # Panel 3.4.1 runtime already required a scalar here, while its OpenAPI

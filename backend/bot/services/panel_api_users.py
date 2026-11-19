@@ -756,10 +756,7 @@ class PanelApiUsersMixin(PanelApiUserMutationMixin, PanelApiResponseMixin):
                 return updated
 
         logger.error(
-            "Failed to update user %s details on panel. Payload: %s, Response: %s",
-            user_uuid,
-            payload,
-            full_response if not log_response else "(logged above)",
+            "Panel user update failed. Status: %s", (full_response or {}).get("status_code")
         )
         return None
 

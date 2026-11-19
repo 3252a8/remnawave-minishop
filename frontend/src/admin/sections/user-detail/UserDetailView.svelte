@@ -19,6 +19,7 @@
   import UserNotificationSummaryCard from "./UserNotificationSummaryCard.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
   import UserDevicesTab from "./UserDevicesTab.svelte";
+  import UserNoteTab from "./UserNoteTab.svelte";
   import UserSubscriptionTab from "./UserSubscriptionTab.svelte";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
@@ -298,6 +299,9 @@
               <Tabs.Trigger value="devices" class="admin-tabs-trigger">
                 {at("user_tab_devices", {}, "Devices")}
               </Tabs.Trigger>
+              <Tabs.Trigger value="note" class="admin-tabs-trigger">
+                {at("user_tab_note", {}, "Note")}
+              </Tabs.Trigger>
               <Tabs.Trigger value="activity" class="admin-tabs-trigger"
                 >{at("user_tab_activity", {}, "Payments")}</Tabs.Trigger
               >
@@ -361,6 +365,16 @@
                   <UserDevicesTab {at} {fmtDate} userId={openedUser.user_id} />
                 {/key}
               {/if}
+            </Tabs.Content>
+
+            <Tabs.Content value="note" class="admin-tabs-content">
+              {#key openedUser.user_id}
+                <UserNoteTab
+                  {at}
+                  userId={openedUser.user_id}
+                  active={usersStore.userDetailTab === "note"}
+                />
+              {/key}
             </Tabs.Content>
 
             <UserLogsTab

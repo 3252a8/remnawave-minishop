@@ -171,6 +171,7 @@ from .user_broadcast_audiences import (
     admin_user_broadcast_audiences_get_route,
     admin_user_broadcast_audiences_patch_route,
 )
+from .user_note import admin_user_note_get_route, admin_user_note_put_route
 from .user_relationships import admin_user_relationships_route
 from .users import (
     admin_user_avatar_route,
@@ -353,6 +354,8 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_get("/api/admin/gifts/{gift_id}", admin_gift_detail_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/hwid-devices", admin_user_devices_route)
+    router.add_get("/api/admin/users/{user_id:-?\\d+}/note", admin_user_note_get_route)
+    router.add_put("/api/admin/users/{user_id:-?\\d+}/note", admin_user_note_put_route)
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/hwid-devices/disconnect",
         admin_user_device_disconnect_route,

@@ -8031,6 +8031,37 @@
         "title": "AdminUserMessageBody",
         "type": "object"
       },
+      "AdminUserNoteBody": {
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "previous_note": {
+            "title": "Previous Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note",
+          "previous_note"
+        ],
+        "title": "AdminUserNoteBody",
+        "type": "object"
+      },
+      "AdminUserNoteOut": {
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "AdminUserNoteOut",
+        "type": "object"
+      },
       "AdminUserOut": {
         "properties": {
           "account_id": {
@@ -33003,6 +33034,126 @@
           }
         ],
         "summary": "Admin User Message Preview",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/note": {
+      "get": {
+        "operationId": "get_admin_user_note_get_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserNoteOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Note Get",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "operationId": "put_admin_user_note_put_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserNoteBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserNoteOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Note Put",
         "tags": [
           "admin"
         ]

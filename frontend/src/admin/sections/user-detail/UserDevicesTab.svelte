@@ -14,8 +14,8 @@
   import {
     buildAdminUserDevicesPath,
     buildAdminUserDisconnectDevicePath,
-    unwrap,
-  } from "$lib/webapp/publicApi";
+  } from "$lib/webapp/adminUserPanelPaths";
+  import { unwrap } from "$lib/webapp/publicApi";
   import type { DateFormatter, TranslateFn } from "./userDetailTypes";
 
   type Device = components["schemas"]["WebAppDeviceOut"];

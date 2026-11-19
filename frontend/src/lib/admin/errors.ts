@@ -170,6 +170,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   panel_request_failed: "error_panel_request_failed",
   panel_service_unavailable: "error_panel_service_unavailable",
   panel_unavailable: "error_panel_service_unavailable",
+  panel_user_not_found: "user_panel_user_not_found",
   panel_user_missing: "error_panel_user_missing",
   payment_fulfillment_unavailable: "error_payment_fulfillment_unavailable",
   payment_manual_finalize_failed: "error_payment_manual_finalize_failed",

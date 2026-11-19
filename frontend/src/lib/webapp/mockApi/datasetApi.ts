@@ -1,6 +1,7 @@
 import { demoAdminUserById } from "./users.js";
 import { demoUserRelationships } from "./relationships";
-import { adminBroadcastDemoResponse, demoUserPlatforms } from "./adminBroadcasts";
+import { adminBroadcastDemoResponse } from "./adminBroadcasts";
+import { adminUserResourceDemoResponse } from "./adminUserResources";
 import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
 import { adminGiftDemoStats } from "./giftsDemo";
@@ -31,7 +32,6 @@ import { sortAdminRows, type AdminSortColumn, type AdminSortValue } from "$lib/a
 import { USERS_EXTENSION_FILTER_QUERY_PARAM } from "$lib/admin/usersRouteFilters";
 import {
   demoInviteesForUser,
-  demoRegisteredDevices,
   demoSupportCounts,
   filterDemoSupportTickets,
   filterDemoUsers,
@@ -304,26 +304,16 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
-      if (parts[4] === "hwid-devices") {
-        const devices = demoRegisteredDevices(detail);
-        if (!parts[5] && method === "GET") return { ok: true, devices: clone(devices) };
-        if (method !== "POST") return { ok: false, error: "method_not_allowed" };
-        if (parts[5] === "disconnect") {
-          const token = jsonBody(options).device_token;
-          const index = devices.findIndex((device) => device.token === token);
-          if (index < 0) return { ok: false, error: "device_not_found" };
-          devices.splice(index, 1);
-        } else if (parts[5] === "reset") {
-          devices.length = 0;
-        } else {
-          return { ok: false, error: "not_found" };
-        }
-        detail.hwid_devices = {
-          current_devices: devices.length,
-          max_devices: decoratedDetail.hwid_devices?.max_devices ?? null,
-        };
-        return { ok: true };
-      }
+      const resource = adminUserResourceDemoResponse(
+        parts[4],
+        parts[5],
+        detail,
+        user,
+        decoratedDetail.hwid_devices?.max_devices ?? null,
+        options,
+        clone
+      );
+      if (resource !== undefined) return resource;
       if (parts[4] === "tariff" && method === "POST") {
         const tariffKey = String(jsonBody(options).tariff_key || "");
         const tariff = ((demoTariffs().tariffs || []) as DemoRecord[]).find(
@@ -338,27 +328,6 @@ export function demoApiResponse(
           subscription.hwid_device_limit = tariff.hwid_device_limit ?? null;
         }
         return { ok: true, subscription: clone(subscription) };
-      }
-      if (parts[4] === "broadcast-audiences") {
-        const targets = user?.is_banned
-          ? []
-          : [
-              "all",
-              detail.active_subscription ? "active" : "inactive",
-              ...demoUserPlatforms(detail).keys(),
-            ];
-        const existing = detail.broadcast_audience_exclusions;
-        const excluded = new Set(Array.isArray(existing) ? existing.map(String) : []);
-        if (method === "PATCH") {
-          const { action, target } = jsonBody(options);
-          if (action === "exclude" && typeof target === "string") excluded.add(target);
-          if (action === "include" && typeof target === "string") excluded.delete(target);
-          if (action === "exclude_all") targets.forEach((name) => excluded.add(name));
-          if (action === "reset") excluded.clear();
-          detail.broadcast_audience_exclusions = [...excluded];
-          return { ok: true, excluded: [...excluded] };
-        }
-        return { ok: true, targets, excluded: [...excluded] };
       }
       if (parts[4] === "notification-preferences" && method === "PATCH") {
         const notificationPreferences = jsonBody(options);

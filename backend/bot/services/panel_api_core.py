@@ -466,6 +466,8 @@ class PanelApiCoreMixin:
         # deliberately identifier-free.
         log_prefix = f"Panel API Req: {method.upper()} {endpoint_label}"
         private_body = operation in {
+            PanelApiOperation.USER_GET,
+            PanelApiOperation.USER_UPDATE,
             PanelApiOperation.HWID_DEVICES_LIST,
             PanelApiOperation.HWID_DEVICES_GET,
             PanelApiOperation.HWID_DEVICE_DELETE,

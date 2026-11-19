@@ -527,18 +527,6 @@ export function buildAdminUserBroadcastAudiencesPath(userId: number | string) {
   );
 }
 
-export function buildAdminUserDevicesPath(userId: number | string) {
-  return builtApiPath<"/api/admin/users/{user_id}/hwid-devices">(
-    `/admin/users/${encodeURIComponent(String(userId))}/hwid-devices`
-  );
-}
-
-export function buildAdminUserDisconnectDevicePath(userId: number | string) {
-  return builtApiPath<"/api/admin/users/{user_id}/hwid-devices/disconnect">(
-    `/admin/users/${encodeURIComponent(String(userId))}/hwid-devices/disconnect`
-  );
-}
-
 export type AdminSupportTicketsPath = "/admin/support/tickets" | `/admin/support/tickets?${string}`;
 export function buildAdminSupportTicketsPath(params: URLSearchParams): AdminSupportTicketsPath {
   return `/admin/support/tickets?${params.toString()}` as AdminSupportTicketsPath;
