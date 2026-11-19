@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import { compactUserId } from "$lib/admin/format";
   type Props = {
     name: string;
     secondary?: string;
@@ -20,9 +21,7 @@
 
   // Minishop ids share a long prefix, so the tail is what tells rows apart;
   // the full id stays in the tooltip and on the user card.
-  const shortId = $derived(
-    idText.length > 18 ? `${idText.slice(0, 5)}…${idText.slice(-6)}` : idText
-  );
+  const shortId = $derived(compactUserId(idText));
 </script>
 
 <!-- Avatar plus name/secondary/id stack for user cells in admin tables. -->

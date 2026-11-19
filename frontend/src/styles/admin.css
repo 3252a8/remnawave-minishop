@@ -3160,8 +3160,7 @@
   padding: 14px;
   border: 1px solid var(--admin-border);
   border-radius: 10px;
-  background:
-    color-mix(in srgb, var(--admin-surface-2) 86%, transparent);
+  background: color-mix(in srgb, var(--admin-surface-2) 86%, transparent);
 }
 
 .admin-icon-picker-current-preview {
@@ -6225,11 +6224,6 @@
   min-width: 0;
 }
 
-.support-inbox-row-title svg {
-  flex: 0 0 auto;
-  color: color-mix(in srgb, var(--accent) 72%, var(--admin-muted));
-}
-
 .support-inbox-row-title strong {
   overflow: hidden;
   font-size: 14px;
@@ -6682,36 +6676,6 @@
   min-width: 0;
 }
 
-.support-admin-summary span {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-  border: 1px solid var(--admin-border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--admin-surface) 86%, var(--admin-bg));
-  padding: 12px 14px;
-  box-shadow: var(--admin-card-shadow);
-}
-
-.support-admin-summary strong {
-  color: var(--admin-text);
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.support-admin-summary small {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--admin-muted);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .support-admin-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -7041,10 +7005,6 @@
   min-height: 0;
 }
 
-.support-admin-summary span {
-  min-height: 66px;
-}
-
 .support-admin-list-panel {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -7310,20 +7270,6 @@
     gap: 8px;
   }
 
-  .support-admin-summary span {
-    min-height: 56px;
-    border-radius: 10px;
-    padding: 9px 8px;
-  }
-
-  .support-admin-summary strong {
-    font-size: 20px;
-  }
-
-  .support-admin-summary small {
-    font-size: 10px;
-  }
-
   .support-admin-list-panel {
     padding: 12px;
   }
@@ -7332,6 +7278,12 @@
   .support-ticket-row-skeleton {
     grid-template-columns: 34px minmax(0, 1fr);
     gap: 10px;
+  }
+
+  .support-inbox-row-title strong,
+  .support-inbox-row-main > small {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .support-admin-list-panel .support-row-badges,
@@ -7452,21 +7404,6 @@
   gap: 8px;
   align-items: center;
   padding: 10px;
-}
-
-.support-ticket-statusbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
-}
-
-.support-ticket-statusbar .admin-badge {
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .support-ticket-dialog .support-ticket-actions {
@@ -7624,26 +7561,22 @@
   }
 
   .support-ticket-dialog .support-ticket-header {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
-    padding: 8px 10px;
-  }
-
-  .support-ticket-dialog .support-ticket-statusbar {
-    grid-column: 1;
-    grid-row: 1;
+    padding: 6px 10px;
   }
 
   .support-ticket-dialog .support-ticket-controls {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 1;
     padding-top: 0;
     border-top: 0;
   }
 
   .support-ticket-dialog .support-ticket-actions {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1;
+    align-self: end;
   }
 
   .support-ticket-dialog .support-admin-message-scroll {
@@ -7756,6 +7689,190 @@
 
   .support-ticket-dialog .support-admin-composer-row .admin-btn {
     width: auto;
+  }
+}
+
+/* Keep the editable reply in the visual viewport while the phone keyboard is open. */
+.support-ticket-extensions:empty {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .dialog:has(> .support-ticket-dialog-chat),
+  .dialog:has(> .support-ticket-info),
+  .dialog:has(> .support-ticket-tools) {
+    --dialog-gutter: 0px;
+    inset: var(--support-viewport-top, 0px) 0 auto;
+    padding: max(0px, calc(var(--content-safe-area-top) - var(--support-viewport-top, 0px)))
+      var(--content-safe-area-right) var(--content-safe-area-bottom) var(--content-safe-area-left);
+    height: min(
+      var(--support-viewport-height, 100dvh),
+      calc(var(--tg-viewport-stable-height, 100dvh) - var(--support-viewport-top, 0px))
+    );
+    overflow: hidden;
+  }
+
+  .dialog-card.admin-dialog.support-ticket-dialog-chat {
+    container: support-chat / size;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-self: stretch;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .support-mobile-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .support-mobile-title h2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .support-ticket-dialog-chat > .dialog-body-scroll,
+  .support-ticket-dialog-chat > .dialog-body-scroll > .scroll-area__viewport,
+  .support-ticket-dialog-chat > .dialog-body-scroll > .scroll-area__viewport > div {
+    display: block !important;
+    min-height: 0;
+    min-width: 0 !important;
+    width: 100%;
+    height: 100%;
+    overflow: hidden !important;
+  }
+
+  .support-ticket-dialog-chat .support-ticket-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .support-ticket-dialog-chat .support-admin-message-scroll {
+    flex: 1;
+    height: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 6px;
+  }
+
+  .support-ticket-dialog-chat .support-admin-message-scroll > .scroll-area__viewport {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .support-ticket-dialog-chat .support-admin-composer {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 65%;
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .support-ticket-dialog-chat .support-admin-composer.tools-open {
+    max-height: 80%;
+  }
+
+  .support-mobile-title:has(.support-extension-trigger) {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .support-mobile-title .support-extension-trigger {
+    max-width: min(120px, 32vw);
+    padding-inline: 8px;
+  }
+  .support-extension-trigger span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dialog-card.admin-dialog.support-ticket-tools {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+  .support-ticket-tools > .dialog-body-scroll > .scroll-area__viewport > div {
+    min-width: 0 !important;
+  }
+  .support-ticket-tools .admin-extension-content {
+    margin-block: 0;
+  }
+
+  .support-ticket-info .support-ticket-header,
+  .support-ticket-info .support-user-context {
+    margin-bottom: 8px;
+    padding: 10px;
+  }
+
+  .support-ticket-info .support-ticket-actions {
+    grid-column: 1 / -1;
+  }
+
+  .support-ticket-info .support-ticket-controls {
+    border: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* On a short keyboard viewport the tools menu still exposes the audience
+   switch. Keep the normal writing surface and the conversation in view. */
+@container support-chat (max-height: 330px) {
+  .support-ticket-dialog-chat .dialog-head {
+    padding-bottom: 3px;
+  }
+
+  .support-ticket-dialog-chat .dialog-head button:not(.support-extension-trigger) {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .support-ticket-dialog-chat .support-ticket-dialog-body {
+    gap: 3px;
+  }
+
+  .support-admin-composer:not(.tools-open) .support-admin-composer-editor .rt-surface,
+  .support-admin-composer:not(.tools-open) .support-admin-composer-editor .rt-source {
+    min-height: 38px;
+    max-height: 42px;
+    padding-block: 5px;
+  }
+
+  .support-mobile-title h2 {
+    -webkit-line-clamp: 1;
+  }
+
+  .support-mobile-title p,
+  .support-admin-composer:not(.tools-open) .support-composer-mode {
+    display: none;
+  }
+
+  .support-ticket-dialog-chat .support-admin-composer {
+    max-height: 63%;
+    padding: 4px;
+    gap: 4px;
   }
 }
 

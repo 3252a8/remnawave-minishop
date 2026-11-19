@@ -35,12 +35,13 @@ dialog { width: 100vw; height: 100vh; max-width: none; max-height: none; margin:
 .viewer-bar { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; }
 .viewer-bar .title { font-weight: 600; margin-right: auto; word-break: break-all; }
 .stage { padding: 16px; display: flex; justify-content: center; }
+.stage > img, .side img { display: block; max-width: 100%; height: auto; min-width: 0; align-self: start; }
 .frame { position: relative; display: inline-block; max-width: 100%; }
 .frame img { display: block; max-width: 100%; height: auto; }
 .frame .over { position: absolute; inset: 0; overflow: hidden; }
 .frame .over img { width: 100%; }
 .frame .handle { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
-.side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.side { display: grid; width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; align-items: start; }
 .side figure { margin: 0; }
 .side figcaption { color: var(--muted); margin-bottom: 6px; }
 .findings { margin: 0 16px 16px; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
@@ -73,13 +74,21 @@ const key = (s) => s.viewport + "-" + s.theme + "/" + s.id;
 const base = new Map((DATA.baseline?.shots || []).filter((s) => s.file).map((s) => [key(s), s]));
 const shots = DATA.shots.filter((s) => s.file).map((s) => {
   const before = base.get(key(s));
-  return { ...s, before, changed: Boolean(before && before.hash !== s.hash) };
+  const reviewed = Boolean(before?.hash && s.hash && s.comparison?.afterHash === s.hash &&
+    s.comparison.beforeHash === before.hash && typeof s.comparison.changed === "boolean");
+  return { ...s, before, reviewed, changed: reviewed && s.comparison.changed,
+    different: Boolean(before && before.hash !== s.hash) };
 });
+const hasReviewed = shots.some((shot) => shot.reviewed);
 const $ = (id) => document.getElementById(id);
 for (const [field, el] of [["viewport", $("viewport")], ["theme", $("theme")]]) {
   for (const value of [...new Set(shots.map((s) => s[field]))]) el.append(new Option(value, value));
 }
-if (base.size) $("changed").hidden = false;
+if (base.size) {
+  $("changed").hidden = false;
+  $("changed").textContent = hasReviewed ? "Confirmed changes" : "Different captures";
+  $("changed").setAttribute("aria-pressed", String(new URLSearchParams(location.search).get("changed") === "1"));
+}
 let visible = [];
 let current = -1;
 let mode = "after";
@@ -90,7 +99,7 @@ function render() {
     (!q || s.id.toLowerCase().includes(q)) &&
     (!$("viewport").value || s.viewport === $("viewport").value) &&
     (!$("theme").value || s.theme === $("theme").value) &&
-    (!onlyChanged || s.changed));
+    (!onlyChanged || (hasReviewed ? s.changed : s.different)));
   $("count").textContent = visible.length + " / " + shots.length + " shots";
   const grid = $("grid");
   grid.replaceChildren(...visible.map((s, index) => {
@@ -108,6 +117,7 @@ function render() {
     meta.textContent = s.viewport + " · " + s.theme;
     const badges = document.createElement("span");
     if (s.changed) badges.innerHTML += '<span class="badge changed">changed</span> ';
+    else if (!s.reviewed && s.different) badges.innerHTML += '<span class="badge">pixel difference</span> ';
     if (s.errors?.length) badges.innerHTML += '<span class="badge error">' + s.errors.length + " err</span>";
     meta.append(badges);
     card.append(img, name, meta);

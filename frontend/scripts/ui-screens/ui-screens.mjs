@@ -1,4 +1,4 @@
-/* global document, Image, OffscreenCanvas */
+/* global document, window, Image, OffscreenCanvas */
 
 // Capture every customer-cabinet and admin screen of the docs demo on desktop
 // and mobile, with an HTML gallery and optional before/after comparison.
@@ -38,6 +38,7 @@ const { values: args } = parseArgs({
   options: {
     out: { type: "string" },
     base: { type: "string" },
+    port: { type: "string" },
     build: { type: "boolean", default: false },
     only: { type: "string" },
     viewports: { type: "string", default: "desktop,mobile" },
@@ -58,6 +59,7 @@ if (args.help) {
   console.log(`Usage: node scripts/ui-screens/ui-screens.mjs [options]
   --out <dir>          output directory (default: test-results/ui-screens/<timestamp>)
   --base <url>         use a running demo origin instead of serving docs-site/public
+  --port <number>      local demo port (defaults to the baseline's port when comparing)
   --build              rebuild the docs demo before capturing
   --only <regex>       capture only screen ids matching the expression
   --viewports <list>   ${Object.keys(VIEWPORTS).join(",")} (default: desktop,mobile)
@@ -132,11 +134,47 @@ function screenUrl(origin, screen, theme) {
 }
 
 async function openScreen(page, origin, screen, theme) {
+  const area = screen.visualArea;
+  if (screen.captureWidth)
+    await page.setViewportSize({ ...page.viewportSize(), width: screen.captureWidth });
+  if (area) await page.setViewportSize({ width: area.width, height: area.layoutHeight });
   if (args.now !== "real") await page.clock.setFixedTime(new Date(args.now));
   await page.goto(screenUrl(origin, screen, theme), { waitUntil: "load", timeout: 45_000 });
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(waitForQuietDom, { quiet: 600, timeout: 12_000 });
   for (const step of screen.steps || []) {
+    if (step.waitHidden)
+      await page.locator(step.waitHidden).first().waitFor({ state: "hidden", timeout: 12_000 });
+    if (step.scrollTo) await page.locator(step.scrollTo).first().scrollIntoViewIfNeeded();
+    if (step.reveal) {
+      const content = page.locator(step.reveal.content).filter({ visible: true }).first();
+      if (!(await content.count())) await page.locator(step.reveal.trigger).click();
+      await content.scrollIntoViewIfNeeded();
+    }
+    if (step.compose) {
+      const { editor, height, lines } = step.compose;
+      await page.locator(editor).click();
+      if (area) {
+        // Model WebViews that resize only the visual viewport. Keep layout and
+        // editor rendering native and crop the shot to the area above the IME.
+        await page.evaluate(({ height, top, safeTop }) => {
+          const viewport = window.visualViewport;
+          Object.defineProperties(viewport, {
+            height: { configurable: true, value: height },
+            offsetTop: { configurable: true, value: top },
+          });
+          document.documentElement.style.setProperty("--content-safe-area-top", safeTop + "px");
+          viewport.dispatchEvent(new Event("resize"));
+          viewport.dispatchEvent(new Event("scroll"));
+        }, area);
+      } else if (height) {
+        await page.setViewportSize({ width: page.viewportSize().width, height });
+      }
+      for (const [index, line] of lines.entries()) {
+        if (index) await page.keyboard.press("Shift+Enter");
+        await page.keyboard.insertText(line);
+      }
+    }
     if (step.wait) await page.waitForTimeout(step.wait);
     if (step.press) await page.keyboard.press(step.press);
     if (step.click) {
@@ -254,7 +292,7 @@ async function capture(browser, origin, job, encode) {
         const current = page.viewportSize();
         const height = Math.min(MAX_HEIGHT, current.height + overflow);
         if (height === current.height) break;
-        await page.setViewportSize({ width: viewport.width, height });
+        await page.setViewportSize({ width: current.width, height });
         await page.evaluate(waitForQuietDom, { quiet: 400, timeout: 6_000 });
         const next = await page.evaluate(measureOverflow);
         // A dialog with a capped height keeps scrolling inside whatever the
@@ -271,8 +309,27 @@ async function capture(browser, origin, job, encode) {
     if (!args["no-audit"]) {
       result.findings = await page.evaluate(auditLayout, { mobile: viewport.touch });
     }
-    const png = await page.screenshot({ type: "png", animations: "disabled" });
-    const size = page.viewportSize();
+    // Long full-page captures also contain images outside the original viewport.
+    await page.evaluate(async () => {
+      await Promise.all(
+        Array.from(document.images, async (image) => {
+          image.loading = "eager";
+          await image.decode().catch(() => {});
+        })
+      );
+      await document.fonts.ready;
+    });
+    const area = job.visualArea;
+    const clip = area
+      ? {
+          x: 0,
+          y: (await page.evaluate(() => window.scrollY)) + area.top,
+          width: area.width,
+          height: area.height,
+        }
+      : undefined;
+    const png = await page.screenshot({ type: "png", animations: "disabled", clip });
+    const size = clip || page.viewportSize();
     const ext = args.format;
     const file = `${job.viewport}-${job.theme}/${job.id}.${ext}`;
     const bytes = ext === "webp" ? await encode(png, Number(args.quality)) : png;
@@ -308,6 +365,7 @@ async function loadBaseline() {
   if (!manifest) throw new Error(`no manifest.json in baseline ${dir}`);
   return {
     href: path.relative(outDir, dir).split(path.sep).join("/") || ".",
+    localPort: manifest.localPort,
     shots: manifest.shots,
   };
 }
@@ -315,7 +373,9 @@ async function loadBaseline() {
 // Read the baseline first: a wrong path should fail before a long capture, not after it.
 const baseline = await loadBaseline();
 if (args.build) await run("npm", ["run", "build:demo"], path.join(repoRoot, "docs-site"));
-const server = args.base ? null : await serveDemo(publicRoot);
+const server = args.base
+  ? null
+  : await serveDemo(publicRoot, Number(args.port ?? baseline?.localPort ?? 0));
 const origin = (args.base || server.origin).replace(/\/$/, "");
 const browser = await chromium.launch();
 try {
@@ -383,6 +443,7 @@ try {
     const manifest = {
       generatedAt: new Date().toISOString(),
       clock: args.now,
+      localPort: server ? Number(new URL(origin).port) : undefined,
       viewports:
         previous?.viewports || Object.fromEntries(viewports.map((name) => [name, VIEWPORTS[name]])),
       themes: previous?.themes || themes,
@@ -409,7 +470,7 @@ try {
       : null;
     console.log(
       `\n${results.length - failed.length}/${results.length} shots saved to ${outDir}` +
-        (changed === null ? "" : `, ${changed} changed vs baseline`) +
+        (changed === null ? "" : `, ${changed} non-identical captures vs baseline`) +
         `\nGallery: ${path.join(outDir, "index.html")}`
     );
     if (failed.length) {

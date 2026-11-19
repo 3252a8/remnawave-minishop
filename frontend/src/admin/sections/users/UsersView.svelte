@@ -409,12 +409,7 @@
   </div>
 </Dialog>
 
-<div
-  class="admin-users-table-wrap"
-  class:has-user-balance={userBalanceEnabled}
-  class:has-partner-balance={partnerBalanceEnabled}
-  style:--users-extension-width={`${usersExtensionColumns.length * 144}px`}
->
+<div class="admin-users-table-wrap">
   {#if usersLoading}
     <AdminTableSkeleton
       headers={userTableHeaders}
@@ -620,10 +615,6 @@
     font-size: 11px;
     line-height: 1.5;
   }
-  .admin-users-cell-tariff {
-    min-width: 150px;
-    max-width: 220px;
-  }
   :global(.admin-users-search-button) {
     min-width: 82px;
   }
@@ -736,22 +727,17 @@
   }
 
   @media (min-width: 721px) {
-    /* Fits the 1120px content column of a 1440px screen; extra balance columns
-       still scroll horizontally. */
-    .admin-users-table-wrap :global(.admin-users-table) {
-      min-width: calc(1100px + var(--users-extension-width));
+    .admin-users-table-wrap :global(.admin-users-table :is(th, td)) {
+      padding-inline: 8px;
     }
 
-    .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
-      min-width: calc(1220px + var(--users-extension-width));
+    .admin-users-cell-user {
+      min-width: 176px;
     }
 
-    .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
-      min-width: calc(1240px + var(--users-extension-width));
-    }
-
-    .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
-      min-width: calc(1360px + var(--users-extension-width));
+    .admin-users-cell-tariff {
+      min-width: 124px;
+      max-width: 220px;
     }
   }
 

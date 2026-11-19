@@ -1,4 +1,4 @@
-// Zero-dependency static server for the built docs-demo runtime.
+// Local static server for the built docs-demo runtime.
 //
 // Mirrors e2e/serve-demo.mjs: files from docs-site/public are served as-is,
 // extensionless routes fall back to the mock app shell so client-side routes
@@ -8,6 +8,7 @@ import { createReadStream } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
+import sharp from "sharp";
 
 const CONTENT_TYPES = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -37,11 +38,12 @@ async function isFile(candidate) {
 }
 
 /**
- * Serve `publicRoot` on an ephemeral loopback port.
+ * Serve `publicRoot` on loopback. Reusing a port preserves visible share URLs.
  * @param {string} publicRoot docs-site/public
+ * @param {number} port
  * @returns {Promise<{ origin: string, close: () => Promise<void> }>}
  */
-export async function serveDemo(publicRoot) {
+export async function serveDemo(publicRoot, port = 0) {
   const appShell = path.join(publicRoot, "demo", "runtime", "app", "index.html");
   await access(appShell).catch(() => {
     throw new Error(
@@ -49,7 +51,29 @@ export async function serveDemo(publicRoot) {
         "`npm --prefix docs-site run build:demo` first"
     );
   });
-  const send = (res, filePath) => {
+  const rasters = new Map();
+  const send = async (res, filePath) => {
+    const ext = path.extname(filePath).toLowerCase();
+    // CSS and Playwright cannot pause animated image files. Preserve the actual
+    // first frame so an unchanged logo compares equally across captures.
+    if ([".webp", ".gif", ".png"].includes(ext)) {
+      if (!rasters.has(filePath)) {
+        const raster = sharp(filePath);
+        rasters.set(
+          filePath,
+          raster
+            .metadata()
+            .then((info) => (info.pages > 1 ? raster.png().toBuffer() : null))
+            .catch(() => null)
+        );
+      }
+      const firstFrame = await rasters.get(filePath);
+      if (firstFrame) {
+        res.writeHead(200, { "Content-Type": "image/png", "Cache-Control": "no-store" });
+        res.end(firstFrame);
+        return;
+      }
+    }
     res.writeHead(200, {
       "Content-Type":
         CONTENT_TYPES.get(path.extname(filePath).toLowerCase()) || "application/octet-stream",
@@ -79,12 +103,12 @@ export async function serveDemo(publicRoot) {
   });
   await new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(port, "127.0.0.1", resolve);
   });
   const address = server.address();
-  const port = typeof address === "object" && address ? address.port : 0;
+  const boundPort = address.port;
   return {
-    origin: `http://127.0.0.1:${port}`,
+    origin: `http://127.0.0.1:${boundPort}`,
     close: () => new Promise((resolve) => server.close(() => resolve())),
   };
 }

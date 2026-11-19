@@ -7,6 +7,11 @@ type SelectOption = {
 
 export type PaymentStatusVariant = "danger" | "success" | "warning" | "muted";
 
+/** Keep the distinguishing suffix visible in narrow admin tables. */
+export function compactUserId(id: string): string {
+  return id.length > 18 ? `${id.slice(0, 5)}…${id.slice(-6)}` : id;
+}
+
 function dateInput(value: unknown): string | number | Date {
   return value instanceof Date || typeof value === "number" ? value : String(value);
 }

@@ -9,6 +9,9 @@
   import { supportMessageImageUrls } from "$lib/messageImage";
   import { escapeHtml } from "$lib/richtext/escape";
   import { onMount, tick } from "svelte";
+  import { MediaQuery } from "svelte/reactivity";
+  import { followTicketMessages } from "$lib/followTicketMessages";
+  import { observeVisualViewport } from "$lib/visualViewport";
   import {
     AdminButton,
     AdminListToolbar,
@@ -25,7 +28,7 @@
   import AdminExtensionPoint from "./AdminExtensionPoint.svelte";
   import type { AdminSupportReplyButton, AdminSupportTicketContext } from "./extensionTypes";
   import { Input, ScrollArea, Skeleton } from "$components/ui/index.js";
-  import { MessageSquare, Sliders } from "$components/ui/icons.js";
+  import { Info, MessageSquare, Sliders } from "$components/ui/icons.js";
   import type {
     SupportFilters,
     SupportMessage,
@@ -40,12 +43,16 @@
   let {
     at = (key) => key,
     initialTicketId = null,
+    currentLang = "en",
+    panelStatusBadge,
     brand = {},
     resolvedAvatarUrl = () => "",
     onOpenUserCard = () => {},
   }: {
     at?: TranslateFn;
     initialTicketId?: number | string | null;
+    currentLang?: string;
+    panelStatusBadge?: (user: { panel_status: string }) => { label: string };
     brand?: Record<string, unknown>;
     resolvedAvatarUrl?: (user: SupportUser | Record<string, unknown>) => string;
     onOpenUserCard?: (userId: number | string | undefined) => void;
@@ -55,12 +62,21 @@
   // Shortcodes and promo codes are advertised once for every authored message,
   // so the reply composer offers exactly what the broadcast screen offers.
   const broadcastStore = getBroadcastStore();
-  let reply = $state("");
-  let replyImages = $state<File[]>([]);
-  let replyButtons = $state<BroadcastButtonDraft[]>([]);
+  function emptyDraft() {
+    return { body: "", images: [] as File[], buttons: [] as BroadcastButtonDraft[] };
+  }
+
+  let drafts = $state({ reply: emptyDraft(), note: emptyDraft() });
+  let draftTicketId: number | null = null;
   let messagesScrollEl = $state<HTMLElement | null>(null);
+  const compact = new MediaQuery("max-width: 720px", false);
+  let mobilePanel = $state<"details" | "extensions" | null>(null);
+  let extensionTitle = $state("");
+  let mobilePanelTrigger: HTMLButtonElement | undefined;
+  let composer = $state<ReturnType<typeof SupportComposer>>();
+  let viewportHeight = $state("100dvh");
+  let viewportTop = $state("0px");
   let filtersOpen = $state(false);
-  let lastMessageScrollKey = $state("");
   const tickets: SupportTicket[] = $derived(supportStore.tickets || []);
   const stats = $derived(
     supportStore.stats || {
@@ -89,6 +105,7 @@
   const userSnapshot: SupportUser | null = $derived(supportStore.userSnapshot || null);
   const sending = $derived(Boolean(supportStore.sending));
   const composerInternalNote = $derived(Boolean(supportStore.composerInternalNote));
+  const activeDraft = $derived(composerInternalNote ? drafts.note : drafts.reply);
   const priorityFilterChange = ((value: string) =>
     setFilterAndLoad("priority", value)) as ComponentCallback;
   const categoryFilterChange = ((value: string) =>
@@ -185,8 +202,12 @@
           buttons === undefined ? undefined : supportReplyButtonsFromDescriptors(buttons);
         if (nextButtons === null) return false;
         if (composerInternalNote) supportStore.toggleInternalNote();
-        reply = escapeHtml(nextText);
-        if (nextButtons !== undefined) replyButtons = nextButtons;
+        drafts.reply.body = escapeHtml(nextText);
+        if (nextButtons !== undefined) drafts.reply.buttons = nextButtons;
+        mobilePanel = null;
+        void tick().then(() => {
+          if (openedTicketId === ticketId && !composerInternalNote) composer?.focusEditor();
+        });
         return true;
       },
       refreshTicket: async () => {
@@ -213,11 +234,10 @@
   const openedTicketUserAvatarUrl = $derived(resolvedAvatarUrl(openedTicketUser));
   const openedTicketUserInitials = $derived(userInitials(openedTicketUser));
   $effect(() => {
-    if (!openedTicketId) {
-      reply = "";
-      replyImages = [];
-      replyButtons = [];
-      lastMessageScrollKey = "";
+    if (draftTicketId !== openedTicketId) {
+      draftTicketId = openedTicketId;
+      drafts = { reply: emptyDraft(), note: emptyDraft() };
+      mobilePanel = null;
     }
   });
 
@@ -227,37 +247,44 @@
     // refreshes them for the summary the moment the screen opens.
     supportStore.loadStats();
     if (initialTicketId) supportStore.openTicket(initialTicketId, { skipPush: true });
+    return observeVisualViewport(({ height, top }) => {
+      viewportHeight = height + "px";
+      viewportTop = top + "px";
+    });
   });
 
   async function send(body: string, images: File[]): Promise<void> {
+    const draft = activeDraft;
+    const ticketId = openedTicketId;
+    const viewport = messagesScrollEl;
+    const buttons = draft.buttons;
     const sent = await supportStore.sendReply(body, {
       bodyFormat: "html",
-      buttons: buttonsForPayload(replyButtons),
+      buttons: composerInternalNote ? [] : buttonsForPayload(buttons),
       image: images,
     });
+    // A late response belongs to the submitted draft even if the operator
+    // changes tickets, switches audience or edits the reply in the meantime.
     if (!sent) return;
-    reply = "";
-    replyImages = [];
-    replyButtons = [];
+    if (draft.body === body && draft.images === images && draft.buttons === buttons) {
+      Object.assign(draft, emptyDraft());
+    }
+    await tick();
+    if (viewport && messagesScrollEl === viewport && openedTicketId === ticketId) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
   }
 
-  function scrollMessagesToBottom(): void {
-    const scrollEl = messagesScrollEl;
-    if (!scrollEl) return;
-    const scroll = () => {
-      scrollEl.scrollTop = scrollEl.scrollHeight;
-    };
-    scroll();
-    requestAnimationFrame(scroll);
-    window.setTimeout(scroll, 80);
-    window.setTimeout(scroll, 180);
+  function closeMobilePanel(): void {
+    mobilePanel = null;
+    const trigger = mobilePanelTrigger;
+    void tick().then(() => trigger?.focus({ preventScroll: true }));
   }
 
   function closeTicketModal(): void {
-    reply = "";
-    replyImages = [];
-    replyButtons = [];
-    supportStore.closeTicketView();
+    // The launcher can still hold focus when Escape arrives in the opening frame.
+    if (compact.current && mobilePanel) closeMobilePanel();
+    else supportStore.closeTicketView();
   }
 
   function setFilter(key: keyof SupportFilters, value: string): void {
@@ -324,15 +351,9 @@
   }
 
   $effect(() => {
-    const lastMessage = messages.at(-1);
-    const nextKey = `${openedTicketId || ""}:${ticketReady}:${messages.length}:${
-      lastMessage?.message_id || lastMessage?.created_at || ""
-    }`;
-    if (!openedTicketId || !ticketReady || !messagesScrollEl || nextKey === lastMessageScrollKey) {
-      return;
-    }
-    lastMessageScrollKey = nextKey;
-    void tick().then(scrollMessagesToBottom);
+    const viewport = messagesScrollEl;
+    if (!viewport || !openedTicketId || !ticketReady) return;
+    return followTicketMessages(viewport);
   });
 </script>
 
@@ -378,11 +399,16 @@
   </div>
 
   <section class="support-admin-list-panel">
-    <div class="support-admin-ticket-tabs" aria-label={at("support_status", {}, "Status")}>
+    <div
+      class="support-admin-ticket-tabs"
+      role="group"
+      aria-label={at("support_status", {}, "Status")}
+    >
       {#each statusTabs as tab (tab.value)}
         <button
           type="button"
           class:active={ticketFilters.status === tab.value}
+          aria-pressed={ticketFilters.status === tab.value}
           onclick={() => supportStore.setStatusView(tab.value)}
         >
           <span>{tab.label}</span>
@@ -450,6 +476,7 @@
             <SupportInboxRow
               {ticket}
               active={openedTicketId === ticket.ticket_id}
+              {currentLang}
               {at}
               onOpen={openTicketFromRow}
             />
@@ -475,117 +502,204 @@
   </div>
 </Dialog>
 
-<Dialog
-  open={Boolean(openedTicketId)}
-  title={modalTitle}
-  description={modalDescription}
-  closeLabel={at("close", {}, "Close")}
-  onclose={closeTicketModal}
-  class="admin-dialog support-ticket-dialog"
->
-  {#if ticketMissing}
-    <!-- The whole dialog becomes the state: icon, title, what happened and
-         where to go, instead of a small card at the top of an empty modal. -->
-    <div class="support-ticket-missing" role="status">
-      <span class="support-ticket-missing-icon" aria-hidden="true"><MessageSquare size={26} /></span
-      >
-      <h3>{at("support_ticket_missing", {}, "Ticket not found")}</h3>
-      <p>
-        {at(
-          "support_ticket_missing_hint",
-          {},
-          "It may have been deleted or merged. Pick a conversation from the list."
-        )}
-      </p>
-      <div class="support-ticket-missing-actions">
+{#snippet ticketInfo()}
+  <SupportTicketHeader
+    ticket={openedTicket}
+    {at}
+    onPatch={patchTicketFromHeader}
+    onClose={() => supportStore.closeTicket()}
+  />
+  <SupportUserContextPanel
+    ticket={openedTicket}
+    snapshot={userSnapshot || {}}
+    statusLabel={panelStatusBadge?.({ panel_status: userSnapshot?.panel_status || "" }).label}
+    {at}
+    onOpenUser={openSupportUser}
+  />
+{/snippet}
+
+{#snippet ticketExtensions()}
+  <div class="support-ticket-extensions">
+    <AdminExtensionPoint target="admin.support.ticket.content" context={ticketExtensionContext} />
+  </div>
+{/snippet}
+
+{#snippet mobileTicketHeading()}
+  <div class="support-mobile-title">
+    <div>
+      <h2>{modalTitle}</h2>
+      <p>{modalDescription}</p>
+    </div>
+    <AdminExtensionPoint target="admin.support.ticket.content">
+      {#snippet launcher(label)}
+        {@const title = label || at("support_ticket_tools", {}, "Ticket tools")}
         <AdminButton
-          onclick={() => {
-            closeTicketModal();
-            void supportStore.loadList();
-          }}>{at("support_ticket_missing_back", {}, "Back to conversations")}</AdminButton
+          class="support-extension-trigger"
+          {title}
+          aria-label={title}
+          aria-haspopup="dialog"
+          onclick={(event) => {
+            extensionTitle = title;
+            mobilePanelTrigger = event.currentTarget as HTMLButtonElement;
+            mobilePanel = "extensions";
+          }}><span>{title}</span></AdminButton
         >
-      </div>
-    </div>
-  {:else if !ticketReady}
-    <div class="support-ticket-dialog-skeleton">
-      <Skeleton variant="title" width="70%" />
-      <Skeleton variant="short" width="44%" />
-      <Skeleton variant="block" height="94px" />
-      <Skeleton variant="block" height="220px" />
-      <Skeleton variant="block" height="132px" />
-    </div>
-  {:else}
-    <div class="support-ticket-dialog-body">
-      <SupportTicketHeader
-        ticket={openedTicket}
-        {at}
-        onPatch={patchTicketFromHeader}
-        onClose={() => supportStore.closeTicket()}
-      />
-      <SupportUserContextPanel
-        ticket={openedTicket}
-        snapshot={userSnapshot || {}}
-        {at}
-        onOpenUser={openSupportUser}
-      />
-      <ScrollArea
-        bind:element={messagesScrollEl}
-        maxHeight="none"
-        class="support-admin-message-scroll scroll-area--mono"
-      >
-        <div class="support-admin-messages">
-          {#if messages.length}
-            {#each messages as message, index (`${openedTicketId}:${message.message_id ?? index}`)}
-              <TicketMessageBubble
-                role={message.author_role}
-                body={message.body}
-                bodyFormat={message.body_format}
-                imageUrls={supportMessageImageUrls(message, true)}
-                loadImage={supportStore.loadImage}
-                loadCustomEmojiMedia={supportStore.loadCustomEmojiMedia}
-                buttons={message.buttons}
-                createdAt={message.created_at ?? undefined}
-                isInternalNote={message.is_internal_note}
-                perspective="admin"
-                supportBrand={brand}
-                {imageViewerLabels}
-                userAvatarUrl={openedTicketUserAvatarUrl}
-                userInitials={openedTicketUserInitials}
-                authorName={messageAuthorName(message)}
-                readByUserAt={message.read_by_user_at}
-                readByAdminAt={message.read_by_admin_at}
-                t={messageT}
-              />
-            {/each}
-          {:else}
-            <div class="admin-empty-state">
-              {at("support_no_messages", {}, "No messages yet")}
-            </div>
-          {/if}
+      {/snippet}
+    </AdminExtensionPoint>
+    <AdminButton
+      size="icon"
+      variant="ghost"
+      aria-label={at("support_ticket_details", {}, "Ticket details")}
+      title={at("support_ticket_details", {}, "Ticket details")}
+      aria-haspopup="dialog"
+      onclick={(event) => {
+        mobilePanelTrigger = event.currentTarget as HTMLButtonElement;
+        mobilePanel = "details";
+      }}
+    >
+      <Info size={17} />
+    </AdminButton>
+  </div>
+{/snippet}
+
+<div style:--support-viewport-height={viewportHeight} style:--support-viewport-top={viewportTop}>
+  <Dialog
+    open={Boolean(openedTicketId)}
+    title={modalTitle}
+    description={modalDescription}
+    closeLabel={at("close", {}, "Close")}
+    onclose={closeTicketModal}
+    headerContent={compact.current && ticketReady ? mobileTicketHeading : undefined}
+    class={ticketReady
+      ? "admin-dialog support-ticket-dialog support-ticket-dialog-chat"
+      : "admin-dialog support-ticket-dialog"}
+  >
+    {#if ticketMissing}
+      <!-- The whole dialog becomes the state: icon, title, what happened and
+         where to go, instead of a small card at the top of an empty modal. -->
+      <div class="support-ticket-missing" role="status">
+        <span class="support-ticket-missing-icon" aria-hidden="true"
+          ><MessageSquare size={26} /></span
+        >
+        <h3>{at("support_ticket_missing", {}, "Ticket not found")}</h3>
+        <p>
+          {at(
+            "support_ticket_missing_hint",
+            {},
+            "It may have been deleted or merged. Pick a conversation from the list."
+          )}
+        </p>
+        <div class="support-ticket-missing-actions">
+          <AdminButton
+            onclick={() => {
+              closeTicketModal();
+              void supportStore.loadList();
+            }}>{at("support_ticket_missing_back", {}, "Back to conversations")}</AdminButton
+          >
         </div>
-      </ScrollArea>
-      {#if peerTyping}
-        <TypingIndicator label={at("support_user_typing", {}, "User is typing…")} />
-      {/if}
-      <AdminExtensionPoint target="admin.support.ticket.content" context={ticketExtensionContext} />
-      <SupportComposer
-        bind:value={reply}
-        bind:images={replyImages}
-        bind:buttons={replyButtons}
-        internal={composerInternalNote}
-        {sending}
-        maxLength={maxBodyLength}
-        {at}
-        shortcodes={broadcastStore.broadcastShortcodes}
-        promoOptions={broadcastStore.broadcastPromoOptions}
-        promoOptionsLoading={broadcastStore.broadcastPromoOptionsLoading}
-        promoOptionsLoaded={broadcastStore.broadcastPromoOptionsLoaded}
-        onRequestShortcodes={broadcastStore.loadShortcodes}
-        onRequestPromoOptions={broadcastStore.loadPromoOptions}
-        onToggleInternal={supportStore.toggleInternalNote}
-        onSend={sendComposerReply}
-        onTyping={supportStore.notifyTyping}
-      />
-    </div>
-  {/if}
-</Dialog>
+      </div>
+    {:else if !ticketReady}
+      <div class="support-ticket-dialog-skeleton">
+        <Skeleton variant="title" width="70%" />
+        <Skeleton variant="short" width="44%" />
+        <Skeleton variant="block" height="94px" />
+        <Skeleton variant="block" height="220px" />
+        <Skeleton variant="block" height="132px" />
+      </div>
+    {:else}
+      <div class="support-ticket-dialog-body">
+        {#if !compact.current}{@render ticketInfo()}{/if}
+        <ScrollArea
+          bind:element={messagesScrollEl}
+          maxHeight="none"
+          class="support-admin-message-scroll scroll-area--mono"
+        >
+          <div class="support-admin-messages">
+            {#if messages.length}
+              {#each messages as message, index (`${openedTicketId}:${message.message_id ?? index}`)}
+                <TicketMessageBubble
+                  role={message.author_role}
+                  body={message.body}
+                  bodyFormat={message.body_format}
+                  imageUrls={supportMessageImageUrls(message, true)}
+                  loadImage={supportStore.loadImage}
+                  loadCustomEmojiMedia={supportStore.loadCustomEmojiMedia}
+                  buttons={message.buttons}
+                  createdAt={message.created_at ?? undefined}
+                  isInternalNote={message.is_internal_note}
+                  perspective="admin"
+                  locale={currentLang}
+                  supportBrand={brand}
+                  {imageViewerLabels}
+                  userAvatarUrl={openedTicketUserAvatarUrl}
+                  userInitials={openedTicketUserInitials}
+                  authorName={messageAuthorName(message)}
+                  readByUserAt={message.read_by_user_at}
+                  readByAdminAt={message.read_by_admin_at}
+                  t={messageT}
+                />
+              {/each}
+            {:else}
+              <div class="admin-empty-state">
+                {at("support_no_messages", {}, "No messages yet")}
+              </div>
+            {/if}
+          </div>
+        </ScrollArea>
+        {#if peerTyping}
+          <TypingIndicator label={at("support_user_typing", {}, "User is typing…")} />
+        {/if}
+        {#if !compact.current}
+          {@render ticketExtensions()}
+        {/if}
+        {#each [activeDraft] as draft (draft)}
+          <SupportComposer
+            bind:this={composer}
+            bind:value={draft.body}
+            bind:images={draft.images}
+            bind:buttons={draft.buttons}
+            internal={composerInternalNote}
+            {sending}
+            maxLength={maxBodyLength}
+            {at}
+            shortcodes={broadcastStore.broadcastShortcodes}
+            promoOptions={broadcastStore.broadcastPromoOptions}
+            promoOptionsLoading={broadcastStore.broadcastPromoOptionsLoading}
+            promoOptionsLoaded={broadcastStore.broadcastPromoOptionsLoaded}
+            onRequestShortcodes={broadcastStore.loadShortcodes}
+            onRequestPromoOptions={broadcastStore.loadPromoOptions}
+            onToggleInternal={() => {
+              supportStore.toggleInternalNote();
+              void tick().then(() =>
+                document.getElementById("support-internal-note")?.focus({ preventScroll: true })
+              );
+            }}
+            onSend={sendComposerReply}
+            onTyping={supportStore.notifyTyping}
+          />
+        {/each}
+      </div>
+    {/if}
+  </Dialog>
+
+  <Dialog
+    open={compact.current && mobilePanel === "details" && ticketReady}
+    description={modalTitle}
+    title={at("support_ticket_details", {}, "Ticket details")}
+    closeLabel={at("close", {}, "Close")}
+    onclose={closeMobilePanel}
+    class="admin-dialog support-ticket-info"
+  >
+    {@render ticketInfo()}
+  </Dialog>
+  <Dialog
+    open={compact.current && mobilePanel === "extensions" && ticketReady}
+    title={extensionTitle}
+    description={modalTitle}
+    closeLabel={at("close", {}, "Close")}
+    onclose={closeMobilePanel}
+    class="admin-dialog support-ticket-tools"
+  >
+    {@render ticketExtensions()}
+  </Dialog>
+</div>

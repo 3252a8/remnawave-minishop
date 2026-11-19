@@ -541,6 +541,41 @@ async function assertUserTicketScrolling(page: Page, nav: Locator): Promise<void
   await expect(composer).toBeInViewport();
   await composerInput.focus();
   await expect(nav).toBeHidden();
+  // iOS/Android keyboards can pan and shrink only the visual viewport.
+  await page.evaluate(() => {
+    const viewport = window.visualViewport!;
+    Object.defineProperties(viewport, {
+      height: { configurable: true, value: 470 },
+      offsetTop: { configurable: true, value: 24 },
+    });
+    viewport.dispatchEvent(new Event("resize"));
+  });
+  const surface = composer.locator(".rt-surface");
+  const singleLineHeight = await surface.evaluate((el) => el.clientHeight);
+  const longReply = "Подробности обращения. ".repeat(55).trim();
+  await composerInput.fill(longReply);
+  await expect
+    .poll(() => surface.evaluate((el) => el.clientHeight))
+    .toBeGreaterThan(singleLineHeight);
+  await expect.poll(() => surface.evaluate((el) => el.clientHeight)).toBeLessThanOrEqual(118);
+  await expect
+    .poll(() => surface.evaluate((el) => el.scrollHeight - el.clientHeight))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => sendButton.evaluate((el) => el.getBoundingClientRect().bottom))
+    .toBeLessThanOrEqual(494);
+  await expect.poll(() => messageViewport.evaluate((el) => el.clientHeight)).toBeGreaterThan(100);
+  await sendButton.click();
+  await expect(page.locator(".support-ticket-screen .ticket-message-bubble").last()).toHaveText(
+    longReply
+  );
+  await expect.poll(() => surface.evaluate((el) => el.clientHeight)).toBe(singleLineHeight);
+  await page.evaluate(() => {
+    const viewport = window.visualViewport!;
+    Reflect.deleteProperty(viewport, "height");
+    Reflect.deleteProperty(viewport, "offsetTop");
+    viewport.dispatchEvent(new Event("resize"));
+  });
   await composerInput.evaluate((element) => (element as HTMLElement).blur());
   await expect(nav).toBeHidden();
 
@@ -599,7 +634,7 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
   const composerActions = composer.locator(".support-admin-composer-actions");
   const attachment = composerActions.locator(".message-image-attachment");
   const uploadButton = attachment.locator(".message-image-dropzone");
-  const sendButton = composerActions.locator(".admin-btn");
+  const sendButton = composerActions.locator(".admin-btn-primary");
 
   await page.waitForTimeout(220);
   await expect
@@ -661,41 +696,69 @@ async function assertAdminTicketScrolling(page: Page, supportDialog: Locator): P
       })
     )
     .toBe(true);
-  await expect
-    .poll(() => messageViewport.evaluate((element) => getComputedStyle(element).overflowY))
-    .toBe("visible");
-  await expect
-    .poll(() => messageScroll.evaluate((element) => element.getBoundingClientRect().height))
-    .toBeGreaterThanOrEqual(300);
-  await expect
-    .poll(() => bodyViewport.evaluate((element) => getComputedStyle(element).overflowY))
-    .toBe("visible");
-  const dialogOverlay = page.locator(".dialog");
-  await dialogOverlay.evaluate((element) => {
+  const details = supportDialog.getByRole("button", { name: "Сведения о тикете" });
+  await details.click();
+  const info = page.locator(".support-ticket-info");
+  await expect(info.getByRole("combobox")).toHaveCount(3);
+  // Escape can reach the launcher before the secondary dialog's next-frame autofocus.
+  await details.press("Escape");
+  await expect(info).toBeHidden();
+  await expect(details).toBeFocused();
+  await details.click();
+  await expect(info.locator(".dialog-close-button")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(info).toBeHidden();
+  await expect(details).toBeFocused();
+
+  await expect(messageViewport).toBeInViewport();
+  await messageViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
   await swipeUp(page, messageScroll, "admin-support:mobile-scroll");
   await expect
-    .poll(() => dialogOverlay.evaluate((element) => element.scrollTop))
+    .poll(() => messageViewport.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
-  await expect.poll(() => messageViewport.evaluate((element) => element.scrollTop)).toBe(0);
+  await expect.poll(() => bodyViewport.evaluate((element) => element.scrollTop)).toBe(0);
 
-  const modalCoversHeader = await page.evaluate(() => {
-    const header = document.querySelector(".admin-header");
-    if (!(header instanceof HTMLElement)) return false;
-    const rect = header.getBoundingClientRect();
-    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    return Boolean(hit?.closest(".dialog"));
-  });
-  expect(modalCoversHeader, "admin-support: modal must stay above the section header").toBe(true);
+  // A keyboard-sized visual area must keep both the conversation and the send
+  // action on screen while a long draft grows inside its own editor.
+  await page.setViewportSize({ width: 390, height: 450 });
+  const editor = composer.locator('[contenteditable="true"]');
+  const note = composer.locator("#support-internal-note");
+  const files = composer.locator('input[type="file"]');
+  const image = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZvwAAAAASUVORK5CYII=",
+    "base64"
+  );
+  const draft = "Please check the connection. ".repeat(90).trim();
+  await editor.fill(draft);
+  await note.click();
+  await expect(editor).toHaveText("");
+  await editor.fill("Internal handoff");
+  await files.setInputFiles({ name: "staff.png", mimeType: "image/png", buffer: image });
+  await expect(composer.getByText("staff.png", { exact: true })).toBeVisible();
+  await note.click();
+  await expect(editor).toHaveText(draft);
+  await expect(composer.locator(".message-image-preview")).toHaveCount(0);
+  await expect(messageViewport).toBeInViewport();
+  await expect(sendButton).toBeInViewport({ ratio: 1 });
+  await expect
+    .poll(() => composerSurface.evaluate((el) => el.scrollHeight - el.clientHeight))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => bodyViewport.evaluate((el) => el.scrollWidth - el.clientWidth))
+    .toBeLessThanOrEqual(1);
+  await sendButton.click();
+  await expect(editor).toHaveText("");
+  await expect(messageViewport.getByText(draft, { exact: true })).toBeVisible();
+  await note.click();
+  await expect(editor).toHaveText("Internal handoff");
+  await expect(composer.getByText("staff.png", { exact: true })).toBeVisible();
+  await note.click();
+  await expect(editor).toHaveText("");
 
-  await dialogOverlay.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  await expect(composer).toBeInViewport();
-  await dialogOverlay.evaluate((element) => {
-    element.scrollTop = 0;
-  });
+  await page.keyboard.press("Escape");
+  await expect(supportDialog).toBeHidden();
   await page.setViewportSize(DESKTOP_VIEWPORT);
 }
 

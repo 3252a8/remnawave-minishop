@@ -18,8 +18,10 @@ Relative `--out` and `--baseline` paths are resolved from the directory you run
 
 Open `<out>/index.html`: filter by id, viewport and theme, open a shot, switch
 between `after`, `before`, `swipe` and `side` (Space toggles before/after,
-arrows move between shots). "Changed only" lists shots whose pixels differ
-from the baseline.
+arrows move between shots). “Different captures” shows raw pixel differences.
+A reviewed manifest can attach `comparison: { beforeHash, afterHash, changed }`
+to a shot. Matching hashes enable the “Confirmed changes” filter. Open
+`index.html?changed=1` to start with the filter active.
 
 ## What is captured
 
@@ -33,8 +35,10 @@ from the baseline.
 
 Pages are captured at full height: the viewport grows until the main scroller
 (`.admin-main`, the document, or an open dialog body) fits, up to 8000 CSS px.
-Animations are frozen and the clock is fixed (`--now`), so identical code
-produces identical pixels.
+The clock is fixed (`--now`), CSS animations are disabled and the local server
+serves the first frame of animated raster files. The runner waits for images
+to decode, including those in long lists. A comparison reuses the baseline's
+local port so links printed in the UI keep the same address.
 
 ## Output
 
@@ -53,6 +57,16 @@ clipped text, tap targets under 32 px on mobile, controls of different heights
 in one row, and raw text such as `{count}`, `undefined` or untranslated keys.
 They help a review; they are not a gate.
 
+Support includes the inbox, a populated conversation, an internal note and the
+missing-ticket state. The mobile `typing-short` and `typing-long` shots focus the
+real editor and enter one or eight lines at a visible size of 390×470 CSS px.
+These model the space available above a keyboard. The runner does not display
+a native keyboard. The ordinary `conversation` shots keep the full viewport.
+The `typing-compact` case keeps the layout at 320×568 and simulates a visual
+viewport of 320×295 with a 24 px offset and 96 px of top safe area. Its image
+is cropped to that visible viewport. The mobile log list also has an `end`
+shot for the rows beyond the full-page height cap.
+
 ## Options
 
 | Option                         | Default                          | Meaning                            |
@@ -60,6 +74,7 @@ They help a review; they are not a gate.
 | `--out <dir>`                  | `test-results/ui-screens/<time>` | output directory                   |
 | `--build`                      | off                              | rebuild the docs demo first        |
 | `--base <url>`                 | internal server                  | use an already running demo origin |
+| `--port <number>`              | baseline port or ephemeral       | port for the internal server       |
 | `--only <regex>`               | all                              | capture matching screen ids only   |
 | `--viewports`                  | `desktop,mobile`                 | viewport list                      |
 | `--themes`                     | `dark,light`                     | theme list (`theme_preview`)       |

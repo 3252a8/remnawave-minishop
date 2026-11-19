@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
+  import { AdminButton, AdminField, AdminSelect } from "$components/patterns/admin/index.js";
   import { CheckCheck } from "$components/ui/icons.js";
   import type { SupportTicketLike, TranslateFn } from "./types";
 
@@ -31,13 +31,6 @@
       label: at(`support_category_${item}`, {}, item),
     }))
   );
-  const statusVariant = $derived(
-    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success"
-  );
-  const priorityVariant = $derived(
-    ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"
-  );
-
   function patch(key: PatchableKey, value: string) {
     if (!ticket || ticket[key] === value) return;
     onPatch({ [key]: value });
@@ -46,15 +39,32 @@
 
 {#if ticket}
   <div class="support-ticket-header">
-    <div class="support-ticket-statusbar">
-      <AdminBadge variant={statusVariant}>
-        {at(`support_status_${ticket.status}`, {}, ticket.status)}
-      </AdminBadge>
-      <AdminBadge variant={priorityVariant}>
-        {at(`support_priority_${ticket.priority}`, {}, ticket.priority)}
-      </AdminBadge>
+    <div class="support-ticket-controls">
+      <AdminField label={at("support_status", {}, "Status")}>
+        <AdminSelect
+          value={ticket.status}
+          items={statusOptions}
+          ariaLabel={at("support_status", {}, "Status")}
+          onValueChange={(value) => patch("status", value)}
+        />
+      </AdminField>
+      <AdminField label={at("support_priority", {}, "Priority")}>
+        <AdminSelect
+          value={ticket.priority}
+          items={priorityOptions}
+          ariaLabel={at("support_priority", {}, "Priority")}
+          onValueChange={(value) => patch("priority", value)}
+        />
+      </AdminField>
+      <AdminField label={at("support_category", {}, "Category")}>
+        <AdminSelect
+          value={ticket.category}
+          items={categoryOptions}
+          ariaLabel={at("support_category", {}, "Category")}
+          onValueChange={(value) => patch("category", value)}
+        />
+      </AdminField>
     </div>
-
     <div class="support-ticket-actions">
       <AdminButton
         class="support-ticket-close"
@@ -65,27 +75,6 @@
         <CheckCheck size={14} />
         {at("support_close_ticket", {}, "Close")}
       </AdminButton>
-    </div>
-
-    <div class="support-ticket-controls">
-      <AdminSelect
-        value={ticket.status}
-        items={statusOptions}
-        ariaLabel={at("support_status", {}, "Status")}
-        onValueChange={(value) => patch("status", value)}
-      />
-      <AdminSelect
-        value={ticket.priority}
-        items={priorityOptions}
-        ariaLabel={at("support_priority", {}, "Priority")}
-        onValueChange={(value) => patch("priority", value)}
-      />
-      <AdminSelect
-        value={ticket.category}
-        items={categoryOptions}
-        ariaLabel={at("support_category", {}, "Category")}
-        onValueChange={(value) => patch("category", value)}
-      />
     </div>
   </div>
 {/if}

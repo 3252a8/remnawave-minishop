@@ -354,6 +354,7 @@ export function createAdminSupportStore({
     updateState((s) => ({
       ...s,
       openedTicketId: id,
+      composerInternalNote: s.openedTicketId === id && s.composerInternalNote,
       openedTicket: s.openedTicket?.ticket_id === id ? s.openedTicket : null,
       messages: s.openedTicket?.ticket_id === id ? s.messages : [],
       userSnapshot: s.openedTicket?.ticket_id === id ? s.userSnapshot : null,
@@ -392,6 +393,7 @@ export function createAdminSupportStore({
     updateState((s) => ({
       ...s,
       openedTicketId: null,
+      composerInternalNote: false,
       openedTicket: null,
       messages: [],
       userSnapshot: null,

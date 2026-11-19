@@ -602,8 +602,7 @@
 
 .support-create-grid,
 .ticket-composer-row,
-.support-admin-composer-row,
-.ticket-badges {
+.support-admin-composer-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
@@ -611,8 +610,7 @@
 }
 
 .ticket-composer-row,
-.support-admin-composer-row,
-.ticket-badges {
+.support-admin-composer-row {
   display: flex;
 }
 
@@ -911,9 +909,6 @@
 .ticket-card[data-status="closed"] {
   --ticket-accent: color-mix(in srgb, var(--muted) 70%, transparent);
 }
-.ticket-card[data-priority="urgent"] {
-  --ticket-accent: var(--danger);
-}
 
 .ticket-card:hover {
   border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
@@ -992,8 +987,7 @@
   content: var(--separator, "·");
 }
 
-.ticket-card-badges,
-.ticket-badges {
+.ticket-card-badges {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1103,11 +1097,6 @@
   overflow-wrap: anywhere;
   font-size: 20px;
   line-height: 1.18;
-}
-
-.support-ticket-detail-header .ticket-badges {
-  grid-column: 2;
-  justify-content: flex-start;
 }
 
 .support-ticket-state-card {
@@ -1613,7 +1602,7 @@
 }
 
 .phone-screen .support-ticket-detail-header {
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
 }
@@ -1626,29 +1615,20 @@
 }
 
 .phone-screen .support-ticket-screen .ticket-detail-title h1 {
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
   font-size: 16px;
   line-height: 1.3;
 }
 
 .phone-screen .support-ticket-screen .ticket-detail-title small {
-  margin: 3px 0 0;
+  margin: 0;
   font-size: 11px;
   font-weight: 500;
-}
-
-.phone-screen .support-ticket-detail-header .ticket-badges {
-  grid-column: 3;
-  grid-row: 1;
 }
 
 .phone-screen .support-ticket-screen .support-conversation-card {
   height: 100%;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   align-content: stretch;
   gap: 0;
   padding: 0;
@@ -1693,13 +1673,13 @@
 }
 
 .phone-screen .support-ticket-screen .ticket-composer {
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 1;
   margin: 0 14px 14px;
 }
 
 .phone-screen .support-ticket-screen .ticket-typing-indicator {
-  grid-row: 1;
+  grid-row: 2;
   grid-column: 1;
   align-self: end;
   z-index: 1;
@@ -1716,7 +1696,7 @@
 }
 
 .support-closed-notice {
-  grid-row: 2;
+  grid-row: 3;
   grid-column: 1;
   display: flex;
   align-items: center;
@@ -1749,14 +1729,22 @@
   }
 
   .phone-screen > main.content.support-ticket-screen {
+    --support-chat-height: min(
+      var(--support-viewport-height, 100dvh),
+      calc(var(--tg-viewport-stable-height, 100dvh) - var(--support-viewport-top, 0px))
+    );
+    --support-content-height: calc(
+      var(--support-chat-height) - var(--content-safe-area-top) - var(--content-safe-area-bottom)
+    );
+    container: support-chat / size;
     position: fixed;
     inset-inline: 0;
     top: var(--support-viewport-top, 0px);
     width: min(100%, 560px);
-    height: var(--support-viewport-height, 100dvh);
+    height: var(--support-chat-height);
     margin: 0 auto;
     padding-top: var(--content-safe-area-top);
-    padding-bottom: var(--content-safe-area-bottom);
+    padding-bottom: 0;
     border: 0;
     border-radius: 0;
     background: var(--bg);
@@ -1804,7 +1792,33 @@
   }
 
   .phone-screen .support-ticket-screen .ticket-composer {
-    margin: 0 10px 10px;
+    margin: 0;
+    padding: 6px max(10px, var(--safe-inline)) max(6px, var(--content-safe-area-bottom));
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: none;
+  }
+
+  .phone-screen .support-ticket-screen .support-closed-notice {
+    padding-bottom: max(16px, var(--content-safe-area-bottom));
+  }
+}
+
+/* Leave room to read and compose on short keyboards and notched phones. */
+@container support-chat (max-height: 300px) {
+  .phone-screen .support-ticket-screen > .support-ticket-card {
+    padding-block: 2px;
+  }
+
+  .phone-screen .support-ticket-screen .ticket-detail-title h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .phone-screen .support-ticket-screen .support-message-scroll {
+    padding-block: 4px;
   }
 }
 
@@ -1930,11 +1944,6 @@
 
   .support-ticket-screen .ticket-detail-title h1 {
     font-size: 18px;
-  }
-
-  .support-ticket-detail-header .ticket-badges {
-    grid-column: 3;
-    justify-content: flex-end;
   }
 
   .support-ticket-screen > .support-ticket-state-card {
@@ -2078,28 +2087,35 @@
   }
 
   .ticket-card {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
     padding: 14px 14px 14px 18px;
   }
 
-  .ticket-card-main {
-    gap: 5px;
+  .ticket-card-main,
+  .ticket-card-side {
+    display: contents;
+  }
+
+  .ticket-card-title {
+    flex: 1 0 100%;
+  }
+
+  .ticket-card-title > span {
+    flex: none;
+    margin-inline-start: auto;
+  }
+
+  .ticket-card-meta {
+    flex: 1 1 auto;
   }
 
   .ticket-card-title strong {
-    display: -webkit-box;
-    overflow: hidden;
+    overflow-wrap: anywhere;
     white-space: normal;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
     font-size: 14.5px;
-  }
-
-  .ticket-card-side {
-    align-items: flex-end;
-    gap: 6px;
   }
 
   .ticket-card-badges {
@@ -2111,11 +2127,6 @@
   .support-ticket-detail-header {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 8px 10px;
-  }
-
-  .support-ticket-detail-header .ticket-badges {
-    grid-column: 2;
-    justify-content: flex-start;
   }
 
   .support-back-button {
