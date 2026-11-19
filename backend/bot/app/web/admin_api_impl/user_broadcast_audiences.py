@@ -7,7 +7,7 @@ from bot.app.web.context import get_session_factory
 from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
-from bot.services.audience_segmentation import audience_target_user_id
+from bot.services.audience_segmentation import AudienceUnavailableError, audience_target_user_id
 from db.dal import broadcast_audience_dal, user_dal
 
 from .auth import _require_admin_user_id
@@ -52,7 +52,10 @@ async def admin_user_broadcast_audiences_get_route(request: web.Request) -> web.
         if await user_dal.get_user_by_id(session, user_id) is None:
             return _error(404, "not_found", "User not found")
         excluded = await broadcast_audience_dal.user_exclusions(session, user_id)
-    targets = await _resolve_audience_service(request).user_audiences(user_id)
+    try:
+        targets = await _resolve_audience_service(request).user_audiences(user_id)
+    except AudienceUnavailableError:
+        return _error(503, "audience_unavailable")
     return _ok(UserBroadcastAudiencesOut(targets=targets, excluded=sorted(excluded)).model_dump())
 
 
@@ -71,7 +74,10 @@ async def admin_user_broadcast_audiences_patch_route(request: web.Request) -> we
         if not service.is_target_available(target):
             return _error(403, "audience_unavailable", target)
 
-    matched = await service.user_audiences(user_id) if body.action == "exclude_all" else []
+    try:
+        matched = await service.user_audiences(user_id) if body.action == "exclude_all" else []
+    except AudienceUnavailableError:
+        return _error(503, "audience_unavailable")
     async with get_session_factory(request)() as session, session.begin():
         if await user_dal.lock_user_by_id(session, user_id) is None:
             return _error(404, "not_found", "User not found")

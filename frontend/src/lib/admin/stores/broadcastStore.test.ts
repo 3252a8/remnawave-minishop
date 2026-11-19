@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buttonsForPayload, createBroadcastStore } from "./broadcastStore.svelte";
 import { historyItemFromWire } from "./broadcastHistory";
+import { broadcastPlatformLabel } from "../broadcastPlatformLabel";
 
 function makeSessionStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -24,6 +25,17 @@ function makeStore(api = vi.fn()) {
 describe("broadcastStore", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("labels platform keys retained by history and exclusions after discovery changes", () => {
+    const at = (_key: string, vars?: Record<string, unknown>, fallback = "") =>
+      fallback.replace("{id}", String(vars?.id));
+    expect(broadcastPlatformLabel("platform:ios", at)).toBe("iOS");
+    expect(broadcastPlatformLabel("platform:openwrt", at)).toBe("openwrt");
+    expect(broadcastPlatformLabel("platform:id-abcd1234abcd1234abcd1234", at)).toBe(
+      "Device platform · abcd1234"
+    );
+    expect(broadcastPlatformLabel("tariff:ios", at)).toBeNull();
   });
 
   it.each(["render", "send_telegram", "send", "schedule", "single-user"] as const)(
@@ -330,6 +342,34 @@ describe("broadcastStore", () => {
       group: "Extensions",
       disabled: true,
       locked: true,
+    });
+  });
+
+  it("restores platform options and unknown counts from the fresh audience catalog", async () => {
+    vi.stubGlobal("window", { sessionStorage: makeSessionStorage() });
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      counts: { "platform:ios": null },
+      audiences: [
+        {
+          target: "platform:ios",
+          label_key: "broadcast_target_platform_ios",
+          fallback_label: "iOS",
+          group_label_key: "broadcast_audience_group_platforms",
+          group_fallback_label: "Registered device platform",
+        },
+      ],
+      email_enabled: true,
+    });
+    await makeStore(api).loadCounts();
+    const restored = makeStore(api);
+    await restored.loadCounts();
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(restored.broadcastCounts?.["platform:ios"]).toBeNull();
+    expect(restored.BROADCAST_TARGET_OPTIONS).toContainEqual({
+      value: "platform:ios",
+      label: "iOS",
+      group: "Registered device platform",
     });
   });
 

@@ -294,6 +294,28 @@ class PanelApiResourcesMixin:
         )
         return False
 
+    async def get_hwid_devices_page(
+        self, *, start: int, size: int
+    ) -> tuple[int, list[dict[str, Any]]] | None:
+        response = _panel_dict_response(
+            await self._request(
+                "GET",
+                "/hwid/devices",
+                operation=PanelApiOperation.HWID_DEVICES_LIST,
+                params={"start": start, "size": size},
+                log_full_response=False,
+            )
+        )
+        if response is None:
+            return None
+        total = response.get("total")
+        devices = response.get("devices")
+        if not isinstance(total, int) or total < 0 or not isinstance(devices, list):
+            return None
+        if any(not isinstance(device, dict) for device in devices):
+            return None
+        return total, devices
+
     async def get_hwid_devices_stats(self) -> dict[str, Any] | None:
         """Return HWID aggregate stats, including Remnawave 2.8 byPlatform[].byApp."""
         response_data = await self._request(

@@ -706,6 +706,21 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result)
         service._request.assert_not_awaited()
 
+    async def test_hwid_inventory_page_validates_rows_before_returning_them(self):
+        service = self._make_service()
+        rows = [{"userId": 42, "platform": "iOS", "hwid": "device"}]
+        service._request = AsyncMock(return_value={"response": {"total": 28, "devices": rows}})
+        self.assertEqual(await service.get_hwid_devices_page(start=7, size=10), (28, rows))
+        service._request.assert_awaited_once_with(
+            "GET",
+            "/hwid/devices",
+            operation=PanelApiOperation.HWID_DEVICES_LIST,
+            params={"start": 7, "size": 10},
+            log_full_response=False,
+        )
+        service._request.return_value = {"response": {"total": 28, "devices": [None]}}
+        self.assertIsNone(await service.get_hwid_devices_page(start=7, size=10))
+
     async def test_get_hwid_devices_stats_returns_by_platform_by_app(self):
         service = self._make_service()
         panel_payload = {

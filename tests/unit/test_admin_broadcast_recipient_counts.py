@@ -67,6 +67,55 @@ class BroadcastRecipientCountTests(unittest.IsolatedAsyncioTestCase):
             )
             await session.commit()
 
+    async def test_registered_platforms_count_and_send_unique_eligible_users(self) -> None:
+        panel = SimpleNamespace(get_user_devices=AsyncMock(), get_user_by_uuid_lookup=AsyncMock())
+        panel.get_user_devices.side_effect = lambda ref, **_: {
+            "11": [{"hwid": "phone", "platform": "iOS"}, {"hwid": "tablet", "platform": " IOS "}],
+            "22": [{"hwid": "phone", "platform": "Android"}, {"hwid": "tablet", "platform": "ios"}],
+            "33": [{"hwid": "desktop", "platform": None}],
+        }[ref]
+        async with self.factory.begin() as session:
+            for uid in (1, 2, 3, 5):
+                user = await session.get(User, uid)
+                assert user
+                user.panel_user_uuid = str(uid * 11)
+            session.add(BroadcastAudienceExclusion(user_id=2, target="platform:ios"))
+        service = AudienceSegmentationService(cast(Any, self.factory), panel_service=panel)
+        groups = await service.platform_groups()
+        self.assertEqual({group.label for group in groups.values()}, {"iOS", "Android"})
+        self.assertEqual((await service.counts(groups))["platform:ios"], 1)
+        self.assertEqual(await service.resolve_user_ids("platform:ios"), [1])
+        self.assertEqual(
+            await service.resolve_targets(["platform:ios", "platform:android"]), [1, 2]
+        )
+        self.assertEqual(await service.platform_groups(user_id=5), {})
+        panel.get_user_devices.side_effect = None
+        panel.get_user_devices.return_value = None
+        panel.get_user_by_uuid_lookup.return_value = {"not_found": False}
+        with self.assertRaises(AudienceUnavailableError):
+            await service.resolve_targets(["all", "platform:ios"])
+
+    async def test_platform_inventory_pages_collect_only_local_owners(self) -> None:
+        async with self.factory.begin() as session:
+            session.add_all(User(user_id=i, panel_user_uuid=str(i)) for i in range(50, 82))
+        panel = AsyncMock()
+        panel.get_hwid_devices_page.side_effect = [
+            (3, [{"userId": 65, "platform": "iOS", "hwid": "one"}]),
+            (
+                3,
+                [
+                    {"userId": 99, "platform": "iOS", "hwid": "external"},
+                    {"userId": 61, "platform": "Android", "hwid": "two"},
+                ],
+            ),
+        ]
+        service = AudienceSegmentationService(cast(Any, self.factory), panel_service=panel)
+        self.assertEqual(
+            await service.resolve_targets(["platform:ios", "platform:android"]), [65, 61]
+        )
+        panel.get_hwid_devices_page.assert_awaited_with(start=1, size=500)
+        panel.get_user_devices.assert_not_awaited()
+
     async def test_required_channel_audience_and_user_settings(self) -> None:
         channel_id = -1001234567890
         settings = settings_stub(REQUIRED_CHANNEL_ID=channel_id)

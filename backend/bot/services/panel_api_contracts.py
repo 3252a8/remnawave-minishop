@@ -74,6 +74,7 @@ class PanelApiOperation(StrEnum):
     SUBSCRIPTION_PAGE_CONFIG_LIST = "subscription-page-config.list"
     SUBSCRIPTION_PAGE_CONFIG_GET = "subscription-page-config.get"
     EXTERNAL_SQUAD_GET = "external-squads.get"
+    HWID_DEVICES_LIST = "hwid.devices.list"
     HWID_DEVICES_GET = "hwid.devices.get"
     HWID_DEVICE_DELETE = "hwid.devices.delete"
     HWID_STATS = "hwid.devices.stats"
@@ -375,6 +376,7 @@ PANEL_API_OPERATION_CONTRACTS: tuple[PanelApiOperationContract, ...] = (
         "/external-squads/{uuid}",
         "/external-squads",
     ),
+    _contract(PanelApiOperation.HWID_DEVICES_LIST, "GET", "/hwid/devices", "/hwid/devices"),
     _contract(
         PanelApiOperation.HWID_DEVICES_GET,
         "GET",

@@ -1,5 +1,6 @@
 import { jsonBody } from "../demoMockRuntime.js";
-import { type CloneFn, type DemoRecord } from "./dataset";
+import { DATASET, type CloneFn, type DemoRecord, type DemoUserDetail } from "./dataset";
+import { demoRegisteredDevices } from "./users";
 import { demoBroadcastFailures } from "./broadcastFailures";
 import { demoBroadcasts, setDemoBroadcasts } from "./state";
 import { issueReviewEnabled } from "./issueReview";
@@ -91,6 +92,36 @@ type AdminBroadcastRequest = {
   clone: CloneFn;
 };
 
+export function demoUserPlatforms(detail: DemoUserDetail): Map<string, string> {
+  const platforms = new Map<string, string>();
+  if (!detail.user?.is_banned) {
+    for (const device of demoRegisteredDevices(detail)) {
+      const name = String(device.platform || device.platform_label || "").split(" ")[0];
+      if (name) platforms.set(`platform:${name.toLowerCase()}`, name);
+    }
+  }
+  return platforms;
+}
+
+function demoPlatformGroups() {
+  const groups = new Map<string, { name: string; users: Set<string>; emails: Set<string> }>();
+  for (const [id, detail] of Object.entries(DATASET.adminUserDetails || {})) {
+    const excluded = detail.broadcast_audience_exclusions;
+    for (const [target, name] of demoUserPlatforms(detail)) {
+      const group = groups.get(target) || {
+        name,
+        users: new Set<string>(),
+        emails: new Set<string>(),
+      };
+      groups.set(target, group);
+      if (Array.isArray(excluded) && excluded.includes(target)) continue;
+      group.users.add(id);
+      if (detail.user?.email) group.emails.add(id);
+    }
+  }
+  return groups;
+}
+
 export function adminBroadcastDemoResponse({
   cleanPath,
   method,
@@ -99,9 +130,26 @@ export function adminBroadcastDemoResponse({
   clone,
 }: AdminBroadcastRequest): unknown | undefined {
   if (cleanPath === "/admin/broadcast/audience-counts") {
+    const platforms = [...demoPlatformGroups()];
     return {
       ok: true,
-      counts: { all: 1280, active: 742, inactive: 538, expired: 311, never: 227, admins: 2 },
+      counts: {
+        all: 1280,
+        active: 742,
+        inactive: 538,
+        expired: 311,
+        never: 227,
+        admins: 2,
+        ...Object.fromEntries(platforms.map(([target, group]) => [target, group.users.size])),
+      },
+      audiences: platforms.map(([target, group]) => ({
+        target,
+        label_key: `broadcast_target_platform_${target.slice("platform:".length)}`,
+        fallback_label: group.name,
+        order: 600,
+        group_label_key: "broadcast_audience_group_platforms",
+        group_fallback_label: "Registered device platform",
+      })),
       email_enabled: true,
     };
   }
@@ -112,8 +160,17 @@ export function adminBroadcastDemoResponse({
       ? body.targets.map(String)
       : [String(body.target || "all")];
     const target = targets[0] || "all";
-    const queued = channels.includes("telegram") ? (target === "admins" ? 2 : 1280) : 0;
-    const emailQueued = channels.includes("email") ? (target === "admins" ? 1 : 486) : 0;
+    let recipientCount = target === "admins" ? 2 : 1280;
+    let emailCount = target === "admins" ? 1 : 486;
+    if (targets.length && targets.every((item) => item.startsWith("platform:"))) {
+      const platforms = demoPlatformGroups();
+      recipientCount = new Set(targets.flatMap((item) => [...(platforms.get(item)?.users || [])]))
+        .size;
+      emailCount = new Set(targets.flatMap((item) => [...(platforms.get(item)?.emails || [])]))
+        .size;
+    }
+    const queued = channels.includes("telegram") ? recipientCount : 0;
+    const emailQueued = channels.includes("email") ? emailCount : 0;
     const scheduledAt = body.scheduled_at ? new Date(String(body.scheduled_at)) : new Date();
     const scheduled = scheduledAt.getTime() > Date.now();
     const existing = demoBroadcasts();
@@ -127,7 +184,9 @@ export function adminBroadcastDemoResponse({
       targets,
       channels,
       texts:
-        body.texts && typeof body.texts === "object" ? body.texts : { ru: String(body.text || "") },
+        body.texts && typeof body.texts === "object" && Object.keys(body.texts).length
+          ? body.texts
+          : { ru: String(body.text || "") },
       email_subjects:
         body.email_subjects && typeof body.email_subjects === "object"
           ? body.email_subjects
@@ -140,7 +199,7 @@ export function adminBroadcastDemoResponse({
       started_at: scheduled ? null : now,
       finished_at: null,
       updated_at: now,
-      recipient_count: scheduled ? 0 : target === "admins" ? 2 : 1280,
+      recipient_count: scheduled ? 0 : recipientCount,
       total_deliveries: scheduled ? 0 : queued + emailQueued,
       successful_deliveries: 0,
       failed_deliveries: 0,

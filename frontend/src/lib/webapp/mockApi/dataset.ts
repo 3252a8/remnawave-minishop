@@ -46,6 +46,7 @@ export type DemoTicket = DemoRecord & {
 };
 
 export type DemoUserDetail = DemoRecord & {
+  registered_devices?: DemoRecord[];
   hwid_devices?: components["schemas"]["AdminUserHwidDevicesOut"];
   user?: DemoAdminUser;
   active_subscription?: DemoRecord;
@@ -57,6 +58,7 @@ export type DemoSettingsField = DemoRecord & { key: string };
 // The generated dataset is consumed as a loose record: the mock probes optional
 // fields that older snapshots may not carry.
 export type DemoDataset = DemoRecord & {
+  devices?: { devices?: DemoRecord[] };
   stats?: DemoRecord;
   promos?: DemoRecord[];
   ads?: DemoRecord[];

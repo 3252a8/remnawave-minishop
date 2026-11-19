@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { TableHandler } from "@vincjo/datatables";
   import { getBroadcastStore } from "$lib/admin/context";
+  import { broadcastPlatformLabel } from "$lib/admin/broadcastPlatformLabel";
   import type { BroadcastHistoryItem } from "$lib/admin/stores/broadcastHistory";
   import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort.js";
   import { DateInput } from "$components/ui/index.js";
@@ -236,7 +237,9 @@
       .map(
         (target) =>
           broadcastStore.BROADCAST_TARGET_OPTIONS.find((option) => option.value === target)
-            ?.label || target
+            ?.label ||
+          broadcastPlatformLabel(target, at) ||
+          target
       )
       .join(", ");
   }

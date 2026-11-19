@@ -1,6 +1,6 @@
 import { demoAdminUserById } from "./users.js";
 import { demoUserRelationships } from "./relationships";
-import { adminBroadcastDemoResponse } from "./adminBroadcasts";
+import { adminBroadcastDemoResponse, demoUserPlatforms } from "./adminBroadcasts";
 import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
 import { adminGiftDemoStats } from "./giftsDemo";
@@ -304,6 +304,7 @@ export function demoApiResponse(
     };
     if (parts[4]) {
       if (parts[4] === "hwid-devices" && parts[5] === "reset" && method === "POST") {
+        detail.registered_devices = [];
         detail.hwid_devices = {
           current_devices: 0,
           max_devices: decoratedDetail.hwid_devices?.max_devices ?? null,
@@ -328,7 +329,11 @@ export function demoApiResponse(
       if (parts[4] === "broadcast-audiences") {
         const targets = user?.is_banned
           ? []
-          : ["all", detail.active_subscription ? "active" : "inactive"];
+          : [
+              "all",
+              detail.active_subscription ? "active" : "inactive",
+              ...demoUserPlatforms(detail).keys(),
+            ];
         const existing = detail.broadcast_audience_exclusions;
         const excluded = new Set(Array.isArray(existing) ? existing.map(String) : []);
         if (method === "PATCH") {

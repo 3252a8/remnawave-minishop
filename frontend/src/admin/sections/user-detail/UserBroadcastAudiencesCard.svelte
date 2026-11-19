@@ -4,6 +4,7 @@
   import NotificationPreferenceSwitch from "$components/patterns/NotificationPreferenceSwitch.svelte";
   import { getAdminApi, getBroadcastStore } from "$lib/admin/context";
   import { adminErrorMessage } from "$lib/admin/errors";
+  import { broadcastPlatformLabel } from "$lib/admin/broadcastPlatformLabel";
   import { buildAdminUserBroadcastAudiencesPath, unwrap } from "$lib/webapp/publicApi";
   import type { TranslateFn } from "./userDetailTypes.js";
 
@@ -37,6 +38,15 @@
       }
     }
     for (const target of remaining) {
+      const platform = broadcastPlatformLabel(target, at);
+      if (platform) {
+        add(
+          at("broadcast_audience_group_platforms", {}, "Registered device platform"),
+          target,
+          platform
+        );
+        continue;
+      }
       const label =
         target === "without_required_channel"
           ? at(
