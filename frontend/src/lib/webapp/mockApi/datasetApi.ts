@@ -31,6 +31,7 @@ import { sortAdminRows, type AdminSortColumn, type AdminSortValue } from "$lib/a
 import { USERS_EXTENSION_FILTER_QUERY_PARAM } from "$lib/admin/usersRouteFilters";
 import {
   demoInviteesForUser,
+  demoRegisteredDevices,
   demoSupportCounts,
   filterDemoSupportTickets,
   filterDemoUsers,
@@ -303,10 +304,22 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
-      if (parts[4] === "hwid-devices" && parts[5] === "reset" && method === "POST") {
-        detail.registered_devices = [];
+      if (parts[4] === "hwid-devices") {
+        const devices = demoRegisteredDevices(detail);
+        if (!parts[5] && method === "GET") return { ok: true, devices: clone(devices) };
+        if (method !== "POST") return { ok: false, error: "method_not_allowed" };
+        if (parts[5] === "disconnect") {
+          const token = jsonBody(options).device_token;
+          const index = devices.findIndex((device) => device.token === token);
+          if (index < 0) return { ok: false, error: "device_not_found" };
+          devices.splice(index, 1);
+        } else if (parts[5] === "reset") {
+          devices.length = 0;
+        } else {
+          return { ok: false, error: "not_found" };
+        }
         detail.hwid_devices = {
-          current_devices: 0,
+          current_devices: devices.length,
           max_devices: decoratedDetail.hwid_devices?.max_devices ?? null,
         };
         return { ok: true };

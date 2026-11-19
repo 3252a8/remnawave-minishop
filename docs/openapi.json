@@ -7796,6 +7796,36 @@
         "title": "AdminUserBanBody",
         "type": "object"
       },
+      "AdminUserDevicesOut": {
+        "properties": {
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/WebAppDeviceOut"
+            },
+            "title": "Devices",
+            "type": "array"
+          }
+        },
+        "required": [
+          "devices"
+        ],
+        "title": "AdminUserDevicesOut",
+        "type": "object"
+      },
+      "AdminUserDisconnectDeviceBody": {
+        "properties": {
+          "device_token": {
+            "pattern": "^[0-9a-f]{32}$",
+            "title": "Device Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_token"
+        ],
+        "title": "AdminUserDisconnectDeviceBody",
+        "type": "object"
+      },
       "AdminUserExtendBody": {
         "properties": {
           "apply_tariff_hwid_limit": {
@@ -32569,6 +32599,121 @@
           }
         ],
         "summary": "Admin User Hwid Device Limit",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/hwid-devices": {
+      "get": {
+        "operationId": "get_admin_user_devices_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AdminUserDevicesOut"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Devices",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/hwid-devices/disconnect": {
+      "post": {
+        "operationId": "post_admin_user_device_disconnect_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserDisconnectDeviceBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Device Disconnect",
         "tags": [
           "admin"
         ]

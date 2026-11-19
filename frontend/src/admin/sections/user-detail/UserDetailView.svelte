@@ -18,6 +18,7 @@
   import UserDetailFacts from "./UserDetailFacts.svelte";
   import UserNotificationSummaryCard from "./UserNotificationSummaryCard.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
+  import UserDevicesTab from "./UserDevicesTab.svelte";
   import UserSubscriptionTab from "./UserSubscriptionTab.svelte";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
@@ -294,6 +295,9 @@
               <Tabs.Trigger value="actions" class="admin-tabs-trigger"
                 >{at("user_tab_actions", {}, "Actions")}</Tabs.Trigger
               >
+              <Tabs.Trigger value="devices" class="admin-tabs-trigger">
+                {at("user_tab_devices", {}, "Devices")}
+              </Tabs.Trigger>
               <Tabs.Trigger value="activity" class="admin-tabs-trigger"
                 >{at("user_tab_activity", {}, "Payments")}</Tabs.Trigger
               >
@@ -350,6 +354,14 @@
               {paymentStatusVariant}
               {onOpenPaymentCard}
             />
+
+            <Tabs.Content value="devices" class="admin-tabs-content">
+              {#if usersStore.userDetailTab === "devices"}
+                {#key openedUser.user_id}
+                  <UserDevicesTab {at} {fmtDate} userId={openedUser.user_id} />
+                {/key}
+              {/if}
+            </Tabs.Content>
 
             <UserLogsTab
               {at}

@@ -198,6 +198,7 @@ from .users import (
     admin_user_traffic_strategy_route,
     admin_users_list_route,
 )
+from .users_devices import admin_user_device_disconnect_route, admin_user_devices_route
 from .users_merge import admin_user_merge_route
 from .users_merge_context import admin_user_merge_context_route
 
@@ -351,6 +352,11 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/gifts", admin_gift_create_route)
     router.add_get("/api/admin/gifts/{gift_id}", admin_gift_detail_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/reset-trial", admin_user_reset_trial_route)
+    router.add_get("/api/admin/users/{user_id:-?\\d+}/hwid-devices", admin_user_devices_route)
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/hwid-devices/disconnect",
+        admin_user_device_disconnect_route,
+    )
     router.add_post(
         "/api/admin/users/{user_id:-?\\d+}/hwid-devices/reset",
         admin_user_hwid_devices_reset_route,

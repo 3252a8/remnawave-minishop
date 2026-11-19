@@ -3007,6 +3007,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/hwid-devices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Devices */
+    get: operations["get_admin_user_devices_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/users/{user_id}/hwid-devices/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Device Disconnect */
+    post: operations["post_admin_user_device_disconnect_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/hwid-devices/reset": {
     parameters: {
       query?: never;
@@ -8186,6 +8220,16 @@ export interface components {
        * @default false
        */
       banned: unknown;
+    };
+    /** AdminUserDevicesOut */
+    AdminUserDevicesOut: {
+      /** Devices */
+      devices: components["schemas"]["WebAppDeviceOut"][];
+    };
+    /** AdminUserDisconnectDeviceBody */
+    AdminUserDisconnectDeviceBody: {
+      /** Device Token */
+      device_token: string;
     };
     /** AdminUserExtendBody */
     AdminUserExtendBody: {
@@ -19411,6 +19455,60 @@ export interface operations {
             /** @constant */
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"];
+          };
+        };
+      };
+    };
+  };
+  get_admin_user_devices_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+          } & components["schemas"]["AdminUserDevicesOut"];
+        };
+      };
+    };
+  };
+  post_admin_user_device_disconnect_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserDisconnectDeviceBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };
