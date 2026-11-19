@@ -158,7 +158,7 @@ services:
 
   nginx:
     logging: *minishop_logging
-    image: nginx:1.30.6-alpine
+    image: nginx:1.30.7-alpine
     restart: unless-stopped
     environment:
       WEBHOOK_HOST: ${WEBHOOK_HOST:?set WEBHOOK_HOST in .env}
