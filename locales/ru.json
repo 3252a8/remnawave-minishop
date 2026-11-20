@@ -2535,6 +2535,8 @@
   "admin_user_tab_devices": "Устройства",
   "admin_user_device": "Устройство",
   "admin_user_device_platform": "Платформа",
+  "admin_user_device_sort_az": "{column} · от А до Я",
+  "admin_user_device_sort_za": "{column} · от Я до А",
   "admin_user_device_client": "Приложение подключения",
   "admin_user_device_client_unknown": "Не указано",
   "admin_user_open_devices_usage": "Открыть устройства, {usage}",

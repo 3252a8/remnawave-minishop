@@ -4,12 +4,15 @@
     AdminButton,
     AdminEmptyState,
     AdminListToolbar,
+    AdminSelect,
+    AdminSortableHeader,
     AdminTable,
   } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
   import { RefreshCw, Trash2 } from "$components/ui/icons.js";
   import { getAdminApi, getUsersStore } from "$lib/admin/context";
   import { adminErrorMessage } from "$lib/admin/errors";
+  import { sortAdminRows, type AdminSortColumn } from "$lib/admin/tableSort";
   import type { components } from "$lib/api/openapi.generated";
   import { deviceClientLabel } from "$lib/webapp/deviceClient";
   import {
@@ -29,6 +32,68 @@
   const reads = new AbortController();
   const users = getUsersStore();
   let devices = $state<Device[] | null>(null);
+  let sort = $state("");
+  function lastConnection(device: Device): number | null {
+    const time = Date.parse(device.last_connected_at || "");
+    return Number.isFinite(time) ? time : null;
+  }
+  const columns = $derived([
+    {
+      label: at("user_device", {}, "Device"),
+      asc: "device_asc",
+      desc: "device_desc",
+      defaultDirection: "asc",
+      value: (device) => device.display_name.trim(),
+    },
+    {
+      label: at("user_device_platform", {}, "Platform"),
+      asc: "platform_asc",
+      desc: "platform_desc",
+      defaultDirection: "asc",
+      value: (device) => device.platform_label.trim(),
+    },
+    {
+      label: at("user_device_client", {}, "Connection app"),
+      asc: "client_asc",
+      desc: "client_desc",
+      defaultDirection: "asc",
+      value: (device) => deviceClientLabel(device.user_agent),
+    },
+    {
+      label: at("user_device_last_seen", {}, "Last connection"),
+      asc: "date_asc",
+      desc: "date_desc",
+      defaultDirection: "desc",
+      value: lastConnection,
+    },
+  ] satisfies Array<AdminSortColumn<Device> & { label: string }>);
+  const sortedDevices = $derived(sortAdminRows(devices ?? [], sort, columns));
+  const sortItems = $derived([
+    { value: "none", label: at("sort_off", {}, "Not sorted") },
+    ...columns.flatMap((column) => {
+      if (column.asc === "date_asc")
+        return [
+          {
+            value: column.desc,
+            label: `${column.label} · ${at("sort_updated_desc", {}, "Newest first")}`,
+          },
+          {
+            value: column.asc,
+            label: `${column.label} · ${at("sort_updated_asc", {}, "Oldest first")}`,
+          },
+        ];
+      return [
+        {
+          value: column.asc,
+          label: at("user_device_sort_az", { column: column.label }, "{column} · A to Z"),
+        },
+        {
+          value: column.desc,
+          label: at("user_device_sort_za", { column: column.label }, "{column} · Z to A"),
+        },
+      ];
+    }),
+  ]);
   let selected = $state<Device | null>(null);
   let busy = $state(false);
   let error = $state("");
@@ -120,6 +185,18 @@
       </AdminButton>
     </div>
   {/snippet}
+  {#snippet footer()}
+    {#if devices?.length}
+      <div class="device-mobile-sort">
+        <AdminSelect
+          value={sort || "none"}
+          items={sortItems}
+          ariaLabel={at("sort", {}, "Sort")}
+          onValueChange={(value) => (sort = value === "none" ? "" : value)}
+        />
+      </div>
+    {/if}
+  {/snippet}
 </AdminListToolbar>
 {#if error}<p class="admin-field-error" role="alert">{error}</p>{/if}
 {#if devices === null}
@@ -130,15 +207,20 @@
   <AdminTable class="admin-table-compact" minWidth="680px" layout="fixed">
     <thead>
       <tr>
-        <th>{at("user_device", {}, "Device")}</th>
-        <th>{at("user_device_platform", {}, "Platform")}</th>
-        <th>{at("user_device_client", {}, "Connection app")}</th>
-        <th>{at("user_device_last_seen", {}, "Last connection")}</th>
+        {#each columns as column (column.asc)}
+          <AdminSortableHeader
+            label={column.label}
+            {column}
+            currentSort={sort}
+            {at}
+            onSort={(value) => (sort = value)}
+          />
+        {/each}
         <th>{at("actions", {}, "Actions")}</th>
       </tr>
     </thead>
     <tbody>
-      {#each devices as device (device.index)}
+      {#each sortedDevices as device (device.index)}
         <tr>
           <td class="admin-cell-wrap" data-label={at("user_device", {}, "Device")}>
             <strong>{device.display_name}</strong>
@@ -153,7 +235,7 @@
               at("user_device_client_unknown", {}, "Not reported")}
           </td>
           <td data-label={at("user_device_last_seen", {}, "Last connection")}>
-            {device.last_connected_at ? fmtDate(device.last_connected_at) : "—"}
+            {lastConnection(device) !== null ? fmtDate(device.last_connected_at) : "—"}
           </td>
           <td data-label={at("actions", {}, "Actions")}>
             <AdminButton
@@ -199,3 +281,14 @@
     >
   </div>
 </Dialog>
+
+<style>
+  .device-mobile-sort {
+    min-width: 0;
+  }
+  @media (min-width: 721px) {
+    .device-mobile-sort {
+      display: none;
+    }
+  }
+</style>

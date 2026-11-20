@@ -2535,6 +2535,8 @@
   "admin_user_tab_devices": "Devices",
   "admin_user_device": "Device",
   "admin_user_device_platform": "Platform",
+  "admin_user_device_sort_az": "{column} · A to Z",
+  "admin_user_device_sort_za": "{column} · Z to A",
   "admin_user_device_client": "Connection app",
   "admin_user_device_client_unknown": "Not reported",
   "admin_user_open_devices_usage": "Open devices, {usage}",
