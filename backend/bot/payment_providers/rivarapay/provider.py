@@ -125,6 +125,7 @@ def _spec(
         reporting_fee_method=method.lower(),
         payment_group=group,
         info_url="https://rivarapay.io/",
+        logo_url="/provider-logos/rivarapay.png",
         currency_support_url="https://rivarapay.io/docs",
     )
 
