@@ -11,6 +11,7 @@
   import { getAdminApi, getUsersStore } from "$lib/admin/context";
   import { adminErrorMessage } from "$lib/admin/errors";
   import type { components } from "$lib/api/openapi.generated";
+  import { deviceClientLabel } from "$lib/webapp/deviceClient";
   import {
     buildAdminUserDevicesPath,
     buildAdminUserDisconnectDevicePath,
@@ -126,11 +127,12 @@
 {:else if !devices.length}
   <AdminEmptyState title={at("user_devices_empty", {}, "No registered devices")} tone="card" />
 {:else}
-  <AdminTable class="admin-table-compact" minWidth="580px" layout="fixed">
+  <AdminTable class="admin-table-compact" minWidth="680px" layout="fixed">
     <thead>
       <tr>
         <th>{at("user_device", {}, "Device")}</th>
         <th>{at("user_device_platform", {}, "Platform")}</th>
+        <th>{at("user_device_client", {}, "Connection app")}</th>
         <th>{at("user_device_last_seen", {}, "Last connection")}</th>
         <th>{at("actions", {}, "Actions")}</th>
       </tr>
@@ -145,6 +147,10 @@
           </td>
           <td class="admin-cell-wrap" data-label={at("user_device_platform", {}, "Platform")}>
             {device.platform_label || "—"}
+          </td>
+          <td class="admin-cell-wrap" data-label={at("user_device_client", {}, "Connection app")}>
+            {deviceClientLabel(device.user_agent) ||
+              at("user_device_client_unknown", {}, "Not reported")}
           </td>
           <td data-label={at("user_device_last_seen", {}, "Last connection")}>
             {device.last_connected_at ? fmtDate(device.last_connected_at) : "—"}

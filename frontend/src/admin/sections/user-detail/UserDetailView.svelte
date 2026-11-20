@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { AdminButton } from "$components/patterns/admin/index.js";
   import { RefreshCw } from "$components/ui/icons.js";
   import UserDetailLinks from "./UserDetailLinks.svelte";
@@ -19,7 +20,7 @@
   import UserNotificationSummaryCard from "./UserNotificationSummaryCard.svelte";
   import UserLogsTab from "./UserLogsTab.svelte";
   import UserDevicesTab from "./UserDevicesTab.svelte";
-  import UserNoteTab from "./UserNoteTab.svelte";
+  import UserProfileNote from "./UserProfileNote.svelte";
   import UserSubscriptionTab from "./UserSubscriptionTab.svelte";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
@@ -194,6 +195,14 @@
   } = $props();
 
   let notificationsOpen = $state(false);
+  let devicesTab = $state<HTMLButtonElement | null>(null);
+
+  async function openDevices() {
+    usersStore.userDetailTab = "devices";
+    await tick();
+    devicesTab?.focus({ preventScroll: true });
+    devicesTab?.scrollIntoView({ block: "center", inline: "nearest" });
+  }
   $effect(() => {
     void openedUser?.user_id;
     notificationsOpen = false;
@@ -216,7 +225,10 @@
       notificationsOpen = true;
       usersStore.userDetailTab = "subscription";
     }
-    if (selected.startsWith("extension:") && !visibleExtensionPanelTabs.has(selected)) {
+    if (
+      selected === "note" ||
+      (selected.startsWith("extension:") && !visibleExtensionPanelTabs.has(selected))
+    ) {
       usersStore.userDetailTab = "subscription";
     }
   });
@@ -243,6 +255,9 @@
     >
       {#snippet details()}
         {#if openedUserDetail}
+          {#key openedUser.user_id}
+            <UserProfileNote {at} userId={openedUser.user_id} />
+          {/key}
           <UserDetailFacts
             {routePrefix}
             {at}
@@ -268,7 +283,14 @@
     {#if openedUserDetail}
       <UserDetailLinks {at} {usersStore} {openedUserDetail} />
     {/if}
-    <UserDetailStats {at} {openedUser} {openedUserDetail} {fmtMoney} />
+    <UserDetailStats
+      {at}
+      {openedUser}
+      {openedUserDetail}
+      {fmtMoney}
+      onOpenDevices={openDevices}
+      devicesAvailable={Boolean(devicesTab)}
+    />
     {#if userDetailLoading}
       <div class="admin-user-page-state" aria-busy="true" aria-live="polite">
         <p class="admin-muted">{at("loading", {}, "Loading…")}</p>
@@ -296,11 +318,8 @@
               <Tabs.Trigger value="actions" class="admin-tabs-trigger"
                 >{at("user_tab_actions", {}, "Actions")}</Tabs.Trigger
               >
-              <Tabs.Trigger value="devices" class="admin-tabs-trigger">
+              <Tabs.Trigger value="devices" class="admin-tabs-trigger" bind:ref={devicesTab}>
                 {at("user_tab_devices", {}, "Devices")}
-              </Tabs.Trigger>
-              <Tabs.Trigger value="note" class="admin-tabs-trigger">
-                {at("user_tab_note", {}, "Note")}
               </Tabs.Trigger>
               <Tabs.Trigger value="activity" class="admin-tabs-trigger"
                 >{at("user_tab_activity", {}, "Payments")}</Tabs.Trigger
@@ -365,16 +384,6 @@
                   <UserDevicesTab {at} {fmtDate} userId={openedUser.user_id} />
                 {/key}
               {/if}
-            </Tabs.Content>
-
-            <Tabs.Content value="note" class="admin-tabs-content">
-              {#key openedUser.user_id}
-                <UserNoteTab
-                  {at}
-                  userId={openedUser.user_id}
-                  active={usersStore.userDetailTab === "note"}
-                />
-              {/key}
             </Tabs.Content>
 
             <UserLogsTab

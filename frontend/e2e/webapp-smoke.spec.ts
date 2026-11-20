@@ -888,7 +888,7 @@ async function openUserDetailFromCurrentSection(
   await expect(remnawaveUserLink).toHaveAttribute("target", "_blank");
   await expect(remnawaveUserLink).toHaveAttribute("rel", /noopener/);
   // Subscription, Actions, Payments, Logs, Message; notifications use a dialog.
-  await exerciseDialogTabs(userDialog, 7, setPhase, `${phasePrefix}:user-tabs`);
+  await exerciseDialogTabs(userDialog, 6, setPhase, `${phasePrefix}:user-tabs`);
 
   await userDialog.getByRole("button", { name: "Изменить", exact: true }).click();
   const notificationsDialog = page.locator(".admin-user-notifications-dialog");
