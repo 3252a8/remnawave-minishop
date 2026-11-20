@@ -33,25 +33,16 @@ def payment_link_expired_locally(
     profile: WataTerminalProfile,
     grace_seconds: int = 0,
 ) -> bool:
-    """Return whether the lifetime requested when creating the link elapsed."""
+    """Use the saved link deadline and fall back to the configured TTL for legacy payments."""
 
-    created_at = getattr(payment, "created_at", None)
-    created_dt: datetime | None
-    if isinstance(created_at, datetime):
-        created_dt = (
-            created_at.replace(tzinfo=UTC)
-            if created_at.tzinfo is None
-            else created_at.astimezone(UTC)
-        )
-    else:
-        created_dt = _parse_wata_datetime(created_at)
-    if created_dt is None:
-        return False
-    expires_at = created_dt + timedelta(
-        minutes=profile.link_ttl_minutes,
-        seconds=max(0, int(grace_seconds)),
-    )
-    return expires_at <= datetime.now(UTC)
+    expires_at = _parse_wata_datetime(getattr(payment, "checkout_expires_at", None))
+    if expires_at is None:
+        created_at = _parse_wata_datetime(getattr(payment, "created_at", None))
+        if created_at is None:
+            return False
+        expires_at = created_at + timedelta(minutes=profile.link_ttl_minutes)
+    grace = timedelta(seconds=max(0, int(grace_seconds)))
+    return expires_at + grace <= datetime.now(UTC)
 
 
 async def expired_link_payload_for_payment(
