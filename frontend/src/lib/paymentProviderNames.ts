@@ -11,6 +11,8 @@ export const PAYMENT_PROVIDER_NAMES = {
   platega_crypto: "Platega Crypto",
   platega_international: "Platega International",
   platega_sbp: "Platega SBP/card",
+  rivarapay_crypto: "RivaraPay Crypto",
+  rivarapay_sbp: "RivaraPay SBP",
   rollypay: "RollyPay All methods",
   rollypay_card: "RollyPay Card",
   rollypay_crypto: "RollyPay Crypto",

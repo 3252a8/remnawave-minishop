@@ -308,6 +308,7 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | FreeKassa | `WEBHOOK_BASE_URL` + `/webhook/freekassa` | Используйте как notification/webhook URL; при IP-фильтрации заполните `FREEKASSA_TRUSTED_IPS`. |
 | Platega | `WEBHOOK_BASE_URL` + `/webhook/platega` | Один общий webhook для всех разовых методов и рекуррентной подписки Platega. |
 | RollyPay | `WEBHOOK_BASE_URL` + `/webhook/rollypay` | Один подписанный webhook для разовых и всех регулярных списаний RollyPay. |
+| RivaraPay | `WEBHOOK_BASE_URL` + `/webhook/rivarapay` | Подпись проверяется с помощью `RIVARAPAY_WEBHOOK_SECRET`. |
 | SeverPay | `WEBHOOK_BASE_URL` + `/webhook/severpay` | Укажите как callback/webhook URL, если поле есть в кабинете мерчанта. |
 | PayHot | `WEBHOOK_BASE_URL` + `/webhook/payhot` | Подпишитесь на `payment.succeeded` и задайте отдельный секрет подписи. |
 | Wata | `WEBHOOK_BASE_URL` + `/webhook/wata` | Если включена проверка подписи, настройте `WATA_WEBHOOK_VERIFY_SIGNATURE` и `WATA_PUBLIC_KEY`. |
@@ -522,6 +523,31 @@ RollyPay не присылает отдельные webhook о состояни�
 
 - [RollyPay](../configuration/env-vars.md#rollypay)
 - [Официальная документация RollyPay](https://docs.rollypay.io/)
+
+## RivaraPay
+
+RivaraPay открывает страницу оплаты для разовых платежей через СБП или
+криптовалютой. В обоих случаях Minishop выставляет счёт в рублях. При
+криптооплате клиент выбирает актив и сеть на странице RivaraPay.
+
+1. В кабинете RivaraPay подключите нужные способы к магазину. Криптоприём
+   подключается отдельно.
+2. Создайте рабочий ключ `live_…` с правами `payments:write` и `payments:read`,
+   затем укажите его в `RIVARAPAY_API_KEY`.
+3. Настройте `WEBHOOK_BASE_URL`. В кабинете RivaraPay добавьте вебхук
+   `https://ваш-домен/webhook/rivarapay` для события `payment.paid` и сохраните секрет в
+   `RIVARAPAY_WEBHOOK_SECRET`.
+4. Включите `RIVARAPAY_SBP_ENABLED` или `RIVARAPAY_CRYPTO_ENABLED`. Для
+   проверки доступности способов только администраторам используйте
+   соответствующие переключатели `_ADMIN_ONLY_ENABLED`.
+
+Для сортировки или ограничения по тарифам используйте `rivarapay_sbp` и
+`rivarapay_crypto`. Заказ подтверждается по подписанному событию оплаты со
+сверкой номера и суммы счёта. Тестовые события не активируют заказы. Комиссия
+для покупателя, если она настроена в RivaraPay, показывается на странице оплаты.
+
+[Настройки RivaraPay](../configuration/env-vars.md#rivarapay) ·
+[Документация API](https://rivarapay.io/docs)
 
 ## SeverPay
 

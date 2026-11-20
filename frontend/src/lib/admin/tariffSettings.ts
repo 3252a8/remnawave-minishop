@@ -168,6 +168,8 @@ const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
   platega_crypto: ["payments", "platega", "crypto"],
   platega_international: ["payments", "platega", "international"],
   platega_sbp: ["payments", "platega", "sbp"],
+  rivarapay_crypto: ["payments", "rivarapay"],
+  rivarapay_sbp: ["payments", "rivarapay"],
   rollypay: ["payments", "rollypay", "all-methods"],
   rollypay_card: ["payments", "rollypay", "card"],
   rollypay_crypto: ["payments", "rollypay", "crypto"],

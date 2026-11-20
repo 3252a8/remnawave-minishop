@@ -76,6 +76,7 @@ WEBHOOK_PROFILES = {
         "payhot",
         "paykilla",
         "platega",
+        "rivarapay",
         "rollypay",
         "severpay",
         "stripe",

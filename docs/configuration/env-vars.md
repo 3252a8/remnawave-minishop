@@ -778,6 +778,20 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `SEVERPAY_RETURN_URL` | URL возврата. |
 | `SEVERPAY_LIFETIME_MINUTES` | Время жизни платежной ссылки. |
 
+### RivaraPay
+
+Оба способа выставляют рублёвые счета. Включите нужный способ в Minishop после
+его подключения в кабинете RivaraPay.
+
+| Параметр | Назначение |
+| --- | --- |
+| `RIVARAPAY_API_KEY` | Рабочий ключ `live_…` с правами `payments:write` и `payments:read`. |
+| `RIVARAPAY_WEBHOOK_SECRET` | Секрет адреса `/webhook/rivarapay` из кабинета RivaraPay. |
+| `RIVARAPAY_SBP_ENABLED` / `RIVARAPAY_CRYPTO_ENABLED` | Включить СБП или криптовалюту. По умолчанию оба способа выключены. |
+| `RIVARAPAY_SBP_ADMIN_ONLY_ENABLED` / `RIVARAPAY_CRYPTO_ADMIN_ONLY_ENABLED` | Открыть соответствующий способ только администраторам, пока общий переключатель способа выключен. |
+| `RIVARAPAY_RETURN_URL` | Куда вернуть покупателя со страницы оплаты. По умолчанию используется ссылка на бота. |
+| `RIVARAPAY_SBP_REPORTING_FEE_PERCENT` / `RIVARAPAY_CRYPTO_REPORTING_FEE_PERCENT` | Необязательная ставка комиссии для внутренней отчётности по выбранному способу. |
+
 ### Wata
 
 | Переменная | Назначение |

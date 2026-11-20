@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from aiohttp import web
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def settle_hosted_payment(
     service: Any,
     *,
-    provider: str,
+    provider: str | Sequence[str],
     provider_id: str,
     order_id: Any,
     state: str,
@@ -34,6 +35,7 @@ async def settle_hosted_payment(
         )
         if payment is None:
             return web.Response(status=404, text="payment_not_found")
+        provider_key = provider if isinstance(provider, str) else payment.provider
         # Order lookup must never repoint an already bound invoice. Conversely,
         # provider-id fallback must not accept a conflicting order identifier.
         if (payment.provider_payment_id and str(payment.provider_payment_id) != provider_id) or (
@@ -75,10 +77,10 @@ async def settle_hosted_payment(
                         sale_mode=sale_mode,
                         months=units,
                         traffic_amount=float(units),
-                        provider_subscription=provider,
-                        provider_notification=provider,
+                        provider_subscription=provider_key,
+                        provider_notification=provider_key,
                         db_user=claimed.user,
-                        log_prefix=f"{provider} webhook",
+                        log_prefix=f"{provider_key} webhook",
                     )
                 )
                 return web.Response(
@@ -100,5 +102,5 @@ async def settle_hosted_payment(
             return web.Response(text="ok")
         except Exception:
             await session.rollback()
-            logger.exception("%s: invoice settlement failed", provider)
+            logger.exception("%s: invoice settlement failed", provider_key)
             return web.Response(status=500, text="processing_error")

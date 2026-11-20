@@ -184,6 +184,7 @@ class BuildServicesWiringTests(unittest.TestCase):
             "panel_webhook_service",
             "yookassa_service",
             "platega_service",
+            "rivarapay_service",
             "rollypay_service",
             "severpay_service",
             "wata_service",
