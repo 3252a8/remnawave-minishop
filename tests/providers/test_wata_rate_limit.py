@@ -75,7 +75,7 @@ def test_wata_search_uses_v2_and_caches_rate_limited_objects(monkeypatch):
     assert calls[1][0] == "https://api.wata.pro/api/h2h/links/link-id"
 
 
-def test_wata_final_transaction_search_prefers_paid(monkeypatch):
+def test_wata_paid_transaction_search_rejects_other_orders(monkeypatch):
     service = _service()
     calls = 0
 
@@ -84,6 +84,12 @@ def test_wata_final_transaction_search_prefers_paid(monkeypatch):
         calls += 1
         return True, {
             "items": [
+                {
+                    "id": "tx-other-order",
+                    "status": "Paid",
+                    "orderId": "999",
+                    "paymentLinkId": "link-id",
+                },
                 {
                     "id": "tx-declined",
                     "status": "Declined",
@@ -107,7 +113,7 @@ def test_wata_final_transaction_search_prefers_paid(monkeypatch):
     )
 
     async def run():
-        result = await service._find_final_transaction_for_payment(payment)
+        result = await service._find_paid_transaction_for_payment(payment)
         await service.close()
         return result
 

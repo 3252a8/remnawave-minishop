@@ -15,7 +15,7 @@
 <!-- Column-header toggle for sortable admin tables; render inside a <th>
      that carries the matching aria-sort attribute. -->
 <button type="button" class="admin-sort-header" title={title || undefined} {onclick}>
-  <span>{label}</span>
+  <span class="admin-sort-label">{label}</span>
   <span class="admin-sort-state" data-state={state} aria-hidden="true">
     {#if state === "ascending"}
       <ArrowUp size={13} />
@@ -54,6 +54,14 @@
 
   .admin-sort-header:focus-visible {
     box-shadow: 0 0 0 2px var(--admin-ring);
+  }
+
+  /* A tight table wraps a multi-word header ("Valid / until") before it scrolls
+     sideways; with room to spare the auto layout keeps every header on one line. */
+  .admin-sort-label {
+    white-space: normal;
+    text-align: left;
+    text-wrap: balance;
   }
 
   .admin-sort-state {

@@ -381,7 +381,7 @@
         </div>
         <div>
           <dt>{at("partners_requested", {}, "Requested")}</dt>
-          <dd class="admin-cell-mono">{selectedWithdrawal.requested}</dd>
+          <dd>{fmtDateTime(selectedWithdrawal.requested)}</dd>
         </div>
         {#if selectedWithdrawal.processedAt}
           <div>

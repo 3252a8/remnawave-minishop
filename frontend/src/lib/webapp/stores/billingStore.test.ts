@@ -399,7 +399,10 @@ describe("billingStore", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("opens the current tariff directly on the first and subsequent renewal clicks", () => {
+  it.each([
+    { active: true, tariff_key: "current" },
+    { active: true, tariff_key: "basic", balance_renewal_eligible_tariff_key: "current" },
+  ])("opens the renewal tariff directly for %o on repeated clicks", (subscription) => {
     const { store } = makeBillingStore();
     const catalog = [{ key: "basic" }, { key: "current" }] as unknown as Parameters<
       typeof store.openPaymentModal
@@ -409,14 +412,7 @@ describe("billingStore", () => {
       { id: "current-month", tariff_key: "current" },
     ];
     for (let attempt = 0; attempt < 2; attempt++) {
-      store.openPaymentModal(
-        true,
-        false,
-        catalog,
-        { active: true, tariff_key: "current" },
-        plans,
-        "card"
-      );
+      store.openPaymentModal(true, false, catalog, subscription, plans, "card");
       expect(store).toMatchObject({
         paymentModalOpen: true,
         paymentStep: "checkout",

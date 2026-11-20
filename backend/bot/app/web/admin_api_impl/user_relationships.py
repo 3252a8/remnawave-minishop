@@ -30,6 +30,7 @@ class AdminUserRelationshipEdgeOut(HttpResponseModel):
 
 class AdminUserRelationshipNodeOut(AdminUserWithAvatarOut):
     subscription_active: bool | None
+    subscription_expired: bool = False
     current_tariff_key: str | None
     revenue_by_currency: dict[str, float]
 
@@ -49,10 +50,11 @@ async def admin_user_relationships_route(request: web.Request) -> web.Response:
         nodes = []
         for user, avatar_updated_at in users:
             user_id = int(user.user_id)
-            is_active, tariff_key = subscriptions.get(user_id, (None, None))
+            is_active, is_expired, tariff_key = subscriptions.get(user_id, (None, False, None))
             node = AdminUserRelationshipNodeOut(
                 **AdminUserOut.from_orm_user(user).model_dump(),
                 subscription_active=is_active,
+                subscription_expired=is_expired,
                 current_tariff_key=tariff_key,
                 revenue_by_currency=revenue.get(user_id, {}),
                 avatar_url=(

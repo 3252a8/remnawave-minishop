@@ -40,6 +40,7 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.trial_days import TRIAL_DAYS_START_FROM_PAYMENT
 from bot.services.user_balance_service import UserBalanceError
 from config.settings import Settings
+from config.stars_pricing import trial_stars_price
 from config.subscription_periods import (
     add_period_days,
     checkout_duration_days,
@@ -184,7 +185,7 @@ async def create_payment_route(request: web.Request) -> web.Response:
         ):
             return _json_error(400, "trial_payment_unavailable", "Paid trial is not available")
         price = max(0.0, float(settings.TRIAL_PAYMENT_PRICE or 0))
-        stars_price = max(0, int(settings.TRIAL_PAYMENT_STARS_PRICE or 0))
+        stars_price = trial_stars_price(settings, default_currency)
         if method == "stars" and stars_price <= 0:
             return _json_error(400, "invalid_plan", "Stars price is not configured")
         if method != "stars" and price <= 0:

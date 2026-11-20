@@ -120,7 +120,6 @@
   const activeDelta = $derived(
     activePoint && previousPoint ? Number(activePoint.amount) - Number(previousPoint.amount) : null
   );
-  const isLive = $derived(hoverIndex >= 0);
 
   function readCssColor(name: string, fallback: string): string {
     if (typeof document === "undefined") return fallback;
@@ -523,6 +522,18 @@
     tooltip = { left, arrowLeft, visible: true };
   }
 
+  /**
+   * Without a pointer (always on phones) the lane under the plot shows the
+   * latest period instead of staying empty; hover or tap picks another one.
+   */
+  function restTooltip(u: uPlot): void {
+    if (motion !== "idle" || !points.length) {
+      tooltip = { ...tooltip, visible: false };
+      return;
+    }
+    positionTooltip(u, points.length - 1);
+  }
+
   function yAxisTickLabels(values: number[]): string[] {
     return values.map((v) => fmtMoney(Number(v), currency));
   }
@@ -551,8 +562,8 @@
     const idx = u.cursor.idx;
     if (idx == null || idx < 0) {
       hoverIndex = -1;
-      tooltip = { ...tooltip, visible: false };
       clearHighlight();
+      restTooltip(u);
       return;
     }
     hoverIndex = idx;
@@ -610,6 +621,7 @@
           (u) => {
             updateRevealGeometry(u);
             renderHighlight();
+            if (hoverIndex < 0) restTooltip(u);
           },
         ],
       },
@@ -801,7 +813,7 @@
       class="admin-chart-tooltip"
       arrow="top"
       arrowX={`${tooltip.arrowLeft}px`}
-      visible={tooltip.visible && isLive}
+      visible={tooltip.visible && motion === "idle"}
       style={`transform: translate3d(${tooltip.left}px, 0, 0);`}
       role="status"
       aria-live="off"

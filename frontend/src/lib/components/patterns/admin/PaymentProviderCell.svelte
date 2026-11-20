@@ -15,7 +15,9 @@
       ? at("gifts_source_admin", {}, "From administrator")
       : provider === "subscription_days"
         ? at("payments_provider_subscription_days", {}, "Subscription days")
-        : providerDisplay.label
+        : provider === "partner_balance"
+          ? at("payments_provider_partner_balance", {}, "Partner balance")
+          : providerDisplay.label
   );
   const logoUrl = $derived(providerDisplay.logoUrl);
   let logoFailed = $state(false);

@@ -26,7 +26,9 @@ from config.settings_models import (
 )
 from config.settings_protocol import _SettingsComputedMixinBase, computed_field
 from config.settings_validation import SettingsValidationMixin as SettingsValidationMixin
+from config.stars_pricing import apply_catalog_stars_rate, rub_to_stars
 from config.support_links import normalize_support_link
+from config.tariff_config_utils import normalize_currency_key
 from config.tariffs_config import (
     TariffsConfig,
     default_payment_currency_code_for_settings,
@@ -426,6 +428,15 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             options[6] = self.STARS_PRICE_6_MONTHS
         if stars_enabled and self.MONTH_12_ENABLED and self.STARS_PRICE_12_MONTHS is not None:
             options[12] = self.STARS_PRICE_12_MONTHS
+        if (
+            stars_enabled
+            and self.STARS_RUB_PER_STAR
+            and normalize_currency_key(self.DEFAULT_CURRENCY_SYMBOL) == "rub"
+        ):
+            options.update(
+                (months, rub_to_stars(price, self.STARS_RUB_PER_STAR))
+                for months, price in self.subscription_options.items()
+            )
         return options
 
     @computed_field
@@ -459,8 +470,6 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
         """
         packages: dict[float, int] = {}
         raw = (self.STARS_TRAFFIC_PACKAGES or "").strip()
-        if not raw:
-            return packages
         for part in raw.split(","):
             chunk = part.strip()
             if not chunk or ":" not in chunk:
@@ -474,6 +483,14 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             except ValueError:
                 logger.warning("Invalid STARS_TRAFFIC_PACKAGES entry skipped: %s", chunk)
                 continue
+        if (
+            self.STARS_RUB_PER_STAR
+            and normalize_currency_key(self.DEFAULT_CURRENCY_SYMBOL) == "rub"
+        ):
+            packages.update(
+                (gb, rub_to_stars(price, self.STARS_RUB_PER_STAR))
+                for gb, price in self.traffic_packages.items()
+            )
         return packages
 
     @computed_field
@@ -501,7 +518,10 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
 
     @computed_field
     def tariffs_config(self) -> TariffsConfig | None:
-        return load_tariffs_config(self.TARIFFS_CONFIG_PATH)
+        config = load_tariffs_config(self.TARIFFS_CONFIG_PATH)
+        if config is not None and self.STARS_RUB_PER_STAR:
+            return apply_catalog_stars_rate(config, self.STARS_RUB_PER_STAR)
+        return config
 
     @computed_field
     def webapp_themes_catalog(self) -> WebappThemesConfig:

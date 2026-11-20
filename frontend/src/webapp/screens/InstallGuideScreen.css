@@ -4,6 +4,19 @@
   padding: 18px 16px 96px;
 }
 
+/* Phones: the screen gutter already pads the content, and steps use the full
+   card width instead of a 260px column beside the icon. */
+@media (max-width: 519px) {
+  .install-layout {
+    padding: 6px 0 96px;
+  }
+
+  .install-step {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
 .install-topbar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -13,22 +26,6 @@
 
 .install-topbar.public {
   grid-template-columns: minmax(0, 1fr);
-}
-
-.install-back-btn {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border-color: var(--border-strong);
-  color: var(--text);
-}
-
-.install-back-btn svg {
-  width: 21px;
-  height: 21px;
-  stroke-width: 2.6;
 }
 
 .install-topbar h1 {
@@ -286,8 +283,17 @@
   color: var(--text);
 }
 
-.theme-light .install-svg :is([fill="#FAFAFA" i], [fill="#FFFFFF" i], [fill="#FFF" i], [fill="white"]) {
+.theme-light
+  .install-svg
+  :is([fill="#FAFAFA" i], [fill="#FFFFFF" i], [fill="#FFF" i], [fill="white"]) {
   fill: currentColor;
+}
+
+/* Some logos (Koala Clash, Clash Verge) draw their outline with a white stroke. */
+.theme-light
+  .install-svg
+  :is([stroke="#FAFAFA" i], [stroke="#FFFFFF" i], [stroke="#FFF" i], [stroke="white"]) {
+  stroke: currentColor;
 }
 
 .install-steps {

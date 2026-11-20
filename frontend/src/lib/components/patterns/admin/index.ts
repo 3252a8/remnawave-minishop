@@ -11,6 +11,7 @@ export { default as AdminEmptyState } from "./AdminEmptyState.svelte";
 export { default as AdminEntityLink } from "./AdminEntityLink.svelte";
 export { default as AdminField } from "./AdminField.svelte";
 export { default as AdminFormGrid } from "./AdminFormGrid.svelte";
+export { default as AdminKpiTile } from "./AdminKpiTile.svelte";
 export { default as AdminListToolbar } from "./AdminListToolbar.svelte";
 export { default as PaymentProviderCell } from "./PaymentProviderCell.svelte";
 export { default as AdminPagination } from "./AdminPagination.svelte";

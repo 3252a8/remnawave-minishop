@@ -1,10 +1,15 @@
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from bot.infra.payment_events import PaymentPurchase
+from bot.middlewares.i18n import JsonI18n
 from bot.services.notification_service import NotificationService
+
+LOCALES_PATH = str(Path(__file__).resolve().parents[2] / "locales")
 
 
 class _I18n:
@@ -91,6 +96,115 @@ def _service(*, mock_log_channel: bool = True) -> NotificationService:
 
 
 class PaymentLogNotificationTests(IsolatedAsyncioTestCase):
+    async def test_checkout_logs_preserve_all_addons_prices_and_period_in_base_locales(self):
+        for language in ("en", "ru"):
+            for version in (1, 2, 3):
+                for currency in ("RUB", "XTR"):
+                    with self.subTest(language=language, version=version, currency=currency):
+                        service = _service()
+                        service.settings.DEFAULT_LANGUAGE = language
+                        service.i18n = JsonI18n(LOCALES_PATH)
+                        snapshot = {
+                            "version": version,
+                            "currency": currency,
+                            "base_subscription_amount": 100,
+                            "base_subscription_stars": 50,
+                            "items": [
+                                {
+                                    "kind": "devices",
+                                    "extra_units": 2,
+                                    "total_units": 4,
+                                    "amount": 40,
+                                    "stars_amount": 20,
+                                    "traffic_bonus_gb": 15,
+                                },
+                                {
+                                    "kind": "traffic",
+                                    "extra_units": 50,
+                                    "total_units": 150,
+                                    "amount": 30,
+                                    "stars_amount": 15,
+                                },
+                                {
+                                    "kind": "premium_traffic",
+                                    "extra_units": 10,
+                                    "total_units": 30,
+                                    "amount": 20,
+                                    "stars_amount": 10,
+                                },
+                            ],
+                        }
+                        await service.notify_payment_received(
+                            user_id=42,
+                            amount=95 if currency == "XTR" else 190,
+                            currency=currency,
+                            months=3 if version < 3 else 0,
+                            duration_days=45 if version == 3 else None,
+                            payment_provider="wata",
+                            tariff_key="standard<&",
+                            purchased_hwid_devices=2,
+                            checkout_bundle_snapshot=json.dumps(snapshot),
+                            purchases=(
+                                PaymentPurchase(kind="hwid_devices", amount=2, unit="device"),
+                                PaymentPurchase(kind="extra_seats", amount=3, unit="seat"),
+                            ),
+                        )
+                        message = service._send_to_log_channel.await_args.args[0]
+                        self.assertIn("standard&lt;&amp;", message)
+                        self.assertIn("3 seat", message)
+                        self.assertEqual(message.count("+2 HWID"), 1)
+                        self.assertIn("4", message)
+                        self.assertIn("15", message)
+                        self.assertIn("45" if version == 3 else "3", message)
+                        self.assertIn("150" if version >= 2 else "50", message)
+                        self.assertIn("30" if version >= 2 else "10", message)
+                        for price in (50, 20, 15, 10) if currency == "XTR" else (100, 40, 30, 20):
+                            self.assertIn(f"{price} {currency}", message)
+                        for required in (
+                            ("Period:", "regular traffic", "premium traffic")
+                            if language == "en"
+                            else ("Период:", "основной", "премиум")
+                        ):
+                            self.assertIn(required, message)
+                        self.assertNotIn("traffic top-up", message)
+                        self.assertNotIn("докупка трафика", message)
+
+    async def test_invalid_checkout_does_not_hide_legacy_purchases(self):
+        service = _service()
+        for snapshot in (
+            "{",
+            "[]",
+            '{"version":99,"items":[]}',
+            '{"version":2,"items":[null,{"kind":"devices","extra_units":"nan"}]}',
+        ):
+            with self.subTest(snapshot=snapshot):
+                await service.notify_payment_received(
+                    user_id=42,
+                    amount=80,
+                    currency="RUB",
+                    months=0,
+                    payment_provider="wata",
+                    purchased_hwid_devices=2,
+                    checkout_bundle_snapshot=snapshot,
+                )
+                self.assertIn("+2 HWID", service._send_to_log_channel.await_args.args[0])
+
+    async def test_subscription_with_legacy_traffic_keeps_the_period(self):
+        service = _service()
+        await service.notify_payment_received(
+            user_id=42,
+            amount=120,
+            currency="RUB",
+            months=2,
+            payment_provider="wata",
+            traffic_gb=25,
+            tariff_key="standard",
+        )
+        message = service._send_to_log_channel.await_args.args[0]
+        self.assertIn("Period: 2 mo.", message)
+        self.assertIn("25 GB - regular traffic", message)
+        self.assertNotIn("traffic top-up", message)
+
     async def test_payment_topic_overrides_the_default_log_topic(self):
         for topic, expected in ((101, 101), (None, 42)):
             for queued in (True, False):

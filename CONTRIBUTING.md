@@ -141,7 +141,7 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 | demo settings manifest | `python scripts/export_settings_manifest.py` (+ prettier) | `tests/contracts/test_settings_manifest_demo_sync.py` |
 | `docs/remnawave-minishop.webp` | `npm run generate:readme-screenshot` | визуальная проверка README |
 | `backend/requirements.txt` | `python -m piptools compile --resolver=backtracking --no-emit-index-url --no-emit-trusted-host -o backend/requirements.txt backend/requirements.in` (Python 3.12) | CI install + `pip-audit` |
-| `frontend/package-lock.json`, `docs-site/package-lock.json` | `cd <каталог> && npx --yes npm@10.9.9 install --package-lock-only --ignore-scripts --no-audit --no-fund` | `npm run check:lockfiles`, pre-commit, CI до Docker matrix |
+| `frontend/package-lock.json`, `docs-site/package-lock.json` | `cd <каталог> && npx --yes npm@10.9.10 install --package-lock-only --ignore-scripts --no-audit --no-fund` | `npm run check:lockfiles`, pre-commit, CI до Docker matrix |
 
 `@expressive-code/core` использует `postcss-nested@7`, поэтому отдельный override
 для `postcss-selector-parser` больше не нужен. При обновлении lockfile проверяй,
@@ -149,7 +149,7 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 [GHSA-rj75-hqrm-r3gf](https://github.com/advisories/GHSA-rj75-hqrm-r3gf),
 а аудит и сборка документации проходят без переопределения.
 
-Frontend закрепляет `minimatch@11.0.4` через override: ESLint пока требует
+Frontend закрепляет `minimatch@11.0.8` через override: ESLint пока требует
 уязвимую ветку 10.x ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)).
 Версия 11 поддерживает используемый API и Node 24; совместимость проверяется
 полным lint/frontend gate. Удали override, когда ESLint и остальные потребители
@@ -362,7 +362,10 @@ UI-примитив. Например, для провайдера нужен `P
 Сценарии общего UI закреплены в `frontend/e2e/ui-reuse.spec.ts`; защитные правила — в
 `frontend/src/lib/uiReuse.test.ts`. Скриншоты помогают визуальному ревью, но не доказывают
 переиспользование компонента. Если запрошено утверждение интерфейса, сохрани снимки **до** правок
-и покажи сравнение до/после до коммита.
+и покажи сравнение до/после до коммита. `npm run screens -- --out <каталог>` снимает все разделы,
+вкладки, группы настроек, карточки и диалоги демо на десктопе и телефоне в обеих темах;
+повторный прогон с `--baseline <каталог до>` строит галерею сравнения
+([frontend/scripts/ui-screens](frontend/scripts/ui-screens/README.md)).
 
 ---
 

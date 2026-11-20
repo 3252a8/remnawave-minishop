@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Date, cast, exists, func, or_, select, update
+from sqlalchemy import Date, case, cast, exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import AutoRenewCycle, Payment, Subscription, UserPaymentMethod
+from db.balance_models import UserBalanceLedgerEntry
+from db.balance_renewal import GRANT_PROVIDERS, renewal_provider, renewal_provider_column
+from db.models import AutoRenewCycle, Payment, Subscription, User, UserPaymentMethod
 
 RETRYABLE_CYCLE_STATES = ("transport_retry", "financial_retry")
 OPEN_CYCLE_STATES = (
@@ -503,8 +505,7 @@ async def validate_dispatch_context_for_update(
         subscription is None
         or not bool(subscription.is_active)
         or not bool(subscription.auto_renew_enabled)
-        or str(subscription.provider or "").strip().lower()
-        != str(cycle.provider or "").strip().lower()
+        or renewal_provider(subscription) != str(cycle.provider or "").strip().lower()
         or int(subscription.auto_renew_consent_version or 0) != int(cycle.consent_version or 0)
     ):
         return False
@@ -570,6 +571,56 @@ async def mark_cycle_succeeded_for_record(
         await mark_cycle_succeeded(session, int(cycle_id))
 
 
+async def list_funded_grants(
+    session: AsyncSession,
+    *,
+    currency: str,
+    prices_minor: dict[str, int],
+    default_tariff_key: str | None,
+    limit: int,
+) -> list[tuple[Subscription, str]]:
+    """Lock funded grants without a previous renewal choice, nearest expiry first."""
+    provider = func.lower(func.trim(Subscription.provider))
+    tariff_key = case(
+        (
+            provider == "admin",
+            func.coalesce(func.nullif(Subscription.tariff_key, ""), default_tariff_key),
+        ),
+        else_=default_tariff_key,
+    )
+    wallet = (
+        select(func.sum(UserBalanceLedgerEntry.amount_minor))
+        .where(
+            UserBalanceLedgerEntry.user_id == Subscription.user_id,
+            func.upper(UserBalanceLedgerEntry.currency) == currency,
+            UserBalanceLedgerEntry.state == "posted",
+        )
+        .scalar_subquery()
+    )
+    query = (
+        select(Subscription, tariff_key)
+        .join(User, User.user_id == Subscription.user_id)
+        .where(
+            Subscription.is_active.is_(True),
+            Subscription.end_date > datetime.now(UTC),
+            User.is_banned.is_(False),
+            provider.in_(GRANT_PROVIDERS),
+            Subscription.auto_renew_consent_version == 0,
+            Subscription.balance_renewal_provider.is_(None),
+            wallet >= case(prices_minor, value=tariff_key),
+            ~exists().where(
+                AutoRenewCycle.subscription_id == Subscription.subscription_id,
+                AutoRenewCycle.cycle_anchor
+                == cast(func.timezone("UTC", Subscription.end_date), Date),
+            ),
+        )
+        .order_by(Subscription.end_date, Subscription.subscription_id)
+        .limit(limit)
+        .with_for_update(of=Subscription, skip_locked=True)
+    )
+    return [(sub, key) for sub, key in (await session.execute(query)).all()]
+
+
 async def list_due_subscriptions(
     session: AsyncSession,
     *,
@@ -589,7 +640,7 @@ async def list_due_subscriptions(
     query = select(Subscription.subscription_id, Subscription.user_id).where(
         Subscription.is_active.is_(True),
         Subscription.auto_renew_enabled.is_(True),
-        func.lower(Subscription.provider).in_(provider_keys),
+        renewal_provider_column().in_(provider_keys),
         Subscription.end_date > now,
         Subscription.end_date <= cutoff,
     )

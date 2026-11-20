@@ -6,6 +6,8 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.states.admin_states import AdminStates
 from bot.utils.callback_answer import callback_data, callback_message
@@ -62,8 +64,13 @@ async def show_ads_menu(
 
 @router.callback_query(F.data.startswith("admin_ads:page:"))
 async def ads_list_pagination(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict,
+    session: AsyncSession,
+    state: FSMContext,
 ) -> None:
+    await state.clear()
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
@@ -111,12 +118,16 @@ async def show_ad_card(
         return
 
     parts = callback_data(callback).split(":")
-    camp_id = int(parts[2])
-    back_page = int(parts[3]) if len(parts) > 3 else 0
+    try:
+        camp_id = int(parts[2])
+        back_page = int(parts[3]) if len(parts) > 3 else 0
+    except (IndexError, ValueError):
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
 
     camp = await ad_dal.get_campaign_by_id(session, camp_id)
     if not camp:
-        await callback.answer(_("admin_promo_not_found"), show_alert=True)
+        await callback.answer(_("admin_ads_not_found"), show_alert=True)
         return
     try:
         stats = await ad_dal.get_campaign_stats(session, camp_id)
@@ -151,7 +162,7 @@ async def show_ad_card(
 
 @router.callback_query(F.data.startswith("admin_ads:delete:"))
 async def ads_delete_prompt(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict
+    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, state: FSMContext
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -177,7 +188,14 @@ async def ads_delete_prompt(
         lang=current_lang,
     )
     try:
-        await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
+        await state.clear()
+        prompt = await edit_confirmation(callback_message(callback), state, confirm_text, kb)
+        await state.update_data(
+            record_id=camp_id,
+            list_page=back_page,
+            confirmation_message_id=prompt.message_id,
+        )
+        await state.set_state(AdminStates.confirming_ad_delete)
         await callback.answer()
     except Exception:
         await callback.answer()
@@ -185,59 +203,23 @@ async def ads_delete_prompt(
 
 @router.callback_query(F.data.startswith("admin_ads:delete_cancel:"))
 async def ads_delete_cancel(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict,
+    session: AsyncSession,
+    state: FSMContext,
 ) -> None:
-    # Return to the ad card view
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
-    if not i18n or not callback.message:
-        await callback.answer("Language error.", show_alert=True)
-        return
-
-    try:
-        parts = callback_data(callback).split(":", 3)
-        camp_id = int(parts[2])
-        back_page = int(parts[3])
-    except Exception:
-        await callback.answer(_("error_try_again"), show_alert=True)
-        return
-
-    camp = await ad_dal.get_campaign_by_id(session, camp_id)
-    if not camp:
-        await callback.answer(_("admin_ads_not_found"), show_alert=True)
-        return
-    try:
-        stats = await ad_dal.get_campaign_stats(session, camp_id)
-    except Exception:
-        stats = {"starts": 0, "trials": 0, "payers": 0, "revenue": 0.0}
-    text = _(
-        "admin_ads_card",
-        id=camp.ad_campaign_id,
-        source=camp.source,
-        start_param=camp.start_param,
-        cost=f"{camp.cost:.2f}",
-        active=_("csv_yes") if camp.is_active else _("csv_no"),
-        starts=stats["starts"],
-        trials=stats["trials"],
-        payers=stats["payers"],
-        revenue=f"{stats['revenue']:.2f}",
-    )
-    from bot.keyboards.inline.admin_keyboards import get_ad_card_keyboard
-
-    reply_markup = get_ad_card_keyboard(i18n, current_lang, camp.ad_campaign_id, back_page)
-    try:
-        await callback_message(callback).edit_text(
-            text, reply_markup=reply_markup, parse_mode="HTML"
-        )
-        await callback.answer()
-    except Exception:
-        await callback.answer()
+    await state.clear()
+    await show_ad_card(callback, settings, i18n_data, session)
 
 
 @router.callback_query(F.data.startswith("admin_ads:delete_confirm:"))
 async def ads_delete_confirm(
-    callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
+    callback: types.CallbackQuery,
+    settings: Settings,
+    i18n_data: dict,
+    session: AsyncSession,
+    state: FSMContext,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -254,6 +236,16 @@ async def ads_delete_confirm(
         await callback.answer(_("error_try_again"), show_alert=True)
         return
 
+    data = await state.get_data()
+    if (
+        await state.get_state() != AdminStates.confirming_ad_delete.state
+        or data.get("confirmation_message_id") != callback.message.message_id
+        or data.get("record_id") != camp_id
+        or data.get("list_page") != back_page
+    ):
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
+    await state.clear()
     existed = await ad_dal.delete_campaign(session, camp_id)
     if not existed:
         await callback.answer(_("admin_ads_not_found"), show_alert=True)
@@ -282,7 +274,7 @@ async def ads_delete_confirm(
         await callback.answer(_("admin_ads_deleted_success"), show_alert=True)
 
 
-@router.callback_query(F.data == "admin_action:ads_create")
+@router.callback_query(F.data.startswith("admin_action:ads_create"))
 async def ads_create_start(
     callback: types.CallbackQuery, state: FSMContext, settings: Settings, i18n_data: dict
 ) -> None:
@@ -296,8 +288,17 @@ async def ads_create_start(
         await callback.answer("Language error.", show_alert=True)
         return
 
+    parts = callback_data(callback).split(":")
+    token = parts[2] if len(parts) > 2 else ""
+    page = int(token) if token.isascii() and token.isdecimal() else 0
+    await state.update_data(ad_list_page=page)
     await state.set_state(AdminStates.waiting_for_ad_source)
-    await callback_message(callback).edit_text(_("admin_ads_create_source_prompt"))
+    await callback_message(callback).edit_text(
+        _("admin_ads_create_source_prompt"),
+        reply_markup=get_admin_back_keyboard(
+            current_lang, i18n, f"admin_ads:page:{page}", "cancel_button"
+        ),
+    )
     with contextlib.suppress(Exception):
         await callback.answer()
 
@@ -329,6 +330,14 @@ async def ads_create_flow(
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
+    data = await state.get_data()
+    page = data.get("ad_list_page", 0)
+    cancel = (
+        get_admin_back_keyboard(current_lang, i18n, f"admin_ads:page:{page}", "cancel_button")
+        if i18n
+        else None
+    )
+
     if current_state == AdminStates.waiting_for_ad_source.state:
         source = (message.text or "").strip()
         if not source or len(source) > 64:
@@ -336,7 +345,7 @@ async def ads_create_flow(
             return
         await state.update_data(ad_source=source)
         await state.set_state(AdminStates.waiting_for_ad_start_param)
-        await message.answer(_("admin_ads_create_start_param_prompt"))
+        await message.answer(_("admin_ads_create_start_param_prompt"), reply_markup=cancel)
         return
 
     if current_state == AdminStates.waiting_for_ad_start_param.state:
@@ -349,7 +358,7 @@ async def ads_create_flow(
             return
         await state.update_data(ad_start_param=start_param)
         await state.set_state(AdminStates.waiting_for_ad_cost)
-        await message.answer(_("admin_ads_create_cost_prompt"))
+        await message.answer(_("admin_ads_create_cost_prompt"), reply_markup=cancel)
         return
 
     if current_state == AdminStates.waiting_for_ad_cost.state:
@@ -362,7 +371,6 @@ async def ads_create_flow(
             await message.answer(_("admin_ads_invalid_cost"))
             return
 
-        data = await state.get_data()
         try:
             campaign = await ad_dal.create_campaign(
                 session,
@@ -396,8 +404,13 @@ async def ads_create_flow(
             )
         )
         # Offer back to ads menu
-        from bot.keyboards.inline.admin_keyboards import get_ads_menu_keyboard
-
         await message.answer(
-            _("admin_ads_back_to_menu_hint"), reply_markup=get_ads_menu_keyboard(i18n, current_lang)
+            _("admin_ads_back_to_menu_hint"),
+            reply_markup=(
+                get_admin_back_keyboard(
+                    current_lang, i18n, f"admin_ads:page:{data.get('ad_list_page', 0)}"
+                )
+                if i18n
+                else None
+            ),
         )

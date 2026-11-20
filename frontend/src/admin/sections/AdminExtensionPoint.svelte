@@ -10,10 +10,13 @@
     target,
     context = {},
     children,
+    launcher,
   }: {
     target: string;
     context?: Record<string, unknown>;
     children?: Snippet;
+    /** Render an entry point for available views without mounting a second instance. */
+    launcher?: Snippet<[string | undefined]>;
   } = $props();
   const host = getContext<AdminCompositionContext | undefined>(ADMIN_COMPOSITION);
   const composition = $derived(
@@ -43,7 +46,18 @@
   });
 </script>
 
-{#if composition}
+{#if composition && launcher}
+  {@const views = [
+    ...content.before,
+    ...(content.replacement ? [content.replacement] : []),
+    ...content.after,
+  ]}
+  {#if views.length}
+    {@render launcher(
+      views.length === 1 ? composition.at(views[0].i18nKey, {}, views[0].fallbackLabel) : undefined
+    )}
+  {/if}
+{:else if composition}
   {#each content.before as descriptor (`${descriptor.id}:${descriptor.runtimeDigest || ""}`)}
     <AdminExtensionSlot {descriptor} {composition} />
   {/each}

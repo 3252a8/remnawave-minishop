@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { partnerTableLayouts } from "$lib/admin/partnerProgramUi.js";
   import Skeleton from "$components/ui/skeleton.svelte";
   import {
     AdminChartSkeleton,
     AdminTableSkeleton,
     AdminListToolbar,
     AdminField,
+    AdminKpiTile,
   } from "$components/patterns/admin/index.js";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -17,7 +19,9 @@
     view?: string;
   } = $props();
 
-  const isList = $derived(view === "partners" || view === "applications" || view === "withdrawals");
+  const listView = $derived(
+    view === "partners" || view === "applications" || view === "withdrawals" ? view : null
+  );
   const listHeaders = $derived(
     view === "applications"
       ? [
@@ -46,6 +50,7 @@
             at("partners_col_gross", {}, "Revenue"),
             at("partners_col_earned", {}, "Net commission"),
             at("partners_col_available", {}, "Available"),
+            at("actions", {}, "Actions"),
           ]
   );
   const dashboardTableHeaders = $derived([
@@ -68,13 +73,7 @@
   {#if view === "dashboard"}
     <div class="partners-kpi-grid">
       {#each Array(8) as _, index (index)}
-        <article class="partners-kpi-card">
-          <Skeleton variant="dot" width="38px" height="38px" />
-          <div>
-            <Skeleton variant="tiny" width={`${56 + (index % 3) * 9}%`} />
-            <Skeleton variant="line" width={`${44 + (index % 2) * 14}%`} height="19px" />
-          </div>
-        </article>
+        <AdminKpiTile label="" loading loadingWidth={`${44 + (index % 2) * 14}%`} />
       {/each}
     </div>
 
@@ -141,7 +140,7 @@
         {/each}
       </article>
     </section>
-  {:else if isList}
+  {:else if listView}
     <section class="partners-list-view">
       <AdminListToolbar class="partner-list-toolbar" columns={1}>
         {#snippet search()}<Skeleton width="100%" height="36px" />{/snippet}
@@ -158,7 +157,8 @@
         headers={listHeaders}
         rows={6}
         rowHeight={54}
-        actionColumn={view === "applications" || view === "withdrawals"}
+        actionColumn
+        {...partnerTableLayouts[listView]}
       />
     </section>
   {:else}

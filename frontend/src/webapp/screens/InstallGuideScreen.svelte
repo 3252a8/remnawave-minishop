@@ -1,9 +1,9 @@
 <script lang="ts">
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { getInstallGuidesStore } from "$lib/webapp/context";
   import { onDestroy, onMount } from "svelte";
   import QRCode from "qrcode";
   import {
-    ArrowLeft,
     Check,
     ChevronsUpDown,
     Copy,
@@ -306,15 +306,7 @@
 <main class="install-layout">
   <div class="install-topbar" class:public={publicMode}>
     {#if !publicMode}
-      <Button
-        class="install-back-btn"
-        variant="secondary"
-        size="icon"
-        onclick={goHome}
-        aria-label={t("wa_back", {}, "Back")}
-      >
-        <ArrowLeft size={21} />
-      </Button>
+      <ScreenBackLink label={t("wa_back", {}, "Back")} onclick={goHome} />
     {/if}
     <div>
       <h1>
@@ -490,7 +482,7 @@
                       <div class="install-actions">
                         {#each block.buttons as button, buttonIndex}
                           <Button
-                            variant={button.type === "copyButton" ? "secondary" : "default"}
+                            variant={button.type === "subscriptionLink" ? "default" : "secondary"}
                             onclick={() => handleButton(buttonActions[blockIndex]?.[buttonIndex])}
                           >
                             {#if button.type === "copyButton"}
@@ -568,7 +560,7 @@
                     <Copy size={16} />
                     {t("wa_install_copy_subscription_link", {}, "Copy link")}
                   </Button>
-                  <Button onclick={shareInstallGuide}>
+                  <Button variant="secondary" onclick={shareInstallGuide}>
                     <Share2 size={16} />
                     {t("wa_install_share", {}, "Share")}
                   </Button>

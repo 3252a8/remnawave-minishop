@@ -78,18 +78,41 @@ export function demoInviteesForUser(userId: unknown): DemoAdminUser[] {
     .sort((a, b) => stringDate(b.registration_date) - stringDate(a.registration_date));
 }
 
+function demoDeviceSummary(detail: DemoUserDetail) {
+  if (detail.hwid_devices) return detail.hwid_devices;
+  const user = detail.user || {};
+  const baseLimit = Number(detail.active_subscription?.hwid_device_limit ?? 0);
+  const extraDevices = Math.max(0, Number(detail.active_subscription?.extra_hwid_devices ?? 0));
+  const maxDevices = baseLimit > 0 ? baseLimit + extraDevices : null;
+  const currentDevices = user.panel_user_uuid
+    ? Math.min(2 + (demoUserSeed(user) % 3), maxDevices ?? Infinity)
+    : 0;
+  return { current_devices: currentDevices, max_devices: maxDevices };
+}
+
+export function demoRegisteredDevices(detail: DemoUserDetail): DemoRecord[] {
+  if (detail.registered_devices) return detail.registered_devices;
+  const samples = DATASET.devices?.devices || [];
+  const count = samples.length ? demoDeviceSummary(detail).current_devices || 0 : 0;
+  detail.registered_devices = Array.from({ length: count }, (_, index) => {
+    const sample = samples[index % samples.length];
+    return {
+      ...sample,
+      platform: String(sample.platform_label || "").split(" ")[0],
+      token: `${detail.user?.user_id}-${index + 1}`,
+      index: index + 1,
+      last_connected_at: "2026-05-09T07:00:00Z",
+    };
+  });
+  return detail.registered_devices;
+}
+
 export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail {
   if (!detail || typeof detail !== "object") return detail;
   const decorated = withDemoAvatarDetail(detail) as DemoUserDetail;
   const user = decorated.user || {};
   const inviter = user.referred_by_id ? demoAdminUserById(user.referred_by_id) : null;
   const invitees = demoInviteesForUser(user.user_id);
-  const baseLimit = Number(decorated.active_subscription?.hwid_device_limit ?? 0);
-  const extraDevices = Math.max(0, Number(decorated.active_subscription?.extra_hwid_devices ?? 0));
-  const maxDevices = baseLimit > 0 ? baseLimit + extraDevices : null;
-  const currentDevices = user.panel_user_uuid
-    ? Math.min(2 + (demoUserSeed(user) % 3), maxDevices ?? Infinity)
-    : 0;
   return {
     ...decorated,
     has_relationships: Boolean(
@@ -100,10 +123,7 @@ export function withDemoReferralSummary(detail: DemoUserDetail): DemoUserDetail 
       )
     ),
     user: withDemoAdminUserMetrics(user),
-    hwid_devices: decorated.hwid_devices ?? {
-      current_devices: currentDevices,
-      max_devices: maxDevices,
-    },
+    hwid_devices: demoDeviceSummary(decorated),
     referral: {
       ...(decorated.referral || {}),
       inviter: inviter

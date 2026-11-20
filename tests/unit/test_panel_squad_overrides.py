@@ -4,10 +4,12 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import pytest
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from bot.services.panel_api_service import PanelApiService
+from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.squad_overrides import (
     SquadOverrideMixin,
     detect_panel_manual_internal_squads,
@@ -15,6 +17,7 @@ from bot.services.subscription_service_impl.squad_overrides import (
     normalize_panel_internal_squad_uuids,
 )
 from db.dal import user_panel_squad_override_dal as override_dal
+from db.models import UserPanelSquadOverride
 from tests.support.settings_stub import settings_stub
 
 
@@ -119,6 +122,139 @@ def test_normalize_panel_external_squad_uuid_supports_known_wire_keys():
         "external-b",
     )
     assert normalize_panel_external_squad_uuid({}) == (False, None)
+
+
+@pytest.mark.parametrize(
+    (
+        "default_uuid",
+        "panel_snapshot",
+        "source",
+        "lookup_response",
+        "expected_mode",
+        "expected_fields",
+    ),
+    [
+        (None, {"externalSquadUuid": None}, "panel", None, "inherit", {}),
+        (
+            "default",
+            {"externalSquadUuid": "default"},
+            "panel",
+            None,
+            "inherit",
+            {
+                "externalSquadUuid": "default",
+            },
+        ),
+        (
+            "default",
+            {"externalSquadUuid": None},
+            "panel",
+            None,
+            "cleared",
+            {
+                "externalSquadUuid": None,
+            },
+        ),
+        (None, {}, "panel", None, "set", {"externalSquadUuid": "manual"}),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"response": {"uuid": "manual"}},
+            "set",
+            {"externalSquadUuid": "manual"},
+        ),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"error": True, "status_code": 404, "details": {"errorCode": "A182"}},
+            "inherit",
+            {},
+        ),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"error": True, "status_code": 404, "details": {"message": "Unknown route"}},
+            "set",
+            {"externalSquadUuid": "manual"},
+        ),
+        (
+            None,
+            {"externalSquadUuid": None},
+            "admin",
+            {"error": True, "status_code": 503},
+            "set",
+            {"externalSquadUuid": "manual"},
+        ),
+    ],
+)
+def test_external_squad_refresh_reconciles_the_override_used_by_the_next_edit(
+    default_uuid, panel_snapshot, source, lookup_response, expected_mode, expected_fields
+):
+    asyncio.run(
+        _assert_external_squad_refresh(
+            default_uuid, panel_snapshot, source, lookup_response, expected_mode, expected_fields
+        )
+    )
+
+
+async def _assert_external_squad_refresh(
+    default_uuid, panel_snapshot, source, lookup_response, expected_mode, expected_fields
+):
+    panel = PanelApiService(
+        settings_stub(parsed_user_external_squad_uuid=default_uuid, parsed_user_squad_uuids=[])
+    )
+    host = SubscriptionService(panel.settings, panel)
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    factory = async_sessionmaker(engine)
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(UserPanelSquadOverride.__table__.create)
+        async with factory.begin() as session:
+            if source == override_dal.OVERRIDE_SOURCE_PANEL:
+                await host.capture_panel_squad_overrides(
+                    session,
+                    user_id=42,
+                    panel_user_uuid="panel-user",
+                    managed_internal_squads=[],
+                    panel_user_snapshot={"externalSquadUuid": "manual"},
+                )
+            else:
+                await override_dal.set_external_override(
+                    session,
+                    user_id=42,
+                    panel_user_uuid="panel-user",
+                    mode=override_dal.OVERRIDE_MODE_SET,
+                    squad_uuid="manual",
+                    source=source,
+                )
+        with patch.object(panel, "_request", AsyncMock(return_value=lookup_response)) as request:
+            async with factory.begin() as session:
+                summary = await host.panel_squad_overrides_summary(
+                    session,
+                    user_id=42,
+                    panel_user_uuid="panel-user",
+                    panel_user_snapshot=panel_snapshot,
+                )
+                assert summary["external"]["mode"] == expected_mode
+            if lookup_response is not None:
+                request.assert_awaited_once()
+            else:
+                request.assert_not_awaited()
+        async with factory() as session:
+            payload = await host.build_effective_panel_squad_fields(
+                session,
+                user_id=42,
+                panel_user_uuid="panel-user",
+                managed_internal_squads=[],
+                discover_panel_overrides=False,
+                include_internal_squads=False,
+            )
+            assert payload == expected_fields
+    finally:
+        await engine.dispose()
 
 
 def test_deactivate_managed_overrides_only_targets_panel_discovery_rows():

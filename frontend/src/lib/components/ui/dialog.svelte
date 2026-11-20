@@ -87,7 +87,7 @@
   $effect(() => {
     if (!open || !focusOnOpen) return;
     void focusKey;
-    focusFirstDialogControl(() => card);
+    focusFirstDialogControl(() => (open ? card : null));
   });
 
   function stopScrollPropagation(event: WheelEvent | TouchEvent) {

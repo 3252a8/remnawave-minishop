@@ -35,7 +35,7 @@
     appRepositoryUrl = "https://dev.minishop.minidoc.cc/",
   }: {
     at: TranslateFn;
-    fmtMoney: (value: number) => string;
+    fmtMoney: (value: number, currency?: string | null) => string;
     appRepositoryUrl?: string;
   } = $props();
 
@@ -126,6 +126,10 @@
       ];
     })
   );
+  const adTableLayout = {
+    columnWidths: ["30%", "12%", "12%", "12%", "10%", "12%", "12%"],
+    minWidth: "1040px",
+  };
   const adHeaders = $derived([
     at("ads_campaign"),
     at("ads_col_advertiser"),
@@ -203,7 +207,7 @@
             aria-label={at("search")}
           />
         {/snippet}
-        {#snippet searchActions()}<AdminButton variant="primary" type="submit" disabled={adsLoading}
+        {#snippet searchActions()}<AdminButton type="submit" disabled={adsLoading}
             >{at("ads_apply_filters")}</AdminButton
           >{/snippet}
         {#snippet filters()}
@@ -263,7 +267,8 @@
           rows={6}
           rowHeight={76}
           actionColumn
-          widths={["30%", "12%", "12%", "12%", "10%", "12%", "12%"]}
+          class="ads-campaign-table"
+          {...adTableLayout}
         />
       {:else if !ads.length}
         <AdminEmptyState tone="card"
@@ -271,12 +276,7 @@
           ></AdminEmptyState
         >
       {:else}
-        <AdminTable layout="fixed" minWidth="1120px" class="ads-campaign-table">
-          <colgroup
-            ><col style="width:30%" /><col style="width:12%" /><col style="width:12%" /><col
-              style="width:12%"
-            /><col style="width:10%" /><col style="width:12%" /><col style="width:12%" /></colgroup
-          >
+        <AdminTable class="ads-campaign-table" {...adTableLayout}>
           <thead
             ><tr>
               <AdminSortableHeader
@@ -336,7 +336,7 @@
                   >{ad.advertiser_id || "—"}</td
                 >
                 <td class="ads-number" data-label={at("ads_col_cost")}
-                  >{fmtMoney(ad.cost)} <small>RUB</small></td
+                  >{fmtMoney(ad.cost, "RUB")}</td
                 >
                 <td class="ads-number" data-label={at("ads_col_registrations")}
                   >{adRegistrationCount(ad.stats)}</td
@@ -561,10 +561,6 @@
   }
   .ads-number {
     font-variant-numeric: tabular-nums;
-  }
-  .ads-number small {
-    color: var(--admin-muted);
-    font-size: 11px;
   }
   .ads-row-actions {
     display: flex;

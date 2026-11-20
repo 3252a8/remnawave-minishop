@@ -5,7 +5,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+from bot.keyboards.inline.admin_keyboards import (
+    get_admin_back_keyboard,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
@@ -20,9 +22,11 @@ from config.settings import Settings
 from db.dal import user_dal
 
 from .user_management_cards import (
+    USER_CARD_SECTIONS,
     _send_with_profile_link_fallback,
     format_user_card,
     get_user_card_keyboard,
+    user_card_back_callback,
 )
 from .user_management_common import (
     _find_user_by_admin_input,
@@ -107,6 +111,8 @@ async def user_search_prompt_handler(
     i18n_data: dict,
     settings: Settings,
     session: AsyncSession,
+    *,
+    from_user_id: int | None = None,
 ) -> None:
     """Display search prompt for user management"""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -117,16 +123,23 @@ async def user_search_prompt_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     prompt_text = _("admin_user_management_prompt")
+    markup = get_admin_back_keyboard(
+        current_lang, i18n, "admin_section:user_management", "cancel_button"
+    )
+    result_origin = "s"
+    if from_user_id is not None:
+        card_callback = user_card_back_callback(callback, from_user_id)
+        previous_origin = card_callback.split(":", 2)
+        suffix = "." + previous_origin[2] if len(previous_origin) > 2 else ""
+        result_origin = f"s{from_user_id}{suffix}"
+        markup = get_admin_back_keyboard(current_lang, i18n, card_callback, "cancel_button")
+    await state.update_data(search_result_origin=result_origin)
 
     try:
-        await callback_message(callback).edit_text(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
-        )
+        await callback_message(callback).edit_text(prompt_text, reply_markup=markup)
     except Exception as e:
         logger.warning("Could not edit message for user management: %s. Sending new.", e)
-        await callback_message(callback).answer(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
-        )
+        await callback_message(callback).answer(prompt_text, reply_markup=markup)
 
     await callback.answer()
     await state.set_state(AdminStates.waiting_for_user_search)
@@ -156,8 +169,9 @@ async def process_user_search_handler(
         await message.answer(_("admin_user_not_found", input=hcode(input_text)))
         return
 
-    # Store user ID in state for further operations
-    await state.update_data(target_user_id=user_model.user_id)
+    origin = (await state.get_data()).get("search_result_origin", "s")
+    if len(f"uc:{user_model.user_id}:{origin}") > 62:
+        origin = origin.partition(".")[0]
     await state.clear()
 
     # Format and send user card
@@ -182,6 +196,7 @@ async def process_user_search_handler(
             current_lang,
             user_model.referred_by_id,
             telegram_id=user_model.telegram_id,
+            origin=origin,
         )
 
         await _send_with_profile_link_fallback(
@@ -196,6 +211,7 @@ async def process_user_search_handler(
         await message.answer(_("admin_user_card_error"))
 
 
+@router.callback_query(F.data.startswith(("uc:", "ur:", "ui:", "us:")))
 @router.callback_query(F.data.startswith("user_action:"))
 async def user_action_handler(
     callback: types.CallbackQuery,
@@ -210,9 +226,12 @@ async def user_action_handler(
     """Handle user management actions"""
     try:
         parts = callback_data(callback).split(":")
-        action = parts[1]
+        aliases = {"uc": "refresh", "ur": "view_logs", "ui": "invitees"}
+        if parts[0] in aliases:
+            parts.insert(1, aliases[parts[0]])
+        action = USER_CARD_SECTIONS[parts[1]] if parts[0] == "us" else parts[1]
         user_id = int(parts[2])
-    except (IndexError, ValueError):
+    except (IndexError, KeyError, ValueError):
         await callback.answer("Invalid action format.", show_alert=True)
         return
 
@@ -229,7 +248,12 @@ async def user_action_handler(
         await callback.answer(_("admin_user_not_found_action"), show_alert=True)
         return
 
-    if action == "reset_trial":
+    await state.clear()
+    if action == "search_user":
+        await user_search_prompt_handler(
+            callback, state, i18n_data, settings, session, from_user_id=user_id
+        )
+    elif action == "reset_trial":
         await handle_reset_trial(
             callback, user, subscription_service, session, settings, i18n, current_lang
         )
@@ -255,6 +279,7 @@ async def user_action_handler(
             session,
             i18n,
             current_lang,
+            state=state,
         )
     elif action == "set_tariff":
         tariff_key = parts[3] if len(parts) > 3 else ""
@@ -282,16 +307,39 @@ async def user_action_handler(
     elif action == "send_message":
         await handle_send_message_prompt(callback, state, user, i18n, current_lang)
     elif action == "view_logs":
-        await handle_view_user_logs(callback, user, session, settings, i18n, current_lang)
+        await handle_view_user_logs(
+            callback,
+            user,
+            session,
+            settings,
+            i18n,
+            current_lang,
+            origin=parts[3] if len(parts) > 3 else None,
+        )
     elif action == "invitees":
         try:
             page = max(0, int(parts[3])) if len(parts) > 3 else 0
         except (TypeError, ValueError):
             page = 0
-        await handle_view_user_invitees(callback, user, session, i18n, current_lang, page=page)
+        await handle_view_user_invitees(
+            callback,
+            user,
+            session,
+            i18n,
+            current_lang,
+            page=page,
+            origin=parts[4] if len(parts) > 4 else None,
+        )
     elif action == "refresh":
         await handle_refresh_user_card(
-            callback, user, subscription_service, session, settings, i18n, current_lang
+            callback,
+            user,
+            subscription_service,
+            session,
+            settings,
+            i18n,
+            current_lang,
+            origin=parts[3] if len(parts) > 3 else None,
         )
     elif action == "delete_user":
         await handle_delete_user_prompt(

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { takeSectionAction } from "$lib/admin/sectionActions.svelte";
   import { getSettingsStore, getTariffsStore } from "$lib/admin/context";
   import { Input, Sortable } from "$components/ui/index.js";
   import {
@@ -6,7 +7,6 @@
     Gift,
     RefreshCw,
     Trash2,
-    Plus,
     Save,
     TriangleAlert,
     X,
@@ -68,6 +68,9 @@
   } = $props();
 
   const tariffsStore = getTariffsStore();
+  $effect(() => {
+    if (takeSectionAction("tariffs", "create")) tariffsStore.openCreateTariff();
+  });
   const settingsStore = getSettingsStore();
 
   const tariffsState = $derived(tariffsStore);
@@ -260,16 +263,6 @@
           >
             <RefreshCw size={13} />
             {at("btn_refresh", {}, "Refresh")}
-          </AdminButton>
-          <AdminButton
-            data-admin-action="create-tariff"
-            size="sm"
-            variant="primary"
-            onclick={tariffsStore.openCreateTariff}
-            disabled={tariffsLoading || tariffsSaving}
-          >
-            <Plus size={13} />
-            {at("btn_create_tariff", {}, "Create Tariff")}
           </AdminButton>
         </div>
       </header>

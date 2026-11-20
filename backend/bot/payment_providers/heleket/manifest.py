@@ -1,5 +1,5 @@
 from ..base import ProviderManifestField
-from .constants import HELEKET_DEFAULT_SUPPORTED_CURRENCIES
+from .constants import HELEKET_DEFAULT_API_URL, HELEKET_DEFAULT_SUPPORTED_CURRENCIES
 
 _PRESENTATION_MANIFEST = tuple(
     ProviderManifestField(
@@ -89,7 +89,7 @@ _CONFIG_MANIFEST = (
         "HELEKET_BASE_URL",
         "url",
         "Base URL",
-        placeholder="https://api.heleket.com",
+        placeholder=HELEKET_DEFAULT_API_URL,
         subsection="Heleket",
         attr="BASE_URL",
     ),

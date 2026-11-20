@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { takeSectionAction } from "$lib/admin/sectionActions.svelte";
   import {
     AdminBadge,
     AdminButton,
+    AdminEntityLink,
     AdminPagination,
     AdminTable,
     AdminSortableHeader,
@@ -11,7 +13,8 @@
   import Dialog from "$components/ui/dialog.svelte";
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import Input from "$components/ui/input.svelte";
-  import { Gift, Plus, RefreshCw, User } from "$components/ui/icons.js";
+  import { Gift, RefreshCw } from "$components/ui/icons.js";
+  import { compactUserId } from "$lib/admin/format";
   import { unwrap, buildAdminGiftPath, type ApiClient } from "$lib/webapp/publicApi.js";
   import type { components } from "$lib/api/openapi.generated.js";
   import PaymentProviderCell from "$components/patterns/admin/PaymentProviderCell.svelte";
@@ -40,6 +43,9 @@
   let status = $state("");
   let source = $state("");
   let createOpen = $state(false);
+  $effect(() => {
+    if (takeSectionAction("gifts", "create")) createOpen = true;
+  });
   let copiedLink = $state<string | null>(null);
   let copyFailed = $state(false);
   let query = $state("");
@@ -202,9 +208,6 @@
       </div>
     {/snippet}
     {#snippet actions()}
-      <AdminButton variant="primary" onclick={() => (createOpen = true)}
-        ><Plus size={16} />{at("gifts_create")}</AdminButton
-      >
       <AdminButton
         variant="ghost"
         disabled={busy}
@@ -327,21 +330,25 @@
   />
 </div>
 
-{#snippet userLink(id: number | null, label: string, minishopId: string | null)}
-  {#if id}<span class="gift-user-cell">
-      <AdminButton
-        class="gift-user-link"
-        variant="ghost"
-        size="icon"
-        title={at("payments_open_user", {}, "Open user card")}
-        aria-label={`${at("payments_open_user", {}, "Open user card")}: ${label || minishopId || ""}`}
-        onclick={() => openUser(id)}><User size={14} /></AdminButton
-      >
-      <span class="gift-user-identity"
-        ><strong title={label || minishopId || ""}>{label || minishopId || "—"}</strong
-        >{#if minishopId}<small>{minishopId}</small>{/if}</span
-      >
-    </span>{:else}<span>—</span>{/if}
+{#snippet userLink(id: number | null, label: string, minishopId: string | null, full = false)}
+  {#if id}
+    {@const identifier = minishopId || String(id)}
+    {@const displayId = compactUserId(identifier)}
+    {@const name = label && label !== identifier ? label : ""}
+    <span class="gift-user-cell" class:full>
+      <AdminEntityLink
+        label={name || (full ? at("payments_open_user", {}, "Open user card") : displayId)}
+        idText={name && !full ? displayId : ""}
+        title={[at("payments_open_user", {}, "Open user card"), name, identifier]
+          .filter(Boolean)
+          .join(" · ")}
+        onclick={() => openUser(id)}
+      />
+      {#if full}<code class="gift-user-full-id">{identifier}</code>{/if}
+    </span>
+  {:else}
+    <span>—</span>
+  {/if}
 {/snippet}
 
 {#snippet giftLink(gift: AdminGift, withTariff = false)}
@@ -420,7 +427,7 @@
     {/if}
     <div class="gift-modal-buyer">
       <span>{at(gift.provider === "admin_gift" ? "gifts_created_by" : "gifts_buyer")}</span
-      >{@render userLink(gift.purchaser_id, gift.purchaser_label, gift.purchaser_minishop_id)}
+      >{@render userLink(gift.purchaser_id, gift.purchaser_label, gift.purchaser_minishop_id, true)}
       <div class="gift-payment-meta">
         {@render provider(gift)}<span class="gift-secondary">{fmtDate(gift.created_at)}</span>
       </div>
@@ -431,7 +438,8 @@
         >{#if gift.recipient_id}{@render userLink(
             gift.recipient_id,
             gift.recipient_label,
-            gift.recipient_minishop_id
+            gift.recipient_minishop_id,
+            true
           )}{:else}<span>{at("gifts_not_claimed", {}, "Not claimed yet")}</span>{/if}<span
           >{fmtDate(gift.activated_at)}</span
         >
@@ -575,7 +583,6 @@
     gap: 12px;
     width: 100%;
   }
-  .gift-user-cell,
   .gift-id-actions {
     display: flex;
     align-items: center;
@@ -586,30 +593,31 @@
   .gift-id-actions {
     gap: 2px;
   }
-  .gift-user-identity {
-    display: grid;
-    gap: 2px;
+  .gift-user-cell {
+    display: block;
     min-width: 0;
+    max-width: 100%;
+  }
+  .gift-user-cell :global(.admin-entity-link) {
+    max-width: 100%;
+  }
+  .gift-user-cell.full :global(.admin-entity-link-label) {
     overflow-wrap: anywhere;
+    white-space: normal;
   }
-  .gift-user-identity strong {
-    font-weight: 650;
+  .gift-user-full-id {
+    display: block;
+    margin-top: 4px;
+    color: var(--admin-muted);
+    font: 11px/1.4 var(--font-mono);
+    overflow-wrap: anywhere;
+    user-select: all;
   }
-  .gift-desktop .gift-user-identity {
-    max-width: 140px;
-  }
-  .gift-desktop .gift-user-identity strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .gift-user-identity small,
   .gift-id {
     font-family: var(--font-mono);
     font-size: 11px;
     margin: 0;
   }
-  :global(.gift-user-link.admin-btn),
   :global(.gift-detail-button.admin-btn) {
     width: 30px;
     height: 30px;

@@ -89,6 +89,11 @@
   const hasTotal = $derived(tableTotal !== null && tableTotal !== undefined && tableTotal !== "");
   const totalValue = $derived(Number(tableTotal));
   const showTotal = $derived(hasTotal && Number.isFinite(totalValue) && totalValue >= 0);
+  // One page needs no controls, and an empty list needs no pagination at all;
+  // the jump field only helps when some page numbers are hidden.
+  const singlePage = $derived(hasPageNavigation && normalizedPageCount <= 1);
+  const showPagination = $derived(!singlePage || meta !== "" || (showTotal && totalValue > 0));
+  const showJump = $derived(hasPageNavigation && normalizedPageCount > 4);
   const jumpTarget = $derived(Number(jumpValue));
   const canJump = $derived(
     hasPageNavigation &&
@@ -157,112 +162,116 @@
   }
 </script>
 
-<div class="admin-pagination" class:webapp-pagination={appearance === "webapp"}>
-  <div class="admin-pagination-summary">
-    {#if meta}
-      <span class="admin-pagination-meta">{meta}</span>
-    {/if}
-    {#if hasPageNavigation}
-      <span class="admin-pagination-count">
-        {pageLabel}
-        {currentPage + 1}
-        {ofLabel}
-        {normalizedPageCount}
-      </span>
-    {/if}
-    {#if showTotal}
-      <span class="admin-pagination-count">{totalLabel} {totalValue}</span>
-    {/if}
-  </div>
-  <div class="admin-pagination-buttons">
-    <ActionButton
-      variant={appearance === "webapp" ? "ghost" : "default"}
-      class="admin-pagination-nav"
-      size="sm"
-      controlSize="md"
-      disabled={computedPrevDisabled}
-      onclick={handlePrev}
-    >
-      <ChevronLeft size={14} />
-      {prevLabel}
-    </ActionButton>
-    {#if hasPageNavigation}
-      <div class="admin-pagination-pages" aria-label={pageLabel}>
-        {#each pages as item (item.key)}
-          {#if item.type === "ellipsis"}
-            <span class="admin-pagination-ellipsis" aria-hidden="true">...</span>
-          {:else}
-            <ActionButton
-              variant={appearance === "webapp" ? "ghost" : "default"}
-              class={item.index === currentPage
-                ? "admin-pagination-page is-active"
-                : "admin-pagination-page"}
-              size="sm"
-              controlSize="md"
-              disabled={paginationDisabled}
-              aria-current={item.index === currentPage ? "page" : undefined}
-              aria-label={`${pageLabel} ${item.label}`}
-              onclick={() => goToPage(item.index)}
-            >
-              {item.label}
-            </ActionButton>
-          {/if}
-        {/each}
+{#if showPagination}
+  <div class="admin-pagination" class:webapp-pagination={appearance === "webapp"}>
+    <div class="admin-pagination-summary">
+      {#if meta}
+        <span class="admin-pagination-meta">{meta}</span>
+      {/if}
+      {#if hasPageNavigation && !singlePage}
+        <span class="admin-pagination-count">
+          {pageLabel}
+          {currentPage + 1}
+          {ofLabel}
+          {normalizedPageCount}
+        </span>
+      {/if}
+      {#if showTotal}
+        <span class="admin-pagination-count">{totalLabel} {totalValue}</span>
+      {/if}
+    </div>
+    {#if !singlePage}
+      <div class="admin-pagination-buttons">
+        <ActionButton
+          variant={appearance === "webapp" ? "ghost" : "default"}
+          class="admin-pagination-nav"
+          size="sm"
+          controlSize="md"
+          disabled={computedPrevDisabled}
+          onclick={handlePrev}
+        >
+          <ChevronLeft size={14} />
+          {prevLabel}
+        </ActionButton>
+        {#if hasPageNavigation}
+          <div class="admin-pagination-pages" aria-label={pageLabel}>
+            {#each pages as item (item.key)}
+              {#if item.type === "ellipsis"}
+                <span class="admin-pagination-ellipsis" aria-hidden="true">...</span>
+              {:else}
+                <ActionButton
+                  variant={appearance === "webapp" ? "ghost" : "default"}
+                  class={item.index === currentPage
+                    ? "admin-pagination-page is-active"
+                    : "admin-pagination-page"}
+                  size="sm"
+                  controlSize="md"
+                  disabled={paginationDisabled}
+                  aria-current={item.index === currentPage ? "page" : undefined}
+                  aria-label={`${pageLabel} ${item.label}`}
+                  onclick={() => goToPage(item.index)}
+                >
+                  {item.label}
+                </ActionButton>
+              {/if}
+            {/each}
+          </div>
+        {/if}
+        <ActionButton
+          variant={appearance === "webapp" ? "ghost" : "default"}
+          class="admin-pagination-nav"
+          size="sm"
+          controlSize="md"
+          disabled={computedNextDisabled}
+          onclick={handleNext}
+        >
+          {nextLabel}
+          <ChevronRight size={14} />
+        </ActionButton>
       </div>
     {/if}
-    <ActionButton
-      variant={appearance === "webapp" ? "ghost" : "default"}
-      class="admin-pagination-nav"
-      size="sm"
-      controlSize="md"
-      disabled={computedNextDisabled}
-      onclick={handleNext}
-    >
-      {nextLabel}
-      <ChevronRight size={14} />
-    </ActionButton>
-  </div>
-  {#if hasPageNavigation}
-    <form
-      class="admin-pagination-jump"
-      onsubmit={(event) => {
-        event.preventDefault();
-        submitJump();
-      }}
-    >
-      <label class="admin-pagination-jump-label">
-        <span>{jumpLabel}</span>
-        <Input
-          name="admin-pagination-jump"
-          class="admin-pagination-jump-input"
-          controlSize="md"
-          type="number"
-          min="1"
-          max={normalizedPageCount}
-          step="1"
-          inputmode="numeric"
-          aria-label={jumpAriaLabel}
-          placeholder={String(currentPage + 1)}
-          value={jumpValue}
-          oninput={(event) => (jumpValue = event.currentTarget.value)}
-          disabled={paginationDisabled}
-        />
-      </label>
-      <ActionButton
-        variant={appearance === "webapp" ? "ghost" : "default"}
-        class="admin-pagination-jump-button"
-        size="sm"
-        controlSize="md"
-        type="submit"
-        disabled={!canJump}
-        aria-label={goLabel}
-        title={goLabel}
+    {#if showJump}
+      <form
+        class="admin-pagination-jump"
+        onsubmit={(event) => {
+          event.preventDefault();
+          submitJump();
+        }}
       >
-        <ArrowRight size={13} />
-      </ActionButton>
-    </form>
-  {/if}
-</div>
+        <label class="admin-pagination-jump-label">
+          <span>{jumpLabel}</span>
+          <Input
+            name="admin-pagination-jump"
+            class="admin-pagination-jump-input"
+            controlSize="md"
+            type="number"
+            min="1"
+            max={normalizedPageCount}
+            step="1"
+            inputmode="numeric"
+            aria-label={jumpAriaLabel}
+            placeholder={String(currentPage + 1)}
+            value={jumpValue}
+            oninput={(event) => (jumpValue = event.currentTarget.value)}
+            disabled={paginationDisabled}
+          />
+        </label>
+        <ActionButton
+          variant={appearance === "webapp" ? "ghost" : "default"}
+          class="admin-pagination-jump-button"
+          size="sm"
+          controlSize="md"
+          type="submit"
+          disabled={!canJump}
+          aria-label={goLabel}
+          title={goLabel}
+        >
+          <ArrowRight size={13} />
+        </ActionButton>
+      </form>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .webapp-pagination {

@@ -328,21 +328,29 @@ async def deactivate_external_override(
     *,
     user_id: int,
     panel_user_uuid: str,
+    source: str | None = None,
+    squad_uuid: str | None = None,
 ) -> int:
-    clear_tariff_read_batch(session)
-    result = await session.execute(
-        update(UserPanelSquadOverride)
-        .where(
-            UserPanelSquadOverride.user_id == user_id,
-            UserPanelSquadOverride.panel_user_uuid == panel_user_uuid,
-            UserPanelSquadOverride.kind == EXTERNAL_KIND,
-            UserPanelSquadOverride.override_key == EXTERNAL_OVERRIDE_KEY,
-            UserPanelSquadOverride.is_active == True,
-        )
-        .values(is_active=False, updated_at=_now(), deactivated_at=_now())
+    statement = update(UserPanelSquadOverride).where(
+        UserPanelSquadOverride.user_id == user_id,
+        UserPanelSquadOverride.panel_user_uuid == panel_user_uuid,
+        UserPanelSquadOverride.kind == EXTERNAL_KIND,
+        UserPanelSquadOverride.override_key == EXTERNAL_OVERRIDE_KEY,
+        UserPanelSquadOverride.is_active == True,
     )
+    if source is not None:
+        statement = statement.where(UserPanelSquadOverride.source == source)
+    if squad_uuid is not None:
+        statement = statement.where(UserPanelSquadOverride.squad_uuid == squad_uuid)
+    now = _now()
+    result = await session.execute(
+        statement.values(is_active=False, updated_at=now, deactivated_at=now)
+    )
+    affected = rowcount(result)
+    if affected:
+        clear_tariff_read_batch(session)
     await session.flush()
-    return rowcount(result)
+    return affected
 
 
 async def merge_panel_user_uuid(

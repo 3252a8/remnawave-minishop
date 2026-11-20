@@ -8,10 +8,11 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
-    get_admin_panel_keyboard,
-    get_back_to_admin_panel_keyboard,
+    get_admin_back_keyboard,
     get_broadcast_confirmation_keyboard,
+    get_system_functions_keyboard,
 )
+from bot.middlewares.confirmation import answer_confirmation, edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.broadcast_personalization import (
     BroadcastUserContext,
@@ -66,13 +67,17 @@ async def broadcast_message_prompt_handler(
         try:
             await callback_message(callback).edit_text(
                 prompt_text,
-                reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:system_functions", "cancel_button"
+                ),
             )
         except Exception as e:
             logger.warning("Could not edit message for broadcast prompt: %s. Sending new.", e)
             await callback_message(callback).answer(
                 prompt_text,
-                reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:system_functions", "cancel_button"
+                ),
             )
     await callback.answer()
     await state.set_state(AdminStates.waiting_for_broadcast_message)
@@ -229,10 +234,13 @@ async def process_broadcast_message_handler(
     # Show a short confirmation without duplicating text; the message above is the preview
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
 
-    await message.answer(
+    confirmation = await answer_confirmation(
+        message,
+        state,
         confirmation_prompt,
-        reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target="all"),
+        get_broadcast_confirmation_keyboard(current_lang, i18n, target="all"),
     )
+    await state.update_data(broadcast_confirmation_message_id=confirmation.message_id)
     await state.set_state(AdminStates.confirming_broadcast)
 
 
@@ -252,52 +260,29 @@ async def change_broadcast_target_handler(
         await callback.answer("Error updating selection.", show_alert=True)
         return
 
+    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
+    draft = await state.get_data()
+    message_id = draft.get("broadcast_confirmation_message_id")
+    if message_id is not None and message_id != callback.message.message_id:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
+
     new_target = callback_data(callback).split(":")[1]
     if new_target not in {"all", "active", "inactive", "expired"}:
         await callback.answer("Unknown target.", show_alert=True)
         return
 
     await state.update_data(broadcast_target=new_target)
-    await state.get_data()
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     confirmation_prompt = _("admin_broadcast_confirm_prompt_short")
     with contextlib.suppress(Exception):
-        await callback_message(callback).edit_text(
+        confirmation = await edit_confirmation(
+            callback_message(callback),
+            state,
             confirmation_prompt,
-            reply_markup=get_broadcast_confirmation_keyboard(current_lang, i18n, target=new_target),
+            get_broadcast_confirmation_keyboard(current_lang, i18n, target=new_target),
         )
+        await state.update_data(broadcast_confirmation_message_id=confirmation.message_id)
     await callback.answer()
-
-
-@router.callback_query(F.data == "admin_action:main", AdminStates.waiting_for_broadcast_message)
-async def cancel_broadcast_at_prompt_stage(
-    callback: types.CallbackQuery,
-    state: FSMContext,
-    settings: Settings,
-    i18n_data: dict,
-    session: AsyncSession,
-) -> None:
-    current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
-    i18n: JsonI18n | None = i18n_data.get("i18n_instance")
-    if not i18n or not callback.message:
-        await callback.answer("Error cancelling.", show_alert=True)
-        return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-
-    try:
-        await callback_message(callback).edit_text(
-            _("admin_broadcast_cancelled_nav_back"), reply_markup=None
-        )
-    except Exception:
-        await callback_message(callback).answer(_("admin_broadcast_cancelled_nav_back"))
-
-    await callback.answer(_("admin_broadcast_cancelled_alert"))
-    await state.clear()
-
-    await callback_message(callback).answer(
-        _(key="admin_panel_title"),
-        reply_markup=get_admin_panel_keyboard(i18n, current_lang, settings),
-    )
 
 
 @router.callback_query(
@@ -321,8 +306,24 @@ async def confirm_broadcast_callback_handler(
 
     action = callback_data(callback).split(":")[1]
     user_fsm_data = await state.get_data()
+    message_id = user_fsm_data.get("broadcast_confirmation_message_id")
+    if message_id is not None and message_id != callback.message.message_id:
+        await callback.answer(_("error_try_again"), show_alert=True)
+        return
+
+    if action == "cancel":
+        await state.clear()
+        markup = get_system_functions_keyboard(i18n, current_lang)
+        title = _("admin_system_functions_section")
+        try:
+            await callback_message(callback).edit_text(title, reply_markup=markup)
+        except TelegramBadRequest:
+            await callback_message(callback).answer(title, reply_markup=markup)
+        await callback.answer(_("admin_broadcast_cancelled_alert"))
+        return
 
     if action == "send":
+        await state.clear()
         # Create the content object from saved data
         content = MessageContent(
             content_type=user_fsm_data.get("broadcast_content_type", "text"),
@@ -333,7 +334,6 @@ async def confirm_broadcast_callback_handler(
 
         if not content.text and content.content_type == "text":
             await callback_message(callback).edit_text(_("admin_broadcast_error_no_message"))
-            await state.clear()
             await callback.answer(_("admin_broadcast_error_no_message_alert"), show_alert=True)
             return
 
@@ -369,7 +369,10 @@ async def confirm_broadcast_callback_handler(
         queue_manager = get_queue_manager()
         if not queue_manager:
             await callback_message(callback).edit_text(
-                _("admin_broadcast_queue_not_initialized"), reply_markup=None
+                _("admin_broadcast_queue_not_initialized"),
+                reply_markup=get_admin_back_keyboard(
+                    current_lang, i18n, "admin_section:system_functions"
+                ),
             )
             return
 
@@ -483,7 +486,9 @@ async def confirm_broadcast_callback_handler(
 
         # Prepare queue stats presentation
         queue_stats = queue_manager.get_queue_stats()
-        back_keyboard = get_back_to_admin_panel_keyboard(current_lang, i18n)
+        back_keyboard = get_admin_back_keyboard(
+            current_lang, i18n, "admin_section:system_functions"
+        )
         initial_user_failed = queue_stats.get("user_failed_messages", 0)
         initial_group_failed = queue_stats.get("group_failed_messages", 0)
 
@@ -552,12 +557,3 @@ async def confirm_broadcast_callback_handler(
         task = asyncio.create_task(auto_update_queue_status())
         _BROADCAST_STATUS_TASKS.add(task)
         task.add_done_callback(_BROADCAST_STATUS_TASKS.discard)
-
-    elif action == "cancel":
-        await callback_message(callback).edit_text(
-            _("admin_broadcast_cancelled"),
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
-        )
-        await callback.answer()
-
-    await state.clear()

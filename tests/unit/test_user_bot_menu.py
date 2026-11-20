@@ -9,6 +9,7 @@ from bot.handlers.user.subscription.core import (
     _format_premium_usage_limit,
     _with_subscription_purchase_description,
 )
+from bot.keyboards.inline.admin_keyboards import get_admin_panel_keyboard
 from bot.keyboards.inline.user_keyboards import (
     get_bot_interface_inline_keyboard,
     get_connect_and_main_keyboard,
@@ -26,6 +27,7 @@ from bot.keyboards.inline.user_keyboards import (
     payment_options_back_callback,
     tariff_purchase_back_callback,
 )
+from bot.keyboards.inline.user_keyboards_menus import get_bot_app_sections_keyboard
 from bot.middlewares.i18n import LOCALE_KEY_ALIASES, JsonI18n
 from bot.utils.install_links import bot_install_guides_enabled, install_guide_share_links_enabled
 from config.tariffs_config import TariffsConfig
@@ -367,13 +369,44 @@ class UserBotMenuTests(unittest.TestCase):
         self.assertIsNone(button.callback_data)
         self.assertIsNone(button.url)
 
-    def test_bot_interface_hides_payment_history_without_mini_app(self):
+    def test_bot_interface_uses_chat_payment_history_without_mini_app(self):
         self.settings.SUBSCRIPTION_MINI_APP_URL = ""
         markup = get_bot_interface_inline_keyboard("en", self.i18n, self.settings)
+        callbacks = self._callback_data(markup)
+        self.assertIn("main_action:bot_payment_history:0", callbacks)
+        self.assertNotIn("main_action:bot_sections", callbacks)
+
+    def test_menu_web_handoff_preserves_prefix_and_feature_settings(self):
+        self.settings.SUBSCRIPTION_MINI_APP_URL = "https://app.example.com/webapp?lang=en"
+        self.settings.SERVER_STATUS_ENABLED = True
+        self.settings.SERVER_STATUS_PROVIDER = "uptime-kuma"
+        self.settings.SUPPORT_TICKETS_ENABLED = True
+        self.settings.GIFTS_ENABLED = False
+        self.settings.PARTNER_PROGRAM_ENABLED = False
+        urls = lambda markup: {
+            button.web_app.url for row in markup.inline_keyboard for button in row if button.web_app
+        }
+        menu = get_main_menu_inline_keyboard("en", self.i18n, self.settings, is_admin=True)
+        self.assertIn("admin_action:main", self._callback_data(menu))
         self.assertNotIn(
-            self.i18n.gettext("en", "menu_payment_history_button"),
-            [button.text for row in markup.inline_keyboard for button in row],
+            "admin_action:main",
+            self._callback_data(get_main_menu_inline_keyboard("en", self.i18n, self.settings)),
         )
+        self.assertIn("https://app.example.com/webapp/status?lang=en", urls(menu))
+        self.assertIn("https://app.example.com/webapp/support?lang=en", urls(menu))
+        self.assertEqual(
+            urls(get_bot_app_sections_keyboard("en", self.i18n, self.settings)),
+            {
+                f"https://app.example.com/webapp/settings{suffix}?lang=en"
+                for suffix in ("", "/security", "/notifications")
+            },
+        )
+        self.assertEqual(
+            urls(get_admin_panel_keyboard(self.i18n, "en", self.settings)),
+            {"https://app.example.com/webapp/admin/stats?lang=en"},
+        )
+        self.settings.SUBSCRIPTION_MINI_APP_URL = ""
+        self.assertFalse(urls(get_admin_panel_keyboard(self.i18n, "en", self.settings)))
 
     def test_bot_interface_hides_only_referral_action_for_partner_mode(self):
         markup = get_bot_interface_inline_keyboard(

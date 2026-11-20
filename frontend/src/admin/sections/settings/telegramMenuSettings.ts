@@ -8,7 +8,10 @@ const APPEARANCE_KEY = "TELEGRAM_MENU_APPEARANCE_JSON";
 
 /** Keep the menu's dedicated save and draft cache aligned with generic settings writes. */
 export function createTelegramMenuSettingsAdapter(
-  store: Pick<SettingsStore, "registerSavedListener" | "setFieldValue">,
+  store: Pick<
+    SettingsStore,
+    "registerSavedListener" | "setFieldValue" | "registerExtraSaver" | "reportExtraDirty"
+  >,
   api: TelegramEmojiApi
 ) {
   function appearanceSaved(payload: SettingsSavedPayload): boolean {
@@ -39,9 +42,20 @@ export function createTelegramMenuSettingsAdapter(
     element?.focus({ preventScroll: true });
   }
 
+  /** The header Save also saves the appearance draft, through the menu's own API. */
+  function registerSaver(saver: () => void | Promise<void>): () => void {
+    return store.registerExtraSaver(saver);
+  }
+
+  function reportDirty(count: number): void {
+    store.reportExtraDirty("telegram_menu_appearance", count);
+  }
+
   return {
     api,
     saveAppearance,
+    registerSaver,
+    reportDirty,
     subscribeSettingsSaved,
     subscribeDraftInvalidation,
     openCustomButtons,

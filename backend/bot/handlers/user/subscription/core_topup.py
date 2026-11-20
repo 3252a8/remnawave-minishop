@@ -1,4 +1,5 @@
 from aiogram import F, types
+from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,19 @@ from bot.keyboards.inline.user_keyboards import (
     get_hwid_device_packages_keyboard,
     get_payment_method_keyboard,
 )
+from bot.keyboards.inline.user_keyboards_context import (
+    HWID_SUBSCRIPTION_ORIGIN,
+    TARIFF_SWITCH_ORIGIN,
+    TELEGRAM_SUBSCRIPTION_CHECKOUT,
+    callback_suffix_for_context,
+    hwid_origin_suffix,
+    sale_mode_with_callback_context,
+    sale_mode_with_token,
+    split_callback_context,
+    subscription_menu_back_callback,
+    subscription_status_callback,
+)
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.device_topup_availability import (
     device_topup_reason_locale_key,
@@ -37,8 +51,10 @@ from .core_common import (
 )
 from .core_status import my_subscription_command_handler
 
+_SWITCH_MODES = {"d": "recalc_days", "g": "convert_days_to_gb"}
 
-@router.callback_query(F.data == "tariff_topup:list")
+
+@router.callback_query(F.data.in_({"tariff_topup:list", "tariff_topup:list:bot"}))
 async def tariff_topup_list_callback(
     callback: types.CallbackQuery,
     i18n_data: dict,
@@ -54,6 +70,8 @@ async def tariff_topup_list_callback(
         if i18n
         else (lambda key, **kw: "Error")
     )
+    _, context = split_callback_context(callback_data(callback))
+    suffix = callback_suffix_for_context(context)
     config = settings.tariffs_config
     active = await subscription_service.get_active_subscription_details(session, account_user_id)
     if not config or not active or not active.get("tariff_key") or not callback.message:
@@ -82,6 +100,7 @@ async def tariff_topup_list_callback(
             subscription_service,
             session,
             callback_bot(callback),
+            back_callback=subscription_menu_back_callback(context),
         )
         return
     tariff = config.require_configured(active["tariff_key"])
@@ -111,7 +130,7 @@ async def tariff_topup_list_callback(
                     price=f"{package.price:g}",
                     currency=currency,
                 ),
-                callback_data=f"tariff:package:{tariff.key}:{package.gb:g}",
+                callback_data=f"tariff:package:{tariff.key}:{package.gb:g}{suffix}",
             )
         )
     for package in premium_packages:
@@ -123,12 +142,13 @@ async def tariff_topup_list_callback(
                     price=f"{package.price:g}",
                     currency=currency,
                 ),
-                callback_data=f"tariff:premium_package:{tariff.key}:{package.gb:g}",
+                callback_data=f"tariff:premium_package:{tariff.key}:{package.gb:g}{suffix}",
             )
         )
     builder.row(
         InlineKeyboardButton(
-            text=get_text("back_to_main_menu_button"), callback_data="main_action:my_subscription"
+            text=get_text("back_to_main_menu_button"),
+            callback_data=subscription_status_callback(context),
         )
     )
 
@@ -179,7 +199,8 @@ async def select_tariff_premium_package_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
-    _, _, tariff_key, gb_raw = callback_data(callback).split(":", 3)
+    data, context = split_callback_context(callback_data(callback))
+    _, _, tariff_key, gb_raw = data.split(":", 3)
     try:
         assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
@@ -206,8 +227,10 @@ async def select_tariff_premium_package_callback(
         current_lang,
         i18n,
         settings,
-        sale_mode=f"premium_topup@{tariff.key}",
-        back_callback="tariff_topup:list",
+        sale_mode=sale_mode_with_token(
+            sale_mode_with_callback_context(f"premium_topup@{tariff.key}", context),
+            TELEGRAM_SUBSCRIPTION_CHECKOUT,
+        ),
         user_id=account_user_id,
     )
     await callback_message(callback).edit_text(
@@ -216,7 +239,16 @@ async def select_tariff_premium_package_callback(
     await callback.answer()
 
 
-@router.callback_query(F.data == "hwid_devices:list")
+@router.callback_query(
+    F.data.in_(
+        {
+            "hwid_devices:list",
+            "hwid_devices:list:bot",
+            "hwid_devices:list:s",
+            "hwid_devices:list:s:bot",
+        }
+    )
+)
 async def hwid_devices_list_callback(
     callback: types.CallbackQuery,
     i18n_data: dict,
@@ -253,15 +285,22 @@ async def hwid_devices_list_callback(
     stars_packages = (
         tariff.hwid_device_packages.for_currency("stars") if tariff.hwid_device_packages else []
     )
+    data, context = split_callback_context(callback_data(callback))
+    from_subscription = data.endswith(f":{HWID_SUBSCRIPTION_ORIGIN}")
     markup = get_hwid_device_packages_keyboard(
         tariff,
         packages,
         current_lang,
         i18n,
         settings,
-        back_callback="main_action:my_devices",
+        back_callback=(
+            subscription_status_callback(context)
+            if from_subscription
+            else f"main_action:my_devices{callback_suffix_for_context(context)}"
+        ),
         renewal=False,
         stars_packages=stars_packages,
+        origin_suffix=hwid_origin_suffix(context, from_subscription=from_subscription),
     )
     await callback_message(callback).edit_text(
         get_text(
@@ -290,7 +329,9 @@ async def hwid_devices_package_callback(
         await callback.answer(get_text("error_occurred_try_again"), show_alert=True)
         return
     try:
-        _, action, tariff_key, count_raw = callback_data(callback).split(":", 3)
+        data, context = split_callback_context(callback_data(callback))
+        base = data.removesuffix(f":{HWID_SUBSCRIPTION_ORIGIN}")
+        _, action, tariff_key, count_raw = base.split(":", 3)
         count = int(count_raw)
     except (TypeError, ValueError):
         await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -347,6 +388,10 @@ async def hwid_devices_package_callback(
     if not currency_quote and not stars_quote:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
+    sale_mode = sale_mode_with_callback_context(f"{sale_mode_base}@{tariff.key}", context)
+    sale_mode = sale_mode_with_token(
+        sale_mode, HWID_SUBSCRIPTION_ORIGIN if base != data else TELEGRAM_SUBSCRIPTION_CHECKOUT
+    )
     markup = get_payment_method_keyboard(
         count,
         float(currency_quote.get("price") if currency_quote else 0),
@@ -357,8 +402,7 @@ async def hwid_devices_package_callback(
         current_lang,
         i18n,
         settings,
-        sale_mode=f"{sale_mode_base}@{tariff.key}",
-        back_callback="hwid_devices:list",
+        sale_mode=sale_mode,
         user_id=account_user_id,
     )
     await callback_message(callback).edit_text(
@@ -367,7 +411,7 @@ async def hwid_devices_package_callback(
     await callback.answer()
 
 
-@router.callback_query(F.data == "tariff_change:list")
+@router.callback_query(F.data.in_({"tariff_change:list", "tariff_change:list:bot"}))
 async def tariff_change_list_callback(
     callback: types.CallbackQuery,
     i18n_data: dict,
@@ -393,11 +437,13 @@ async def tariff_change_list_callback(
     if not targets:
         await callback.answer(get_text("wa_no_tariff_change_options"), show_alert=True)
         return
+    _, context = split_callback_context(callback_data(callback))
+    suffix = callback_suffix_for_context(context)
     rows = [
         [
             InlineKeyboardButton(
                 text=tariff.name(current_lang),
-                callback_data=f"tariff_change:select:{tariff.key}",
+                callback_data=f"tariff_change:select:{tariff.key}{suffix}",
             )
         ]
         for tariff in targets
@@ -406,7 +452,7 @@ async def tariff_change_list_callback(
         [
             InlineKeyboardButton(
                 text=i18n.gettext(current_lang, "back_to_main_menu_button"),
-                callback_data="main_action:my_subscription",
+                callback_data=subscription_status_callback(context),
             )
         ]
     )
@@ -432,7 +478,9 @@ async def tariff_change_select_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    tariff_key = callback_data(callback).split(":", 2)[2]
+    data, context = split_callback_context(callback_data(callback))
+    suffix = callback_suffix_for_context(context)
+    tariff_key = data.split(":", 2)[2]
     target = config.require(tariff_key)
     db_sub = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
     if not db_sub:
@@ -449,7 +497,7 @@ async def tariff_change_select_callback(
             [
                 InlineKeyboardButton(
                     text=get_text("wa_tariff_change_recalc_days", days=options["recalc_days"]),
-                    callback_data=f"tariff_change:confirm_apply:{target.key}:recalc_days",
+                    callback_data=f"tariff_change:confirm_apply:{target.key}:d{suffix}",
                 )
             ]
         )
@@ -461,7 +509,7 @@ async def tariff_change_select_callback(
                             "wa_tariff_change_pay_diff",
                             price=f"{options['paid_diff_rub']} {currency_code}",
                         ),
-                        callback_data=f"tariff_change:confirm_pay:{target.key}:{options['paid_diff_rub']}",
+                        callback_data=f"tariff_change:confirm_pay:{target.key}:{options['paid_diff_rub']}{suffix}",
                     )
                 ]
             )
@@ -470,7 +518,7 @@ async def tariff_change_select_callback(
             [
                 InlineKeyboardButton(
                     text=get_text("wa_tariff_change_convert_gb", gb=options["converted_gb"]),
-                    callback_data=f"tariff_change:confirm_apply:{target.key}:convert_days_to_gb",
+                    callback_data=f"tariff_change:confirm_apply:{target.key}:g{suffix}",
                 )
             ]
         )
@@ -482,7 +530,7 @@ async def tariff_change_select_callback(
                         gb=f"{package.gb:g}",
                         price=f"{package.price:g} {currency_code}",
                     ),
-                    callback_data=f"tariff:package:{target.key}:{package.gb:g}",
+                    callback_data=f"tariff:package:{target.key}:{package.gb:g}{suffix}:{TARIFF_SWITCH_ORIGIN}",
                 )
             ]
             for package in target.traffic_packages.for_currency(default_currency)
@@ -500,7 +548,7 @@ async def tariff_change_select_callback(
                                 price=f"{price:g}",
                                 currency_symbol=currency_code,
                             ),
-                            callback_data=f"tariff:period:{target.key}:{months}",
+                            callback_data=f"tariff:period:{target.key}:{months}{suffix}:{TARIFF_SWITCH_ORIGIN}",
                         )
                     ]
                 )
@@ -508,7 +556,7 @@ async def tariff_change_select_callback(
         [
             InlineKeyboardButton(
                 text=i18n.gettext(current_lang, "back_to_main_menu_button"),
-                callback_data="tariff_change:list",
+                callback_data=f"tariff_change:list{suffix}",
             )
         ]
     )
@@ -526,6 +574,7 @@ async def tariff_change_confirm_apply_callback(
     settings: Settings,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -535,7 +584,9 @@ async def tariff_change_confirm_apply_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    _, _, tariff_key, mode = callback_data(callback).split(":", 3)
+    data, context = split_callback_context(callback_data(callback))
+    suffix = callback_suffix_for_context(context)
+    _, _, tariff_key, mode = data.split(":", 3)
     target = config.require(tariff_key)
     db_sub = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
     if not db_sub:
@@ -544,11 +595,12 @@ async def tariff_change_confirm_apply_callback(
     options = await subscription_service.calculate_tariff_switch_options_with_hwid(
         session, db_sub, target
     )
-    if mode == "recalc_days":
+    switch_mode = _SWITCH_MODES.get(mode, mode)
+    if switch_mode == "recalc_days":
         action_text = get_text(
             "wa_tariff_change_confirm_recalc", days=options.get("recalc_days", 0)
         )
-    elif mode == "convert_days_to_gb":
+    elif switch_mode == "convert_days_to_gb":
         action_text = get_text(
             "wa_tariff_change_confirm_convert", gb=options.get("converted_gb", 0)
         )
@@ -558,13 +610,13 @@ async def tariff_change_confirm_apply_callback(
         [
             InlineKeyboardButton(
                 text=get_text("tariff_change_confirm_button"),
-                callback_data=f"tariff_change:apply:{target.key}:{mode}",
+                callback_data=f"tariff_change:apply:{target.key}:{mode}{suffix}",
             )
         ],
         [
             InlineKeyboardButton(
                 text=i18n.gettext(current_lang, "back_to_main_menu_button"),
-                callback_data=f"tariff_change:select:{target.key}",
+                callback_data=f"tariff_change:select:{target.key}{suffix}",
             )
         ],
     ]
@@ -576,16 +628,21 @@ async def tariff_change_confirm_apply_callback(
             get_text("wa_tariff_change_confirm_action", action=action_text),
         ]
     )
-    await callback_message(callback).edit_text(
+    await edit_confirmation(
+        callback_message(callback),
+        state,
         message_text,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("tariff_change:confirm_pay:"))
 async def tariff_change_confirm_pay_callback(
-    callback: types.CallbackQuery, i18n_data: dict, settings: Settings
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    state: FSMContext | None = None,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
@@ -594,20 +651,22 @@ async def tariff_change_confirm_pay_callback(
     if not config or not callback.message:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
+    data, context = split_callback_context(callback_data(callback))
+    suffix = callback_suffix_for_context(context)
+    _, _, tariff_key, amount_raw = data.split(":", 3)
     target = config.require(tariff_key)
     currency_code = default_payment_currency_code_for_settings(settings)
     rows = [
         [
             InlineKeyboardButton(
                 text=get_text("tariff_change_confirm_pay_button"),
-                callback_data=f"tariff_change:pay:{target.key}:{amount_raw}",
+                callback_data=f"tariff_change:pay:{target.key}:{amount_raw}{suffix}",
             )
         ],
         [
             InlineKeyboardButton(
                 text=i18n.gettext(current_lang, "back_to_main_menu_button"),
-                callback_data=f"tariff_change:select:{target.key}",
+                callback_data=f"tariff_change:select:{target.key}{suffix}",
             )
         ],
     ]
@@ -622,9 +681,11 @@ async def tariff_change_confirm_pay_callback(
             get_text("wa_tariff_change_confirm_action", action=payment_text),
         ]
     )
-    await callback_message(callback).edit_text(
+    await edit_confirmation(
+        callback_message(callback),
+        state,
         message_text,
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        InlineKeyboardMarkup(inline_keyboard=rows),
     )
     await callback.answer()
 
@@ -645,9 +706,10 @@ async def tariff_change_apply_callback(
         if i18n
         else (lambda key, **kw: "Error")
     )
-    _, _, tariff_key, mode = callback_data(callback).split(":", 3)
+    data, context = split_callback_context(callback_data(callback))
+    _, _, tariff_key, mode = data.split(":", 3)
     result = await subscription_service.switch_tariff_without_payment(
-        session, account_user_id, tariff_key, mode
+        session, account_user_id, tariff_key, _SWITCH_MODES.get(mode, mode)
     )
     if result:
         await session.commit()
@@ -660,6 +722,7 @@ async def tariff_change_apply_callback(
             subscription_service,
             session,
             callback_bot(callback),
+            back_callback=subscription_menu_back_callback(context),
         )
     else:
         await session.rollback()
@@ -668,14 +731,31 @@ async def tariff_change_apply_callback(
 
 @router.callback_query(F.data.startswith("tariff_change:pay:"))
 async def tariff_change_pay_callback(
-    callback: types.CallbackQuery, i18n_data: dict, settings: Settings, session: AsyncSession
+    callback: types.CallbackQuery,
+    i18n_data: dict,
+    settings: Settings,
+    session: AsyncSession,
+    subscription_service: SubscriptionService,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n = i18n_data.get("i18n_instance")
     get_text = lambda key, **kw: i18n.gettext(current_lang, key, **kw)
-    _, _, tariff_key, amount_raw = callback_data(callback).split(":", 3)
-    amount = float(amount_raw)
+    data, context = split_callback_context(callback_data(callback))
+    _, _, tariff_key, amount_raw = data.split(":", 3)
+    config = settings.tariffs_config
+    active = await subscription_dal.get_active_subscription_by_user_id(session, account_user_id)
+    if not config or not active:
+        await callback.answer(get_text("telegram_confirmation_expired"), show_alert=True)
+        return
+    target = config.require(tariff_key)
+    options = await subscription_service.calculate_tariff_switch_options_with_hwid(
+        session, active, target
+    )
+    amount = float(options.get("paid_diff_rub") or 0)
+    if options.get("mode") != "period_to_period" or amount <= 0 or amount != float(amount_raw):
+        await callback.answer(get_text("telegram_confirmation_expired"), show_alert=True)
+        return
     currency_code = default_payment_currency_code_for_settings(settings)
     markup = get_payment_method_keyboard(
         1,
@@ -685,8 +765,11 @@ async def tariff_change_pay_callback(
         current_lang,
         i18n,
         settings,
-        sale_mode=f"tariff_upgrade@{tariff_key}",
-        back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}",
+        sale_mode=sale_mode_with_token(
+            sale_mode_with_callback_context(f"tariff_upgrade@{tariff_key}", context),
+            TELEGRAM_SUBSCRIPTION_CHECKOUT,
+        ),
+        back_callback=f"tariff_change:confirm_pay:{tariff_key}:{amount_raw}{callback_suffix_for_context(context)}",
         user_id=account_user_id,
     )
     await callback_message(callback).edit_text(

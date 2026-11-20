@@ -10,9 +10,114 @@
 
 ## В разработке · dev
 
-Новые изменения продукта после v3.8.5 пока не записаны.
+Черновик **v3.8.6** по состоянию на [fed6d7d9](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fed6d7d9d21f2d25fda2a822fbb24c3f0578768d).
 
-[Сравнить с v3.8.5](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.5...dev).
+### Обзор
+
+В этом выпуске обновлены меню Telegram и мобильный чат поддержки. В админке
+появилось управление отдельными устройствами Remnawave, а в боте и Mini App —
+разовая оплата через RivaraPay и расчёт цен Telegram Stars по курсу.
+
+### Добавлено
+
+- Добавлена разовая оплата через RivaraPay по СБП и криптовалютой в боте и Mini App.
+  Способы включаются отдельно, в том числе только для администраторов. При заданном
+  курсе рублей за звезду цены Telegram Stars рассчитываются из рублёвых цен.
+  [d8ff62c7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/d8ff62c72129bf5c27ea894f87e8821101de8d95) · [ed982804](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ed98280475251266be1fbaf9ae785f0bcb53244e)
+
+- Добавлена вкладка «Устройства» в карточке пользователя. Счётчик HWID открывает
+  список с платформой, приложением, версией и временем подключения, если панель
+  передала эти данные. Устройства можно сортировать и удалять по одному.
+  В карточке также можно редактировать заметку Remnawave и сравнить свой черновик
+  с актуальной заметкой при одновременном изменении.
+  [40287d7f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/40287d7fd6d34c33542f4a1fe89902875f6b6714) · [ed442532](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ed442532a9e8f65fc741af4c61e7d298d7327e73) · [b0703ea7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b0703ea7afee34cd8d97b9df84c2e290c75fb1f9) · [9c7178df](https://gitlab.com/3252a8/remnawave-minishop/-/commit/9c7178dfc16fc276673d44dde50e5e317fcecf28)
+
+- Добавлен выбор платформ зарегистрированных в Remnawave устройств для рассылок.
+  Пользователь с несколькими подходящими устройствами получает сообщение один раз
+  по каждому выбранному каналу. [540ceefd](https://gitlab.com/3252a8/remnawave-minishop/-/commit/540ceefdee5fa5b8c21b83dd404ad313c1dea596)
+
+### Изменено
+
+- Перестроено меню Telegram. Покупка, подписка, поддержка и история платежей
+  получили отдельные переходы, а администраторы могут открыть админ-меню из
+  главного меню. Кнопки «Назад» и «Отмена» возвращают на исходный экран или
+  страницу списка. Подтверждения действуют один раз, а блокировка и удаление
+  пользователя учитывают защиту аккаунтов из веб-админки.
+  [dd6c9f68](https://gitlab.com/3252a8/remnawave-minishop/-/commit/dd6c9f6847113aef17e72e620b5e1c2bb7c75419) · [ae3db923](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ae3db923fefd14ac81116ae613774223379675f9) · [c4871245](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c4871245ee16d209d41bc5c786703d3ae43fa792) · [96876a73](https://gitlab.com/3252a8/remnawave-minishop/-/commit/96876a73fefa7b3610f167363376da8e4d50ef7a) · [1325e9a3](https://gitlab.com/3252a8/remnawave-minishop/-/commit/1325e9a3bba0492d4273abff27d5d684482ac7c3)
+
+- Обновлён чат поддержки в кабинете и админке. На телефоне редактор и кнопка
+  отправки доступны при открытой клавиатуре, история прокручивается отдельно.
+  У оператора есть отдельные черновики с вложениями для ответа и внутренней
+  заметки. Из чата доступны сведения об обращении и панели расширений, а в
+  списке видна очередь ответа. [b7e8396e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b7e8396e706d1a1b7801bb1a89f7b8fb66f9b8bb)
+
+- Обновлены интерфейсы админки и кабинета. Сортировка сохраняет ширину столбцов,
+  прокрутку и фокус, мобильные карточки и фильтры стали компактнее. В светлой теме
+  усилен контраст полей и элементов управления. При исчерпанном трафике кабинет
+  выделяет действие «Добавить трафик», а граф рефералов отмечает истёкшие подписки.
+  Список подарков показывает покупателя и получателя по имени и окончанию ID.
+  Оформление меню Telegram сохраняется общей кнопкой «Сохранить».
+  [6655c264](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6655c2648c65740a893dba32f5505022e40c4798) · [b7e8396e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b7e8396e706d1a1b7801bb1a89f7b8fb66f9b8bb) · [aa837279](https://gitlab.com/3252a8/remnawave-minishop/-/commit/aa83727992ec6accda28c9c111bdb2dcd9c0cb62) · [3761178b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/3761178b67e89f93dd3fa2968b2d984c688163a7)
+
+- Расширены возможности плагинов. Они могут добавлять фильтры и столбцы в
+  список пользователей и решать, ставить ли задание на обработку события.
+  Без активного фильтра плагина список использует штатный кеш с актуальными
+  значениями дополнительных столбцов.
+  [c342b354](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c342b3542276e1e88902d4bc5f06bf3aa2bf1fb7) · [6eaa08c8](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6eaa08c813ceddbef0e70c8c0803561544004d85) · [049983b1](https://gitlab.com/3252a8/remnawave-minishop/-/commit/049983b1952fbac38853c98e83ba9b88ac226b27)
+
+- Перенесена публикация документации и образов Core в GitHub Actions. Образы
+  бэкенда, воркера и фронтенда публикуются в Docker Hub и GHCR с одинаковыми
+  digest, а стабильный релиз GitHub содержит их манифест. Конфигурация GitLab
+  доступна для ручного запуска на своём раннере.
+  [6e4c8a43](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6e4c8a434265bec22e6dc6cc04f9f881756dcff7) · [fbdbfa7d](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fbdbfa7d5bf31bd6bf9166e4602af4cd71afa12f) · [e960cd98](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e960cd9811d29163ab73fa81937a543e02a830ed) · [83daf157](https://gitlab.com/3252a8/remnawave-minishop/-/commit/83daf157ed6dac2887deddedd020c4081f496c64) · [06ad1b0b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/06ad1b0b85cf41b396ec12be8901aa0653d34f98)
+
+### Исправлено
+
+- Исправлено автопродление пробных и выданных администратором подписок с
+  личного баланса. При включённом автопродлении и достаточной сумме Core
+  выбирает самый короткий платный период подходящего тарифа. Кабинет и бот
+  предлагают включить продление при наличии доступного источника списания.
+  [646d4454](https://gitlab.com/3252a8/remnawave-minishop/-/commit/646d44542631a0ae770ab6a3789e655cae56ede1) · [711f2514](https://gitlab.com/3252a8/remnawave-minishop/-/commit/711f2514655d460c160089461309bf2be070651f) · [50990b4d](https://gitlab.com/3252a8/remnawave-minishop/-/commit/50990b4dbf8fd73e988df14972e33834d412cb34) · [eb9aa94e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/eb9aa94ee70f4e52e41c208f060afa90c0074137) · [4806f8be](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4806f8beea6522529ca63084ac32a5fd8728dce0)
+
+- Исправлена обработка платежей. Ссылка WATA остаётся доступна для повторной
+  оплаты в пределах своего срока, Heleket использует действующий API, Platega
+  получает постоянный ID плательщика и срок дневной подписки в днях. Платёжный
+  HTTP-клиент использует разрешённые адреса из ответа DNS, а уведомление
+  Telegram показывает состав и стоимость оплаченных опций.
+  [0a451e4c](https://gitlab.com/3252a8/remnawave-minishop/-/commit/0a451e4c595357d1b0e52b42ec80f5db58c45d9b) · [fe79c2e4](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fe79c2e45edf9148d2e281859db456d1824b28f6) · [79078c23](https://gitlab.com/3252a8/remnawave-minishop/-/commit/79078c23d5e396218d259cfffcf4fe833e27ddba) · [8244ff26](https://gitlab.com/3252a8/remnawave-minishop/-/commit/8244ff26913a6d84f36c98e925295bef1a2823e4) · [03495ce9](https://gitlab.com/3252a8/remnawave-minishop/-/commit/03495ce9593e01804e5ca2293ec0b56c16936680) · [a4a7720c](https://gitlab.com/3252a8/remnawave-minishop/-/commit/a4a7720cf9391efddc0e7366890ab34005911090)
+
+- Исправлена синхронизация внешних сквадов. Core снимает импортированное
+  назначение после его удаления в Remnawave и очищает назначение из админки,
+  если удалён сам сквад. [4025a5ad](https://gitlab.com/3252a8/remnawave-minishop/-/commit/4025a5addf3be8277b9c5d1e792fb3c9067ae4bf) · [d54d5d97](https://gitlab.com/3252a8/remnawave-minishop/-/commit/d54d5d97688d0f3d6310a9d2dea0db7b382ec781)
+
+- Ужесточено построение локальных адресов возврата после входа через Telegram
+  и внешних провайдеров. Обновлены зависимости, включая dnspython 2.9.2,
+  и nginx 1.30.7 в образе фронтенда и примере конфигурации прокси. Обновлён
+  встроенный список одноразовых почтовых доменов.
+  [fed6d7d9](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fed6d7d9d21f2d25fda2a822fbb24c3f0578768d) · [d7c2b803](https://gitlab.com/3252a8/remnawave-minishop/-/commit/d7c2b8033ddab9dddc80b1a50f86a7e5e18d8702) · [c8442c29](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c8442c2932bd89547c9c5aa2aba42b20a51b182e) · [e753f815](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e753f815de1fd8d5cdabda8214a8609913997662) · [67fc2d2c](https://gitlab.com/3252a8/remnawave-minishop/-/commit/67fc2d2c9b1638d47ac6c60e9ac1dd6355af5950)
+
+### Документация
+
+- Добавлено интерактивное демо Telegram. В нём можно открыть меню бота и
+  админки, пройти тестовую оплату Stars и перейти на соответствующий экран
+  Mini App. В галерее сравнения интерфейса можно отобрать подтверждённые изменения.
+  [ed535f6e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ed535f6e969f4695e04f82ff206e3b03016cd843) · [486d39fb](https://gitlab.com/3252a8/remnawave-minishop/-/commit/486d39fb15543ac3cf03b0ed630d1f2c1601dde4) · [6655c264](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6655c2648c65740a893dba32f5505022e40c4798)
+
+### При обновлении
+
+- Миграция `0116_grant_balance_renewal` добавляет в подписку источник оплаты,
+  тариф и срок продления с баланса для пробных и выданных подписок.
+  [646d4454](https://gitlab.com/3252a8/remnawave-minishop/-/commit/646d44542631a0ae770ab6a3789e655cae56ede1)
+
+- Для RivaraPay настройте ключ API, секрет вебхука и включите нужные способы.
+  По умолчанию оба способа выключены. Для расчёта цен Stars из рублей задайте
+  положительный курс `STARS_RUB_PER_STAR`. При значении `0` действуют ручные цены.
+  [d8ff62c7](https://gitlab.com/3252a8/remnawave-minishop/-/commit/d8ff62c72129bf5c27ea894f87e8821101de8d95) · [ed982804](https://gitlab.com/3252a8/remnawave-minishop/-/commit/ed98280475251266be1fbaf9ae785f0bcb53244e)
+
+- Встроенная тема обновляется автоматически до `assets_version` 4 для уже
+  установленных копий. [6655c264](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6655c2648c65740a893dba32f5505022e40c4798)
+
+[Сравнить с v3.8.5](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.5...fed6d7d9d21f2d25fda2a822fbb24c3f0578768d).
 
 ## v3.8.5 — 2026-11-13
 

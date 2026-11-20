@@ -197,7 +197,9 @@ async def admin_user_squad_overrides_refresh_route(request: web.Request) -> web.
             return _error(404, "no_panel_user")
 
         try:
-            panel_user_snapshot = await panel_service.get_user_by_uuid(panel_user_uuid)
+            panel_user_snapshot = await panel_service.get_user_by_uuid(
+                panel_user_uuid, use_cache=False
+            )
         except Exception as exc:
             logger.warning(
                 "Admin squad override refresh failed for user %s uuid=%s: %s",

@@ -589,12 +589,14 @@
           }}>{theme.title}</AdminButton
         >{/each}
     </div>
-    <pre>my-theme/
+    <pre
+      >my-theme/
   theme.json
   theme-package.json
   style.css
   assets/
-    preview.webp</pre>
+    preview.webp</pre
+    >
     <ol>
       <li>
         {at(

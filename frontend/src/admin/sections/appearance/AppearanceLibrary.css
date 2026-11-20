@@ -448,6 +448,21 @@
   .appearance-settings-dialog {
     width: calc(100vw - 16px);
   }
+  /* Phones: actions wrap into a two-column grid instead of scrolling sideways. */
+  .appearance-library .appearance-action-bar {
+    overflow: visible;
+  }
+  .appearance-library .appearance-action-bar .admin-list-toolbar-controls,
+  .appearance-library .appearance-action-bar .admin-list-toolbar-actions {
+    flex-wrap: wrap;
+  }
+  .appearance-library .appearance-action-bar .admin-btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+  .appearance-library .appearance-action-bar .admin-btn:nth-last-child(2) {
+    margin-left: 0;
+  }
   .appearance-library {
     gap: 20px;
   }

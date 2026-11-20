@@ -2,7 +2,8 @@ import { DEMO_DATASET } from "../demoDataset.js";
 import { withDemoAvatar } from "../demoAvatars.js";
 import { readStoredDemoLanguage } from "../demoMockRuntime.js";
 import { currentDemoBalance } from "../mockApi/balance.js";
-import { checkoutAddons, DEV_MOCK, previewPeriodPlan } from "./devMock";
+import { checkoutAddons, DEMO_AUTO_RENEW_SUBSCRIPTION, DEV_MOCK } from "./devMock";
+import { demoCheckoutMethods, demoCheckoutPlans } from "./checkoutDemo";
 import { INSTALL_GUIDES_CONFIG } from "./installGuidesConfig";
 import type { PreviewThemesCatalog } from "./types";
 import { applyPaymentProvidersDemo } from "./paymentProviders";
@@ -325,6 +326,8 @@ export function applyPreviewMock(kind: unknown): void {
 
   if (
     mode === "balance-recurring" ||
+    mode === "balance-recurring-trial" ||
+    mode === "balance-recurring-admin" ||
     mode === "balance-recurring-partial" ||
     mode === "balance-recurring-methods" ||
     mode === "balance-recurring-methods-partial"
@@ -339,6 +342,25 @@ export function applyPreviewMock(kind: unknown): void {
       ...plan,
       checkout_addons: checkoutAddons(Number(plan.months || 1)),
     }));
+    if (mode === "balance-recurring-trial" || mode === "balance-recurring-admin") {
+      const provider = mode.endsWith("trial") ? "trial" : "admin";
+      const defaultTariffKey = DEV_MOCK.data.plans.find(
+        (plan) => plan.is_default_tariff
+      )?.tariff_key;
+      Object.assign(DEV_MOCK.data.subscription, {
+        active: true,
+        provider,
+        balance_renewal_eligible_tariff_key:
+          (provider === "admin" ? DEV_MOCK.data.subscription.tariff_key : null) || defaultTariffKey,
+        auto_renew_enabled: false,
+        auto_renew_available: false,
+        auto_renew_can_enable: false,
+      });
+      DEV_MOCK.data.plans = DEV_MOCK.data.plans.map((plan) => ({
+        ...plan,
+        duration_days: plan.duration_days || Number(plan.months || 1) * 30,
+      }));
+    }
     if (mode.startsWith("balance-recurring-methods")) {
       DEV_MOCK.data.payment_methods.push(
         { id: "stars", name: "Telegram Stars", icon: "Star", balance_supported: false },
@@ -544,29 +566,12 @@ export function applyPreviewMock(kind: unknown): void {
       premium_baseline_bytes: 53687091200,
       max_devices: 5,
     };
-    const plans = [
-      previewPeriodPlan(1, 290, 145, "1 месяц"),
-      previewPeriodPlan(3, 790, 395, "3 месяца"),
-      previewPeriodPlan(6, 1490, 745, "6 месяцев"),
-      previewPeriodPlan(12, 2690, 1345, "1 год"),
-    ];
+    const plans = demoCheckoutPlans();
     DEV_MOCK.data.plans =
       mode === "checkout-no-addons"
         ? plans.map(({ checkout_addons: _checkoutAddons, ...plan }) => plan)
         : plans;
-    DEV_MOCK.data.payment_methods = [
-      {
-        id: "cloudpayments",
-        name: "CloudPayments",
-        icon: "CreditCard",
-        min_amount: 500,
-        min_currency: "RUB",
-      },
-      { id: "yookassa", name: "Карта", icon: "CreditCard" },
-      { id: "platega_sbp", name: "СБП", icon: "Smartphone" },
-      { id: "stars", name: "Telegram Stars", icon: "Star" },
-      { id: "cryptopay", name: "Криптовалюта", icon: "Bitcoin" },
-    ];
+    DEV_MOCK.data.payment_methods = demoCheckoutMethods();
     return;
   }
 
@@ -774,13 +779,7 @@ export function applyPreviewMock(kind: unknown): void {
     mode === "subscription-auto-renew"
   ) {
     DEV_MOCK.data.settings.traffic_mode = false;
-    applyDemoTariffScenario({
-      auto_renew_enabled: true,
-      auto_renew_available: true,
-      auto_renew_can_enable: true,
-      auto_renew_provider_label: "CloudPayments",
-      provider: "cloudpayments",
-    });
+    applyDemoTariffScenario(DEMO_AUTO_RENEW_SUBSCRIPTION);
   } else if (mode === "depleted") {
     DEV_MOCK.data.settings.traffic_mode = false;
     DEV_MOCK.data.settings.trial_available = false;

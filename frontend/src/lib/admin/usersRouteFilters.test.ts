@@ -18,6 +18,7 @@ describe("usersRouteFilters", () => {
       usersPanelStatus: "active",
       usersPremiumTraffic: "warn",
       usersTariffFilter: "all",
+      usersExtensionFilters: {},
     });
   });
 
@@ -78,5 +79,22 @@ describe("usersRouteFilters", () => {
         "all"
       );
     }
+  });
+
+  it("round trips independent extension selections and ignores incomplete selections", () => {
+    const params = new URLSearchParams("lang=ru");
+    for (const selection of ["example:group=staff", "invalid", "another:region=west", "blank="]) {
+      params.append("extension_filter", selection);
+    }
+    const filters = readUsersRouteFilters(params);
+    expect(filters.usersExtensionFilters).toEqual({
+      "example:group": "staff",
+      "another:region": "west",
+    });
+    expect(writeUsersRouteFilters(params, filters).getAll("extension_filter")).toEqual([
+      "example:group=staff",
+      "another:region=west",
+    ]);
+    expect(writeUsersRouteFilters(params, DEFAULT_USERS_ROUTE_FILTERS).toString()).toBe("lang=ru");
   });
 });

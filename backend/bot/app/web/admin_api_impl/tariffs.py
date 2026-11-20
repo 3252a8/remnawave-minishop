@@ -23,7 +23,11 @@ from bot.app.web.webapp.cache_helpers import (
 )
 from config.settings import Settings
 from config.tariff_period_migration import normalize_tariff_catalog
-from config.tariffs_config import TariffsConfig, default_payment_currency_code_for_settings
+from config.tariffs_config import (
+    TariffsConfig,
+    default_payment_currency_code_for_settings,
+    load_tariffs_config,
+)
 from db.dal import message_log_dal
 from db.models import User
 from db.tariff_reconciliation import (
@@ -96,7 +100,7 @@ async def admin_tariffs_get_route(request: web.Request) -> web.Response:
     path = _tariffs_config_path(settings)
 
     try:
-        config = settings.tariffs_config
+        config = load_tariffs_config(path)
     except Exception as exc:
         logger.warning("Invalid tariffs config requested from admin UI: %s", exc)
         return _error(400, "invalid_tariffs_config", str(exc))
@@ -118,7 +122,7 @@ async def admin_tariffs_save_route(request: web.Request) -> web.Response:
 
     path = _tariffs_config_path(settings)
     try:
-        previous_config = settings.tariffs_config
+        previous_config = load_tariffs_config(path)
     except Exception:
         previous_config = None
     if path.exists() and catalog.get("schema_version", 1) != 2:

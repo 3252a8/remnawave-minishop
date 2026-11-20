@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CheckCircle2, Gift } from "$components/ui/icons.js";
+  import { CheckCircle2, Clock, Gift } from "$components/ui/icons.js";
   import CopyLinkField from "$components/patterns/CopyLinkField.svelte";
   import LinkQrDialog from "$components/patterns/webapp/LinkQrDialog.svelte";
   import type { GiftView } from "$lib/webapp/gifts.svelte.js";
@@ -23,7 +23,7 @@
       <p>{t("wa_gift_days", { days: gift.duration_days })}</p>
     </div>
     <span class:activated={gift.status === "activated"} class="gift-status"
-      >{#if gift.status === "activated"}<CheckCircle2 size={13} />{/if}{t(
+      >{#if gift.status === "activated"}<CheckCircle2 size={13} />{:else}<Clock size={13} />{/if}{t(
         `wa_gift_status_${gift.status}`
       )}</span
     >
@@ -70,7 +70,11 @@
     <p class="gift-hint">{t("wa_gift_link_private")}</p>
   {/if}
   {#if gift.activated_at}<p class="gift-hint">
-      {t("wa_gift_activated_on", { date: new Date(gift.activated_at).toLocaleDateString() })}
+      {t("wa_gift_activated_on", {
+        date: new Intl.DateTimeFormat(t("wa_date_locale", {}, "en"), {
+          dateStyle: "medium",
+        }).format(new Date(gift.activated_at)),
+      })}
     </p>{/if}
   {#if gift.recipient_email}<p class="gift-hint">
       {gift.recipient_email} <span class="meta-separator" aria-hidden="true"></span>
@@ -131,8 +135,10 @@
     font-weight: 600;
     border-radius: var(--radius-card);
     padding: 6px 9px;
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    color: var(--accent);
+    /* Waiting for the recipient: amber like other pending states, not the
+       accent green that reads as success. */
+    background: var(--warning-soft, color-mix(in srgb, var(--warning) 12%, transparent));
+    color: var(--warning-text, var(--warning));
     white-space: nowrap;
   }
   .gift-status.activated {

@@ -136,6 +136,18 @@ def test_complete_graph_preserves_both_edge_kinds_and_excludes_unlinked_users(
                     is_active=False,
                     tariff_key="older",
                 ),
+                Subscription(
+                    user_id=3,
+                    panel_user_uuid="expired",
+                    end_date=now - timedelta(days=1),
+                    is_active=True,
+                ),
+                Subscription(
+                    user_id=4,
+                    panel_user_uuid="disabled",
+                    end_date=now + timedelta(days=1),
+                    is_active=False,
+                ),
                 Payment(user_id=2, currency="rub", amount=100, status="succeeded"),
                 Payment(user_id=2, currency="RUB", amount=50, status="succeeded"),
                 Payment(user_id=2, currency="XTR", amount=12, status="succeeded"),
@@ -189,11 +201,19 @@ def test_complete_graph_preserves_both_edge_kinds_and_excludes_unlinked_users(
         assert root["telegram_id"] == 1
         assert root["email"] == "user1@example.test"
         assert root["subscription_active"] is None
+        assert root["subscription_expired"] is False
         assert root["revenue_by_currency"] == {}
         referral = next(node for node in payload["nodes"] if node["user_id"] == 2)
         assert referral["subscription_active"] is True
+        assert referral["subscription_expired"] is False
         assert referral["current_tariff_key"] == "standard"
         assert referral["revenue_by_currency"] == {"RUB": 150, "XTR": 12}
+        expired = next(node for node in payload["nodes"] if node["user_id"] == 3)
+        assert expired["subscription_active"] is False
+        assert expired["subscription_expired"] is True
+        disabled = next(node for node in payload["nodes"] if node["user_id"] == 4)
+        assert disabled["subscription_active"] is False
+        assert disabled["subscription_expired"] is False
         email_only = next(node for node in payload["nodes"] if node["user_id"] == -11)
         assert email_only["telegram_id"] is None
         assert email_only["avatar_url"] is None

@@ -14,12 +14,16 @@ from config.tariffs_config import (
 from .user_keyboards_context import (
     HWID_RENEWAL_TOKEN,
     PROMO_DISABLED_TOKEN,
+    SUBSCRIPTION_CATALOG_ORIGIN,
     callback_context_from_sale_mode,
+    callback_suffix_for_context,
     payment_methods_back_callback,
     payment_options_back_callback,
     sale_mode_has_token,
     sale_mode_with_token,
     sale_mode_without_token,
+    subscription_status_callback,
+    tariff_switch_suffix,
 )
 
 
@@ -71,7 +75,11 @@ def get_payment_method_keyboard(
             tariff_key = sale_mode_main.split("@", 1)[1]
         context = callback_context_from_sale_mode(sale_mode)
         toggle_period = f"d{duration_days}" if duration_days is not None else value_str
-        toggle_tokens = [f"tariff:period:{tariff_key}:{toggle_period}"]
+        toggle_tokens = [
+            f"tariff:period:{tariff_key}:{toggle_period}{tariff_switch_suffix(sale_mode)}"
+        ]
+        if sale_mode_has_token(sale_mode, SUBSCRIPTION_CATALOG_ORIGIN):
+            toggle_tokens.append(SUBSCRIPTION_CATALOG_ORIGIN)
         if context:
             toggle_tokens.append(context)
         if sale_mode_has_token(sale_mode, PROMO_DISABLED_TOKEN):
@@ -276,11 +284,17 @@ def get_yk_saved_cards_keyboard(
     return builder.as_markup()
 
 
+def _payment_method_suffix(page: int, context: str | None) -> str:
+    return (f":p{page}" if page > 0 else "") + callback_suffix_for_context(context)
+
+
 def get_payment_methods_list_keyboard(
     cards: list[tuple[str, str]],
     page: int,
     lang: str,
     i18n_instance: JsonI18n,
+    *,
+    context: str | None = None,
 ) -> InlineKeyboardMarkup:
     """
     Build a paginated list of saved payment methods.
@@ -291,96 +305,120 @@ def get_payment_methods_list_keyboard(
     builder = InlineKeyboardBuilder()
     per_page = 5
     total = len(cards)
+    page = min(max(0, page), max(0, (total - 1) // per_page))
+    suffix = _payment_method_suffix(page, context)
+    context_suffix = callback_suffix_for_context(context)
     start = page * per_page
     end = start + per_page
     for pm_id, title in cards[start:end]:
-        builder.row(InlineKeyboardButton(text=title, callback_data=f"pm:view:{pm_id}"))
+        builder.row(InlineKeyboardButton(text=title, callback_data=f"pm:view:{pm_id}{suffix}"))
 
     # Pagination controls if needed
     nav_buttons: list[InlineKeyboardButton] = []
     if start > 0:
-        nav_buttons.append(InlineKeyboardButton(text="⬅️", callback_data=f"pm:list:{page - 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton(text="⬅️", callback_data=f"pm:list:{page - 1}{context_suffix}")
+        )
     if end < total:
-        nav_buttons.append(InlineKeyboardButton(text="➡️", callback_data=f"pm:list:{page + 1}"))
+        nav_buttons.append(
+            InlineKeyboardButton(text="➡️", callback_data=f"pm:list:{page + 1}{context_suffix}")
+        )
     if nav_buttons:
         builder.row(*nav_buttons)
 
     # Bind new card and back
     builder.row(
-        InlineKeyboardButton(text=_(key="payment_method_bind_button"), callback_data="pm:bind")
+        InlineKeyboardButton(
+            text=_(key="payment_method_bind_button"), callback_data=f"pm:bind{suffix}"
+        )
     )
     builder.row(
         InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data="main_action:back_to_main"
+            text=_(key="back_to_main_menu_button"),
+            callback_data=subscription_status_callback(context),
         )
     )
     return builder.as_markup()
 
 
 def get_payment_method_delete_confirm_keyboard(
-    pm_id: str, lang: str, i18n_instance: JsonI18n
+    pm_id: str, lang: str, i18n_instance: JsonI18n, *, page: int = 0, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    suffix = _payment_method_suffix(page, context)
     builder.row(
-        InlineKeyboardButton(text=_(key="yes_button"), callback_data=f"pm:delete:{pm_id}"),
-        InlineKeyboardButton(text=_(key="cancel_button"), callback_data=f"pm:view:{pm_id}"),
+        InlineKeyboardButton(text=_(key="yes_button"), callback_data=f"pm:delete:{pm_id}{suffix}"),
+        InlineKeyboardButton(text=_(key="cancel_button"), callback_data=f"pm:view:{pm_id}{suffix}"),
     )
     return builder.as_markup()
 
 
 def get_payment_method_details_keyboard(
-    pm_id: str, lang: str, i18n_instance: JsonI18n
+    pm_id: str, lang: str, i18n_instance: JsonI18n, *, page: int = 0, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    suffix = _payment_method_suffix(page, context)
     builder.row(
         InlineKeyboardButton(
-            text=_(key="payment_method_tx_history_title"), callback_data=f"pm:history:{pm_id}"
+            text=_(key="payment_method_tx_history_title"),
+            callback_data=f"pm:history:{pm_id}{suffix}",
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text=_(key="payment_method_delete_button"), callback_data=f"pm:delete_confirm:{pm_id}"
+            text=_(key="payment_method_delete_button"),
+            callback_data=f"pm:delete_confirm:{pm_id}{suffix}",
         )
     )
     builder.row(
-        InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data="pm:list:0")
+        InlineKeyboardButton(
+            text=_(key="back_to_main_menu_button"),
+            callback_data=f"pm:list:{page}{callback_suffix_for_context(context)}",
+        )
     )
     return builder.as_markup()
 
 
 def get_bind_url_keyboard(
-    bind_url: str, lang: str, i18n_instance: JsonI18n
+    bind_url: str, lang: str, i18n_instance: JsonI18n, *, page: int = 0, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.button(text=_(key="payment_method_bind_button"), url=bind_url)
-    builder.button(text=_(key="back_to_main_menu_button"), callback_data="pm:manage")
+    builder.button(
+        text=_(key="back_to_main_menu_button"),
+        callback_data=f"pm:list:{page}{callback_suffix_for_context(context)}",
+    )
     builder.adjust(1)
     return builder.as_markup()
 
 
 def get_back_to_payment_methods_keyboard(
-    lang: str, i18n_instance: JsonI18n
+    lang: str, i18n_instance: JsonI18n, *, page: int = 0, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text=_(key="back_to_main_menu_button"), callback_data="pm:list:0")
+        InlineKeyboardButton(
+            text=_(key="back_to_main_menu_button"),
+            callback_data=f"pm:list:{page}{callback_suffix_for_context(context)}",
+        )
     )
     return builder.as_markup()
 
 
 def get_back_to_payment_method_details_keyboard(
-    pm_id: str, lang: str, i18n_instance: JsonI18n
+    pm_id: str, lang: str, i18n_instance: JsonI18n, *, page: int = 0, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    suffix = _payment_method_suffix(page, context)
     # Back one step: return to specific payment method details
     builder.row(
         InlineKeyboardButton(
-            text=_(key="back_to_main_menu_button"), callback_data=f"pm:view:{pm_id}"
+            text=_(key="back_to_main_menu_button"), callback_data=f"pm:view:{pm_id}{suffix}"
         )
     )
     return builder.as_markup()
@@ -403,15 +441,17 @@ def get_autorenew_cancel_keyboard(lang: str, i18n_instance: JsonI18n) -> InlineK
 
 
 def get_autorenew_confirm_keyboard(
-    enable: bool, sub_id: int, lang: str, i18n_instance: JsonI18n
+    enable: bool, sub_id: int, lang: str, i18n_instance: JsonI18n, *, context: str | None = None
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
             text=_(key="yes_button"),
-            callback_data=f"autorenew:confirm:{sub_id}:{1 if enable else 0}",
+            callback_data=f"autorenew:confirm:{sub_id}:{int(enable)}{callback_suffix_for_context(context)}",
         ),
-        InlineKeyboardButton(text=_(key="no_button"), callback_data="main_action:my_subscription"),
+        InlineKeyboardButton(
+            text=_(key="no_button"), callback_data=subscription_status_callback(context)
+        ),
     )
     return builder.as_markup()

@@ -39,7 +39,7 @@ export type {
 type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-type BroadcastCounts = Record<string, number>;
+type BroadcastCounts = Record<string, number | null>;
 export type BroadcastTargetOption = {
   value: string;
   label: string;
@@ -147,8 +147,7 @@ function asBroadcastCounts(value: unknown): BroadcastCounts | null {
   if (!value || typeof value !== "object") return null;
   return Object.fromEntries(
     Object.entries(value).map(([key, count]) => {
-      const numericCount = Number(count);
-      return [key, Number.isFinite(numericCount) ? numericCount : 0];
+      return [key, typeof count === "number" && Number.isFinite(count) ? count : null];
     })
   );
 }
@@ -163,12 +162,13 @@ function asBroadcastAudiences(value: unknown): BroadcastAudienceDescriptor[] {
         target: String(raw.target || "")
           .trim()
           .toLowerCase(),
-        labelKey: String(raw.label_key || "").trim(),
-        fallbackLabel: String(raw.fallback_label || "").trim(),
+        labelKey: String(raw.label_key || raw.labelKey || "").trim(),
+        fallbackLabel: String(raw.fallback_label || raw.fallbackLabel || "").trim(),
         order: Number.isFinite(Number(raw.order)) ? Number(raw.order) : 100,
         available: raw.available !== false,
-        groupLabelKey: String(raw.group_label_key || "").trim() || null,
-        groupFallbackLabel: String(raw.group_fallback_label || "").trim() || null,
+        groupLabelKey: String(raw.group_label_key || raw.groupLabelKey || "").trim() || null,
+        groupFallbackLabel:
+          String(raw.group_fallback_label || raw.groupFallbackLabel || "").trim() || null,
         icon: String(raw.icon || "").trim() || null,
       };
     })

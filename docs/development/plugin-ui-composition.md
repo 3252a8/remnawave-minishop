@@ -253,6 +253,53 @@ Core определяет тип до передачи данных плагин
 границы добавляются через общий `AdminExtensionPoint` / `UserExtensionPoint`.
 DOM-селекторы и внутренние классы не являются API плагинов.
 
+## Админка: столбцы и фильтры списка пользователей
+
+Пакет может указать `"admin_users_table": 1` в `core_compatibility.requires` и
+вернуть `admin_user_columns` и `admin_user_filters` из `Plugin.extensions()`.
+Core показывает названия и значения как текст. Для столбца Core вызывает
+асинхронный обработчик один раз на страницу и передаёт сессию SQLAlchemy и
+идентификаторы пользователей. Используйте сессию только для чтения.
+
+```python
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bot.plugins.extensions import (
+    AdminUserColumn,
+    AdminUserFilter,
+    AdminUserFilterOption,
+    ExtensionContributions,
+)
+from db.models import User
+
+
+async def load_names(session: AsyncSession, ids: tuple[int, ...]) -> dict[int, str | None]:
+    rows = await session.execute(select(User.user_id, User.username).where(User.user_id.in_(ids)))
+    return {user_id: username for user_id, username in rows}
+
+
+def extensions(self, ctx):
+    return ExtensionContributions(
+        admin_user_columns=(AdminUserColumn("telegram-name", "Telegram username", load_names),),
+        admin_user_filters=(
+            AdminUserFilter(
+                "telegram-name",
+                "Telegram username",
+                (AdminUserFilterOption("present", "Present"),),
+                lambda option: User.username.is_not(None),
+            ),
+        ),
+    )
+```
+
+Идентификаторы получают пространство имён `<plugin-id>:<id>`. Порядок определяется
+`order`, затем полным ID. Фильтр вызывается только для объявленных вариантов и
+возвращает булево условие SQLAlchemy для запроса к `User`. Для собственных таблиц
+используйте коррелированный подзапрос `EXISTS`, чтобы не размножать строки.
+Core применяет фильтры вместе со штатными условиями до подсчёта и пагинации.
+При ошибке обработчика столбца соответствующие ячейки остаются пустыми.
+
 ## Порядок, конфликты, отказ и права
 
 - `placement`: `before`, `after` (default), `replace`. Сортировка внутри группы:

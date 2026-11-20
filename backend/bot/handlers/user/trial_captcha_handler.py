@@ -1,13 +1,21 @@
 """Telegram rendering for the same challenge/proof used by Mini App."""
 
 import base64
+from contextlib import suppress
 
 from aiogram import F, Router, types
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.user_keyboards_context import (
+    BOT_MENU_CONTEXT,
+    callback_suffix_for_context,
+    telegram_bot_menu_enabled_for_user,
+)
 from bot.middlewares.i18n import JsonI18n
+from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
 from bot.services.trial_captcha import (
     TrialCaptchaError,
@@ -16,6 +24,8 @@ from bot.services.trial_captcha import (
     verify_trial_challenge,
 )
 from config.settings import Settings
+
+from .start_menus import send_bot_interface_menu, send_main_menu
 
 router = Router(name="trial_captcha")
 
@@ -31,6 +41,8 @@ async def ensure_bot_trial_captcha(
     i18n: JsonI18n,
     language: str,
     state: FSMContext | None,
+    *,
+    context: str | None = None,
 ) -> bool:
     try:
         if await captcha_verified(settings, user_id):
@@ -39,7 +51,9 @@ async def ensure_bot_trial_captcha(
             raise TrialCaptchaError("trial_captcha_unavailable", 503)
         challenge = await create_trial_challenge(settings, user_id)
         await state.set_state(TrialCaptchaState.answer)
-        await state.update_data(trial_challenge_id=challenge.challenge_id, trial_user_id=user_id)
+        await state.update_data(
+            trial_challenge_id=challenge.challenge_id, trial_user_id=user_id, trial_context=context
+        )
         await callback.message.answer_photo(
             types.BufferedInputFile(
                 base64.b64decode(challenge.image.split(",", 1)[1]), "captcha.png"
@@ -63,18 +77,35 @@ async def ensure_bot_trial_captcha(
 
 
 @router.callback_query(F.data.startswith("trial_captcha:cancel:"))
-async def cancel_trial_captcha(callback: types.CallbackQuery, state: FSMContext) -> None:
+async def cancel_trial_captcha(
+    callback: types.CallbackQuery,
+    state: FSMContext,
+    settings: Settings,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    i18n_data: dict,
+) -> None:
     data = await state.get_data()
-    if await state.get_state() == TrialCaptchaState.answer.state and (callback.data or "").rsplit(
-        ":", 1
-    )[-1] == data.get("trial_challenge_id"):
+    active = await state.get_state() == TrialCaptchaState.answer.state and (
+        callback.data or ""
+    ).rsplit(":", 1)[-1] == data.get("trial_challenge_id")
+    if active:
         await state.clear()
     if isinstance(callback.message, types.Message):
-        await callback.message.delete()
+        with suppress(TelegramBadRequest):
+            await callback.message.delete()
     await callback.answer()
+    if active:
+        show_menu = (
+            send_bot_interface_menu
+            if data.get("trial_context") == BOT_MENU_CONTEXT
+            and telegram_bot_menu_enabled_for_user(settings)
+            else send_main_menu
+        )
+        await show_menu(callback, settings, i18n_data, subscription_service, session)
 
 
-@router.message(TrialCaptchaState.answer, F.text)
+@router.message(TrialCaptchaState.answer, F.text, ~F.text.startswith("/"))
 async def answer_trial_captcha(
     message: types.Message,
     state: FSMContext,
@@ -98,6 +129,7 @@ async def answer_trial_captcha(
         key = "trial_captcha_bot_success"
     except TrialCaptchaError as exc:
         key = exc.code
+    suffix = callback_suffix_for_context(data.get("trial_context"))
     await message.answer(
         i18n.gettext(language, key),
         reply_markup=types.InlineKeyboardMarkup(
@@ -105,7 +137,7 @@ async def answer_trial_captcha(
                 [
                     types.InlineKeyboardButton(
                         text=i18n.gettext(language, "trial_captcha_bot_continue"),
-                        callback_data="main_action:request_trial",
+                        callback_data=f"main_action:request_trial{suffix}",
                     ),
                 ]
             ]

@@ -5,13 +5,13 @@ from aiogram import Router, types
 from aiogram.types import InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.auto_renew import auto_renew_chargeable
 from bot.keyboards.inline.user_keyboards import (
     get_tariff_packages_keyboard,
     get_tariff_periods_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_manages_recurring, provider_supports_recurring
-from bot.payment_providers.shared import service_supports_recurring
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import (
@@ -23,6 +23,7 @@ from config.tariffs_config import (
     default_currency_key_for_settings,
     default_payment_currency_code_for_settings,
 )
+from db.balance_renewal import renewal_provider
 from db.dal import subscription_dal
 from db.models import Subscription
 
@@ -82,7 +83,7 @@ def _recurring_service_for_subscription(
     subscription_service: SubscriptionService,
     sub: Subscription | None,
 ) -> object:
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not provider:
         return None
     resolver = getattr(subscription_service, "recurring_service_for", None)
@@ -92,13 +93,14 @@ def _recurring_service_for_subscription(
     return services.get(provider)
 
 
-def _auto_renew_control_visible(
+async def _auto_renew_control_visible(
+    session: AsyncSession,
     subscription_service: SubscriptionService,
     sub: Subscription | None,
 ) -> bool:
     if not sub:
         return False
-    provider = getattr(sub, "provider", None)
+    provider = renewal_provider(sub)
     if provider_manages_recurring(provider):
         # The provider drives the schedule, so the control exists purely to
         # stop it — showing it for an already-stopped mandate would offer a
@@ -106,8 +108,12 @@ def _auto_renew_control_visible(
         return bool(getattr(sub, "auto_renew_enabled", False))
     if not provider_supports_recurring(provider):
         return False
-    service = _recurring_service_for_subscription(subscription_service, sub)
-    return bool(getattr(sub, "auto_renew_enabled", False) or service_supports_recurring(service))
+    if getattr(sub, "auto_renew_enabled", False):
+        return True
+    # "Enable" without a method to charge only ends in "a saved card is required".
+    return await auto_renew_chargeable(
+        session, subscription_service, user_id=int(sub.user_id), provider=provider
+    )
 
 
 def _tariff_purchase_markup(
@@ -121,6 +127,7 @@ def _tariff_purchase_markup(
     promo_available: bool = False,
     promo_enabled: bool = True,
     promo_toggle_callback: str | None = None,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     if tariff.billing_model == "period":
         return cast(
@@ -136,6 +143,7 @@ def _tariff_purchase_markup(
                 promo_available=promo_available,
                 promo_enabled=promo_enabled,
                 promo_toggle_callback=promo_toggle_callback,
+                origin_suffix=origin_suffix,
             ),
         )
     default_currency = default_currency_key_for_settings(settings)
@@ -149,6 +157,7 @@ def _tariff_purchase_markup(
             currency_symbol=default_payment_currency_code_for_settings(settings),
             back_callback=back_callback,
             callback_context=callback_context,
+            origin_suffix=origin_suffix,
         ),
     )
 

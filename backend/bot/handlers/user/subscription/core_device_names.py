@@ -14,6 +14,10 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
+from bot.keyboards.inline.user_keyboards_context import (
+    callback_suffix_for_context,
+    split_callback_context,
+)
 from bot.middlewares.i18n import JsonI18n
 from bot.services.device_names import DEVICE_NAME_MAX_LENGTH, normalize_device_name
 from bot.services.panel_api_service import PanelApiService
@@ -101,7 +105,7 @@ async def _alert(callback: types.CallbackQuery, text: str) -> None:
         await callback.answer(text, show_alert=True)
 
 
-@router.callback_query(F.data == RENAME_LIST_CALLBACK)
+@router.callback_query(F.data.in_({RENAME_LIST_CALLBACK, f"{RENAME_LIST_CALLBACK}:bot"}))
 async def rename_device_list_callback(
     callback: types.CallbackQuery,
     settings: Settings,
@@ -109,7 +113,10 @@ async def rename_device_list_callback(
     session: AsyncSession,
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
+    state: FSMContext | None = None,
 ) -> None:
+    if state is not None:
+        await state.clear()
     get_text = _get_text(i18n_data, settings)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         await _alert(callback, get_text("my_devices_feature_disabled"))
@@ -122,6 +129,8 @@ async def rename_device_list_callback(
         return
     account_user_id, devices = loaded
     names = await device_name_dal.get_device_names(session, account_user_id)
+    _, context = split_callback_context(callback_data(callback))
+    suffix = callback_suffix_for_context(context)
 
     rows: list[list[InlineKeyboardButton]] = []
     for index, device in enumerate(devices, start=1):
@@ -138,14 +147,15 @@ async def rename_device_list_callback(
                         index=index,
                         name=label[:_BUTTON_LABEL_MAX_LENGTH],
                     ),
-                    callback_data=f"{RENAME_PICK_PREFIX}{token}",
+                    callback_data=f"{RENAME_PICK_PREFIX}{token}{suffix}",
                 )
             ]
         )
     rows.append(
         [
             InlineKeyboardButton(
-                text=get_text("back_to_main_menu_button"), callback_data="main_action:my_devices"
+                text=get_text("back_to_main_menu_button"),
+                callback_data=f"main_action:my_devices{suffix}",
             )
         ]
     )
@@ -166,11 +176,14 @@ async def rename_device_pick_callback(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
 ) -> None:
+    await state.clear()
     get_text = _get_text(i18n_data, settings)
     if not settings.MY_DEVICES_SECTION_ENABLED:
         await _alert(callback, get_text("my_devices_feature_disabled"))
         return
-    token = callback_data(callback).removeprefix(RENAME_PICK_PREFIX)
+    data, context = split_callback_context(callback_data(callback))
+    token = data.removeprefix(RENAME_PICK_PREFIX)
+    suffix = callback_suffix_for_context(context)
     owned = await _find_owned_device(
         session, callback.from_user.id, token, subscription_service, panel_service
     )
@@ -181,7 +194,11 @@ async def rename_device_pick_callback(
     current_name = (await device_name_dal.get_device_names(session, account_user_id)).get(token)
 
     await state.set_state(UserDeviceRenameStates.waiting_for_name)
-    await state.update_data(device_rename_token=token, device_rename_requested_at=time.time())
+    await state.update_data(
+        device_rename_token=token,
+        device_rename_requested_at=time.time(),
+        device_rename_context=context,
+    )
 
     rows: list[list[InlineKeyboardButton]] = []
     if current_name:
@@ -189,12 +206,16 @@ async def rename_device_pick_callback(
             [
                 InlineKeyboardButton(
                     text=get_text("rename_device_reset_button"),
-                    callback_data=f"{RENAME_RESET_PREFIX}{token}",
+                    callback_data=f"{RENAME_RESET_PREFIX}{token}{suffix}",
                 )
             ]
         )
     rows.append(
-        [InlineKeyboardButton(text=get_text("cancel_button"), callback_data=RENAME_CANCEL_CALLBACK)]
+        [
+            InlineKeyboardButton(
+                text=get_text("cancel_button"), callback_data=f"{RENAME_CANCEL_CALLBACK}{suffix}"
+            )
+        ]
     )
     with contextlib.suppress(Exception):
         await callback.answer()
@@ -225,7 +246,8 @@ async def rename_device_reset_callback(
     if not settings.MY_DEVICES_SECTION_ENABLED:
         await _alert(callback, get_text("my_devices_feature_disabled"))
         return
-    token = callback_data(callback).removeprefix(RENAME_RESET_PREFIX)
+    data, _ = split_callback_context(callback_data(callback))
+    token = data.removeprefix(RENAME_RESET_PREFIX)
     owned = await _find_owned_device(
         session, callback.from_user.id, token, subscription_service, panel_service
     )
@@ -242,7 +264,7 @@ async def rename_device_reset_callback(
     )
 
 
-@router.callback_query(F.data == RENAME_CANCEL_CALLBACK)
+@router.callback_query(F.data.in_({RENAME_CANCEL_CALLBACK, f"{RENAME_CANCEL_CALLBACK}:bot"}))
 async def rename_device_cancel_callback(
     callback: types.CallbackQuery,
     state: FSMContext,
@@ -251,11 +273,9 @@ async def rename_device_cancel_callback(
     session: AsyncSession,
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
-    bot: Bot,
 ) -> None:
-    await state.clear()
-    await my_devices_command_handler(
-        callback, i18n_data, settings, panel_service, subscription_service, session, bot
+    await rename_device_list_callback(
+        callback, settings, i18n_data, session, subscription_service, panel_service, state
     )
 
 
@@ -300,5 +320,12 @@ async def rename_device_name_message(
     await invalidate_webapp_user_caches(settings, owned[0], include_devices=True, include_me=False)
     await message.answer(get_text("rename_device_saved", name=html.escape(name)), parse_mode="HTML")
     await my_devices_command_handler(
-        message, i18n_data, settings, panel_service, subscription_service, session, bot
+        message,
+        i18n_data,
+        settings,
+        panel_service,
+        subscription_service,
+        session,
+        bot,
+        context=data.get("device_rename_context"),
     )

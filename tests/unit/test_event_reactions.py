@@ -490,6 +490,33 @@ class CoreEventReactionsTests(IsolatedAsyncioTestCase):
             payment_id=91,
         )
 
+    async def test_subscription_event_passes_frozen_checkout_to_payment_log(self):
+        notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
+        ctx = _context(notification_service=notification_service)
+        bundle = '{"version":2,"items":[{"kind":"devices","extra_units":2}]}'
+        payment = SimpleNamespace(
+            amount=180,
+            currency="RUB",
+            provider="wata",
+            sale_mode="subscription@standard",
+            tariff_key="standard",
+            subscription_duration_months=3,
+            checkout_bundle_snapshot=bundle,
+        )
+        with (
+            patch.object(event_reactions.user_dal, "get_user_by_id", AsyncMock(return_value=None)),
+            patch.object(
+                event_reactions.payment_dal, "get_payment_by_db_id", AsyncMock(return_value=payment)
+            ),
+            patch.object(event_reactions, "invalidate_webapp_user_caches", AsyncMock()),
+        ):
+            register_core_reactions(ctx)
+            await events.emit(events.PAYMENT_SUCCEEDED, {"user_id": 42, "payment_db_id": 5})
+        kwargs = notification_service.notify_payment_received.await_args.kwargs
+        self.assertEqual(kwargs["checkout_bundle_snapshot"], bundle)
+        self.assertEqual(kwargs["months"], 3)
+        self.assertEqual(kwargs["tariff_key"], "standard")
+
     async def test_payment_success_silences_older_failure_notifications(self):
         notification_service = SimpleNamespace(notify_payment_received=AsyncMock())
         ctx = _context(notification_service=notification_service)

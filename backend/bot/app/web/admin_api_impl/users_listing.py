@@ -7,6 +7,7 @@ from aiohttp import web
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
 from bot.app.web.context import (
     get_session_factory,
@@ -14,6 +15,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.webapp.cache_helpers import invalidate_webapp_user_caches
 from bot.infra.redis import cache_delete_pattern, redis_key
+from bot.plugins.extensions import ExtensionError
 from bot.services.partner_common import currency_scale
 from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
@@ -37,7 +39,10 @@ from .users_detail import (
     _bulk_user_payment_summaries,
     _bulk_user_referral_counts,
 )
+from .users_extensions import UsersTableExtensions, users_table_extensions
 from .users_queries import _filter_and_sort_users
+
+_NO_TABLE_EXTENSIONS = UsersTableExtensions()
 
 
 async def admin_users_list_route(request: web.Request) -> web.Response:
@@ -58,18 +63,29 @@ async def admin_users_list_route(request: web.Request) -> web.Response:
     ):
         return _error(400, "invalid_tariff_filter")
 
-    payload = await _load_admin_users_list_payload(
-        settings,
-        async_session_factory,
-        page=page,
-        page_size=page_size,
-        query=query,
-        filter_value=filter_value,
-        panel_status=panel_status,
-        premium_traffic=premium_traffic,
-        sort_value=sort_value,
-        tariff_filter=tariff_filter,
-    )
+    extensions = users_table_extensions()
+    try:
+        predicates = (
+            extensions.predicates(request.query.getall("extension_filter", []))
+            if extensions.filters
+            else ()
+        )
+        payload = await _load_admin_users_list_payload(
+            settings,
+            async_session_factory,
+            page=page,
+            page_size=page_size,
+            query=query,
+            filter_value=filter_value,
+            panel_status=panel_status,
+            premium_traffic=premium_traffic,
+            sort_value=sort_value,
+            tariff_filter=tariff_filter,
+            extensions=extensions,
+            extension_predicates=predicates,
+        )
+    except ExtensionError as exc:
+        return _error(exc.status, exc.code)
     return _ok(payload)
 
 
@@ -85,8 +101,10 @@ async def _load_admin_users_list_payload(
     premium_traffic: str,
     sort_value: str,
     tariff_filter: str = "all",
+    extensions: UsersTableExtensions = _NO_TABLE_EXTENSIONS,
+    extension_predicates: tuple[ColumnElement[bool], ...] = (),
 ) -> dict[str, Any]:
-    cache = _admin_users_list_cache(settings)
+    cache = None if extension_predicates else _admin_users_list_cache(settings)
     valid_tariff_keys = _admin_tariff_keys(settings)
     balance_config = settings.balance_settings
     balance_enabled = bool(balance_config.enabled)
@@ -108,7 +126,8 @@ async def _load_admin_users_list_payload(
         partner_balance_enabled=partner_balance_enabled,
         balance_currency=balance_currency,
     )
-    if cache is None:
+
+    async def load() -> dict[str, Any]:
         return await _load_admin_users_list_payload_uncached(
             async_session_factory,
             page=page,
@@ -125,29 +144,29 @@ async def _load_admin_users_list_payload(
             partner_balance_enabled=partner_balance_enabled,
             balance_currency=balance_currency,
             balance_currency_scale=balance_currency_scale,
+            extensions=extensions if cache is None else _NO_TABLE_EXTENSIONS,
+            extension_predicates=extension_predicates,
         )
-    return cast(
-        dict[str, Any],
-        await cache.get_or_load(
-            cache_key,
-            lambda: _load_admin_users_list_payload_uncached(
-                async_session_factory,
-                page=page,
-                page_size=page_size,
-                query=query,
-                filter_value=filter_value,
-                panel_status=panel_status,
-                premium_traffic=premium_traffic,
-                sort_value=sort_value,
-                tariff_filter=tariff_filter,
-                settings=settings,
-                valid_tariff_keys=valid_tariff_keys,
-                balance_enabled=balance_enabled,
-                partner_balance_enabled=partner_balance_enabled,
-                balance_currency=balance_currency,
-                balance_currency_scale=balance_currency_scale,
-            ),
-        ),
+
+    payload = (
+        await load()
+        if cache is None
+        else cast(dict[str, Any], await cache.get_or_load(cache_key, load))
+    )
+    if cache is not None and extensions.columns and payload["users"]:
+        rows = payload["users"]
+        async with async_session_factory() as session:
+            values = await extensions.column_values(session, tuple(row["user_id"] for row in rows))
+        # The cached base page can be shared across requests and plugin generations.
+        # Attach fresh column values to copies owned by this response.
+        payload = {
+            **payload,
+            "users": [{**row, "extension_values": values.get(row["user_id"], {})} for row in rows],
+        }
+    return (
+        {**payload, **extensions.metadata()}
+        if extensions.columns or extensions.filters
+        else payload
     )
 
 
@@ -168,6 +187,8 @@ async def _load_admin_users_list_payload_uncached(
     balance_currency_scale: int,
     tariff_filter: str = "all",
     settings: Settings,
+    extensions: UsersTableExtensions = _NO_TABLE_EXTENSIONS,
+    extension_predicates: tuple[ColumnElement[bool], ...] = (),
 ) -> dict[str, Any]:
     async with async_session_factory() as session:
         now = datetime.now(UTC)
@@ -183,6 +204,7 @@ async def _load_admin_users_list_payload_uncached(
             valid_tariff_keys=valid_tariff_keys,
             tariff_filter=tariff_filter,
             now=now,
+            extension_predicates=extension_predicates,
         )
 
         user_ids = [int(user.user_id) for user in users]
@@ -215,6 +237,9 @@ async def _load_admin_users_list_payload_uncached(
             if partner_balance_enabled
             else {}
         )
+        extension_values = (
+            await extensions.column_values(session, tuple(user_ids)) if extensions.columns else {}
+        )
 
     serialized = []
     for user in users:
@@ -240,6 +265,8 @@ async def _load_admin_users_list_payload_uncached(
         payload["invited_users_count"] = int(referral_counts.get(user.user_id) or 0)
         payload["user_balance_amount_minor"] = int(user_balances.get(user.user_id) or 0)
         payload["partner_balance_amount_minor"] = int(partner_balances.get(user.user_id) or 0)
+        if extensions.columns:
+            payload["extension_values"] = extension_values.get(user.user_id, {})
         serialized.append(payload)
 
     return {

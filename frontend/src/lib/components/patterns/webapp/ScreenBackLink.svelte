@@ -1,49 +1,44 @@
 <script lang="ts">
+  import Button from "$components/ui/button.svelte";
   import { ArrowLeft } from "$components/ui/icons.js";
   import { cn } from "$lib/utils.js";
 
-  // The single "back" control for cabinet sub-screens, so every one starts at the
-  // same position with the same weight.
+  // The single "back" control for cabinet sub-screens: a square button at the
+  // start of the title row, so going back never costs a line of its own.
   let {
     label,
     onclick,
+    railItem = false,
     class: className = "",
   }: {
     label: string;
     onclick: () => void;
+    /** The screen is listed in the desktop sidebar, which already shows where you are. */
+    railItem?: boolean;
     class?: string;
   } = $props();
 </script>
 
-<button class={cn("screen-back-link", className)} type="button" {onclick}>
-  <ArrowLeft size={18} aria-hidden="true" />
-  {label}
-</button>
+<Button
+  variant="secondary"
+  size="icon"
+  class={cn("screen-back-link", railItem && "is-rail-item", className)}
+  aria-label={label}
+  title={label}
+  {onclick}
+>
+  <ArrowLeft size={20} aria-hidden="true" />
+</Button>
 
 <style>
-  .screen-back-link {
-    display: inline-flex;
-    align-items: center;
-    justify-self: start;
-    gap: 6px;
-    min-height: 36px;
-    padding: 0 4px;
-    border: 0;
-    border-radius: var(--radius-inner);
-    background: transparent;
-    color: var(--muted);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .screen-back-link:hover {
+  :global(.btn.screen-back-link) {
+    flex: 0 0 auto;
     color: var(--text);
   }
 
-  .screen-back-link:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    outline-offset: 2px;
+  @media (min-width: 1024px) {
+    :global(.btn.screen-back-link.is-rail-item) {
+      display: none;
+    }
   }
 </style>

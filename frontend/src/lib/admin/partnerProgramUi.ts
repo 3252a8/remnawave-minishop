@@ -1,16 +1,29 @@
+import { fmtMoney } from "./format.js";
 import { DEFAULT_PARTNER_LIST_QUERY, type AdminPartnerListQuery } from "./partnerProgramApi.js";
+
+export const partnerTableLayouts = {
+  partners: {
+    columnWidths: ["23%", "13%", "8%", "9%", "12%", "12%", "13%", "10%"],
+    minWidth: "980px",
+  },
+  applications: {
+    columnWidths: ["17%", "23%", "23%", "15%", "12%", "10%"],
+    minWidth: "940px",
+  },
+  withdrawals: {
+    columnWidths: ["16%", "21%", "13%", "11%", "14%", "15%", "10%"],
+    minWidth: "980px",
+  },
+};
 
 export type PartnerStatusVariant = "success" | "warning" | "danger" | "muted";
 export type PartnerWithdrawalTransition = "processing" | "paid" | "reject" | "fail";
 
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 
+/** Partner amounts use the admin money format: kopecks shown, ₽ for RUB. */
 export function formatPartnerMoney(value: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(value);
+  return fmtMoney(value, currency);
 }
 
 export function partnerStatusVariant(status: string): PartnerStatusVariant {

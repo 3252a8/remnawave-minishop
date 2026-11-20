@@ -78,6 +78,7 @@ def get_subscription_options_keyboard(
     promo_available: bool = False,
     promo_enabled: bool = True,
     promo_toggle_callback: str | None = None,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
@@ -98,7 +99,7 @@ def get_subscription_options_keyboard(
                     )
                     callback_data = (
                         f"subscribe_period:{_format_gb(months)}"
-                        f"{callback_suffix_for_context(callback_context)}"
+                        f"{callback_suffix_for_context(callback_context)}{origin_suffix}"
                     )
                 else:
                     quote = (promo_quotes or {}).get(months) if promo_enabled else None
@@ -128,7 +129,7 @@ def get_subscription_options_keyboard(
                         quote,
                         promo_enabled=promo_enabled,
                     )
-                    callback_data = f"subscribe_period:{months}{promo_suffix}"
+                    callback_data = f"subscribe_period:{months}{promo_suffix}{origin_suffix}"
                 builder.button(text=button_text, callback_data=callback_data)
         builder.adjust(1)
     if not traffic_mode:
@@ -155,11 +156,13 @@ def get_tariff_catalog_keyboard(
     promo_available: bool = False,
     promo_enabled: bool = True,
     promo_toggle_callback: str | None = None,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
     default_currency = default_currency_key_for_settings(settings) if settings else "rub"
+    suffix = callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)
     for tariff in tariffs:
         label = tariff.name(lang)
         if tariff.billing_model == "period":
@@ -185,8 +188,7 @@ def get_tariff_catalog_keyboard(
         builder.row(
             InlineKeyboardButton(
                 text=label,
-                callback_data=f"tariff:select:{tariff.key}"
-                f"{callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)}",
+                callback_data=f"tariff:select:{tariff.key}{suffix}{origin_suffix}",
             )
         )
     _add_promo_toggle(
@@ -213,6 +215,7 @@ def get_tariff_periods_keyboard(
     promo_available: bool = False,
     promo_enabled: bool = True,
     promo_toggle_callback: str | None = None,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -268,7 +271,7 @@ def get_tariff_periods_keyboard(
                             currency_symbol=currency_code,
                         )
                     ),
-                    callback_data=f"tariff:period:{tariff.key}:d{duration_days}{promo_suffix}",
+                    callback_data=f"tariff:period:{tariff.key}:d{duration_days}{promo_suffix}{origin_suffix}",
                 )
             )
     _add_promo_toggle(
@@ -292,6 +295,7 @@ def get_tariff_packages_keyboard(
     currency_symbol: str = "RUB",
     back_callback: str = "main_action:subscribe",
     callback_context: str | None = None,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     callback_context = callback_context or callback_context_from_back_callback(back_callback)
@@ -306,7 +310,7 @@ def get_tariff_packages_keyboard(
                     currency_symbol=currency_symbol,
                 ),
                 callback_data=f"tariff:package:{tariff.key}:{package.gb:g}"
-                f"{callback_suffix_for_context(callback_context)}",
+                f"{callback_suffix_for_context(callback_context)}{origin_suffix}",
             )
         )
     builder.row(
@@ -324,6 +328,8 @@ def get_hwid_device_packages_keyboard(
     back_callback: str = "main_action:my_subscription",
     renewal: bool = False,
     stars_packages: list[Any] | None = None,
+    *,
+    origin_suffix: str = "",
 ) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -343,7 +349,7 @@ def get_hwid_device_packages_keyboard(
                 ),
                 callback_data=(
                     f"hwid_devices:{'renewal_package' if renewal else 'package'}:"
-                    f"{tariff.key}:{count}"
+                    f"{tariff.key}:{count}{origin_suffix}"
                 ),
             )
         )

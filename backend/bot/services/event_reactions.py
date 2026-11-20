@@ -559,6 +559,9 @@ class CoreEventReactions(PartnerEventReactionsMixin):
                         "purchased_hwid_devices": snapshot.purchased_hwid_devices,
                         "purchases": snapshot.purchases,
                     }
+                    checkout_bundle = getattr(payment, "checkout_bundle_snapshot", None)
+                    if checkout_bundle:
+                        notification_kwargs["checkout_bundle_snapshot"] = checkout_bundle
                     telegram_id = getattr(user, "telegram_id", None)
                     if telegram_id:
                         notification_kwargs["telegram_id"] = int(telegram_id)

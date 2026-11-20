@@ -13,6 +13,7 @@
     type ActiveTariff,
   } from "$lib/admin/subscriptionPlans";
   import type { UsersTariffFilter } from "$lib/admin/usersRouteFilters";
+  import { fmtPercent } from "$lib/admin/format.js";
 
   let {
     at,
@@ -44,10 +45,7 @@
   const hiddenCount = $derived(sorted.length - visible.length);
 
   function percent(count: number): string {
-    return new Intl.NumberFormat(currentLang, {
-      style: "percent",
-      maximumFractionDigits: 1,
-    }).format(total ? count / total : 0);
+    return fmtPercent(total ? count / total : 0);
   }
 </script>
 

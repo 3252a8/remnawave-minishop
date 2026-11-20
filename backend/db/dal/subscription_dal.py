@@ -11,6 +11,14 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import set_committed_value
 
+from db.balance_renewal import (
+    GRANT_PROVIDERS,
+    GrantBalanceRenewal,
+    GrantBalanceRenewalCycleStarted,
+    grant_balance_renewal,
+    renewal_provider_column,
+    subscription_provider,
+)
 from db.models import (
     Subscription,
     SubscriptionLifecycleNotification,
@@ -119,6 +127,7 @@ async def get_subscription_by_id_for_update(
         .where(Subscription.subscription_id == int(subscription_id))
         .limit(1)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     result = await session.execute(stmt)
     return result.scalars().first()
@@ -343,6 +352,7 @@ async def set_auto_renew(
     enabled: bool,
     *,
     stop_reason: str = "consent_changed",
+    balance_renewal: GrantBalanceRenewal | None = None,
 ) -> Subscription | None:
     """Toggle auto-renew and invalidate every pending charge for the old consent."""
 
@@ -351,8 +361,28 @@ async def set_auto_renew(
     sub = await get_subscription_by_id_for_update(session, subscription_id)
     if sub is None:
         return None
-    if bool(sub.auto_renew_enabled) == bool(enabled) and enabled:
+    if balance_renewal is not None and (
+        not enabled or not sub.is_active or subscription_provider(sub) not in GRANT_PROVIDERS
+    ):
+        return None
+    if (
+        enabled
+        and sub.auto_renew_enabled
+        and (balance_renewal is None or balance_renewal == grant_balance_renewal(sub))
+    ):
         return sub
+    if balance_renewal is not None and await auto_renew_dal.get_cycle_by_subscription_anchor(
+        session,
+        subscription_id=subscription_id,
+        cycle_anchor=auto_renew_dal.cycle_anchor_utc(sub.end_date),
+    ):
+        raise GrantBalanceRenewalCycleStarted
+    if balance_renewal is not None or not enabled:
+        sub.balance_renewal_provider = balance_renewal.provider if balance_renewal else None
+        sub.balance_renewal_tariff_key = balance_renewal.tariff_key if balance_renewal else None
+        sub.balance_renewal_duration_days = (
+            balance_renewal.duration_days if balance_renewal else None
+        )
     sub.auto_renew_enabled = bool(enabled)
     sub.auto_renew_consent_version = int(sub.auto_renew_consent_version or 0) + 1
     await auto_renew_dal.stop_open_cycles_for_subscription(
@@ -382,7 +412,7 @@ async def invalidate_user_auto_renew_consent(
         Subscription.is_active.is_(True),
     ]
     if provider:
-        filters.append(func.lower(Subscription.provider) == provider.strip().lower())
+        filters.append(renewal_provider_column() == provider.strip().lower())
     values: dict[str, Any] = {
         "auto_renew_consent_version": Subscription.auto_renew_consent_version + 1,
     }

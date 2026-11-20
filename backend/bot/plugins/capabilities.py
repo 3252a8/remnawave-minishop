@@ -5,10 +5,11 @@ CORE_PLUGIN_CAPABILITIES: dict[str, int] = {
     "user_ui": 1,
     "login_providers": 1,
     "ui_composition": 4,
+    "admin_users_table": 1,
     "message_composition": 1,
     "install_guides": 1,
     "external_orders": 1,
-    "durable_jobs": 1,
+    "durable_jobs": 2,
     "rewards": 1,
     "backups": 1,
 }

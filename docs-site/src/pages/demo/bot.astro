@@ -1,0 +1,150 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import ru from '../../../../locales/ru.json';
+import en from '../../../../locales/en.json';
+import trialCaptcha from '../../../../frontend/src/lib/webapp/mockApi/trialCaptcha.png?inline';
+import { DEMO_DATASET } from '../../../../frontend/src/lib/webapp/demoDataset.js';
+import {
+  DEMO_CHECKOUT_PROMO_CODE, demoCheckoutMethods, demoCheckoutPlans,
+} from '../../../../frontend/src/lib/webapp/previewMock/checkoutDemo';
+import { chatMessages } from '../../lib/botDemoConversation';
+import { botDemoData } from '../../lib/botDemoData';
+import '../../styles/bot-demo.css';
+
+const messages = { ru: chatMessages(ru), en: chatMessages(en) };
+const data = botDemoData(DEMO_DATASET, demoCheckoutPlans(), demoCheckoutMethods(), DEMO_CHECKOUT_PROMO_CODE);
+const fixturesJson = JSON.stringify(data).replaceAll('<', '\\u003c');
+const directPromo = data.promos.find((promo) => promo.enabled && promo.bonus > 0 && !promo.expires);
+---
+
+<StarlightPage
+  frontmatter={{
+    title: 'Демо бота в Telegram',
+    description: 'Интерактивное демо главного меню и бот-меню Remnawave Minishop в чате Telegram.',
+    tableOfContents: false,
+    editUrl: false,
+  }}
+>
+  <div class="bot-demo not-content" data-bot-demo data-messages={JSON.stringify(messages)} data-captcha={trialCaptcha}>
+    <script is:inline type="application/json" data-fixtures set:html={fixturesJson}></script>
+    <details class="bot-demo-options" data-demo-options open>
+      <summary>Настройки демо</summary>
+      <aside class="bot-demo-controls" aria-label="Настройки демо">
+        <p class="bot-demo-intro">Команда /start открывает главное меню, /tg — бот-меню, а /admin — панель администратора. Действия в чате выполняются на тестовых данных.</p>
+
+        <label class="bot-demo-field">
+          <span>Сценарий</span>
+          <select data-scenario aria-describedby="bot-scenario-description">
+            <option value="new">Новый пользователь</option>
+            <option value="active">Активная подписка</option>
+            <option value="without-app">Без Mini App</option>
+            <option value="auto-renew">Автопродление в чате</option>
+            <option value="new-without-app">Новый пользователь без Mini App</option>
+            <option value="trial-captcha">Проверка перед триалом в чате</option>
+            <option value="stars">Оплата Telegram Stars</option>
+            <option value="account-tools">Кабинет с партнёркой</option>
+          </select>
+        </label>
+        <p class="bot-demo-help" id="bot-scenario-description" data-scenario-description>Пробный период доступен. Кабинет открывается в Mini App.</p>
+
+        <label class="bot-demo-field">
+          <span>Роль в чате</span>
+          <select data-role>
+            <option value="user">Пользователь</option>
+            <option value="admin">Администратор</option>
+            <option value="owner">Владелец</option>
+          </select>
+        </label>
+        <button class="bot-demo-command-link" type="button" data-action="admin" data-admin-entry hidden>
+          Отправить <code>/admin</code>
+        </button>
+        <label class="bot-demo-field" data-admin-data-group hidden>
+          <span>Данные админки</span>
+          <select data-admin-data>
+            <option value="sample">Магазин с примерами</option>
+            <option value="empty">Пустой магазин</option>
+          </select>
+        </label>
+
+        <fieldset>
+          <legend>Кнопка у поля ввода</legend>
+          <div class="bot-demo-segments">
+            <label><input type="radio" name="bot-menu" value="commands" checked />Команды</label>
+            <label><input type="radio" name="bot-menu" value="webapp" />Mini App</label>
+          </div>
+        </fieldset>
+
+        <details class="bot-demo-codes">
+          <summary>Промокоды для проверки</summary>
+          <p>{directPromo && <><code>{directPromo.code}</code> начисляет бонусные дни. </>}<code>{data.checkoutPromoCode}</code> даёт скидку при оплате в Mini App.</p>
+        </details>
+
+        <a class="bot-demo-web-link" href="/demo/home" data-web-link>Перейти в веб-демо <span aria-hidden="true">→</span></a>
+      </aside>
+    </details>
+
+    <section class="bot-chat" aria-label="Чат Telegram" lang="ru">
+      <header class="bot-chat-header">
+        <button class="bot-chat-icon" type="button" data-action="reset" aria-label="Сбросить чат" title="Сбросить чат">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
+        </button>
+        <img src="/favicon.webp" class="bot-chat-avatar" alt="" width="40" height="40" />
+        <div class="bot-chat-contact">
+          <strong>Remnawave Minishop</strong>
+          <span data-chat-role>бот</span>
+        </div>
+      </header>
+
+      <div class="bot-chat-history" tabindex="0" aria-label="Сообщения" data-history></div>
+      <div class="bot-chat-notice" role="status" data-notice hidden></div>
+
+      <form class="bot-chat-composer" data-composer>
+        <div class="bot-chat-commands" id="bot-chat-commands" aria-label="Команды бота" data-commands hidden>
+          <button type="button" data-action="main"><strong>/start</strong><span data-start-description></span></button>
+          <button type="button" data-action="bot"><strong>/tg</strong><span data-bot-description></span></button>
+        </div>
+        <button class="bot-chat-menu" type="button" aria-expanded="false" aria-controls="bot-chat-commands" data-action="commands" data-chat-menu>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          <span data-menu-label>Меню</span>
+        </button>
+        <button class="bot-chat-menu" type="button" data-action="open-app" data-chat-webapp hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10" /></svg>
+          <span data-webapp-label>Личный кабинет</span>
+        </button>
+        <label class="bot-chat-attachment" data-attachment hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 7.7-7.7a4.2 4.2 0 1 1 6 6L9.4 20.6a2.9 2.9 0 0 1-4.1-4.1l9.6-9.6a1.5 1.5 0 1 1 2.1 2.1l-7.8 7.7" /></svg>
+          <input type="file" aria-label="Прикрепить файл" data-attachment-input />
+        </label>
+        <input name="command" aria-label="Команда боту" placeholder="Сообщение" autocomplete="off" spellcheck="false" data-command-input />
+        <button class="bot-chat-icon bot-chat-send" type="submit" aria-label="Отправить" title="Отправить">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Zm3 8h8" /></svg>
+        </button>
+        <button class="bot-chat-start" type="button" data-action="main" data-start>Запустить</button>
+      </form>
+    </section>
+
+    <dialog class="bot-demo-dialog" data-dialog aria-labelledby="bot-demo-dialog-title">
+      <header>
+        <div>
+          <h2 id="bot-demo-dialog-title" data-dialog-title></h2>
+          <small data-dialog-address hidden></small>
+        </div>
+        <form method="dialog">
+          <button type="submit" aria-label="Закрыть" data-dialog-close>×</button>
+        </form>
+      </header>
+      <iframe data-embed title="Mini App" hidden></iframe>
+      <p class="bot-demo-dialog-body" data-dialog-body hidden></p>
+      <strong class="bot-demo-dialog-total" data-dialog-total hidden></strong>
+      <p class="bot-demo-dialog-note" data-dialog-note hidden></p>
+      <button type="button" class="bot-demo-dialog-confirm" data-dialog-confirm hidden></button>
+    </dialog>
+  </div>
+</StarlightPage>
+
+<script>
+  import { mountBotDemo } from '../../lib/botDemo';
+
+  const demo = document.querySelector<HTMLElement>('[data-bot-demo]');
+  if (demo) mountBotDemo(demo);
+</script>

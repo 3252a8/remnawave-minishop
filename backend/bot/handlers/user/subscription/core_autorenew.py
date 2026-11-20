@@ -3,6 +3,7 @@ import logging
 
 from aiogram import Bot, F, types
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.infra.auto_renew import (
@@ -14,6 +15,11 @@ from bot.infra.redis import redis_lock
 from bot.keyboards.inline.user_keyboards import (
     get_autorenew_confirm_keyboard,
 )
+from bot.keyboards.inline.user_keyboards_context import (
+    split_callback_context,
+    subscription_menu_back_callback,
+)
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import provider_supports_recurring
 from bot.payment_providers.shared import service_supports_recurring
@@ -27,6 +33,7 @@ from bot.utils.callback_answer import (
     message_from_user,
 )
 from config.settings import Settings
+from db.balance_renewal import renewal_provider
 from db.dal import subscription_dal
 from db.models import Subscription
 
@@ -65,7 +72,8 @@ async def disconnect_device_handler(
         return
 
     try:
-        _, hwid_token = callback_data(callback).split(":", 1)
+        data, _ = split_callback_context(callback_data(callback))
+        _, hwid_token = data.split(":", 1)
     except Exception:
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)
@@ -115,6 +123,7 @@ async def toggle_autorenew_handler(
     subscription_service: SubscriptionService,
     panel_service: PanelApiService,
     bot: Bot,
+    state: FSMContext | None = None,
 ) -> None:
     account_user_id = await require_telegram_account_id(session, callback.from_user.id)
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -122,7 +131,8 @@ async def toggle_autorenew_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
-        _, payload = callback_data(callback).split(":", 1)
+        data, context = split_callback_context(callback_data(callback))
+        _, payload = data.split(":", 1)
         sub_id_str, enable_str = payload.split(":")
         sub_id = int(sub_id_str)
         enable = bool(int(enable_str))
@@ -135,7 +145,7 @@ async def toggle_autorenew_handler(
     if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not auto_renew_toggle_allowed(provider, enable=enable):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -158,12 +168,10 @@ async def toggle_autorenew_handler(
     confirm_text = (
         get_text("autorenew_confirm_enable") if enable else get_text("autorenew_confirm_disable")
     )
-    kb = get_autorenew_confirm_keyboard(enable, sub.subscription_id, current_lang, i18n)
-    try:
-        await callback_message(callback).edit_text(confirm_text, reply_markup=kb)
-    except Exception:
-        with contextlib.suppress(Exception):
-            await callback_message(callback).answer(confirm_text, reply_markup=kb)
+    kb = get_autorenew_confirm_keyboard(
+        enable, sub.subscription_id, current_lang, i18n, context=context
+    )
+    await edit_confirmation(callback_message(callback), state, confirm_text, kb)
     with contextlib.suppress(Exception):
         await callback.answer()
     return
@@ -185,7 +193,8 @@ async def confirm_autorenew_handler(
     get_text = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs) if i18n else key
 
     try:
-        _, _, sub_id_str, enable_str = callback_data(callback).split(":", 3)
+        data, context = split_callback_context(callback_data(callback))
+        _, _, sub_id_str, enable_str = data.split(":", 3)
         sub_id = int(sub_id_str)
         enable = bool(int(enable_str))
     except Exception:
@@ -193,11 +202,12 @@ async def confirm_autorenew_handler(
             await callback.answer(get_text("error_try_again"), show_alert=True)
         return
 
+    back_callback = subscription_menu_back_callback(context)
     sub = await session.get(Subscription, sub_id)
     if not sub or sub.user_id != account_user_id:
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not auto_renew_toggle_allowed(provider, enable=enable):
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
@@ -207,7 +217,14 @@ async def confirm_autorenew_handler(
             await callback.answer(get_text("autorenew_unavailable"), show_alert=True)
             with contextlib.suppress(Exception):
                 await my_subscription_command_handler(
-                    callback, i18n_data, settings, panel_service, subscription_service, session, bot
+                    callback,
+                    i18n_data,
+                    settings,
+                    panel_service,
+                    subscription_service,
+                    session,
+                    bot,
+                    back_callback=back_callback,
                 )
             return
         has_saved_card = await has_recurring_payment_method(
@@ -220,7 +237,14 @@ async def confirm_autorenew_handler(
                 await callback.answer(get_text("autorenew_enable_requires_card"), show_alert=True)
             with contextlib.suppress(Exception):
                 await my_subscription_command_handler(
-                    callback, i18n_data, settings, panel_service, subscription_service, session, bot
+                    callback,
+                    i18n_data,
+                    settings,
+                    panel_service,
+                    subscription_service,
+                    session,
+                    bot,
+                    back_callback=back_callback,
                 )
             return
 
@@ -250,7 +274,14 @@ async def confirm_autorenew_handler(
     with contextlib.suppress(Exception):
         await callback.answer(get_text("subscription_autorenew_updated"))
     await my_subscription_command_handler(
-        callback, i18n_data, settings, panel_service, subscription_service, session, bot
+        callback,
+        i18n_data,
+        settings,
+        panel_service,
+        subscription_service,
+        session,
+        bot,
+        back_callback=back_callback,
     )
 
 
@@ -277,7 +308,7 @@ async def autorenew_cancel_from_webhook_button(
         with contextlib.suppress(Exception):
             await callback.answer(get_text("subscription_not_active"), show_alert=True)
         return
-    provider = str(getattr(sub, "provider", "") or "").strip().lower()
+    provider = renewal_provider(sub)
     if not auto_renew_toggle_allowed(provider, enable=False):
         with contextlib.suppress(Exception):
             await callback.answer(get_text("error_try_again"), show_alert=True)

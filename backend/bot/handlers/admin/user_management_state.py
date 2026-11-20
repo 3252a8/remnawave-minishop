@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from html import escape
 
 from aiogram import Bot, F, types
 from aiogram.exceptions import TelegramBadRequest
@@ -7,8 +8,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+from bot.keyboards.inline.admin_keyboards import (
+    get_admin_back_keyboard,
+    get_banned_users_keyboard,
+)
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import can_ban_account
 from bot.services.broadcast_personalization import (
     known_shortcodes,
     telegram_html_error,
@@ -21,6 +26,7 @@ from bot.services.telegram_account import require_telegram_account_id
 from bot.states.admin_states import AdminStates
 from bot.utils import MessageContent, get_message_content, send_direct_message
 from bot.utils.callback_answer import (
+    callback_data,
     callback_message,
     message_bot,
     message_from_user,
@@ -132,6 +138,7 @@ async def process_subscription_days_handler(
                     current_lang,
                     user.referred_by_id,
                     telegram_id=user.telegram_id,
+                    origin=data.get("card_origin", ""),
                 )
 
                 await _send_with_profile_link_fallback(
@@ -297,6 +304,7 @@ async def process_direct_message_handler(
                 current_lang,
                 target_user.referred_by_id,
                 telegram_id=target_user.telegram_id,
+                origin=data.get("card_origin", ""),
             )
 
             await _send_with_profile_link_fallback(
@@ -333,12 +341,18 @@ async def ban_user_prompt_handler(
 
     try:
         await callback_message(callback).edit_text(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
+            ),
         )
     except Exception as e:
         logger.warning("Could not edit message for ban prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
+            ),
         )
 
     await callback.answer()
@@ -364,12 +378,18 @@ async def unban_user_prompt_handler(
 
     try:
         await callback_message(callback).edit_text(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
+            ),
         )
     except Exception as e:
         logger.warning("Could not edit message for unban prompt: %s. Sending new.", e)
         await callback_message(callback).answer(
-            prompt_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            prompt_text,
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:ban_management", "cancel_button"
+            ),
         )
 
     await callback.answer()
@@ -392,19 +412,23 @@ async def view_banned_users_handler(
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     try:
-        # Get banned users
         banned_users = await user_dal.get_banned_users(session)
+        page_token = callback_data(callback).rsplit(":", 1)[-1]
+        requested_page = int(page_token) if page_token.isascii() and page_token.isdecimal() else 0
+        page_size = max(1, settings.LOGS_PAGE_SIZE)
+        page = min(requested_page, max(0, (len(banned_users) - 1) // page_size))
+        visible_users = banned_users[page * page_size : (page + 1) * page_size]
 
         if not banned_users:
             message_text = _("admin_banned_users_empty")
         else:
             user_list = []
-            for user in banned_users:
+            for user in visible_users:
                 display_name = user.first_name or "Unknown"
                 if user.username:
                     display_name = f"@{user.username}"
                 user_list.append(
-                    f"• {display_name} (ID: {getattr(user, 'minishop_id', None) or '—'})"
+                    f"• {escape(display_name)} (ID: {getattr(user, 'minishop_id', None) or '—'})"
                 )
 
             message_text = _(
@@ -412,8 +436,12 @@ async def view_banned_users_handler(
             )
 
         await callback_message(callback).edit_text(
-            message_text, reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n)
+            message_text,
+            reply_markup=get_banned_users_keyboard(
+                visible_users, page, len(banned_users), i18n, current_lang, settings
+            ),
         )
+        await callback.answer()
 
     except Exception as e:
         logger.error("Error displaying banned users: %s", e)
@@ -449,6 +477,13 @@ async def process_ban_user_handler(
         if user_model.is_banned:
             await message.answer(_("admin_user_already_banned"))
             await state.clear()
+            return
+
+        actor_id = await require_telegram_account_id(session, message_from_user(message).id)
+        if not await can_ban_account(session, actor_id, user_model.user_id):
+            await session.rollback()
+            await state.clear()
+            await message.answer(_("wa_auth_access_denied"))
             return
 
         # Ban the user
@@ -622,6 +657,7 @@ async def process_premium_override_bonus_handler(
             current_lang,
             target_user.referred_by_id,
             telegram_id=target_user.telegram_id,
+            origin=data.get("card_origin", ""),
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -744,6 +780,7 @@ async def process_hwid_device_limit_handler(
             current_lang,
             target_user.referred_by_id,
             telegram_id=target_user.telegram_id,
+            origin=data.get("card_origin", ""),
         )
         await _send_with_profile_link_fallback(
             message.answer,
@@ -861,6 +898,7 @@ async def process_traffic_grant_gb_handler(
             current_lang,
             target_user.referred_by_id,
             telegram_id=target_user.telegram_id,
+            origin=data.get("card_origin", ""),
         )
         await _send_with_profile_link_fallback(
             message.answer,

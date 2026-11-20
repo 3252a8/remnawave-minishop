@@ -187,6 +187,12 @@
   onMount(() => {
     void publicDocumentsStore.load();
   });
+
+  // The label is the admin-editable bot menu button ("💬 …"); the row already
+  // has its own icon, so a leading emoji would be a second one.
+  function withoutLeadingEmoji(label: string): string {
+    return label.replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, "");
+  }
 </script>
 
 <main class="content with-nav">
@@ -444,7 +450,7 @@
         onclick={() => openExternalLink(supportUrl)}
       >
         <Send size={21} />
-        <span><strong>{t("menu_support_button")}</strong></span>
+        <span><strong>{withoutLeadingEmoji(t("menu_support_button"))}</strong></span>
         <ArrowRight size={17} />
       </button>
     {/if}

@@ -16,7 +16,7 @@ export function paymentHistoryStatus(
 ): {
   label: string;
   hint: string;
-  variant: "success" | "outline" | "muted" | "destructive";
+  variant: "success" | "warning" | "muted" | "destructive";
 } {
   const state = item.history_state;
   return {
@@ -34,6 +34,6 @@ export function paymentHistoryStatus(
           ? "destructive"
           : state === "refunded"
             ? "muted"
-            : "outline",
+            : "warning",
   };
 }

@@ -8,6 +8,7 @@ from bot.keyboards.inline.user_keyboards_menus import (
     get_information_links_keyboard,
     get_trial_confirmation_keyboard,
 )
+from bot.middlewares.confirmation import answer_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.legal_document_links import legal_document_links
 from bot.services.referral_service import ReferralService
@@ -17,6 +18,7 @@ from bot.utils.mini_app_url import append_query_params
 from config.settings import Settings
 from config.support_links import normalize_support_link
 
+from .payment_history import send_payment_history
 from .start_menus import send_bot_interface_menu
 
 APP_PAGES = frozenset(
@@ -122,9 +124,11 @@ async def open_start_page(
         if not settings.TRIAL_ENABLED:
             return False
         if not settings.SUBSCRIPTION_MINI_APP_URL:
-            await message.answer(
+            await answer_confirmation(
+                message,
+                state,
                 _("menu_activate_trial_button"),
-                reply_markup=get_trial_confirmation_keyboard(current_lang, i18n),
+                get_trial_confirmation_keyboard(current_lang, i18n),
             )
             return True
         await _send_app_page(message, settings.SUBSCRIPTION_MINI_APP_URL, page, _("open_mini_app"))
@@ -138,6 +142,12 @@ async def open_start_page(
                 inline_keyboard=[[types.InlineKeyboardButton(text=label, url=support_url)]]
             ),
         )
+    elif (
+        page == "payment-history"
+        and not settings.SUBSCRIPTION_MINI_APP_URL
+        and not settings.TELEGRAM_BOT_MENU_DISABLED
+    ):
+        await send_payment_history(event, settings, i18n_data, session)
     elif page in APP_PAGES and settings.SUBSCRIPTION_MINI_APP_URL:
         await _send_app_page(message, settings.SUBSCRIPTION_MINI_APP_URL, page, _("open_mini_app"))
     else:

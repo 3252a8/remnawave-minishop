@@ -19,6 +19,7 @@ from bot.middlewares.i18n import JsonI18n
 from bot.services.email_auth_service import EmailAuthService
 from bot.services.notification_partner import NotificationPartnerMixin
 from bot.services.notification_support import NotificationSupportMixin
+from bot.services.payment_log_purchases import format_payment_purchase_summary
 from bot.utils.message_queue import get_queue_manager
 from bot.utils.subscription_periods import format_duration_days
 from bot.utils.telegram_markup import (
@@ -586,6 +587,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         tariff_key: str | None = None,
         purchased_hwid_devices: int | None = None,
         purchases: tuple[PaymentPurchase, ...] | None = None,
+        checkout_bundle_snapshot: str | None = None,
         sale_mode: str | None = None,
         payment_id: int | None = None,
         duration_days: int | None = None,
@@ -626,10 +628,13 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 purchased_hwid_devices=purchased_hwid_devices,
             )
         )
-        purchase_summary_parts = [
-            self._format_payment_purchase_line(_, purchase) for purchase in effective_purchases
-        ]
-        purchase_summary = "\n".join(line for line in purchase_summary_parts if line)
+        purchase_summary = format_payment_purchase_summary(
+            _,
+            effective_purchases,
+            checkout_bundle_snapshot=checkout_bundle_snapshot,
+            currency=currency,
+            format_amount=self._format_traffic_gb_admin,
+        )
         has_traffic_purchase = any(purchase.kind == "traffic" for purchase in effective_purchases)
 
         if sale_mode_base(sale_mode) == "balance_topup":
@@ -663,7 +668,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 payment_id=payment_id if payment_id is not None else "—",
                 timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
-        elif has_traffic_purchase:
+        elif has_traffic_purchase and not (months or duration_days):
             traffic_purchase = next(
                 purchase for purchase in effective_purchases if purchase.kind == "traffic"
             )
@@ -693,7 +698,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 payment_provider=payment_provider,
                 timestamp=datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
             )
-        elif effective_purchases:
+        elif effective_purchases or purchase_summary or tariff_key:
             tariff_name = self._tariff_display_for_log(tariff_key)
             tariff_line = (
                 _("log_payment_tariff_line", name=hd.quote(tariff_name)) if tariff_name else ""
@@ -708,9 +713,13 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 if months
                 else ""
             )
-            purchase_summary_line = _(
-                "log_payment_purchase_summary_line",
-                summary=purchase_summary,
+            purchase_summary_line = (
+                _(
+                    "log_payment_purchase_summary_line",
+                    summary=purchase_summary,
+                )
+                if purchase_summary
+                else ""
             )
             message = _(
                 "log_payment_received_with_purchases",
@@ -770,39 +779,6 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
             thread_id=self.settings.LOG_PAYMENTS_THREAD_ID,
             reply_markup=profile_keyboard,
         )
-
-    def _format_payment_purchase_line(
-        self,
-        translate: Callable[..., str],
-        purchase: PaymentPurchase,
-    ) -> str:
-        if purchase.kind == "traffic":
-            traffic_kind = translate(
-                "log_payment_traffic_kind_premium"
-                if purchase.scope == "premium"
-                else "log_payment_traffic_kind_regular"
-            )
-            return translate(
-                "log_payment_traffic_purchase_line",
-                gb=self._format_traffic_gb_admin(float(purchase.amount)),
-                kind=traffic_kind,
-            )
-        if purchase.kind == "hwid_devices":
-            return translate(
-                "log_payment_hwid_devices_purchase_line",
-                count=int(float(purchase.amount)),
-            )
-        amount_label = self._format_traffic_gb_admin(float(purchase.amount))
-        label_kwargs = {
-            "amount": amount_label,
-            "unit": purchase.unit,
-            "kind": purchase.kind,
-            "scope": purchase.scope or "",
-            **dict(purchase.label_kwargs),
-        }
-        if purchase.label_key:
-            return translate(purchase.label_key, **label_kwargs)
-        return translate("log_payment_generic_purchase_line", **label_kwargs)
 
     async def notify_promo_activation(
         self,

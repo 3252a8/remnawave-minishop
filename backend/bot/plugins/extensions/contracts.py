@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 if TYPE_CHECKING:
     from aiohttp import web
+    from sqlalchemy.sql.elements import ColumnElement
 
     from bot.plugins.spec import PluginContext
     from config.settings import Settings
@@ -137,6 +138,7 @@ class JobHandler:
 class DurableSubscription:
     event: str
     job: str
+    enabled_when: ColumnElement[bool] | None = None
 
 
 BackupCollect = Callable[[Path], dict[str, JsonValue]]
@@ -192,6 +194,33 @@ class LoginProvider:
 
 
 @dataclass(frozen=True)
+class AdminUserColumn:
+    """Read-only, batched plain-text values for the current page of users."""
+
+    id: str
+    label: str
+    resolve: Callable[[AsyncSession, tuple[int, ...]], Awaitable[dict[int, str | None]]]
+    order: int = 100
+
+
+@dataclass(frozen=True)
+class AdminUserFilterOption:
+    id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class AdminUserFilter:
+    """Select filter evaluated against the Core User query before pagination."""
+
+    id: str
+    label: str
+    options: tuple[AdminUserFilterOption, ...]
+    predicate: Callable[[str], ColumnElement[bool]]
+    order: int = 100
+
+
+@dataclass(frozen=True)
 class ExtensionContributions:
     guides: tuple[GuideProvider, ...] = ()
     resources: tuple[ResourceProvider, ...] = ()
@@ -205,3 +234,5 @@ class ExtensionContributions:
     # Supported core commands, explicitly requested by the trusted plugin.
     permissions: frozenset[str] = field(default_factory=frozenset)
     login_providers: tuple[LoginProvider, ...] = ()
+    admin_user_columns: tuple[AdminUserColumn, ...] = ()
+    admin_user_filters: tuple[AdminUserFilter, ...] = ()

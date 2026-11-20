@@ -87,7 +87,7 @@ services:
 
   remnawave-db:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     container_name: remnawave-dev-db
     hostname: remnawave-db
     restart: unless-stopped
@@ -156,7 +156,7 @@ services:
 
   remnawave-dev-seed:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     container_name: remnawave-dev-seed
     profiles:
       - seed
@@ -177,7 +177,7 @@ services:
 
   dev-seed:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     container_name: remnawave-minishop-dev-seed
     profiles:
       - seed
@@ -200,7 +200,7 @@ services:
 
   dev-mock-data:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     container_name: remnawave-minishop-dev-mock-data
     profiles:
       - mock-data

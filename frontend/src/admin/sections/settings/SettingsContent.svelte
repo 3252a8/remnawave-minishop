@@ -184,6 +184,7 @@
   let copiedLoginProviderKey = $state("");
   const settingsSearchHasQuery = $derived(settingsSearchQuery.trim().length > 0);
   const settingsSearchVisible = $derived(settingsSearchOpen && settingsSearchHasQuery);
+  const visibleFields = $derived(visibleSettingsSections.flatMap((section) => section.fields));
   function openSettingsSearch(): void {
     if (settingsSearchHasQuery) settingsSearchOpen = true;
   }
@@ -237,9 +238,7 @@
   }
 
   function configuredValue(key: string): boolean {
-    const field = visibleSettingsSections
-      .flatMap((section) => section.fields)
-      .find((item) => item.key === key);
+    const field = visibleFields.find((item) => item.key === key);
     if (!field) return false;
     if (field.secret && !settingsDirty[key] && field.has_value) return true;
     const value = settingsDirty[key]?.value ?? valueFor(field);
@@ -247,9 +246,7 @@
   }
 
   function configuredText(key: string): string {
-    const field = visibleSettingsSections
-      .flatMap((section) => section.fields)
-      .find((item) => item.key === key);
+    const field = visibleFields.find((item) => item.key === key);
     if (!field) return "";
     return String(settingsDirty[key]?.value ?? valueFor(field) ?? "").trim();
   }
@@ -663,6 +660,8 @@
             onOpenCustomButtons={telegramMenuSettings.openCustomButtons}
             onSaved={telegramMenuSettings.saveAppearance}
             subscribeSettingsSaved={telegramMenuSettings.subscribeSettingsSaved}
+            registerSaver={telegramMenuSettings.registerSaver}
+            reportDirty={telegramMenuSettings.reportDirty}
           />
         {:else if field.type === "menu_buttons"}
           <MenuButtonsField
@@ -677,7 +676,7 @@
             value={fieldTextValue(field)}
             items={choiceItems(field)}
             ariaLabel={fieldLabelText(field)}
-            placeholder={fieldPlaceholderText(field) || fieldLabelText(field)}
+            placeholder={fieldPlaceholderText(field) || at("select", {}, "Select")}
             onValueChange={fieldSelectHandler(field)}
           />
         {:else if field.type === "int" || field.type === "float"}
@@ -762,10 +761,11 @@
           <AdminButton
             variant="ghost"
             class="admin-setting-reset"
+            title={at("reset", {}, "Reset")}
             onclick={() => resetField(field)}
           >
             <X size={12} />
-            {at("reset", {}, "Reset")}
+            <span class="admin-setting-reset-label">{at("reset", {}, "Reset")}</span>
           </AdminButton>
         {/if}
       </div>

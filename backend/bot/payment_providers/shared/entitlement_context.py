@@ -9,6 +9,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.services.checkout_addons import checkout_addon_grants, parse_checkout_bundle_snapshot
+from config.subscription_periods import sale_mode_duration_days
+from db.balance_renewal import grant_balance_renewal
 from db.dal import subscription_dal
 
 _SNAPSHOT_VERSION = 1
@@ -152,6 +154,7 @@ def build_entitlement_context_snapshot(
     sale_mode: str,
     active_subscription: Any | None,
     bind_to_active_subscription: bool = False,
+    allow_grant_balance_tariff_change: bool = False,
 ) -> str | None:
     """Freeze the subscription a one-time entitlement checkout was quoted for."""
 
@@ -168,6 +171,7 @@ def build_entitlement_context_snapshot(
         active_tariff_key=active_tariff_key,
         active_subscription_is_trial=subscription_is_trial(active_subscription),
         bind_to_active_subscription=bind_to_active_subscription,
+        allow_grant_balance_tariff_change=allow_grant_balance_tariff_change,
     )
 
 
@@ -178,6 +182,7 @@ def build_entitlement_context_snapshot_from_values(
     active_tariff_key: Any | None,
     active_subscription_is_trial: bool = False,
     bind_to_active_subscription: bool = False,
+    allow_grant_balance_tariff_change: bool = False,
 ) -> str | None:
     """Freeze a quote-owned subscription identity without re-reading current state."""
 
@@ -221,6 +226,7 @@ def build_entitlement_context_snapshot_from_values(
         normalized_subscription_id is not None
         and normalized_tariff_key != target_tariff_key
         and not trial_traffic_purchase
+        and not (base == "subscription" and allow_grant_balance_tariff_change)
     ):
         raise EntitlementContextError("active_tariff_mismatch")
 
@@ -392,6 +398,11 @@ def preflight_payment_entitlement(
         and current_subscription_id is not None
         and current_tariff_key != payment_tariff_key
         and not (base == "traffic_package" and subscription_is_trial(active_subscription))
+        and not (
+            base == "subscription"
+            and snapshot is not None
+            and _is_grant_balance_renewal(payment, active_subscription, payment_tariff_key)
+        )
     ):
         return EntitlementPreflightResult(
             EntitlementPreflightStatus.DETERMINISTIC_STALE,
@@ -399,3 +410,20 @@ def preflight_payment_entitlement(
         )
 
     return EntitlementPreflightResult(EntitlementPreflightStatus.OK)
+
+
+def _is_grant_balance_renewal(payment: Any, subscription: Any, target_tariff: str) -> bool:
+    selection = grant_balance_renewal(subscription)
+    if (
+        selection is None
+        or not getattr(subscription, "auto_renew_enabled", False)
+        or not getattr(payment, "is_auto_renew", False)
+        or getattr(payment, "auto_renew_cycle_id", None) is None
+        or getattr(payment, "provider", None) != selection.provider
+        or target_tariff != selection.tariff_key
+    ):
+        return False
+    try:
+        return sale_mode_duration_days(payment.sale_mode) == selection.duration_days
+    except ValueError:
+        return False

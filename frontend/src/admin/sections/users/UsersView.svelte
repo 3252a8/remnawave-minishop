@@ -18,8 +18,12 @@
     VirtualTableRows,
   } from "$components/patterns/admin/index.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
+  import type {
+    AdminUserExtensionColumn,
+    AdminUserExtensionFilter,
+  } from "$lib/admin/stores/usersStoreState";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
-  import type { UsersRouteFilters } from "$lib/admin/usersRouteFilters";
+  import type { UsersExtensionSelections } from "$lib/admin/usersRouteFilters";
   import UserMobileCard from "./UserMobileCard.svelte";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
@@ -32,11 +36,12 @@
   type UserTableColumn = {
     key: string;
     label: string;
+    width: string;
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = keyof UsersRouteFilters;
-  type FilterChip = { key: FilterKey; label: string; value: string };
+  type FilterChip = { key: string; label: string; value: string };
+  const ALL_EXTENSION_OPTIONS = "*";
   type TrafficBadge =
     | {
         state?: string;
@@ -64,6 +69,10 @@
     usersPanelStatus,
     usersPremiumTraffic,
     usersTariffFilter,
+    usersExtensionColumns,
+    usersExtensionFilterOptions,
+    usersExtensionFilters,
+    updateUsersExtensionFilter,
     usersQuery,
     usersTotal,
     usersPage,
@@ -76,9 +85,6 @@
     USERS_TARIFF_OPTIONS,
     activeUsersFilterCount,
     activeUserFilterChips,
-    userTableHeaders,
-    userTableWidths,
-    userTableColumnCount,
     userBalanceEnabled,
     partnerBalanceEnabled,
     updateUsersFilter,
@@ -118,6 +124,10 @@
     usersPanelStatus: string;
     usersPremiumTraffic: string;
     usersTariffFilter: string;
+    usersExtensionColumns: AdminUserExtensionColumn[];
+    usersExtensionFilterOptions: AdminUserExtensionFilter[];
+    usersExtensionFilters: UsersExtensionSelections;
+    updateUsersExtensionFilter: (id: string, value: string) => void;
     usersQuery: string;
     usersTotal: number;
     usersPage: number;
@@ -130,9 +140,6 @@
     USERS_TARIFF_OPTIONS: SelectOption[];
     activeUsersFilterCount: number;
     activeUserFilterChips: FilterChip[];
-    userTableHeaders: string[];
-    userTableWidths: string[];
-    userTableColumnCount: number;
     userBalanceEnabled: boolean;
     partnerBalanceEnabled: boolean;
     updateUsersFilter: ComponentCallback;
@@ -143,10 +150,10 @@
     updateToolbarPanelStatus: ComponentCallback;
     updateToolbarPremiumTraffic: ComponentCallback;
     resetUsersFilters: () => void;
-    clearUsersFilter: (key: FilterKey) => void;
+    clearUsersFilter: (key: string) => void;
     handleUsersSearchInput: (event: Event) => void;
     handleUsersSearchKeydown: (event: KeyboardEvent) => void;
-    userTableColumns: () => UserTableColumn[];
+    userTableColumns: UserTableColumn[];
     sortState: (column: SortColumn | undefined) => "none" | "ascending" | "descending";
     sortTitle: (column: SortColumn) => string;
     toggleUsersSortForColumn: (column: UserTableColumn) => void;
@@ -161,7 +168,30 @@
     rowBalance: (user: AdminUser, source: "user" | "partner") => string;
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
+  const columnWidths = $derived(userTableColumns.map((column) => column.width));
 </script>
+
+{#snippet renderExtensionFilters()}
+  {#each usersExtensionFilterOptions as filter (filter.id)}
+    {@const selected = filter.options.find(
+      ({ value }) => value === usersExtensionFilters[filter.id]
+    )}
+    <Label.Root class="admin-toolbar-field admin-users-filter-field">
+      <span class="admin-toolbar-field-label">{filter.label}</span>
+      <AdminSelect
+        value={selected?.value ?? ALL_EXTENSION_OPTIONS}
+        items={[
+          { value: ALL_EXTENSION_OPTIONS, label: at("filter_all", {}, "All") },
+          ...filter.options,
+        ]}
+        class="admin-toolbar-select"
+        ariaLabel={filter.label}
+        onValueChange={(value) =>
+          updateUsersExtensionFilter(filter.id, value === ALL_EXTENSION_OPTIONS ? "" : value)}
+      />
+    </Label.Root>
+  {/each}
+{/snippet}
 
 {#snippet renderUserFilterControls()}
   {@render renderTariffFilter()}
@@ -199,6 +229,7 @@
       onValueChange={updateUsersPremiumTraffic}
     />
   </Label.Root>
+  {@render renderExtensionFilters()}
 {/snippet}
 
 {#snippet renderTariffFilter()}
@@ -266,7 +297,7 @@
     <AdminButton
       variant={activeUsersFilterCount ? "primary" : "default"}
       class="admin-users-filter-toggle"
-      aria-label={at("users_filters_open", {}, "Open filters")}
+      aria-label={activeUsersFilterCount ? undefined : at("users_filters_open", {}, "Open filters")}
       aria-haspopup="dialog"
       aria-expanded={usersFilterSheetOpen}
       onclick={() => {
@@ -274,10 +305,9 @@
       }}
     >
       <Sliders size={15} />
-      <span class="admin-users-filter-toggle-label">{at("filters", {}, "Filters")}</span>
-      {#if activeUsersFilterCount}
-        <span class="admin-users-filter-count">{activeUsersFilterCount}</span>
-      {/if}
+      {activeUsersFilterCount
+        ? at("users_filters_count", { count: activeUsersFilterCount }, "Filters ({count})")
+        : at("filters", {}, "Filters")}
     </AdminButton>
   {/snippet}
   {#snippet actions()}
@@ -321,6 +351,7 @@
         onValueChange={updateToolbarPremiumTraffic}
       />
     </Label.Root>
+    {@render renderExtensionFilters()}
   {/snippet}
   {#snippet footer()}
     {@render renderActiveUserFilterChips()}
@@ -373,29 +404,25 @@
   </div>
 </Dialog>
 
-<div
-  class="admin-users-table-wrap"
-  class:has-user-balance={userBalanceEnabled}
-  class:has-partner-balance={partnerBalanceEnabled}
->
-  {#if usersLoading}
+<div class="admin-users-table-wrap" aria-busy={usersLoading}>
+  {#if usersLoading && !usersTable.rows.length}
     <AdminTableSkeleton
-      headers={userTableHeaders}
+      headers={userTableColumns.map((column) => column.label)}
       rows={USERS_PAGE_SIZE}
       rowHeight={76}
       preserveRowHeightOnMobile
       class="admin-users-table"
-      widths={userTableWidths}
+      {columnWidths}
     />
   {:else if !usersTable.rows.length}
     <AdminEmptyState tone="card"
       ><span class="admin-muted">{at("users_empty", {}, "No users found")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable class="admin-users-table">
+    <AdminTable class="admin-users-table" {columnWidths}>
       <thead>
         <tr>
-          {#each userTableColumns() as column (column.key)}
+          {#each userTableColumns as column (column.key)}
             <th aria-sort={column.sort ? sortState(column.sort) : undefined}>
               {#if column.sort}
                 <AdminSortHeader
@@ -413,7 +440,7 @@
       </thead>
       <VirtualTableRows
         rows={usersTable.rows}
-        colspan={userTableColumnCount}
+        colspan={userTableColumns.length}
         rowHeight={76}
         getKey={(user) => user.user_id}
       >
@@ -522,6 +549,11 @@
             >
               {fmtDateShort(user.registration_date)}
             </td>
+            {#each usersExtensionColumns as column (column.id)}
+              <td class="admin-users-cell-extension" data-label={column.label}>
+                {user.extension_values?.[column.id] ?? "—"}
+              </td>
+            {/each}
           </tr>
         {/snippet}
       </VirtualTableRows>
@@ -545,6 +577,7 @@
           {rowBalance}
           {userBalanceEnabled}
           {partnerBalanceEnabled}
+          extensionColumns={usersExtensionColumns}
           {fmtDateShort}
         />
       {/each}
@@ -577,34 +610,17 @@
     font-size: 11px;
     line-height: 1.5;
   }
-  .admin-users-cell-tariff {
-    min-width: 150px;
-    max-width: 220px;
-  }
   :global(.admin-users-search-button) {
     min-width: 82px;
   }
 
   :global(.admin-btn.admin-users-filter-toggle) {
     display: inline-flex;
-    position: relative;
     align-items: center;
     gap: 7px;
     min-width: 0;
-  }
-
-  .admin-users-filter-count {
-    display: inline-grid;
-    min-width: 18px;
-    height: 18px;
-    place-items: center;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--admin-bg) 74%, transparent);
-    color: inherit;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
   .admin-users-filter-chips {
@@ -688,27 +704,19 @@
     overflow-x: auto;
   }
 
+  .admin-users-table-wrap[aria-busy="true"]
+    :global(.admin-users-table:not(.admin-table-skeleton) tbody),
+  .admin-users-table-wrap[aria-busy="true"] .admin-users-mobile-list {
+    opacity: 0.65;
+  }
+
   .admin-users-mobile-list {
     display: none;
   }
 
   @media (min-width: 721px) {
-    /* Fits the 1120px content column of a 1440px screen; extra balance columns
-       still scroll horizontally. */
-    .admin-users-table-wrap :global(.admin-users-table) {
-      min-width: 1100px;
-    }
-
-    .admin-users-table-wrap.has-user-balance :global(.admin-users-table) {
-      min-width: 1220px;
-    }
-
-    .admin-users-table-wrap.has-partner-balance :global(.admin-users-table) {
-      min-width: 1240px;
-    }
-
-    .admin-users-table-wrap.has-user-balance.has-partner-balance :global(.admin-users-table) {
-      min-width: 1360px;
+    .admin-users-table-wrap :global(.admin-users-table :is(th, td)) {
+      padding-inline: 8px;
     }
   }
 
@@ -717,7 +725,7 @@
   }
 
   .admin-users-cell-premium :global(.admin-user-premium-badge) {
-    max-width: 220px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -764,6 +772,10 @@
     color: var(--admin-muted);
   }
 
+  .admin-users-cell-extension {
+    overflow-wrap: anywhere;
+  }
+
   .admin-users-table-wrap :global(.admin-users-table tbody tr.is-clickable:focus-visible) {
     outline: 2px solid var(--admin-ring);
     outline-offset: -2px;
@@ -779,10 +791,6 @@
       display: inline-flex;
       min-width: 38px;
       padding-inline: 10px;
-    }
-
-    .admin-users-filter-toggle-label {
-      display: none;
     }
 
     .admin-users-filter-chips {

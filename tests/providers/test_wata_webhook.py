@@ -98,11 +98,13 @@ async def _run_and_close(service, awaitable):
         await service.close()
 
 
-@pytest.mark.parametrize("remote", ["198.51.100.25", "2001:db8::25"])
-def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch, remote):
+@pytest.mark.parametrize(
+    ("remote", "status"),
+    [("198.51.100.25", "Created"), ("2001:db8::25", "Pending"), ("198.51.100.25", "Declined")],
+)
+def test_wata_attempt_webhook_keeps_the_payment_link_available(monkeypatch, remote, status):
     session = _FakeSession()
     payment = _payment()
-    updates = []
 
     async def lookup_payment(
         _session, *, providers=None, order_id_raw=None, provider_payment_id=None
@@ -112,19 +114,16 @@ def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch
         assert provider_payment_id == "tx-1"
         return payment
 
-    async def update_provider_payment_and_status(
-        _session,
-        payment_id,
-        provider_payment_id,
-        status,
-    ):
-        updates.append((payment_id, provider_payment_id, status))
-
     monkeypatch.setattr(wata_service, "lookup_payment_by_order_or_provider_id", lookup_payment)
+    update = AsyncMock()
+    transition = AsyncMock()
     monkeypatch.setattr(
         wata_service.payment_dal,
         "update_provider_payment_and_status",
-        update_provider_payment_and_status,
+        update,
+    )
+    monkeypatch.setattr(
+        wata_service.payment_dal, "transition_provider_payment_to_terminal", transition
     )
 
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -135,8 +134,9 @@ def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch
     assert service.config.trusted_ips_list == []
     request = _FakeRequest(
         {
-            "transactionStatus": "Created",
-            "transactionId": "tx-1",
+            "transactionStatus": status,
+            "id": "tx-1",
+            "paymentLinkId": "link-id",
             "orderId": "465",
             "amount": 100,
             "currency": "RUB",
@@ -150,8 +150,11 @@ def test_wata_created_webhook_returns_ok_and_persists_transaction_id(monkeypatch
     response = asyncio.run(service.webhook_route(request))
 
     assert response.status == 200
-    assert updates == [(465, "tx-1", "pending_wata")]
-    assert session.commits == 1
+    update.assert_not_awaited()
+    transition.assert_not_awaited()
+    assert payment.provider_payment_id == "link-id"
+    assert payment.status == "pending_wata"
+    assert session.commits == 0
     assert session.rollbacks == 0
 
 
@@ -228,8 +231,8 @@ def test_wata_created_webhook_can_find_payment_by_payment_link_id(monkeypatch):
 
     assert response.status == 200
     assert lookup_calls == [(None, "tx-1"), (None, "link-id")]
-    assert updates == [(465, "tx-1", "pending_wata")]
-    assert session.commits == 1
+    assert updates == []
+    assert session.commits == 0
 
 
 def test_wata_known_payment_with_unknown_status_still_acknowledges_webhook(monkeypatch):
@@ -286,7 +289,7 @@ def test_wata_refresh_finds_paid_transaction_by_order_id_and_finalizes(monkeypat
         assert order_id == "465"
         assert payment_link_id is None
         assert status is None
-        assert statuses == ("Paid", "Declined")
+        assert statuses == ("Paid",)
         assert limit == 10
         return True, {
             "items": [
@@ -550,6 +553,46 @@ def test_try_reuse_pending_link_returns_url_for_opened_link():
 
     url = asyncio.run(service.try_reuse_pending_link(payment))
     assert url == "https://wata.pro/p/link-id"
+
+
+@pytest.mark.parametrize("order_id", ["465", "999"])
+def test_try_reuse_pending_link_recovers_a_legacy_transaction_id(order_id):
+    service = _service(_FakeSession())
+    payment = _payment(provider_payment_id="legacy-transaction-id")
+    checkout_url = "https://wata.pro/p/link-id"
+    service.get_payment_link = AsyncMock(
+        side_effect=[
+            (False, {"status": 404}),
+            (
+                True,
+                {
+                    "id": "link-id",
+                    "orderId": "465",
+                    "status": "Opened",
+                    "url": checkout_url,
+                    "expirationDateTime": "2099-01-01T00:00:00Z",
+                },
+            ),
+        ],
+    )
+    service.get_transaction = AsyncMock(
+        return_value=(
+            True,
+            {"id": "legacy-transaction-id", "orderId": order_id, "paymentLinkId": "link-id"},
+        )
+    )
+
+    url = asyncio.run(service.try_reuse_pending_link(payment))
+
+    if order_id == "465":
+        assert url == checkout_url
+        assert [call.args[0] for call in service.get_payment_link.await_args_list] == [
+            "legacy-transaction-id",
+            "link-id",
+        ]
+    else:
+        assert url is None
+        service.get_payment_link.assert_awaited_once()
 
 
 def test_try_reuse_pending_link_returns_none_for_other_link_id():
@@ -889,8 +932,8 @@ def test_wata_crypto_webhook_accepts_matching_terminal_public_id(monkeypatch):
     )
 
     assert response.status == 200
-    assert updates == [(465, "tx-crypto", "pending_wata")]
-    assert session.commits == 1
+    assert updates == []
+    assert session.commits == 0
 
 
 def test_wata_webhook_without_terminal_hint_rechecks_signature_with_payment_profile(monkeypatch):
@@ -946,7 +989,7 @@ def test_wata_webhook_without_terminal_hint_rechecks_signature_with_payment_prof
 
     assert response.status == 200
     assert verified_profiles == [None, "wata_crypto"]
-    assert updates == [(465, "tx-crypto", "pending_wata")]
+    assert updates == []
 
 
 def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
@@ -959,7 +1002,7 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
     )
     updates = []
 
-    async def find_final_transaction_for_payment(_payment):
+    async def find_paid_transaction_for_payment(_payment):
         return None
 
     async def get_payment_link(payment_link_id, *, profile=None):
@@ -985,7 +1028,7 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
         assert payment_id == payment.payment_id
         return payment
 
-    service._find_final_transaction_for_payment = find_final_transaction_for_payment
+    service._find_paid_transaction_for_payment = find_paid_transaction_for_payment
     service.get_payment_link = get_payment_link
     notify_failed = AsyncMock()
     monkeypatch.setattr(
@@ -1005,52 +1048,50 @@ def test_refresh_marks_expired_wata_link_as_canceled(monkeypatch):
     assert notify_failed.await_args.kwargs["payment"] is payment
 
 
-def test_refresh_marks_declined_wata_transaction_and_notifies(monkeypatch):
+def test_refresh_keeps_an_open_wata_link_after_a_declined_attempt(monkeypatch):
     session = _FakeSession()
     service = _service(session)
     payment = _payment(provider="wata", provider_payment_id="link-id")
-    updates = []
-
-    async def find_final_transaction_for_payment(_payment):
-        return {
-            "transactionId": "tx-declined",
-            "status": "Declined",
-            "amount": 100,
-            "currency": "RUB",
-        }
-
-    async def transition_provider_payment_to_terminal(
-        _session,
-        payment_id,
-        provider_payment_id,
-        status,
-    ):
-        updates.append((payment_id, provider_payment_id, status))
-        payment.provider_payment_id = provider_payment_id
-        payment.status = status
-        return payment, True
-
-    async def get_payment_by_db_id(_session, payment_id):
-        assert payment_id == payment.payment_id
-        return payment
-
+    service.search_transactions = AsyncMock(
+        return_value=(
+            True,
+            {"items": [{"id": "tx-declined", "status": "Declined", "orderId": "465"}]},
+        )
+    )
+    service.get_payment_link = AsyncMock(
+        return_value=(True, {"status": "Opened", "expirationDateTime": "2099-01-01T00:00:00Z"})
+    )
+    transition = AsyncMock()
     notify_failed = AsyncMock()
-    service._find_final_transaction_for_payment = find_final_transaction_for_payment
     monkeypatch.setattr(
         wata_service.payment_dal,
         "transition_provider_payment_to_terminal",
-        transition_provider_payment_to_terminal,
+        transition,
     )
-    monkeypatch.setattr(wata_service.payment_dal, "get_payment_by_db_id", get_payment_by_db_id)
     monkeypatch.setattr(wata_service, "notify_user_payment_failed", notify_failed)
 
     result = asyncio.run(service.refresh_payment_status(session, payment))
 
     assert result is payment
-    assert updates == [(465, "tx-declined", "failed")]
-    assert session.commits == 1
-    notify_failed.assert_awaited_once()
-    assert notify_failed.await_args.kwargs["payment"] is payment
+    assert payment.status == "pending_wata"
+    assert payment.provider_payment_id == "link-id"
+    assert session.commits == 0
+    transition.assert_not_awaited()
+    notify_failed.assert_not_awaited()
+
+
+def test_local_wata_link_expiry_prefers_the_saved_checkout_deadline():
+    service = _service(_FakeSession())
+    now = datetime.now(UTC)
+    payment = _payment(
+        provider="wata",
+        created_at=now - timedelta(hours=1),
+        checkout_expires_at=now + timedelta(minutes=1),
+    )
+
+    assert not service.payment_link_expired_locally(payment)
+    payment.checkout_expires_at = now - timedelta(minutes=1)
+    assert service.payment_link_expired_locally(payment)
 
 
 def test_refresh_uses_local_wata_ttl_without_link_lookup(monkeypatch):
@@ -1062,7 +1103,7 @@ def test_refresh_uses_local_wata_ttl_without_link_lookup(monkeypatch):
         created_at=datetime.now(UTC) - timedelta(minutes=16),
     )
 
-    service._find_final_transaction_for_payment = AsyncMock(return_value=None)
+    service._find_paid_transaction_for_payment = AsyncMock(return_value=None)
     service.get_payment_link = AsyncMock()
     mark_expired = AsyncMock(return_value=payment)
     monkeypatch.setattr(service, "_mark_expired_link", mark_expired)
@@ -1085,7 +1126,7 @@ def test_refresh_does_not_expire_payment_already_claimed_for_success(monkeypatch
         created_at=datetime.now(UTC) - timedelta(minutes=16),
     )
 
-    service._find_final_transaction_for_payment = AsyncMock(return_value=None)
+    service._find_paid_transaction_for_payment = AsyncMock(return_value=None)
     service.get_payment_link = AsyncMock()
     mark_expired = AsyncMock(return_value=payment)
     monkeypatch.setattr(service, "_mark_expired_link", mark_expired)

@@ -10,6 +10,105 @@ type RelationshipCanvas = HTMLDivElement & {
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
+test("user columns and scroll position stay stable while sorting", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.addInitScript(() => {
+    type Api = (path: string, options?: RequestInit) => Promise<unknown>;
+    type Bundle = { mount: (target: HTMLElement, props: { api: Api }) => unknown };
+    let bundle: Bundle | undefined;
+    Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+      configurable: true,
+      get: () => bundle,
+      set(value: Bundle) {
+        const mount = value.mount;
+        value.mount = (target, props) =>
+          mount(target, {
+            ...props,
+            api: async (path, options) => {
+              if (
+                path.startsWith("/admin/users?") &&
+                new URL(path, location.origin).searchParams.get("sort") === "registered_desc"
+              ) {
+                await new Promise<void>((resolve) => {
+                  document.addEventListener("release-user-sort", () => resolve(), { once: true });
+                  document.documentElement.dataset.userSortPending = "true";
+                });
+              }
+              return props.api(path, options);
+            },
+          });
+        bundle = value;
+      },
+    });
+  });
+  await page.goto("/demo/runtime/admin/users?theme_preview=dark&users_extensions_demo=1");
+  const table = page.locator("table.admin-users-table");
+  const sort = table.getByRole("button", { name: "Регистрация" });
+  await sort.scrollIntoViewIfNeeded();
+  await sort.focus();
+  const geometry = () =>
+    table.evaluate((element) => ({
+      widths: [...element.querySelectorAll("th")].map((cell) => cell.getBoundingClientRect().width),
+      scroll: element.parentElement!.scrollLeft,
+    }));
+  const before = await geometry();
+  expect(before.scroll).toBeGreaterThan(0);
+  await sort.press("Enter");
+  await expect(page.locator("html")).toHaveAttribute("data-user-sort-pending", "true");
+  expect(await geometry()).toEqual(before);
+  await expect(sort).toBeFocused();
+  await page.evaluate(() => document.dispatchEvent(new Event("release-user-sort")));
+  await expect(page.locator(".admin-users-table-wrap")).not.toHaveAttribute("aria-busy", "true");
+  await expect(table.getByRole("columnheader", { name: "Регистрация" })).toHaveAttribute(
+    "aria-sort",
+    "descending"
+  );
+  expect(await geometry()).toEqual(before);
+});
+
+for (const width of [1440, 390]) {
+  test(`user table plugin columns and filters work at ${width}px`, async ({ page }, testInfo) => {
+    const mobile = width < 720;
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/demo/runtime/admin/users?theme_preview=dark&users_extensions_demo=1");
+    if (!mobile) {
+      await expect(page.getByRole("columnheader", { name: "Demo segment" })).toBeVisible();
+    }
+    const filter = page.getByRole("combobox", { name: "Demo segment", exact: true });
+    if (mobile) await page.locator(".admin-users-filter-toggle").click();
+    await filter.click();
+    await expect(page.getByRole("option", { name: "Staff", exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`users-extension-menu-${width}.png`) });
+    await page.getByRole("option", { name: "Staff", exact: true }).click();
+    await expect(page).toHaveURL(/extension_filter=example%3Asegment%3Dstaff/);
+    if (mobile) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Фильтры (1)", exact: true })).toBeVisible();
+    }
+
+    const row = page.locator(mobile ? '[data-mobile-user-id="910001"]' : '[data-user-id="910001"]');
+    const cell = row.getByText("Staff", { exact: true });
+    await cell.scrollIntoViewIfNeeded();
+    await expect(cell).toBeVisible();
+    await expect(page.locator(mobile ? "[data-mobile-user-id]" : "tr[data-user-id]")).toHaveCount(
+      1
+    );
+    await page.screenshot({ path: testInfo.outputPath(`users-extension-value-${width}.png`) });
+
+    await page.reload();
+    await expect(cell).toBeVisible();
+    if (mobile) await page.locator(".admin-users-filter-toggle").click();
+    await expect(filter).toContainText("Staff");
+    await filter.click();
+    await page.getByRole("option", { name: /^(Все|All)$/ }).click();
+    await expect(page).not.toHaveURL(/extension_filter/);
+    if (mobile) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Открыть фильтры" })).toHaveText("Фильтры");
+    }
+  });
+}
+
 for (const width of [1440, 390]) {
   test(`invitation link prefix can be edited and saved at ${width}px`, async ({
     page,
@@ -78,13 +177,33 @@ for (const width of [1440, 768, 390, 320]) {
       await expect(graph).toBeVisible();
       await expect(graph.locator(".relationships-stage")).toHaveAttribute("aria-busy", "false");
       await expect(page).toHaveURL(/view=relationships.*focus=910083/);
-      await expect(graph.locator('[data-graph-user-id="910083"]')).toBeVisible();
+      const activeNode = graph.locator('[data-graph-user-id="910083"]');
+      await expect(activeNode).toBeVisible();
+      await expect(activeNode).toHaveCSS("opacity", "1");
+      const edgeAppearance = await graph.locator(".relationships-canvas").evaluate((element) => {
+        const { cy } = (element as RelationshipCanvas)._cyreg;
+        return ["910083", "910094", "910154"].map((target) => {
+          const edge = cy.edges(`edge[kind="referral"][target="${target}"]`).first();
+          return [edge.style("line-color"), edge.style("target-arrow-color")];
+        });
+      });
+      expect(edgeAppearance).toEqual([
+        ["rgb(59,130,246)", "rgb(59,130,246)"],
+        ["rgb(59,130,246)", "rgb(59,130,246)"],
+        ["rgb(128,128,128)", "rgb(128,128,128)"],
+      ]);
+      const search = graph.locator('input[type="search"]');
+      await search.fill("910154");
+      await search.press("Enter");
+      await expect(graph.locator('[data-graph-user-id="910154"]')).toHaveCSS("opacity", "0.8");
+      await search.fill("910083");
+      await search.press("Enter");
       // A middle generation includes both its inviter and its own invitees.
       await expect(
         graph.locator('.relationships-selection li[data-relationship-kind="referral"]')
       ).toHaveCount(5);
-      await graph.locator('input[type="search"]').fill("910001");
-      await graph.locator('input[type="search"]').press("Enter");
+      await search.fill("910001");
+      await search.press("Enter");
       await expect(graph.locator('[data-graph-user-id="910001"]')).toHaveClass(/selected/);
       const selectedDetails = graph.locator(".relationships-selection dl");
       await expect(selectedDetails.getByText(/^(Доход|Revenue)$/)).toBeVisible();
@@ -1335,7 +1454,8 @@ for (const [device, viewport] of [
       await dialog.locator(".dialog-head button").click();
     }
 
-    await page.goto(adminUrl("gifts"));
+    // Users have enough pages for the jump field; short lists show page buttons only.
+    await page.goto(adminUrl("users"));
     await expect(page.locator(".admin-pagination-jump-input")).toBeVisible();
     const currentPage = page.locator(".admin-pagination-page[aria-current='page']");
     await expect(currentPage).toHaveCount(1);
@@ -1358,6 +1478,7 @@ for (const [device, viewport] of [
       );
     expect(paginationHeights.length).toBeGreaterThan(2);
     expect(Math.max(...paginationHeights) - Math.min(...paginationHeights)).toBeLessThanOrEqual(1);
+    await page.goto(adminUrl("gifts"));
     const rows = page.locator(
       device === "desktop" ? ".gift-desktop tbody tr" : ".gift-mobile-card"
     );

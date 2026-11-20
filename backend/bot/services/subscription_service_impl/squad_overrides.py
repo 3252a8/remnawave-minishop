@@ -186,7 +186,7 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
         reason: str,
     ) -> dict[str, Any] | None:
         try:
-            panel_user = await self.panel_service.get_user_by_uuid(panel_user_uuid)
+            panel_user = await self.panel_service.get_user_by_uuid(panel_user_uuid, use_cache=False)
         except Exception as exc:
             logger.warning(
                 "Unable to fetch panel user %s before squad update (%s): %s",
@@ -231,25 +231,42 @@ class SquadOverrideMixin(SubscriptionServiceMixinContract):
         if not external_present:
             return
         default_external_uuid = self._default_external_squad_uuid(external_default_uuid)
-        if panel_external_uuid and panel_external_uuid != default_external_uuid:
-            await override_dal.set_external_override(
+        if panel_external_uuid == default_external_uuid:
+            current_override = await override_dal.get_active_external_override(
                 session,
                 user_id=user_id,
                 panel_user_uuid=panel_user_uuid,
-                mode=override_dal.OVERRIDE_MODE_SET,
-                squad_uuid=panel_external_uuid,
-                source=override_dal.OVERRIDE_SOURCE_PANEL,
-                last_seen_at=now,
             )
-        elif panel_external_uuid is None and default_external_uuid:
-            await override_dal.set_external_override(
-                session,
-                user_id=user_id,
-                panel_user_uuid=panel_user_uuid,
-                mode=override_dal.OVERRIDE_MODE_CLEARED,
-                source=override_dal.OVERRIDE_SOURCE_PANEL,
-                last_seen_at=now,
-            )
+            if current_override is None:
+                return
+            source = str(current_override.source)
+            current_uuid = _clean_uuid(current_override.squad_uuid)
+            if source == override_dal.OVERRIDE_SOURCE_PANEL or (
+                current_uuid
+                and current_uuid != panel_external_uuid
+                and await self.panel_service.is_external_squad_missing(current_uuid)
+            ):
+                await override_dal.deactivate_external_override(
+                    session,
+                    user_id=user_id,
+                    panel_user_uuid=panel_user_uuid,
+                    source=source,
+                    squad_uuid=current_uuid or None,
+                )
+            return
+        await override_dal.set_external_override(
+            session,
+            user_id=user_id,
+            panel_user_uuid=panel_user_uuid,
+            mode=(
+                override_dal.OVERRIDE_MODE_SET
+                if panel_external_uuid is not None
+                else override_dal.OVERRIDE_MODE_CLEARED
+            ),
+            squad_uuid=panel_external_uuid,
+            source=override_dal.OVERRIDE_SOURCE_PANEL,
+            last_seen_at=now,
+        )
 
     async def deactivate_panel_managed_internal_overrides(
         self,

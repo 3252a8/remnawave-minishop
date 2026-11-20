@@ -14,6 +14,7 @@
   import { customEmojiPreviews } from "$lib/richtext/customEmojiPreview";
   import type { CustomEmojiMediaLoader } from "$lib/richtext/types";
   import EmojiGlyph from "$lib/telegramEmoji/EmojiGlyph.svelte";
+  import { formatTicketTime } from "$lib/ticketTime";
 
   import type { TicketMessageButtonLike } from "./types.js";
 
@@ -35,6 +36,7 @@
     loadCustomEmojiMedia?: CustomEmojiMediaLoader;
     buttons?: TicketMessageButtonLike[];
     createdAt?: string;
+    locale?: string;
     isInternalNote?: boolean;
     perspective?: "admin" | "user";
     userAvatarUrl?: string;
@@ -57,6 +59,7 @@
     loadCustomEmojiMedia = undefined,
     buttons = [],
     createdAt = "",
+    locale = "ru",
     isInternalNote = false,
     perspective = "user",
     userAvatarUrl = "",
@@ -88,7 +91,7 @@
       ? [authorName, t("wa_support_internal_note", {}, "Internal note")].filter(Boolean).join(" / ")
       : authorName || t(`wa_support_role_${messageRole}`, {}, messageRole)
   );
-  const timeLabel = $derived(formatTime(createdAt));
+  const timeLabel = $derived(formatTicketTime(createdAt, locale));
   // Built from the parsed structure, never from the raw string: only the tags
   // the whitelist knows can reach the DOM, and bare URLs become tappable.
   const bodyHtml = $derived(
@@ -106,17 +109,6 @@
   const receiptLabel = $derived(
     t(messageRead ? "wa_support_message_read" : "wa_support_message_sent")
   );
-  function formatTime(value: string): string {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleString(undefined, {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 </script>
 
 <article

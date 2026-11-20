@@ -48,7 +48,7 @@
     height: 18px;
     flex: 0 0 18px;
     padding: 0;
-    border: 1px solid var(--admin-border-strong, var(--border));
+    border: 1px solid var(--control-border, var(--admin-border-strong, var(--border)));
     border-radius: 4px;
     background: color-mix(
       in srgb,

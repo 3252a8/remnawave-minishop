@@ -42,6 +42,8 @@ GIFT_PAYMENT_METHODS = (
     ("rollypay_international", True),
     ("rollypay_crypto", True),
     ("rollypay_subscription", False),
+    ("rivarapay_sbp", True),
+    ("rivarapay_crypto", True),
     ("severpay", True),
     ("wata", True),
     ("wata_crypto", True),

@@ -14,7 +14,6 @@ from bot.keyboards.inline.user_keyboards import (
     PROMO_ID_TOKEN_PREFIX,
     callback_context_from_back_callback,
     callback_suffix_for_checkout,
-    callback_suffix_for_context,
     get_back_to_main_menu_markup,
     get_payment_method_keyboard,
     get_subscription_options_keyboard,
@@ -22,7 +21,15 @@ from bot.keyboards.inline.user_keyboards import (
     promo_id_token,
     sale_mode_with_callback_context,
     sale_mode_with_token,
-    tariff_purchase_back_callback,
+    subscription_options_callback,
+)
+from bot.keyboards.inline.user_keyboards_context import (
+    SUBSCRIPTION_CATALOG_ORIGIN,
+    TARIFF_SWITCH_ORIGIN,
+    TELEGRAM_SUBSCRIPTION_CHECKOUT,
+    payment_options_back_callback,
+    subscription_menu_back_callback,
+    subscription_status_callback,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.behavior_events import emit_plans_viewed
@@ -83,15 +90,11 @@ def _promo_enabled_for_event(event: types.Message | types.CallbackQuery) -> bool
     return PROMO_DISABLED_TOKEN not in _checkout_tokens(event)
 
 
-def _subscription_toggle_callback(context: str | None, *, enable: bool) -> str:
-    action = "main_action:bot_subscribe" if context == BOT_MENU_CONTEXT else "main_action:subscribe"
-    return action if enable else f"{action}:{PROMO_DISABLED_TOKEN}"
-
-
-def _tariff_toggle_callback(tariff_key: str, context: str | None, *, enable: bool) -> str:
-    return (
-        f"tariff:select:{tariff_key}{callback_suffix_for_checkout(context, promo_enabled=enable)}"
-    )
+def _tariff_toggle_callback(
+    tariff_key: str, context: str | None, *, enable: bool, origin_suffix: str
+) -> str:
+    suffix = callback_suffix_for_checkout(context, promo_enabled=enable)
+    return f"tariff:select:{tariff_key}{suffix}{origin_suffix}"
 
 
 def _with_checkout_promo_notice(
@@ -249,6 +252,12 @@ async def display_subscription_options(
     currency_symbol_val = settings.DEFAULT_CURRENCY_SYMBOL
     tariffs_config = settings.tariffs_config
     promo_enabled = _promo_enabled_for_event(event)
+    callback_context = callback_context_from_back_callback(back_callback)
+    from_subscription = back_callback == subscription_status_callback(callback_context)
+    origin_suffix = f":{SUBSCRIPTION_CATALOG_ORIGIN}" if from_subscription else ""
+    promo_toggle = subscription_options_callback(
+        callback_context, promo_enabled=not promo_enabled, from_subscription=from_subscription
+    )
     from_user = event.from_user
     if from_user is None:
         return
@@ -256,7 +265,6 @@ async def display_subscription_options(
     if tariffs_config:
         assigned_tariff_key = await _assigned_tariff_key(session, user_id)
         available_tariffs = tariffs_config.available_tariffs_for_user(assigned_tariff_key)
-        callback_context = callback_context_from_back_callback(back_callback)
         candidates = await _promo_candidates(session, user_id=user_id)
         default_currency = default_currency_key_for_settings(settings)
         promo_plans = [
@@ -312,10 +320,8 @@ async def display_subscription_options(
                 promo_quotes=tariff_promo_quotes,
                 promo_available=bool(tariff_promo_quotes),
                 promo_enabled=promo_enabled,
-                promo_toggle_callback=_subscription_toggle_callback(
-                    callback_context,
-                    enable=not promo_enabled,
-                ),
+                promo_toggle_callback=promo_toggle,
+                origin_suffix=origin_suffix,
             )
         else:
             text_content = get_text("select_subscription_period")
@@ -334,10 +340,8 @@ async def display_subscription_options(
                 callback_context=callback_context,
                 promo_available=promo_available,
                 promo_enabled=promo_enabled,
-                promo_toggle_callback=_subscription_toggle_callback(
-                    callback_context,
-                    enable=not promo_enabled,
-                ),
+                promo_toggle_callback=promo_toggle,
+                origin_suffix=origin_suffix,
             )
             plans_count = len(available_tariffs)
             viewed_tariff_key = None
@@ -417,10 +421,8 @@ async def display_subscription_options(
             promo_quotes=legacy_promo_quotes,
             promo_available=promo_available,
             promo_enabled=promo_enabled,
-            promo_toggle_callback=_subscription_toggle_callback(
-                callback_context_from_back_callback(back_callback),
-                enable=not promo_enabled,
-            ),
+            promo_toggle_callback=promo_toggle,
+            origin_suffix=origin_suffix,
         )
         text_content = _with_checkout_promo_notice(
             text_content,
@@ -502,12 +504,22 @@ async def select_tariff_callback(
         ],
     )
     promo_available = bool(promo_quotes)
+    from_subscription = SUBSCRIPTION_CATALOG_ORIGIN in callback_tokens
+    origin_suffix = f":{SUBSCRIPTION_CATALOG_ORIGIN}" if from_subscription else ""
+    if len(available_tariffs) > 1:
+        back_callback = subscription_options_callback(
+            callback_context, promo_enabled=promo_enabled, from_subscription=from_subscription
+        )
+    elif from_subscription:
+        back_callback = subscription_status_callback(callback_context)
+    else:
+        back_callback = subscription_menu_back_callback(callback_context)
     markup = _tariff_purchase_markup(
         tariff,
         current_lang,
         i18n,
         settings,
-        back_callback=tariff_purchase_back_callback(callback_context),
+        back_callback=back_callback,
         callback_context=callback_context,
         promo_quotes=promo_quotes,
         promo_available=promo_available,
@@ -516,7 +528,9 @@ async def select_tariff_callback(
             tariff.key,
             callback_context,
             enable=not promo_enabled,
+            origin_suffix=origin_suffix,
         ),
+        origin_suffix=origin_suffix,
     )
     text = _tariff_purchase_text(
         tariff,
@@ -597,6 +611,10 @@ async def select_tariff_period_callback(
         with_period_days(f"subscription@{tariff.key}", tariff.period_duration_days(months)),
         callback_context,
     )
+    if TARIFF_SWITCH_ORIGIN in callback_tokens:
+        sale_mode = sale_mode_with_token(sale_mode, TARIFF_SWITCH_ORIGIN)
+    elif SUBSCRIPTION_CATALOG_ORIGIN in callback_tokens:
+        sale_mode = sale_mode_with_token(sale_mode, SUBSCRIPTION_CATALOG_ORIGIN)
     promo_quote: CheckoutPromoResult | None = None
     stars_promo_quote: CheckoutPromoResult | None = None
     if promo_enabled:
@@ -639,10 +657,7 @@ async def select_tariff_period_callback(
         i18n,
         settings,
         sale_mode=sale_mode,
-        back_callback=(
-            f"tariff:select:{tariff.key}"
-            f"{callback_suffix_for_checkout(callback_context, promo_enabled=promo_enabled)}"
-        ),
+        back_callback=payment_options_back_callback(sale_mode),
         user_id=account_user_id,
         hwid_renewal_quote=hwid_renewal_quote,
         hwid_renewal_stars_quote=hwid_renewal_stars_quote,
@@ -677,7 +692,8 @@ async def select_tariff_package_callback(
         await callback.answer(get_text("error_try_again"), show_alert=True)
         return
     tariff_key, gb_raw = parts[2], parts[3]
-    callback_context = parts[4] if len(parts) > 4 else None
+    callback_tokens = parts[4:]
+    callback_context = BOT_MENU_CONTEXT if BOT_MENU_CONTEXT in callback_tokens else None
     try:
         assigned_tariff_key = await _assigned_tariff_key(session, account_user_id)
         tariff = config.require_for_user(tariff_key, assigned_tariff_key)
@@ -704,11 +720,12 @@ async def select_tariff_package_callback(
         f"{'traffic_package' if tariff.billing_model == 'traffic' else 'topup'}@{tariff.key}"
     )
     sale_mode = sale_mode_with_callback_context(sale_mode, callback_context)
-    back_callback = (
-        f"tariff:select:{tariff.key}{callback_suffix_for_context(callback_context)}"
-        if tariff.billing_model == "traffic"
-        else "tariff_topup:list"
-    )
+    if TARIFF_SWITCH_ORIGIN in callback_tokens:
+        sale_mode = sale_mode_with_token(sale_mode, TARIFF_SWITCH_ORIGIN)
+    elif SUBSCRIPTION_CATALOG_ORIGIN in callback_tokens:
+        sale_mode = sale_mode_with_token(sale_mode, SUBSCRIPTION_CATALOG_ORIGIN)
+    elif tariff.billing_model != "traffic":
+        sale_mode = sale_mode_with_token(sale_mode, TELEGRAM_SUBSCRIPTION_CHECKOUT)
     markup = get_payment_method_keyboard(
         gb,
         package.price,
@@ -718,7 +735,7 @@ async def select_tariff_package_callback(
         i18n,
         settings,
         sale_mode=sale_mode,
-        back_callback=back_callback,
+        back_callback=payment_options_back_callback(sale_mode),
         user_id=account_user_id,
     )
     await callback_message(callback).edit_text(

@@ -5,6 +5,7 @@
   import { slide } from "svelte/transition";
   import {
     CheckCircle2,
+    CalendarDays,
     CircleQuestionMark,
     CircleX,
     CreditCard,
@@ -19,6 +20,7 @@
   import { AttentionDot } from "$components/ui/index.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
+  import NotificationPreferenceSwitch from "$components/patterns/NotificationPreferenceSwitch.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
   import ServerStatusCard from "../ServerStatusCard.svelte";
   import HomeCompactSummaryCard from "../HomeCompactSummaryCard.svelte";
@@ -187,6 +189,14 @@
     const limit = Number(sub?.traffic_limit_bytes || 0);
     return limit > 0 && used >= limit;
   }
+  // Used-up traffic is the problem to solve first: its top-up becomes the
+  // primary action instead of the third secondary button.
+  const depletedTopupFirst = $derived(
+    Boolean(subscription.active) &&
+      regularTrafficTopupUnlocked &&
+      regularTrafficLimitVisible(subscription) &&
+      regularTrafficDepleted(subscription)
+  );
   function regularTrafficCardClass(sub: SubscriptionView = subscription) {
     return [
       "traffic-card-compact",
@@ -505,87 +515,93 @@
         </UserExtensionPoint>
       {/if}
 
-      <UserExtensionPoint target="user.home.subscription">
-        <Card class={statusCardClass} style="position:relative;isolation:isolate">
-          <ThemeEffectSurface name="home.card.surface" />
-          {#if subscription.active}
-            <div class="sub-status">
-              <CheckCircle2 class="sub-status-icon" size={23} />
-              <div class="sub-status-main">
-                <h2>
-                  {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")}
-                  {#if showSubscriptionPeriod}
-                    <span class="meta-separator" aria-hidden="true"></span>
-                    {subscriptionTermDisplayText}
+      <!-- A trial or welcome card already explains the inactive state and carries
+           the primary action, so the inactive card would only repeat it. -->
+      {#if subscription.active || !trialCardHasPrimary}
+        <UserExtensionPoint target="user.home.subscription">
+          <Card class={statusCardClass} style="position:relative;isolation:isolate">
+            <ThemeEffectSurface name="home.card.surface" />
+            {#if subscription.active}
+              <div class="sub-status">
+                <CheckCircle2 class="sub-status-icon" size={23} />
+                <div class="sub-status-main">
+                  <h2>
+                    {trafficMode ? t("wa_home_access_active") : t("wa_home_subscription_active")}
+                    {#if showSubscriptionPeriod}
+                      <span class="meta-separator" aria-hidden="true"></span>
+                      {subscriptionTermDisplayText}
+                    {/if}
+                  </h2>
+                  {#if showTariffName || showSubscriptionEnd}
+                    <div
+                      class:sub-status-details-with-tariff={showTariffName && showSubscriptionEnd}
+                      class="sub-status-details"
+                    >
+                      {#if showTariffName}
+                        <p class="current-tariff-line">
+                          {t("wa_current_tariff", { tariff: currentTariffName })}
+                        </p>
+                      {/if}
+                      {#if showSubscriptionEnd}
+                        <p class="subscription-end-line">
+                          {subscriptionEndDisplayText
+                            ? t("wa_until_date", { date: subscriptionEndDisplayText })
+                            : subscription.remaining_text}
+                        </p>
+                      {/if}
+                    </div>
                   {/if}
-                </h2>
-                {#if showTariffName || showSubscriptionEnd}
-                  <div
-                    class:sub-status-details-with-tariff={showTariffName && showSubscriptionEnd}
-                    class="sub-status-details"
+                </div>
+                {#if showChangeTariff}
+                  <Button
+                    data-webapp-action="open-tariff-change"
+                    class="status-tariff-action"
+                    variant="secondary"
+                    onclick={openTariffChangeModal}
                   >
-                    {#if showTariffName}
-                      <p class="current-tariff-line">
-                        {t("wa_current_tariff", { tariff: currentTariffName })}
-                      </p>
-                    {/if}
-                    {#if showSubscriptionEnd}
-                      <p class="subscription-end-line">
-                        {subscriptionEndDisplayText
-                          ? t("wa_until_date", { date: subscriptionEndDisplayText })
-                          : subscription.remaining_text}
-                      </p>
-                    {/if}
-                  </div>
+                    <Repeat2 size={17} />
+                    {t("wa_change_tariff")}
+                  </Button>
                 {/if}
               </div>
-              {#if showChangeTariff}
-                <Button
-                  data-webapp-action="open-tariff-change"
-                  class="status-tariff-action"
-                  variant="secondary"
-                  onclick={openTariffChangeModal}
-                >
-                  <Repeat2 size={17} />
-                  {t("wa_change_tariff")}
-                </Button>
-              {/if}
-            </div>
-            {#if showAutoRenew}
-              <div class="auto-renew-row">
-                <div class="auto-renew-state">
-                  <Repeat2 size={17} />
-                  <span>
-                    <strong>
-                      {autoRenewEnabled ? t("wa_auto_renew_enabled") : t("wa_auto_renew_disabled")}
-                    </strong>
+              {#if showAutoRenew}
+                <!-- A switch row, like notification settings: one control in the
+                     card instead of a framed box with a 28px button. -->
+                <div class="auto-renew-row">
+                  <CalendarDays class="auto-renew-icon" size={18} />
+                  <span class="auto-renew-copy">
+                    <strong>{t("wa_auto_renew_title", {}, "Auto-renewal")}</strong>
+                    <small>
+                      {autoRenewEnabled
+                        ? t("wa_auto_renew_on_hint", {}, "We renew the subscription before it ends")
+                        : t(
+                            "wa_auto_renew_off_hint",
+                            {},
+                            "The subscription will not renew by itself"
+                          )}
+                    </small>
                   </span>
+                  <NotificationPreferenceSwitch
+                    checked={autoRenewEnabled}
+                    disabled={autoRenewBusy ||
+                      (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
+                    ariaLabel={t("wa_auto_renew_title", {}, "Auto-renewal")}
+                    onCheckedChange={(checked) => toggleAutoRenew(checked)}
+                  />
                 </div>
-                <Button
-                  class="auto-renew-action"
-                  variant="secondary"
-                  onclick={() => toggleAutoRenew(!autoRenewEnabled)}
-                  disabled={autoRenewBusy ||
-                    (!autoRenewEnabled && !subscription?.auto_renew_can_enable)}
-                >
-                  {#if autoRenewEnabled}
-                    <CircleX size={17} />
-                    {t("wa_auto_renew_disable")}
-                  {:else}
-                    <Repeat2 size={17} />
-                    {t("wa_auto_renew_enable")}
-                  {/if}
-                </Button>
+              {/if}
+            {:else}
+              <div class="sub-status sub-status-inactive">
+                <CircleX class="sub-status-icon" size={23} />
+                <h2>{t("wa_home_subscription_inactive")}</h2>
               </div>
+              <p class="sub-status-inactive-hint">
+                {t("wa_home_subscription_inactive_hint", {}, "Choose a plan to connect.")}
+              </p>
             {/if}
-          {:else}
-            <div class="sub-status sub-status-inactive">
-              <CircleX class="sub-status-icon" size={23} />
-              <h2>{t("wa_home_subscription_inactive")}</h2>
-            </div>
-          {/if}
-        </Card>
-      </UserExtensionPoint>
+          </Card>
+        </UserExtensionPoint>
+      {/if}
     {/if}
 
     {#if subscription.active}
@@ -617,7 +633,9 @@
                 >
                   <span class="traffic-summary-left premium-summary-trigger">
                     <span class="premium-summary-copy">
-                      {t("wa_home_traffic_used")}
+                      {regularTrafficDepleted(subscription)
+                        ? t("wa_home_traffic_depleted", {}, "Traffic used up")
+                        : t("wa_home_traffic_used")}
                       {#if trafficResetScheduled(subscription)}
                         <span class="traffic-summary-separator" aria-hidden="true"></span>
                         {trafficResetLabel(subscription)}
@@ -877,8 +895,22 @@
     {/if}
 
     <div class="action-stack">
+      {#if depletedTopupFirst}
+        <Button
+          data-webapp-action="open-regular-topup"
+          class="wide"
+          onclick={openRegularTopupModal}
+        >
+          <Database size={18} />
+          {t("wa_add_traffic")}
+        </Button>
+      {/if}
       {#if subscription.active}
-        <Button class="wide" onclick={openConnectLink}>
+        <Button
+          class="wide"
+          variant={depletedTopupFirst ? "secondary" : "default"}
+          onclick={openConnectLink}
+        >
           <Download size={18} />
           {t("wa_install_and_configure")}
         </Button>
@@ -896,7 +928,7 @@
         {/if}
         {primaryPayActionLabel()}
       </Button>
-      {#if regularTrafficTopupUnlocked && regularTrafficLimitVisible(subscription)}
+      {#if regularTrafficTopupUnlocked && regularTrafficLimitVisible(subscription) && !depletedTopupFirst}
         <Button
           data-webapp-action="open-regular-topup"
           class="wide"

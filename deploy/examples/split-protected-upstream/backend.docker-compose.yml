@@ -26,7 +26,7 @@ x-logging: &minishop_logging
 services:
   postgres:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-remnawave_minishop}

@@ -1,3 +1,10 @@
+import { paymentProviderName } from "../paymentProviderNames";
+
+export const paymentTableLayout = {
+  columnWidths: ["11%", "15.5%", "18%", "9%", "7%", "9%", "9.5%", "9%", "12%"],
+  minWidth: "0px",
+};
+
 type PaymentDescriptionRow = {
   sale_mode?: string | null;
   description?: string | null;
@@ -109,7 +116,7 @@ export function paymentProviderDisplay(
     return { label: rawLabel, logoUrl: "", fallbackEmoji: "📅" };
   }
   return {
-    label: rawLabel || "—",
+    label: rawLabel ? paymentProviderName(providerKey) || rawLabel : "—",
     logoUrl: logoFile ? `/provider-logos/${logoFile}` : "",
     fallbackEmoji: "🧾",
   };

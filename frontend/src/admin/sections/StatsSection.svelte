@@ -13,6 +13,7 @@
     AdminEmptyState,
     AdminRevenueCustomRangePopover,
     AdminRevenueTabs,
+    AdminKpiTile,
   } from "$components/patterns/admin/index.js";
   import MaintenanceStatus from "./MaintenanceStatus.svelte";
   import PaymentTable from "./PaymentTable.svelte";
@@ -280,10 +281,9 @@
 </script>
 
 {#snippet revenueKpi(label: string, net: number | null, fees: number | undefined)}
-  <div class="admin-revenue-kpi">
-    <div class="admin-revenue-kpi-label">{label}</div>
-    {@render revenueBreakdown(net, fees)}
-  </div>
+  <AdminKpiTile class="admin-revenue-kpi" {label}
+    >{@render revenueBreakdown(net, fees)}</AdminKpiTile
+  >
 {/snippet}
 
 {#snippet revenueBreakdown(net: number | null, fees: number | undefined, gross?: unknown)}
@@ -476,30 +476,30 @@
     <Card.Root>
       <Card.Content>
         <AdminDashboardGrid class="admin-revenue-summary">
-          <div class="admin-revenue-kpi admin-revenue-kpi--mrr">
-            <div class="admin-revenue-kpi-label">{at("stats_subscription_mrr_label")}</div>
-            <div class="admin-revenue-kpi-value">
-              {stats.subscription_mrr == null
-                ? "—"
-                : at("stats_subscription_mrr_value", {
-                    value: fmtMoney(stats.subscription_mrr, currency),
-                  })}
-            </div>
-            <div class="admin-revenue-kpi-sub">{at("stats_subscription_mrr_hint")}</div>
-          </div>
+          <AdminKpiTile
+            class="admin-revenue-kpi admin-revenue-kpi--mrr"
+            label={at("stats_subscription_mrr_label")}
+            value={stats.subscription_mrr == null
+              ? "—"
+              : at("stats_subscription_mrr_value", {
+                  value: fmtMoney(stats.subscription_mrr, currency),
+                })}
+            hint={at("stats_subscription_mrr_hint")}
+          />
           {@render revenueKpi(
             at("stats_revenue_selected_period"),
             revenueDailyFiltered.length ? chartRangeSum : null,
             chartRangeFees
           )}
-          <div class="admin-revenue-kpi admin-revenue-kpi--net">
-            <div class="admin-revenue-kpi-label">{at("stats_label_today_rev")}</div>
-            {@render revenueBreakdown(
+          <AdminKpiTile
+            class="admin-revenue-kpi admin-revenue-kpi--net"
+            label={at("stats_label_today_rev")}
+            >{@render revenueBreakdown(
               netRevenue(fin.today_revenue, fin.today_fees),
               fin.today_fees,
               fin.today_revenue ?? 0
-            )}
-          </div>
+            )}</AdminKpiTile
+          >
         </AdminDashboardGrid>
 
         <div class="admin-revenue-chart">
@@ -601,30 +601,23 @@
         </div>
 
         <div class="admin-revenue-kpis">
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("gifts_free_stats")}</div>
-            <div class="admin-revenue-kpi-value">{fin.admin_gifts_count ?? 0}</div>
-            <div class="admin-revenue-kpi-label">
-              {at("gifts_free_stats_hint", { count: fin.admin_gifts_activated_count ?? 0 })}
-            </div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">
-              {at("stats_today_payments_label", {}, "Payments today")}
-            </div>
-            <div class="admin-revenue-kpi-value">{fin.today_payments_count ?? 0}</div>
-          </div>
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">
-              {at("stats_revenue_avg_ticket_label", {}, "")}
-            </div>
-            <div class="admin-revenue-kpi-value">
-              {revenueKpis.avgToday != null ? fmtMoney(revenueKpis.avgToday, currency) : "—"}
-            </div>
-            {#if revenueKpis.avgToday == null}
-              <div class="admin-revenue-kpi-sub">{at("stats_revenue_avg_none", {}, "")}</div>
-            {/if}
-          </div>
+          <AdminKpiTile
+            class="admin-revenue-kpi"
+            label={at("gifts_free_stats")}
+            value={fin.admin_gifts_count ?? 0}
+            hint={at("gifts_free_stats_hint", { count: fin.admin_gifts_activated_count ?? 0 })}
+          />
+          <AdminKpiTile
+            class="admin-revenue-kpi"
+            label={at("stats_today_payments_label", {}, "Payments today")}
+            value={fin.today_payments_count ?? 0}
+          />
+          <AdminKpiTile
+            class="admin-revenue-kpi"
+            label={at("stats_revenue_avg_ticket_label", {}, "")}
+            value={revenueKpis.avgToday != null ? fmtMoney(revenueKpis.avgToday, currency) : "—"}
+            hint={revenueKpis.avgToday == null ? at("stats_revenue_avg_none", {}, "") : ""}
+          />
           {@render revenueKpi(
             at("stats_revenue_rolling_week"),
             netRevenue(fin.week_revenue, fin.week_fees),
@@ -645,10 +638,9 @@
             netRevenue(fin.all_time_revenue, fin.all_time_fees),
             fin.all_time_fees
           )}
-          <div class="admin-revenue-kpi">
-            <div class="admin-revenue-kpi-label">{at("stats_revenue_total_14", {}, "")}</div>
+          <AdminKpiTile class="admin-revenue-kpi" label={at("stats_revenue_total_14", {}, "")}>
             {@render revenueBreakdown(revenueKpis.total14, sumFees(dailySeries.slice(-14)))}
-            <div class="admin-revenue-kpi-sub">
+            {#snippet delta()}
               {#if revenueKpis.growthPct != null}
                 <Badge variant={growthBadgeVariant(revenueKpis.growthPct)} wrap>
                   {#if revenueKpis.growthPct >= 0}
@@ -656,13 +648,19 @@
                   {:else}
                     <TrendingDown />
                   {/if}
-                  {at("stats_revenue_growth", { value: revenueKpis.growthPct.toFixed(1) }, "")}
+                  {at(
+                    "stats_revenue_growth",
+                    {
+                      value: `${revenueKpis.growthPct > 0 ? "+" : ""}${revenueKpis.growthPct.toFixed(1)}`,
+                    },
+                    ""
+                  )}
                 </Badge>
               {:else}
                 {at("stats_revenue_growth_na", {}, "")}
               {/if}
-            </div>
-          </div>
+            {/snippet}
+          </AdminKpiTile>
         </div>
       </Card.Content>
     </Card.Root>

@@ -11,11 +11,18 @@
   type Props = {
     ticket: SupportTicketLike | null;
     snapshot?: SupportUserSnapshotLike;
+    statusLabel?: string;
     at?: TranslateFn;
     onOpenUser?: (userId: number | string) => void;
   };
 
-  let { ticket, snapshot = {}, at = (key) => key, onOpenUser = () => {} }: Props = $props();
+  let {
+    ticket,
+    snapshot = {},
+    statusLabel,
+    at = (key) => key,
+    onOpenUser = () => {},
+  }: Props = $props();
 
   const user = $derived(ticket?.user || {});
   const displayName = $derived(
@@ -31,7 +38,10 @@
   );
   const contextItems = $derived([
     { label: at("support_tariff", {}, "Tariff"), value: snapshot?.tariff || "-" },
-    { label: at("support_status", {}, "Status"), value: snapshot?.panel_status || "-" },
+    {
+      label: at("support_status", {}, "Status"),
+      value: statusLabel || snapshot?.panel_status || "—",
+    },
     { label: at("support_remaining", {}, "Remaining"), value: snapshot?.remaining || "-" },
   ]);
 

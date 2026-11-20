@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import socket
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
+import pytest
+from aiohttp.abc import ResolveResult
+from aiohttp.resolver import ThreadedResolver
 
 from bot.payment_providers.platega import service as platega_service
 
@@ -43,6 +48,42 @@ def _capture_create_request(monkeypatch, service: platega_service.PlategaService
         AsyncMock(return_value=SimpleNamespace()),
     )
     return captured
+
+
+def test_create_reports_local_block_when_platega_only_resolves_privately(
+    monkeypatch, caplog
+) -> None:
+    async def run() -> None:
+        monkeypatch.delenv("PLATEGA_BASE_URL", raising=False)
+        service = _service()
+        service._init_http_client()
+        answer: ResolveResult = {
+            "hostname": "app.platega.io",
+            "host": "127.0.0.1",
+            "port": 443,
+            "family": socket.AF_INET,
+            "proto": socket.IPPROTO_TCP,
+            "flags": 0,
+        }
+        resolve = AsyncMock(return_value=[answer])
+        monkeypatch.setattr(ThreadedResolver, "resolve", resolve)
+        try:
+            result = await service.create_transaction(
+                amount=100, currency="RUB", description="Test"
+            )
+            assert result == (
+                False,
+                {"message": "unsafe_outbound_address", "source": "local_outbound_policy"},
+            )
+            resolve.assert_awaited_once()
+            assert (
+                "local outbound policy blocked host=app.platega.io port=443 address=127.0.0.1"
+                in caplog.text
+            )
+        finally:
+            await service.close()
+
+    asyncio.run(run())
 
 
 def test_new_payment_buttons_are_opt_in_with_documented_international_method() -> None:
@@ -121,13 +162,11 @@ def test_hosted_chooser_uses_v2_endpoint_without_payment_method(monkeypatch) -> 
     assert captured["body"]["metadata"] == {"userId": "42", "userName": "42"}
 
 
-def test_create_payment_includes_antifraud_payer_metadata(monkeypatch) -> None:
+@pytest.mark.parametrize("variant", ["sbp", "card", "all_methods", "subscription"])
+def test_create_payment_includes_antifraud_payer_metadata(monkeypatch, variant) -> None:
     service = _service(SBP_ENABLED=True)
-    create_transaction = AsyncMock(
-        return_value=(True, {"transactionId": "tx-1", "redirect": "https://pay.platega.io/t/1"})
-    )
-    monkeypatch.setattr(service, "create_transaction", create_transaction)
-    request = SimpleNamespace(
+    captured = _capture_create_request(monkeypatch, service)
+    request = platega_service.CreatePaymentRequest(
         payment=SimpleNamespace(payment_id=17),
         user_id=42,
         amount=150.0,
@@ -135,17 +174,53 @@ def test_create_payment_includes_antifraud_payer_metadata(monkeypatch) -> None:
         description="Subscription",
         months=1,
         sale_mode="subscription",
-        provider_context={"platega_variant": "sbp"},
+        provider_context={"platega_variant": variant},
     )
 
-    asyncio.run(platega_service._create_payment(service, request))
+    success, _data = asyncio.run(platega_service._create_payment(service, request))
 
-    create_call = create_transaction.await_args
-    assert create_call is not None
-    assert create_call.kwargs["metadata"] == {
+    assert success
+    assert captured["body"]["metadata"] == {
         "userId": "42",
         "userName": "42",
+        "user_email": "42@mail.ru",
     }
+
+
+@pytest.mark.parametrize(
+    ("source", "sale_mode", "units", "traffic_gb", "expected_period"),
+    [
+        ("webapp", "subscription@main|d365", 365.0, None, {"duration_days": 365}),
+        ("bot", "subscription@main|d30", 30.0, None, {"duration_days": 30}),
+        ("webapp", "subscription@main", 3.0, None, {"months": 3.0}),
+        ("webapp", "traffic", 25.0, 25, {"months": 0}),
+    ],
+)
+def test_create_payment_payload_uses_the_checkout_duration_unit(
+    monkeypatch, source, sale_mode, units, traffic_gb, expected_period
+) -> None:
+    service = _service(SBP_ENABLED=True)
+    captured = _capture_create_request(monkeypatch, service)
+    request = platega_service.CreatePaymentRequest(
+        payment=SimpleNamespace(payment_id=17, purchased_gb=traffic_gb),
+        user_id=42,
+        amount=150.0,
+        currency="RUB",
+        description="Checkout",
+        months=units,
+        sale_mode=sale_mode,
+        provider_context={"platega_variant": "sbp", "source": source},
+    )
+
+    success, _data = asyncio.run(platega_service._create_payment(service, request))
+
+    assert success
+    payload = json.loads(captured["body"]["payload"])
+    assert {key: payload[key] for key in ("months", "duration_days") if key in payload} == (
+        expected_period
+    )
+    assert payload["sale_mode"] == sale_mode
+    assert payload["payment_db_id"] == 17
 
 
 def test_variant_routing_keeps_callbacks_and_webapp_reuse_isolated() -> None:

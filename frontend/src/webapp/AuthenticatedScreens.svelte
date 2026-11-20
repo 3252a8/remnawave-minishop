@@ -612,6 +612,7 @@
           {@const Screen = supportTicketScreen.component}
           <Screen
             maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
+            locale={currentLang}
             {brand}
             {user}
             userAvatarUrl={profileAvatarUrl}
@@ -626,6 +627,7 @@
         {@const Screen = supportScreen.component}
         <Screen
           maxSubjectLength={appSettings?.support_ticket_max_subject_length || 160}
+          locale={currentLang}
           maxBodyLength={appSettings?.support_ticket_max_body_length || 4000}
           {routePrefix}
           {user}

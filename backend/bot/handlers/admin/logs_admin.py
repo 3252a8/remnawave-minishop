@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
+    get_admin_back_keyboard,
     get_logs_menu_keyboard,
     get_logs_pagination_keyboard,
 )
@@ -110,6 +111,9 @@ async def _display_formatted_logs(
     i18n: JsonI18n,
     current_lang: str,
     title_kwargs: dict[str, Any] | None = None,
+    *,
+    pagination_suffix: str = "",
+    back_to_user_logs: str | None = None,
 ) -> None:
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     page_size = settings.LOGS_PAGE_SIZE
@@ -128,6 +132,8 @@ async def _display_formatted_logs(
             i18n,
             current_lang,
             back_to_logs_menu=True,
+            pagination_suffix=pagination_suffix,
+            back_to_user_logs=back_to_user_logs,
         )
     else:
         total_pages = math.ceil(total_logs / page_size) if page_size > 0 else 1
@@ -180,6 +186,8 @@ async def _display_formatted_logs(
             i18n,
             current_lang,
             back_to_logs_menu=True,
+            pagination_suffix=pagination_suffix,
+            back_to_user_logs=back_to_user_logs,
         )
 
     try:
@@ -269,7 +277,9 @@ async def prompt_user_for_logs_handler(
 
     await callback_message(callback).edit_text(
         text=_("admin_prompt_for_user_id_or_username_logs"),
-        reply_markup=get_logs_menu_keyboard(i18n, current_lang),
+        reply_markup=get_admin_back_keyboard(
+            current_lang, i18n, "admin_action:view_logs_menu", "cancel_button"
+        ),
     )
     await state.set_state(AdminStates.waiting_for_user_id_for_logs)
     await callback.answer()
@@ -337,17 +347,23 @@ async def process_user_id_for_logs_handler(
         i18n=i18n,
         current_lang=current_lang,
         title_kwargs={"user_display": user_display_name},
+        pagination_suffix=":s",
+        back_to_user_logs="admin_logs:prompt_user",
     )
 
 
+@router.callback_query(F.data.startswith("ul:"))
 @router.callback_query(F.data.startswith("admin_logs:view_user:"))
 async def view_user_logs_paginated_handler(
     callback: types.CallbackQuery, settings: Settings, i18n_data: dict, session: AsyncSession
 ) -> None:
     try:
         parts = callback_data(callback).split(":")
-        target_user_id = int(parts[2])
-        page_idx = int(parts[3])
+        from_card = parts[0] == "ul"
+        offset = 1 if from_card else 2
+        target_user_id = int(parts[offset])
+        page_idx = int(parts[offset + 1])
+        origin = parts[offset + 2] if len(parts) > offset + 2 else ""
     except (IndexError, ValueError):
         await callback.answer("Invalid log request format.", show_alert=True)
         return
@@ -383,10 +399,18 @@ async def view_user_logs_paginated_handler(
         current_page_idx=page_idx,
         settings=settings,
         title_key="admin_user_logs_title",
-        base_pagination_callback_data=f"admin_logs:view_user:{target_user_id}",
+        base_pagination_callback_data=(
+            f"ul:{target_user_id}" if from_card else f"admin_logs:view_user:{target_user_id}"
+        ),
         i18n=i18n,
         current_lang=current_lang,
         title_kwargs={"user_display": user_display_name},
+        pagination_suffix=f":{origin}" if origin else "",
+        back_to_user_logs=(
+            f"ur:{target_user_id}:{origin}"
+            if from_card
+            else ("admin_logs:prompt_user" if origin == "s" else None)
+        ),
     )
     await callback.answer()
 

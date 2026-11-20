@@ -12,6 +12,13 @@ from bot.keyboards.inline.user_keyboards import (
     get_language_selection_keyboard,
     telegram_bot_menu_enabled_for_user,
 )
+from bot.keyboards.inline.user_keyboards_context import (
+    BOT_MENU_CONTEXT,
+    SUBSCRIPTION_CATALOG_ORIGIN,
+    subscription_menu_back_callback,
+    subscription_status_callback,
+)
+from bot.keyboards.inline.user_keyboards_menus import get_bot_app_sections_keyboard
 from bot.middlewares.i18n import JsonI18n, normalize_locale_language_code
 from bot.services.legal_document_links import legal_document_links
 from bot.services.panel_api_service import PanelApiService
@@ -29,6 +36,7 @@ from bot.utils.callback_answer import (
 from config.settings import Settings
 from db.dal import user_dal
 
+from .payment_history import send_payment_history
 from .start_channel import ensure_required_channel_subscription
 from .start_common import (
     router,
@@ -283,10 +291,7 @@ async def main_action_callback_handler(
     promo_code_service: PromoCodeService,
     session: AsyncSession,
 ) -> None:
-    action = callback_data(callback).split(":")[1]
-
-    if action in {"back_to_main", "back_to_main_keep", "bot_interface"}:
-        await state.clear()
+    _, action, *arguments = callback_data(callback).split(":")
 
     from . import promo_user as user_promo_handlers
     from . import referral as user_referral_handlers
@@ -301,6 +306,7 @@ async def main_action_callback_handler(
         )
         return
 
+    await state.clear()
     bot_interface_actions = {
         "bot_interface",
         "bot_subscribe",
@@ -309,8 +315,14 @@ async def main_action_callback_handler(
         "bot_apply_promo",
         "bot_language",
         "bot_info",
+        "bot_sections",
+        "bot_payment_history",
     }
-    if action in bot_interface_actions and not telegram_bot_menu_enabled_for_user(
+    from_bot_menu = action in bot_interface_actions or (
+        action in {"my_devices", "request_trial"} and arguments[-1:] == [BOT_MENU_CONTEXT]
+    )
+    preserve_message = arguments[:1] == ["keep"]
+    if from_bot_menu and not telegram_bot_menu_enabled_for_user(
         settings, user_id=await require_telegram_account_id(session, callback.from_user.id)
     ):
         await send_main_menu(
@@ -318,23 +330,20 @@ async def main_action_callback_handler(
         )
         return
 
-    if action == "subscribe":
-        await user_subscription_handlers.display_subscription_options(
-            callback, i18n_data, settings, session
-        )
-    elif action == "bot_subscribe":
+    if action in {"subscribe", "bot_subscribe"}:
+        context = BOT_MENU_CONTEXT if from_bot_menu else None
         await user_subscription_handlers.display_subscription_options(
             callback,
             i18n_data,
             settings,
             session,
-            back_callback="main_action:bot_interface",
+            back_callback=(
+                subscription_status_callback(context)
+                if SUBSCRIPTION_CATALOG_ORIGIN in arguments
+                else subscription_menu_back_callback(context)
+            ),
         )
-    elif action == "my_subscription":
-        await user_subscription_handlers.my_subscription_command_handler(
-            callback, i18n_data, settings, panel_service, subscription_service, session, bot
-        )
-    elif action == "bot_my_subscription":
+    elif action in {"my_subscription", "bot_my_subscription"}:
         await user_subscription_handlers.my_subscription_command_handler(
             callback,
             i18n_data,
@@ -343,11 +352,21 @@ async def main_action_callback_handler(
             subscription_service,
             session,
             bot,
-            back_callback="main_action:bot_interface",
+            back_callback=subscription_menu_back_callback(
+                BOT_MENU_CONTEXT if from_bot_menu else None
+            ),
+            preserve_message=preserve_message,
         )
     elif action == "my_devices":
         await user_subscription_handlers.my_devices_command_handler(
-            callback, i18n_data, settings, panel_service, subscription_service, session, bot
+            callback,
+            i18n_data,
+            settings,
+            panel_service,
+            subscription_service,
+            session,
+            bot,
+            preserve_message=preserve_message,
         )
     elif action == "referral":
         await user_referral_handlers.referral_command_handler(
@@ -389,6 +408,26 @@ async def main_action_callback_handler(
             settings,
             back_callback="main_action:bot_interface",
         )
+    elif action == "bot_sections":
+        section_i18n: JsonI18n | None = i18n_data.get("i18n_instance")
+        if section_i18n is None:
+            await safe_answer_callback(callback)
+            return
+        if not settings.SUBSCRIPTION_MINI_APP_URL:
+            await send_bot_interface_menu(
+                callback, settings, i18n_data, subscription_service, session, is_edit=True
+            )
+            return
+        lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
+        await safe_answer_callback(callback)
+        await callback_message(callback).edit_text(
+            section_i18n.gettext(lang, "menu_app_sections_button"),
+            reply_markup=get_bot_app_sections_keyboard(lang, section_i18n, settings),
+        )
+    elif action == "bot_payment_history":
+        token = arguments[0] if arguments else ""
+        page = int(token) if token.isascii() and token.isdecimal() and len(token) <= 8 else 0
+        await send_payment_history(callback, settings, i18n_data, session, page)
     elif action == "bot_interface":
         await send_bot_interface_menu(
             callback, settings, i18n_data, subscription_service, session, is_edit=True

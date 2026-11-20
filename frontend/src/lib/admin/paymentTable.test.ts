@@ -78,12 +78,12 @@ describe("paymentProviderDisplay", () => {
 
   it("keeps provider logos and uses a receipt for missing or failed logos", () => {
     expect(paymentProviderDisplay("yookassa")).toEqual({
-      label: "yookassa",
+      label: "YooKassa",
       logoUrl: "/provider-logos/yookassa.png",
       fallbackEmoji: "🧾",
     });
     expect(paymentProviderDisplay("rollypay_subscription")).toEqual({
-      label: "rollypay_subscription",
+      label: "RollyPay Subscription",
       logoUrl: "/provider-logos/rollypay.png",
       fallbackEmoji: "🧾",
     });

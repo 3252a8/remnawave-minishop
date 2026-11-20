@@ -110,7 +110,7 @@ export function formatAdminPromoEffect(
   { includeGrantMode = false }: { includeGrantMode?: boolean } = {}
 ): string {
   const values = resolvedEffectValues(source);
-  if (!values) return String(source.effect_summary || "").trim() || "-";
+  if (!values) return String(source.effect_summary || "").trim() || "—";
 
   const parts: string[] = [];
   if (values.bonusDays !== null) {
@@ -207,5 +207,5 @@ export function formatAdminPromoEligibility(
   if (trafficGb !== null) {
     parts.push(at("promo_threshold_gb", { gb: numberText(trafficGb) }, "from {gb} GB"));
   }
-  return parts.join(", ") || "-";
+  return parts.join(", ") || "—";
 }

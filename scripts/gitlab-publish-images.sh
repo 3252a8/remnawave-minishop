@@ -15,7 +15,7 @@ CI_SERVER_URL="${CI_SERVER_URL:?GitLab must provide CI_SERVER_URL}"
 
 IMAGE_PREFIX="${IMAGE_PREFIX:-remnawave-minishop}"
 TARGETS="${TARGETS:-backend worker frontend}"
-TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.75.0}"
+TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.76.2}"
 # OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://github.com/3252a8/remnawave-minishop}"
 OCI_IMAGE_SOURCE="${OCI_IMAGE_SOURCE:-https://gitlab.com/3252a8/remnawave-minishop}"
 dockerhub_owner="$(printf '%s' "$DOCKERHUB_USERNAME" | tr '[:upper:]' '[:lower:]')"
@@ -200,6 +200,9 @@ docker context create "$context_name" \
   >/dev/null
 unset DOCKER_HOST DOCKER_TLS_VERIFY DOCKER_CERT_PATH DOCKER_TLS_CERTDIR
 export DOCKER_CONTEXT="$context_name"
+# Fetch the scanner before building candidates so a registry timeout only retries the pull.
+echo "Pulling Trivy scanner $TRIVY_IMAGE"
+retry_network_command timeout 120 docker pull "$TRIVY_IMAGE"
 docker buildx create \
   --driver docker-container \
   --name "$builder_name" \
@@ -277,7 +280,7 @@ for target in $TARGETS; do
     "$immutable_ref"
   verify_signature "$immutable_ref" "$publish_tag"
 
-  docker run --rm \
+  docker run --rm --pull=never \
     -e TRIVY_USERNAME \
     -e TRIVY_PASSWORD \
     --mount "type=volume,source=$trivy_cache_volume,target=/trivy-cache" \

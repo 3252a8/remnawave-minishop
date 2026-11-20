@@ -511,7 +511,7 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | `PAYMENT_REQUEST_TIMEOUT_SECONDS` | Общий таймаут одного API-запроса к платёжному провайдеру, в секундах. По умолчанию `20`. |
 | `PAYMENT_FAILURE_NOTIFICATION_GRACE_SECONDS` | Задержка уведомления о неуспешной оплате. По умолчанию `300`: успешная повторная оплата за это время подавляет устаревшие ошибки; `0` отключает задержку. |
 | `USER_BALANCE_ENABLED` | Включает пользовательский баланс, его пополнение и оплату покупок. Настраивается в **Общие → Баланс пользователя**. |
-| `USER_BALANCE_RECURRING_ENABLED` | Разрешает автопродление с доступного личного или партнёрского баланса. По умолчанию `True`. |
+| `USER_BALANCE_RECURRING_ENABLED` | Разрешает автопродление с доступного личного или партнёрского баланса. Для `trial` и `admin` автоматически планирует самый короткий платный период, если его покрывает личный кошелёк и пользователь не отключал продление. По умолчанию `True`. |
 | `USER_BALANCE_CURRENCY` | Валюта обычного и конвертируемого партнёрского баланса; пустое значение наследует `DEFAULT_CURRENCY_SYMBOL`. |
 | `USER_BALANCE_TOPUP_MIN_AMOUNT` / `USER_BALANCE_TOPUP_MAX_AMOUNT` | Допустимый диапазон одного пополнения. Максимум не может быть меньше минимума. |
 | `USER_BALANCE_TOPUP_PRESETS` | JSON-массив быстрых сумм пополнения, например `[500, 1000, 2000, 5000]`. |
@@ -520,6 +520,7 @@ Callback URL, настройка Google/Yandex, требования passkey, п
 | `PAYMENT_<METHOD>_TELEGRAM_LABEL_RU` / `PAYMENT_<METHOD>_TELEGRAM_LABEL_EN` | Текст кнопки в Telegram. |
 | `PAYMENT_<METHOD>_TELEGRAM_EMOJI` | Emoji кнопки в Telegram. |
 | `STARS_ENABLED` | Включает Telegram Stars. |
+| `STARS_RUB_PER_STAR` | Рублей за одну звезду. Положительное значение включает расчёт цен из RUB с округлением вверх, `0` по умолчанию сохраняет ручные цены Stars. |
 | `YOOKASSA_ENABLED` | Включает YooKassa. |
 | `FREEKASSA_ENABLED` | Включает FreeKassa. |
 | `PLATEGA_ENABLED` | Включает Platega. |
@@ -777,6 +778,20 @@ docker compose exec backend sh -lc 'curl -4fsS https://api.ipify.org; echo'
 | `SEVERPAY_RETURN_URL` | URL возврата. |
 | `SEVERPAY_LIFETIME_MINUTES` | Время жизни платежной ссылки. |
 
+### RivaraPay
+
+Оба способа выставляют рублёвые счета. Включите нужный способ в Minishop после
+его подключения в кабинете RivaraPay.
+
+| Параметр | Назначение |
+| --- | --- |
+| `RIVARAPAY_API_KEY` | Рабочий ключ `live_…` с правами `payments:write` и `payments:read`. |
+| `RIVARAPAY_WEBHOOK_SECRET` | Секрет адреса `/webhook/rivarapay` из кабинета RivaraPay. |
+| `RIVARAPAY_SBP_ENABLED` / `RIVARAPAY_CRYPTO_ENABLED` | Включить СБП или криптовалюту. По умолчанию оба способа выключены. |
+| `RIVARAPAY_SBP_ADMIN_ONLY_ENABLED` / `RIVARAPAY_CRYPTO_ADMIN_ONLY_ENABLED` | Открыть соответствующий способ только администраторам, пока общий переключатель способа выключен. |
+| `RIVARAPAY_RETURN_URL` | Куда вернуть покупателя со страницы оплаты. По умолчанию используется ссылка на бота. |
+| `RIVARAPAY_SBP_REPORTING_FEE_PERCENT` / `RIVARAPAY_CRYPTO_REPORTING_FEE_PERCENT` | Необязательная ставка комиссии для внутренней отчётности по выбранному способу. |
+
 ### Wata
 
 | Переменная | Назначение |
@@ -836,7 +851,7 @@ donations интеграцией Minishop не поддерживаются. П�
 
 | Переменная | Назначение |
 | --- | --- |
-| `HELEKET_BASE_URL` | Базовый URL API. |
+| `HELEKET_BASE_URL` | Базовый URL API. По умолчанию `https://api.heleket.hk`. При сохранённом `https://api.heleket.com` запросы отправляются на `https://api.heleket.hk`. |
 | `HELEKET_MERCHANT_ID` | UUID мерчанта. |
 | `HELEKET_API_KEY` | Ключ платежного API. |
 | `HELEKET_CURRENCY` | Валюта инвойса. |

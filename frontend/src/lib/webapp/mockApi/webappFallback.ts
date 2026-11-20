@@ -1,5 +1,6 @@
 import { DEVICE_NAME_MAX_LENGTH, normalizeDeviceName } from "../deviceNames";
 import { DEV_MOCK } from "../previewMock.js";
+import { DEMO_CHECKOUT_PROMO_CODE } from "../previewMock/checkoutDemo";
 import { jsonBody } from "../demoMockRuntime.js";
 import {
   DEFAULT_DEMO_AUTH_EMAIL,
@@ -23,7 +24,9 @@ function demoCheckoutQuote(body: DemoRecord) {
   const stars = method.includes("stars");
   const plan = ((DEV_MOCK.data.plans || []) as DemoRecord[]).find(
     (item) =>
-      Number(item.months || 0) === Number(body.months || 0) &&
+      (body.duration_days
+        ? Number(item.duration_days || 0) === Number(body.duration_days)
+        : Number(item.months || 0) === Number(body.months || 0)) &&
       String(item.tariff_key || "") === String(body.tariff_key || "")
   );
   const baseAmount = Number(stars ? plan?.stars_price || 0 : plan?.price || 0);
@@ -181,16 +184,23 @@ export function webappFallbackResponse(
   if (cleanPath === "/subscription/auto-renew" && method === "POST") {
     const body = jsonBody(options);
     const enabled = Boolean(body.enabled);
+    const origin = String(DEV_MOCK.data.subscription?.provider || "cloudpayments");
+    const selection = body.balance_renewal as { source?: string } | undefined;
+    const grant = origin === "trial" || origin === "admin";
+    const balanceProvider = selection?.source === "partner" ? "partner_balance" : "user_balance";
     DEV_MOCK.data.subscription = {
       ...(DEV_MOCK.data.subscription || {}),
       auto_renew_enabled: enabled,
-      auto_renew_available: true,
-      auto_renew_can_enable: true,
-      auto_renew_provider_label:
-        DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
-      provider: DEV_MOCK.data.subscription?.provider || "cloudpayments",
+      auto_renew_available: !grant || enabled,
+      auto_renew_can_enable: !grant || enabled,
+      auto_renew_provider_label: selection
+        ? selection.source === "partner"
+          ? "Partner balance"
+          : "Balance"
+        : DEV_MOCK.data.subscription?.auto_renew_provider_label || "CloudPayments",
+      provider: origin,
     };
-    if (["user_balance", "partner_balance"].includes(String(DEV_MOCK.data.subscription.provider))) {
+    if (selection || grant || ["user_balance", "partner_balance"].includes(origin)) {
       DEV_MOCK.data.subscription.can_topup_regular_traffic = !enabled;
       DEV_MOCK.data.subscription.can_topup_premium_traffic = !enabled;
       DEV_MOCK.data.subscription.can_topup_traffic = !enabled;
@@ -199,23 +209,29 @@ export function webappFallbackResponse(
     return {
       ok: true,
       auto_renew_enabled: enabled,
-      provider: DEV_MOCK.data.subscription.provider,
+      provider: selection ? balanceProvider : origin,
       provider_label: DEV_MOCK.data.subscription.auto_renew_provider_label,
     };
   }
   if (cleanPath === "/me") {
-    const demo = new URLSearchParams(window.location.search).get("gift_demo") || "";
+    const params = new URLSearchParams(window.location.search);
+    const demo = params.get("gift_demo") || "";
+    const botRole = params.get("bot_demo_role");
     // /me exposes id; user_id belongs to admin rows and must not mask consumers of the wrong field.
     const { user_id: legacyUserId, ...user } = DEV_MOCK.data.user;
     return clone({
       ...DEV_MOCK.data,
       referral: issueReviewReferral(DEV_MOCK.data.referral, currentLang),
-      user: { ...user, id: user.id ?? legacyUserId },
+      user: {
+        ...user,
+        id: user.id ?? legacyUserId,
+        ...(botRole === "user" || botRole === "admin" || botRole === "owner"
+          ? { is_admin: botRole !== "user", is_owner: botRole === "owner" }
+          : {}),
+      },
       settings: {
         ...DEV_MOCK.data.settings,
-        ...(new URLSearchParams(window.location.search).get("merge_demo") === "provider-only"
-          ? { email_auth_enabled: false }
-          : {}),
+        ...(params.get("merge_demo") === "provider-only" ? { email_auth_enabled: false } : {}),
         gifts_enabled:
           DEV_MOCK.config.giftsEnabled !== false && !["disabled", "disabled-empty"].includes(demo),
       },
@@ -311,19 +327,25 @@ export function webappFallbackResponse(
     applyDemoTelegramAuthUser((body.auth_data || {}) as DemoRecord);
     return { ok: true, csrf_token: "local-preview-csrf" };
   }
-  if (path === "/promo/apply") return { ok: true, end_date_text: "31.05.2026" };
-  if (path === "/promo/status") {
-    const body = jsonBody(options);
+  if (path === "/promo/apply" || path === "/promo/status") {
+    const code = String(jsonBody(options).code || "DEMO");
+    const requiresCheckout = code.trim().toUpperCase() === DEMO_CHECKOUT_PROMO_CODE;
+    if (path === "/promo/apply") {
+      return requiresCheckout
+        ? { ok: true, requires_checkout: true, code, effect_summary: "−20%", discount_percent: 20 }
+        : { ok: true, end_date_text: "31.05.2026" };
+    }
     return {
       ok: true,
-      status: "standalone",
-      code: String(body.code || "DEMO"),
+      status: requiresCheckout ? "requires_checkout" : "standalone",
+      code,
       message: "",
-      effect_summary: "+7 дней",
+      effect_summary: requiresCheckout ? "−20%" : "+7 дней",
       applies_to: "all",
       min_subscription_months: null,
       min_traffic_gb: null,
-      bonus_days: 7,
+      bonus_days: requiresCheckout ? null : 7,
+      ...(requiresCheckout ? { discount_percent: 20 } : {}),
       end_date_text: null,
     };
   }

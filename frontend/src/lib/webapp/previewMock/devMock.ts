@@ -4,6 +4,16 @@ import { ASCII_THEME, DEFAULT_DARK_THEME, LEGACY_LIGHT_THEME, WINDOWS_95_THEME }
 import type { PreviewMock } from "./types";
 import { currentDemoBalance } from "../mockApi/balance";
 
+export const DEMO_TRIAL_CAPTCHA_ANSWER = "73146";
+
+export const DEMO_AUTO_RENEW_SUBSCRIPTION = {
+  auto_renew_enabled: true,
+  auto_renew_available: true,
+  auto_renew_can_enable: true,
+  auto_renew_provider_label: "CloudPayments",
+  provider: "cloudpayments",
+} as const;
+
 export function checkoutAddons(months: number) {
   return {
     devices: {

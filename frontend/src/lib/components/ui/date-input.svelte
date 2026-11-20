@@ -173,6 +173,11 @@
   :global(.date-input-segment[data-segment="literal"]) {
     padding: 0;
   }
+  /* Bits UI uses aria-valuetext for empty segments. Style them as placeholders. */
+  :global(.date-input-segment[aria-valuetext="Empty"]) {
+    color: var(--admin-muted, var(--muted));
+    font-weight: 400;
+  }
   :global(.date-input-clear.btn) {
     width: 30px;
     height: 30px;

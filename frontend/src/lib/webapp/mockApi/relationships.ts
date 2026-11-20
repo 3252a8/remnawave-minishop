@@ -26,6 +26,7 @@ export function demoUserRelationships() {
         const node = {
           ...user,
           subscription_active: metrics.subscription_plan ? metrics.panel_status === "active" : null,
+          subscription_expired: metrics.panel_status === "expired",
           current_tariff_key: metrics.subscription_plan?.tariff_key ?? null,
           revenue_by_currency: metrics.payments_total_amount
             ? { [metrics.payments_currency || "RUB"]: metrics.payments_total_amount }

@@ -24,6 +24,7 @@ from bot.services.audience_segmentation import (
     AUDIENCE_ACTIVE_NEVER_CONNECTED,
     AUDIENCE_ADMINS,
     AUDIENCE_TARGETS,
+    AudienceDefinition,
     AudienceNotFoundError,
     AudienceSegmentationService,
     AudienceUnavailableError,
@@ -788,8 +789,25 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
     settings: Settings = get_settings(request)
     service = request.app.get("audience_segmentation_service")
     if isinstance(service, AudienceSegmentationService):
-        counts = await service.counts()
-        audiences = service.audiences()
+        try:
+            platforms = await service.platform_groups()
+            audiences = service.audiences(platforms)
+        except AudienceUnavailableError:
+            logger.warning("Device platform audiences unavailable while loading broadcast counts")
+            platforms = {}
+            audiences = service.audiences()
+            audiences.append(
+                AudienceDefinition(
+                    target="device-platforms-unavailable",
+                    label_key="broadcast_platforms_unavailable",
+                    fallback_label="Could not load devices from the panel",
+                    order=600,
+                    available=False,
+                    group_label_key="broadcast_audience_group_platforms",
+                    group_fallback_label="Registered device platform",
+                )
+            )
+        counts = await service.counts(platforms)
     else:
         async_session_factory: sessionmaker = get_session_factory(request)
         panel_service = _resolve_panel_service(request)

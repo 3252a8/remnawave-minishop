@@ -6,6 +6,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.admin_keyboards import (
+    get_admin_back_keyboard,
     get_admin_panel_keyboard,
     get_ban_management_keyboard,
     get_promo_marketing_keyboard,
@@ -88,6 +89,7 @@ async def admin_panel_actions_callback_handler(
         await callback.answer("Error processing action: message context lost.", show_alert=True)
         return
 
+    await state.clear()
     if action == "stats":
         await admin_stats_handlers.show_statistics_handler(callback, i18n_data, settings, session)
     elif action == "broadcast":
@@ -207,6 +209,7 @@ async def admin_section_handler(
         await callback.answer("Error: message context lost.", show_alert=True)
         return
 
+    await state.clear()
     try:
         if section == "stats_monitoring":
             await callback_message(callback).edit_text(
@@ -258,13 +261,11 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
 
     queue_manager = get_queue_manager()
     if not queue_manager:
-        from aiogram.utils.keyboard import InlineKeyboardBuilder
-
         await callback_message(callback).edit_text(
             _("admin_queue_not_initialized"),
-            reply_markup=InlineKeyboardBuilder()
-            .button(text=_("back_to_admin_panel_button"), callback_data="admin_action:main")
-            .as_markup(),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:system_functions"
+            ),
         )
         await callback.answer()
         return
@@ -290,11 +291,11 @@ async def show_queue_status_handler(callback: types.CallbackQuery, i18n_data: di
             group_recent=stats["group_recent_sends"],
         )
 
-        from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
-
         await callback_message(callback).edit_text(
             message_text,
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_admin_back_keyboard(
+                current_lang, i18n, "admin_section:system_functions"
+            ),
             parse_mode="HTML",
         )
         await callback.answer()

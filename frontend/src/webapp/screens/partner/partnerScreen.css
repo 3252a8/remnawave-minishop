@@ -946,6 +946,10 @@
     justify-content: flex-end;
     padding-top: 4px;
   }
+  /* A record card without an action does not get a lone "—" row. */
+  .partner-activity-table .admin-table tbody td.admin-cell-actions:has(.partner-table-no-action) {
+    display: none;
+  }
   .partner-activity .admin-pagination {
     grid-template-columns: 1fr;
   }

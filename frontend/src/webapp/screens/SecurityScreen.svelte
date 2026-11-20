@@ -1,6 +1,5 @@
 <script lang="ts">
   import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
-  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import {
     ArrowRight,
     CheckCircle2,
@@ -272,11 +271,11 @@
 </script>
 
 <main class="content with-nav security-screen">
-  <ScreenBackLink class="security-back" label={t("wa_back")} onclick={goSettings} />
   <Card class="security-overview-card">
     <ScreenHeading
       title={t("wa_security_title", {}, "Security")}
       subtitle={t("wa_security_hint", {}, "Manage how you sign in and recover access")}
+      back={{ label: t("wa_back"), onclick: goSettings, railItem: true }}
     >
       {#snippet icon()}<Shield />{/snippet}
     </ScreenHeading>

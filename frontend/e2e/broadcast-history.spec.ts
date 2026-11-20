@@ -181,13 +181,15 @@ test("broadcast editor is compact and history uses a sortable detail table", asy
   await expect(rows).toHaveCount(3);
   await expect(page.locator(".broadcast-history-table")).toBeVisible();
 
-  const createdHeader = page.getByRole("columnheader", { name: /Создана/ });
-  await createdHeader.click();
-  await expect(createdHeader).toHaveAttribute("aria-sort", "ascending");
-  await createdHeader.click();
-  await expect(createdHeader).toHaveAttribute("aria-sort", "none");
-  await createdHeader.click();
-  await expect(createdHeader).toHaveAttribute("aria-sort", "descending");
+  // Newest first by id; the creation time lives in the broadcast card.
+  const idHeader = page.getByRole("columnheader", { name: "ID", exact: true });
+  await expect(idHeader).toHaveAttribute("aria-sort", "descending");
+  await idHeader.click();
+  await expect(idHeader).toHaveAttribute("aria-sort", "ascending");
+  await idHeader.click();
+  await expect(idHeader).toHaveAttribute("aria-sort", "none");
+  await idHeader.click();
+  await expect(idHeader).toHaveAttribute("aria-sort", "descending");
 
   const scheduledRow = rows.filter({ hasText: "Запланирована" }).first();
   await scheduledRow.click();

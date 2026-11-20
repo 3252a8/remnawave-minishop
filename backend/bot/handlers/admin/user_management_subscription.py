@@ -6,6 +6,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.account_roles import can_ban_account
 from bot.services.panel_api_service import PanelApiService
@@ -19,6 +21,11 @@ from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal, user_dal
 from db.models import User
 
+from .user_management_cards import (
+    user_card_back_callback,
+    user_card_return_origin,
+    user_card_section_callback,
+)
 from .user_management_common import (
     _admin_period_tariffs,
     _admin_tariff_label,
@@ -56,7 +63,7 @@ async def handle_traffic_grant_menu(
     )
     builder.button(
         text=_("admin_user_back_to_card_button"),
-        callback_data=f"user_action:refresh:{user.user_id}",
+        callback_data=user_card_back_callback(callback, user.user_id),
     )
     builder.adjust(1, 1, 1)
 
@@ -82,7 +89,11 @@ async def handle_traffic_grant_prompt(
     """Ask the admin for the amount of GB to grant (regular or premium)."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     kind_normalized = "premium" if kind == "premium" else "regular"
-    await state.update_data(target_user_id=user.user_id, traffic_grant_kind=kind_normalized)
+    await state.update_data(
+        target_user_id=user.user_id,
+        card_origin=user_card_return_origin(callback, user.user_id),
+        traffic_grant_kind=kind_normalized,
+    )
     await state.set_state(AdminStates.waiting_for_traffic_grant_gb)
     prompt_key = (
         "admin_traffic_grant_prompt_premium"
@@ -90,10 +101,16 @@ async def handle_traffic_grant_prompt(
         else "admin_traffic_grant_prompt_regular"
     )
     prompt = _(prompt_key, user_id=getattr(user, "minishop_id", None) or "—")
+    back = get_admin_back_keyboard(
+        lang,
+        i18n_instance,
+        user_card_section_callback(callback, user.user_id, "t"),
+        "cancel_button",
+    )
     try:
-        await callback_message(callback).edit_text(prompt)
+        await callback_message(callback).edit_text(prompt, reply_markup=back)
     except Exception:
-        await callback_message(callback).answer(prompt)
+        await callback_message(callback).answer(prompt, reply_markup=back)
     await callback.answer()
 
 
@@ -153,7 +170,7 @@ async def handle_add_subscription_prompt(
             )
         builder.button(
             text=_("admin_user_back_to_card_button"),
-            callback_data=f"user_action:refresh:{user.user_id}",
+            callback_data=user_card_back_callback(callback, user.user_id),
         )
         builder.adjust(1)
         prompt_text = _(
@@ -200,7 +217,9 @@ async def handle_add_subscription_days_prompt(
         await callback.answer(_(tariff_error), show_alert=True)
         return
 
-    await state.update_data(target_user_id=user.user_id)
+    await state.update_data(
+        target_user_id=user.user_id, card_origin=user_card_return_origin(callback, user.user_id)
+    )
     await state.update_data(subscription_tariff_key=tariff_key)
     await state.set_state(AdminStates.waiting_for_subscription_days_to_add)
 
@@ -215,10 +234,20 @@ async def handle_add_subscription_days_prompt(
         tariff=tariff_key or "",
     )
 
+    back = get_admin_back_keyboard(
+        lang,
+        i18n_instance,
+        (
+            user_card_section_callback(callback, user.user_id, "a")
+            if (callback.data or "").startswith("user_action:add_subscription_tariff:")
+            else user_card_back_callback(callback, user.user_id)
+        ),
+        "cancel_button",
+    )
     try:
-        await callback_message(callback).edit_text(prompt_text)
+        await callback_message(callback).edit_text(prompt_text, reply_markup=back)
     except Exception:
-        await callback_message(callback).answer(prompt_text)
+        await callback_message(callback).answer(prompt_text, reply_markup=back)
 
     await callback.answer()
 
@@ -231,6 +260,8 @@ async def handle_change_tariff_menu(
     session: AsyncSession,
     i18n_instance: JsonI18n,
     lang: str,
+    *,
+    state: FSMContext | None = None,
 ) -> None:
     """Show period tariff choices for an active subscription."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -255,7 +286,7 @@ async def handle_change_tariff_menu(
         )
     builder.button(
         text=_("admin_user_back_to_card_button"),
-        callback_data=f"user_action:refresh:{user.user_id}",
+        callback_data=user_card_back_callback(callback, user.user_id),
     )
     builder.adjust(1)
     text = "\n".join(
@@ -266,14 +297,9 @@ async def handle_change_tariff_menu(
             _("admin_user_tariff_current", tariff=current_key or _("admin_user_tariff_none")),
         ]
     )
-    try:
-        await callback_message(callback).edit_text(
-            text, reply_markup=builder.as_markup(), parse_mode="HTML"
-        )
-    except Exception:
-        await callback_message(callback).answer(
-            text, reply_markup=builder.as_markup(), parse_mode="HTML"
-        )
+    await edit_confirmation(
+        callback_message(callback), state, text, builder.as_markup(), parse_mode="HTML"
+    )
     await callback.answer()
 
 
@@ -412,16 +438,24 @@ async def handle_send_message_prompt(
     """Prompt admin to enter message to send to user"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
 
-    await state.update_data(target_user_id=user.user_id)
+    await state.update_data(
+        target_user_id=user.user_id, card_origin=user_card_return_origin(callback, user.user_id)
+    )
     await state.set_state(AdminStates.waiting_for_direct_message_to_user)
 
     prompt_text = _(
         "admin_user_send_message_prompt", user_id=getattr(user, "minishop_id", None) or "—"
     )
 
+    back = get_admin_back_keyboard(
+        lang,
+        i18n_instance,
+        user_card_back_callback(callback, user.user_id),
+        "cancel_button",
+    )
     try:
-        await callback_message(callback).edit_text(prompt_text)
+        await callback_message(callback).edit_text(prompt_text, reply_markup=back)
     except Exception:
-        await callback_message(callback).answer(prompt_text)
+        await callback_message(callback).answer(prompt_text, reply_markup=back)
 
     await callback.answer()

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Lock, Send } from "$components/ui/icons.js";
+  import { Lock, Send, Sliders } from "$components/ui/icons.js";
+  import { MediaQuery } from "svelte/reactivity";
   import { ImageAttachment, Spinner } from "$components/ui/index.js";
   import { Switch } from "$components/ui/primitives.js";
   import { AdminButton } from "$components/patterns/admin/index.js";
@@ -56,6 +57,10 @@
     onTyping = () => {},
   }: Props = $props();
 
+  const compact = new MediaQuery("max-width: 720px", false);
+  let toolsOpen = $state(false);
+  const showTools = $derived(!compact.current || toolsOpen);
+  const toolsLabel = $derived(at("support_reply_tools", {}, "Reply tools"));
   const MAX_BUTTONS = 4;
   const api = getAdminApi();
   const emojiPicker = createAdminEmojiPicker();
@@ -120,11 +125,9 @@
   let pasteTarget = $state<HTMLElement | null>(null);
   const canSend = $derived(!sending && (!empty || images.length > 0) && !overLimit && buttonsValid);
 
-  // A note never reaches the customer, so the buttons it would have carried are
-  // dropped rather than silently sent with the next reply.
-  $effect(() => {
-    if (internal && buttons.length) buttons = [];
-  });
+  export function focusEditor(): void {
+    pasteTarget?.querySelector<HTMLElement>('.rt-source, [contenteditable="true"]')?.focus();
+  }
 
   function submit(): void {
     if (!canSend) return;
@@ -165,58 +168,18 @@
   }
 </script>
 
-<div class="support-admin-composer" bind:this={pasteTarget}>
-  <div class="support-admin-composer-editor">
-    <RichTextEditor
-      {value}
-      onInput={(next) => (value = next)}
-      {labels}
-      {shortcodes}
-      {onRequestShortcodes}
-      {quickInserts}
-      selectCustomEmoji={emojiPicker.select}
-      loadCustomEmojiMedia={emojiPicker.loadMedia}
-      placeholder={at("support_reply_placeholder", {}, "Reply")}
-      minHeight="120px"
-      autolink
-      showSource
-      onSubmit={submit}
-      {onTyping}
-    />
-    <small class="support-admin-composer-counter" class:is-over={overLimit}>
-      {length}/{maxLength}
-    </small>
-  </div>
-
-  {#if !internal}
-    <div class="support-admin-composer-buttons">
-      <span class="admin-field-label">
-        <span>{at("support_reply_buttons", {}, "Buttons")}</span>
-        <small class="admin-muted">
-          {at(
-            "support_reply_buttons_hint",
-            {},
-            "Shown under the message in the chat and in the Telegram notification. A promo code activates in one tap."
-          )}
-        </small>
-      </span>
-      <MessageButtonsEditor
-        {buttons}
-        {at}
-        max={MAX_BUTTONS}
-        {promoOptions}
-        {promoOptionsLoading}
-        {promoOptionsLoaded}
-        onAdd={addButton}
-        onRemove={removeButton}
-        onUpdate={updateButton}
-        onReorder={moveButton}
-        {onRequestPromoOptions}
-      />
-    </div>
-  {/if}
-
-  <div class="support-admin-composer-row">
+<div
+  class="support-admin-composer"
+  class:internal
+  class:tools-open={toolsOpen}
+  bind:this={pasteTarget}
+>
+  <div class="support-composer-mode">
+    <strong
+      >{internal
+        ? at("support_note_audience", {}, "Only visible to staff")
+        : at("support_public_reply", {}, "Reply to customer")}</strong
+    >
     <div class="support-admin-note-toggle">
       <Switch.Root
         id="support-internal-note"
@@ -232,7 +195,62 @@
         <span>{at("support_internal_note", {}, "Internal note")}</span>
       </label>
     </div>
+  </div>
+  <div class="support-composer-fields">
+    <div class="support-admin-composer-editor">
+      <RichTextEditor
+        {value}
+        onInput={(next) => (value = next)}
+        {labels}
+        {shortcodes}
+        {onRequestShortcodes}
+        {quickInserts}
+        selectCustomEmoji={emojiPicker.select}
+        loadCustomEmojiMedia={emojiPicker.loadMedia}
+        placeholder={internal
+          ? at("support_note_placeholder", {}, "Write an internal note")
+          : at("support_reply_placeholder", {}, "Reply")}
+        minHeight={compact.current ? "40px" : "120px"}
+        showToolbar={showTools}
+        autolink
+        showSource
+        onSubmit={submit}
+        {onTyping}
+      />
+      <small class="support-admin-composer-counter" class:is-over={overLimit}>
+        {length}/{maxLength}
+      </small>
+    </div>
 
+    {#if !internal && showTools}
+      <div class="support-admin-composer-buttons">
+        <span class="admin-field-label">
+          <span>{at("support_reply_buttons", {}, "Buttons")}</span>
+          <small class="admin-muted">
+            {at(
+              "support_reply_buttons_hint",
+              {},
+              "Shown under the message in the chat and in the Telegram notification. A promo code activates in one tap."
+            )}
+          </small>
+        </span>
+        <MessageButtonsEditor
+          {buttons}
+          {at}
+          max={MAX_BUTTONS}
+          {promoOptions}
+          {promoOptionsLoading}
+          {promoOptionsLoaded}
+          onAdd={addButton}
+          onRemove={removeButton}
+          onUpdate={updateButton}
+          onReorder={moveButton}
+          {onRequestPromoOptions}
+        />
+      </div>
+    {/if}
+  </div>
+  <div class="support-admin-composer-row">
     <div class="support-admin-composer-actions">
       <ImageAttachment
         bind:files={images}
@@ -240,6 +258,7 @@
         {pasteTarget}
         disabled={sending}
         compact
+        iconOnly={compact.current}
         globalDropzone
         labels={{
           drop: at("message_image_drop", {}, "Drop an image here or"),
@@ -259,9 +278,23 @@
           paste: at("support_images_paste_hint"),
         }}
       />
+      {#if compact.current}
+        <AdminButton
+          class="support-tools-toggle"
+          variant="ghost"
+          aria-label={toolsLabel}
+          title={toolsLabel}
+          aria-expanded={toolsOpen}
+          onclick={() => (toolsOpen = !toolsOpen)}
+        >
+          <Sliders size={16} />
+        </AdminButton>
+      {/if}
       <AdminButton variant="primary" disabled={!canSend} onclick={submit}>
-        {#if sending}<Spinner size="sm" />{:else}<Send size={14} />{/if}
-        {at("send", {}, "Send")}
+        {#if sending}<Spinner size="sm" />{:else if internal}<Lock size={14} />{:else}<Send
+            size={14}
+          />{/if}
+        {internal ? at("support_add_note", {}, "Add note") : at("send", {}, "Send")}
       </AdminButton>
     </div>
   </div>
@@ -276,6 +309,25 @@
 />
 
 <style>
+  .support-composer-mode {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 12px;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  .support-admin-composer.internal .support-composer-mode {
+    color: var(--warning);
+  }
+
+  .support-admin-composer.internal .support-admin-composer-editor {
+    border-inline-start: 3px solid var(--warning);
+    padding-inline-start: 6px;
+  }
+
+  .support-composer-fields,
   .support-admin-composer-buttons {
     display: flex;
     flex-direction: column;
@@ -328,7 +380,7 @@
     width: auto;
   }
 
-  .support-admin-composer-actions :global(.admin-btn) {
+  .support-admin-composer-actions :global(.admin-btn-primary) {
     grid-area: 1 / 3;
   }
 
@@ -340,6 +392,75 @@
   .support-admin-composer-actions :global(.message-image-previews),
   .support-admin-composer-actions :global(.message-image-error) {
     grid-column: 1 / -1;
+  }
+
+  @media (max-width: 720px) {
+    .support-composer-fields {
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
+
+    .support-composer-mode {
+      font-size: 12px;
+    }
+
+    .support-composer-mode .support-admin-note-toggle {
+      padding: 2px 4px;
+      border: 0;
+      background: transparent;
+    }
+
+    .support-composer-mode .support-admin-note-toggle label {
+      font-size: 12px;
+    }
+
+    .support-admin-composer-editor :global(.rt-surface),
+    .support-admin-composer-editor :global(.rt-source) {
+      box-sizing: border-box;
+      min-height: 40px;
+      max-height: clamp(62px, calc(var(--support-viewport-height, 100dvh) * 0.22), 144px);
+      padding: 7px 10px;
+      overflow-y: auto;
+    }
+
+    .support-admin-composer-editor :global(.rt-surface .ProseMirror) {
+      min-height: 24px;
+      padding-inline-end: 42px;
+    }
+
+    .support-admin-composer-counter {
+      right: 8px;
+      bottom: 8px;
+      background: var(--admin-surface-2);
+    }
+
+    .support-admin-composer-actions {
+      grid-template-columns: auto auto 1fr auto;
+    }
+
+    .support-admin-composer-actions :global(.message-image-icon-trigger) {
+      grid-area: 1 / 1;
+      width: 36px;
+      height: 36px;
+    }
+
+    .support-admin-composer-actions :global(.message-image-previews) {
+      max-height: clamp(46px, calc(var(--support-viewport-height, 100dvh) * 0.14), 100px);
+      overflow-y: auto;
+    }
+
+    .support-admin-composer-actions :global(.support-tools-toggle) {
+      grid-area: 1 / 2;
+    }
+
+    .support-admin-composer-actions :global(.admin-btn-primary) {
+      grid-area: 1 / 4;
+    }
+
+    .support-admin-composer-actions :global(.message-image-paste-hint) {
+      display: none;
+    }
   }
 
   @media (max-width: 520px) {

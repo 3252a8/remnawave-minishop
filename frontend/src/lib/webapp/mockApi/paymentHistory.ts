@@ -1,4 +1,5 @@
 import { DEV_MOCK } from "../previewMock.js";
+import { readBotDemoPayments } from "../previewMock/telegramBotDemoHistory.js";
 import type { PaymentHistoryItem, PaymentHistoryPage } from "../paymentHistory.js";
 import { DATASET, type DemoRecord } from "./dataset.js";
 
@@ -108,7 +109,8 @@ export function paymentHistoryDemoResponse(
   const offset = Math.max(0, Math.floor(Number(params.get("offset") || 0)));
   const user = (DEV_MOCK.data.user || {}) as DemoRecord;
   const userId = Number(user.user_id ?? user.id ?? DATASET.currentUser?.user_id);
-  const source = scenario === "payment-history-empty" ? [] : demoPaymentHistoryItems(userId);
+  const existing = scenario === "payment-history-empty" ? [] : demoPaymentHistoryItems(userId);
+  const source = [...readBotDemoPayments(), ...existing];
   return {
     ok: true,
     items: source.slice(offset, offset + limit),

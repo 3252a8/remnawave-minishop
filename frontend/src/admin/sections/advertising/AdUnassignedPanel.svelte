@@ -11,7 +11,7 @@
     AdminTable,
   } from "$components/patterns/admin/index.js";
   import Dialog from "$components/ui/dialog.svelte";
-  import { RefreshCw } from "$components/ui/icons.js";
+  import { Megaphone, RefreshCw } from "$components/ui/icons.js";
   import { unwrap } from "$lib/webapp/publicApi";
   import type { components } from "$lib/api/openapi.generated";
   import { adError, adDate, type Translate } from "./types";
@@ -86,9 +86,13 @@
     {#snippet footer()}<small class="admin-muted">{at("ads_unassigned_rule_hint")}</small>{/snippet}
   </AdminListToolbar>
   {#if error}<p role="alert">{error}</p>{/if}
-  {#if !touches.length}<AdminEmptyState tone="card"
-      >{busy ? at("loading") : at("ads_unassigned_empty")}</AdminEmptyState
-    >
+  {#if !touches.length}{#if busy}<AdminEmptyState tone="card">{at("loading")}</AdminEmptyState
+      >{:else}<AdminEmptyState
+        tone="card"
+        title={at("ads_unassigned_empty")}
+        description={at("ads_unassigned_empty_hint")}
+        >{#snippet icon()}<Megaphone size={22} />{/snippet}</AdminEmptyState
+      >{/if}
   {:else}<AdminTable layout="fixed">
       <colgroup
         ><col style="width:20%" /><col style="width:16%" /><col style="width:44%" /><col

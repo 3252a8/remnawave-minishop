@@ -1,16 +1,13 @@
-"""Refresh pip's bundled libraries until an upstream release includes these fixes.
+"""Refresh pip's bundled pkg_resources until upstream includes the fixes.
 
-Keep pip's namespace/Brotli patches and pure-Python msgpack layout, as documented
-at https://pip.pypa.io/en/stable/development/vendoring-policy/.
-Remove this helper once upstream pip vendors urllib3 >= 2.8.0, msgpack >= 1.2.4,
-and pkg_resources from setuptools >= 80.9.0 (or removes that legacy backend).
+Remove this helper once pip vendors pkg_resources from setuptools >= 80.9.0
+or removes that legacy backend.
 """
 
 from __future__ import annotations
 
 import importlib.metadata
 import json
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -26,52 +23,32 @@ def replace(path: Path, old: str, new: str, count: int = 1) -> None:
 
 
 def main(source: Path) -> None:
-    if pip.__version__ != "26.2.2" or pip.__file__ is None:
+    if pip.__version__ != "26.3" or pip.__file__ is None:
         raise RuntimeError("Recheck the vendoring patches for this pip version")
     vendor = Path(pip.__file__).parent / "_vendor"
-    for name, distribution, version, license_name in (
-        ("urllib3", "urllib3", "2.8.0", "LICENSE.txt"),
-        ("msgpack", "msgpack", "1.2.4", "COPYING"),
-        ("pkg_resources", "setuptools", "80.9.0", "LICENSE"),
-    ):
-        shutil.rmtree(vendor / name)
-        shutil.copytree(
-            source / name,
-            vendor / name,
-            ignore=shutil.ignore_patterns("__pycache__", "*.so", "*.pyd"),
-        )
-        shutil.copy2(
-            source / f"{distribution}-{version}.dist-info" / "licenses" / license_name,
-            vendor / name / license_name,
-        )
-        manifest = vendor / "vendor.txt"
-        text = manifest.read_text(encoding="utf-8")
-        text, count = re.subn(
-            rf"(?m)^(\s*){distribution}==[^\n]+$",
-            rf"\g<1>{distribution}=={version}",
-            text,
-        )
-        if count != 1:
-            raise RuntimeError(f"Expected one {name} entry in pip's vendor manifest")
-        manifest.write_text(text, encoding="utf-8")
+    resources_dir = vendor / "pkg_resources"
+    shutil.rmtree(resources_dir)
+    shutil.copytree(
+        source / "pkg_resources", resources_dir, ignore=shutil.ignore_patterns("__pycache__")
+    )
+    shutil.copy2(
+        source / "setuptools-80.9.0.dist-info" / "licenses" / "LICENSE", resources_dir / "LICENSE"
+    )
+
+    manifest = vendor / "vendor.txt"
+    replace(manifest, "setuptools==70.3.0", "setuptools==80.9.0")
 
     # pip ships a CycloneDX inventory too; preserve it with accurate versions and
     # dependency references so SBOM consumers see the same libraries as Python.
     inventory = vendor / "bom.cdx.json"
     bom = json.loads(inventory.read_text(encoding="utf-8"))
-    references: dict[str, str] = {}
-    for name, version in (
-        ("urllib3", "2.8.0"),
-        ("msgpack", "1.2.4"),
-        ("setuptools", "80.9.0"),
-    ):
-        components = [component for component in bom["components"] if component["name"] == name]
-        if len(components) != 1:
-            raise RuntimeError(f"Expected one {name} component in pip's SBOM")
-        component = components[0]
-        reference = f"pkg:pypi/{name}@{version}"
-        references[component["bom-ref"]] = reference
-        component.update({"version": version, "purl": reference, "bom-ref": reference})
+    components = [component for component in bom["components"] if component["name"] == "setuptools"]
+    if len(components) != 1:
+        raise RuntimeError("Expected one setuptools component in pip's SBOM")
+    component = components[0]
+    reference = "pkg:pypi/setuptools@80.9.0"
+    references = {component["bom-ref"]: reference}
+    component.update({"version": "80.9.0", "purl": reference, "bom-ref": reference})
     for dependency in bom["dependencies"]:
         dependency["ref"] = references.get(dependency["ref"], dependency["ref"])
         if "dependsOn" in dependency:
@@ -80,45 +57,7 @@ def main(source: Path) -> None:
             ]
     inventory.write_text(json.dumps(bom, indent=2) + "\n", encoding="utf-8")
 
-    # Preserve pip's vendoring transformations, including imports inside docstrings.
-    for path in (vendor / "urllib3").rglob("*.py"):
-        text = path.read_text(encoding="utf-8")
-        text = re.sub(r"(?m)^(\s*)import urllib3$", r"\1from pip._vendor import urllib3", text)
-        path.write_text(text, encoding="utf-8")
-    replace(
-        vendor / "urllib3" / "response.py",
-        "try:\n    try:\n        import brotlicffi as brotli  # type: ignore[import-not-found]\n"
-        "    except ImportError:\n        import brotli  # type: ignore[import-not-found]\n"
-        "except ImportError:\n    brotli = None",
-        "brotli = None",
-    )
-    replace(
-        vendor / "urllib3" / "util" / "request.py",
-        "try:\n    try:\n        import brotlicffi as _unused_module_brotli  "
-        "# type: ignore[import-not-found] # noqa: F401\n    except ImportError:\n"
-        "        import brotli as _unused_module_brotli  "
-        "# type: ignore[import-not-found] # noqa: F401\n"
-        'except ImportError:\n    pass\nelse:\n    ACCEPT_ENCODING += ",br"',
-        "",
-    )
-    replace(
-        vendor / "urllib3" / "contrib" / "emscripten" / "__init__.py",
-        "import urllib3.connection",
-        "from pip._vendor.urllib3 import connection as urllib3_connection",
-    )
-    replace(
-        vendor / "urllib3" / "contrib" / "emscripten" / "__init__.py",
-        "urllib3.connection.",
-        "urllib3_connection.",
-        count=3,
-    )
-    replace(
-        vendor / "urllib3" / "contrib" / "pyopenssl.py",
-        "import urllib3.contrib.pyopenssl\n        urllib3.contrib.pyopenssl.inject_into_urllib3()",
-        "from pip._vendor.urllib3.contrib import pyopenssl\n"
-        "        pyopenssl.inject_into_urllib3()",
-    )
-    resources = vendor / "pkg_resources" / "__init__.py"
+    resources = resources_dir / "__init__.py"
     text = resources.read_text(encoding="utf-8")
     for name in ("markers", "requirements", "specifiers", "utils", "version"):
         old = f"import packaging.{name}"

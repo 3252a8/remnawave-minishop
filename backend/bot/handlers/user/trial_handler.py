@@ -7,8 +7,14 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
+    get_bot_interface_inline_keyboard,
     get_connect_and_main_keyboard,
     get_main_menu_inline_keyboard,
+)
+from bot.keyboards.inline.user_keyboards_context import (
+    BOT_MENU_CONTEXT,
+    split_callback_context,
+    subscription_menu_back_callback,
 )
 from bot.middlewares.i18n import JsonI18n
 from bot.services.panel_api_service import PanelApiService
@@ -51,6 +57,12 @@ async def request_trial_confirmation_handler(
             await callback.answer(_("error_occurred_try_again"), show_alert=True)
         return
 
+    _data, context = split_callback_context(callback.data or "")
+    menu_keyboard = (
+        get_bot_interface_inline_keyboard
+        if context == BOT_MENU_CONTEXT
+        else get_main_menu_inline_keyboard
+    )
     if settings.TRIAL_ENABLED and not await subscription_service.has_trial_blocking_subscription(
         session, user_id
     ):
@@ -59,7 +71,7 @@ async def request_trial_confirmation_handler(
     if not settings.TRIAL_ENABLED:
         await callback_message(callback).edit_text(
             _("trial_feature_disabled"),
-            reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
+            reply_markup=menu_keyboard(current_lang, i18n, settings, False),
         )
         with contextlib.suppress(Exception):
             await callback.answer()
@@ -68,7 +80,7 @@ async def request_trial_confirmation_handler(
     if settings.TRIAL_PAYMENT_ENABLED:
         await callback_message(callback).edit_text(
             _("trial_payment_required"),
-            reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, True),
+            reply_markup=menu_keyboard(current_lang, i18n, settings, True),
         )
         with contextlib.suppress(Exception):
             await callback.answer()
@@ -77,13 +89,15 @@ async def request_trial_confirmation_handler(
     if await subscription_service.has_trial_blocking_subscription(session, user_id):
         await callback_message(callback).edit_text(
             _("trial_already_had_subscription_or_trial"),
-            reply_markup=get_main_menu_inline_keyboard(current_lang, i18n, settings, False),
+            reply_markup=menu_keyboard(current_lang, i18n, settings, False),
         )
         with contextlib.suppress(Exception):
             await callback.answer()
         return
 
-    if not await ensure_bot_trial_captcha(callback, settings, user_id, i18n, current_lang, state):
+    if not await ensure_bot_trial_captcha(
+        callback, settings, user_id, i18n, current_lang, state, context=context
+    ):
         return
     activation_result = await subscription_service.activate_trial_subscription(session, user_id)
 
@@ -163,11 +177,10 @@ async def request_trial_confirmation_handler(
             config_link_display_for_trial,
             connect_button_url=connect_button_url_for_trial,
             install_share_url=install_share_url,
+            back_callback=subscription_menu_back_callback(context),
         )
         if activation_result and activation_result.get("activated")
-        else get_main_menu_inline_keyboard(
-            current_lang, i18n, settings, show_trial_button_after_action
-        )
+        else menu_keyboard(current_lang, i18n, settings, show_trial_button_after_action)
     )
 
     try:
@@ -234,7 +247,10 @@ async def confirm_activate_trial_handler(
         )
         return
 
-    if not await ensure_bot_trial_captcha(callback, settings, user_id, i18n, current_lang, state):
+    _data, context = split_callback_context(callback.data or "")
+    if not await ensure_bot_trial_captcha(
+        callback, settings, user_id, i18n, current_lang, state, context=context
+    ):
         return
     activation_result = await subscription_service.activate_trial_subscription(session, user_id)
 
@@ -346,5 +362,7 @@ async def cancel_trial_activation(
     i18n_data: dict,
     subscription_service: SubscriptionService,
     session: AsyncSession,
+    state: FSMContext,
 ) -> None:
+    await state.clear()
     await send_main_menu(callback, settings, i18n_data, subscription_service, session, is_edit=True)

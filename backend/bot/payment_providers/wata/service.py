@@ -202,6 +202,20 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
             return None
 
         success, data = await self.get_payment_link(provider_payment_id, profile=profile)
+        if not success and isinstance(data, dict) and data.get("status") == 404:
+            # Older pending records may contain the transaction ID from a Created webhook.
+            found, transaction = await self.get_transaction(provider_payment_id, profile=profile)
+            link_id = _wata_payment_link_id(transaction)
+            if (
+                not found
+                or not link_id
+                or link_id == provider_payment_id
+                or first_value(transaction, "orderId", "order_id") != str(payment.payment_id)
+                or not self._payload_matches_profile(transaction, profile)
+            ):
+                return None
+            provider_payment_id = link_id
+            success, data = await self.get_payment_link(provider_payment_id, profile=profile)
         if not success or not isinstance(data, dict):
             return None
 
@@ -407,8 +421,8 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
         provider_payment_id: str | None,
     ) -> bool:
         order_id = str(payload.get("orderId") or "").strip()
-        if order_id and order_id == str(payment.payment_id):
-            return True
+        if order_id:
+            return order_id == str(payment.payment_id)
 
         payment_link_id = _wata_payment_link_id(payload)
         if payment_link_id and provider_payment_id and payment_link_id == provider_payment_id:
@@ -419,7 +433,7 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
             transaction_id and provider_payment_id and transaction_id == provider_payment_id
         )
 
-    async def _find_final_transaction_for_payment(
+    async def _find_paid_transaction_for_payment(
         self,
         payment: Any,
     ) -> dict[str, Any] | None:
@@ -429,7 +443,7 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
         provider_payment_id = str(getattr(payment, "provider_payment_id", "") or "").strip()
         success, response_data = await self.search_transactions(
             order_id=str(payment.payment_id),
-            statuses=("Paid", "Declined"),
+            statuses=("Paid",),
             limit=10,
             profile=profile,
         )
@@ -437,18 +451,15 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
             return None
 
         items = response_data.get("items") or []
-        for target_status in ("paid", "declined"):
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                if _normalized_wata_status(item) != target_status:
-                    continue
-                if self._transaction_matches_payment(
-                    item,
-                    payment,
-                    provider_payment_id=provider_payment_id or None,
-                ) and self._payload_matches_profile(item, profile):
-                    return item
+        for item in items:
+            if not isinstance(item, dict) or _normalized_wata_status(item) != "paid":
+                continue
+            if self._transaction_matches_payment(
+                item,
+                payment,
+                provider_payment_id=provider_payment_id or None,
+            ) and self._payload_matches_profile(item, profile):
+                return item
         return None
 
     async def _mark_paid_from_payload(
@@ -553,46 +564,6 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
         )
         return False
 
-    async def _mark_declined_from_payload(
-        self,
-        session: AsyncSession,
-        payment: Any,
-        payload: Mapping[str, Any],
-        *,
-        log_prefix: str,
-        notify_user: bool,
-    ) -> Any | None:
-        transaction_id = _wata_transaction_id(payload) or str(payment.payment_id)
-        try:
-            updated, transitioned = await payment_dal.transition_provider_payment_to_terminal(
-                session,
-                payment.payment_id,
-                transaction_id,
-                "failed",
-            )
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            logger.exception(
-                "%s: failed to mark payment %s as failed.",
-                log_prefix,
-                transaction_id,
-            )
-            return None
-
-        if updated is None:
-            return None
-        refreshed = await payment_dal.get_payment_by_db_id(session, payment.payment_id) or payment
-        if notify_user and transitioned:
-            await notify_user_payment_failed(
-                bot=self.bot,
-                settings=self.settings,
-                i18n=self.i18n,
-                session=session,
-                payment=refreshed,
-            )
-        return refreshed
-
     def payment_link_expired_locally(
         self,
         payment: Any,
@@ -673,24 +644,13 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
         }:
             return payment
 
-        final_payload = await self._find_final_transaction_for_payment(payment)
-        final_status = _normalized_wata_status(final_payload)
-        if final_payload and final_status == "paid":
+        paid_payload = await self._find_paid_transaction_for_payment(payment)
+        if paid_payload:
             refreshed = await self._mark_paid_from_payload(
                 session,
                 payment,
-                final_payload,
+                paid_payload,
                 log_prefix="Wata status refresh",
-            )
-            return refreshed or payment
-
-        if final_payload and final_status == "declined":
-            refreshed = await self._mark_declined_from_payload(
-                session,
-                payment,
-                final_payload,
-                log_prefix="Wata status refresh",
-                notify_user=notify_user,
             )
             return refreshed or payment
 
@@ -755,7 +715,7 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
                 return await self.handle_subscription_status(payload, profile=profile)
             return await self.handle_subscription_transaction(payload, profile=profile)
 
-        transaction_id = str(payload.get("transactionId") or "").strip()
+        transaction_id = _wata_transaction_id(payload)
         payment_link_id = str(payload.get("paymentLinkId") or payload.get("id") or "").strip()
         status = str(payload.get("transactionStatus") or "").strip().lower()
         order_id_raw = payload.get("orderId")
@@ -808,24 +768,8 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
             if payment.status == "succeeded":
                 return web.Response(text="ok")
 
-            if status in _WATA_IN_PROGRESS_STATUSES:
-                if transaction_id and payment.provider_payment_id != transaction_id:
-                    try:
-                        await payment_dal.update_provider_payment_and_status(
-                            session,
-                            payment.payment_id,
-                            transaction_id,
-                            payment.status,
-                        )
-                        await session.commit()
-                    except Exception:
-                        await session.rollback()
-                        logger.exception(
-                            "Wata webhook: failed to persist transaction id %s for payment %s.",
-                            transaction_id,
-                            payment.payment_id,
-                        )
-                        return web.Response(status=500, text="processing_error")
+            if status in _WATA_IN_PROGRESS_STATUSES or status == "declined":
+                # A link can receive multiple transactions. Keep its ID until payment succeeds.
                 return web.Response(text="ok")
 
             if status == "paid":
@@ -840,17 +784,6 @@ class WataService(WataPaymentLinkMixin, WataSubscriptionMixin, HttpClientMixin):
                     payment,
                     payload,
                     log_prefix="Wata webhook",
-                ):
-                    return web.Response(status=500, text="processing_error")
-                return web.Response(text="ok")
-
-            if status == "declined":
-                if not await self._mark_declined_from_payload(
-                    session,
-                    payment,
-                    payload,
-                    log_prefix="Wata webhook",
-                    notify_user=True,
                 ):
                     return web.Response(status=500, text="processing_error")
                 return web.Response(text="ok")

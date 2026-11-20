@@ -6,7 +6,7 @@ from aiogram import F, Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.inline.admin_keyboards import get_back_to_admin_panel_keyboard
+from bot.keyboards.inline.admin_keyboards import get_back_to_stats_monitoring_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.payment_providers import pending_statuses, provider_label_map
 from bot.utils.callback_answer import callback_data, callback_message
@@ -113,7 +113,7 @@ async def view_payments_handler(
     if not payments and page == 0:
         await callback_message(callback).edit_text(
             _("admin_no_payments_found"),
-            reply_markup=get_back_to_admin_panel_keyboard(current_lang, i18n),
+            reply_markup=get_back_to_stats_monitoring_keyboard(current_lang, i18n),
             parse_mode="HTML",
         )
         await callback.answer()
@@ -171,7 +171,8 @@ async def view_payments_handler(
     # Back button
     builder.row(
         InlineKeyboardButton(
-            text=_("back_to_admin_panel_button"), callback_data="admin_section:stats_monitoring"
+            text=_("back_to_stats_monitoring_button"),
+            callback_data="admin_section:stats_monitoring",
         )
     )
 

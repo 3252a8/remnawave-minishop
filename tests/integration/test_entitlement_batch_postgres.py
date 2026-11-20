@@ -5,6 +5,7 @@ import json
 import os
 import uuid
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,10 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_snapshot import capture_subscription_snapshot
+from bot.infra.redis import close_redis
+from bot.middlewares.i18n import JsonI18n
+from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
+from bot.services.balance_recurring import BalanceRecurringService
 from bot.services.panel_api_service import PanelApiService
 from bot.services.regular_topup_settlement import RegularTopupPeriod, settle_regular_topup
 from bot.services.subscription_days_purchase import purchase_with_days
@@ -25,8 +30,9 @@ from bot.services.subscription_days_quotes import (
     attach_days_quotes,
 )
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.user_balance_service import UserBalanceService
 from config.settings import Settings
-from db.dal import subscription_dal, tariff_dal, user_panel_squad_override_dal
+from db.dal import subscription_dal, tariff_dal, user_balance_dal, user_panel_squad_override_dal
 from db.dal.tariff_read_batch import clear_tariff_read_batch, prefetch_tariff_read_batch
 from db.migrator.chain_0098_topup_period_lifetime import CHAIN_0098_TOPUP_PERIOD_LIFETIME
 from db.migrator.chain_0099_regular_topup_accounting import CHAIN_0099_REGULAR_TOPUP_ACCOUNTING
@@ -495,5 +501,146 @@ def test_regular_accounting_migrations_are_nullable_and_idempotent() -> None:
             )
             assert values.all() == [(None, None), (None, None)]
             await session.commit()
+
+    run_scenario(scenario)
+
+
+@pytest.mark.parametrize(
+    "origin,target,price,opt_out",
+    [
+        ("trial", "standard", 150, False),
+        ("admin", "assigned", 220, False),
+        ("trial", "standard", 150, True),
+        ("trial", "", 200, False),
+    ],
+)
+def test_funded_grant_renews_once_without_checkout(
+    tmp_path: Path, origin: str, target: str, price: int, opt_out: bool
+) -> None:
+    tariff_path = tmp_path / "tariffs.json"
+    tariff_path.write_text(
+        json.dumps(
+            {
+                "default_tariff": "standard",
+                "tariffs": [
+                    {
+                        "key": key,
+                        "billing_model": "period",
+                        "monthly_gb": 10,
+                        "enabled_periods": [3, 1],
+                        "prices_rub": {"1": monthly, "3": monthly * 2},
+                    }
+                    for key, monthly in [("standard", 150), ("assigned", 220)]
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        _env_file=None,
+        TARIFFS_CONFIG_PATH=str(tariff_path if target else tmp_path / "absent.json"),
+        REDIS_KEY_PREFIX=f"wallet-renewal-test:{uuid.uuid4().hex}",
+        USER_BALANCE_ENABLED=True,
+        USER_BALANCE_RECURRING_ENABLED=False,
+    )
+    panel = AsyncMock(spec=PanelApiService)
+    i18n = JsonI18n("locales")
+    service = SubscriptionService(settings, panel, i18n=i18n)
+    service.recurring_provider_services["user_balance"] = BalanceRecurringService(
+        settings,
+        provider="user_balance",
+        subscription_service=service,
+        referral_service=None,
+        bot=None,
+        i18n=i18n,
+    )
+    panel_uuid = str(uuid.uuid4())
+    deadline = datetime.now(UTC) + timedelta(hours=2)
+    panel_state = {
+        "uuid": panel_uuid,
+        "shortUuid": "qa-wallet",
+        "status": "ACTIVE",
+        "expireAt": deadline.isoformat(),
+        "userTraffic": {"usedTrafficBytes": 0, "lifetimeUsedTrafficBytes": 0},
+    }
+    service._get_or_create_panel_user_link_details = AsyncMock(
+        return_value=(panel_uuid, "qa-wallet", "qa-wallet", False)
+    )
+    panel.get_user_by_uuid.side_effect = lambda *args, **kwargs: dict(panel_state)
+
+    async def update_panel(_uuid: str, payload: dict) -> dict:
+        panel_state.update(payload)
+        return dict(panel_state)
+
+    panel.update_user_details_on_panel.side_effect = update_panel
+    panel.reset_user_traffic.return_value = True
+
+    async def scenario(factory: Any) -> None:
+        worker = AutoRenewRetryWorker(settings, factory, service)
+        async with AsyncExitStack() as cleanup, factory() as session:
+            cleanup.push_async_callback(close_redis)
+            session.add(User(user_id=42, panel_user_uuid=panel_uuid, language_code="en"))
+            await session.flush()
+            sub = Subscription(
+                subscription_id=42,
+                user_id=42,
+                panel_user_uuid=panel_uuid,
+                panel_subscription_uuid="qa-wallet",
+                provider=origin,
+                tariff_key="assigned" if origin == "admin" else None,
+                auto_renew_enabled=False,
+                is_active=True,
+                end_date=deadline + timedelta(days=2),
+            )
+            session.add(sub)
+            await session.flush()
+            wallet = UserBalanceService(settings)
+
+            async def fund(amount: int, key: str) -> None:
+                await wallet.admin_adjust(
+                    session,
+                    user_id=42,
+                    actor_admin_id=42,
+                    mode="add",
+                    amount=amount,
+                    reason="Wallet funding",
+                    idempotency_key=key,
+                )
+                await session.commit()
+
+            await fund(price - 1, "partial")
+            settings.USER_BALANCE_RECURRING_ENABLED = True
+            await worker.tick()
+            assert await session.scalar(select(func.count()).select_from(Payment)) == 0
+            settings.USER_BALANCE_RECURRING_ENABLED = False
+            await fund(1, "remainder")
+            await worker.tick()
+            assert await session.scalar(select(func.count()).select_from(Payment)) == 0
+            settings.USER_BALANCE_RECURRING_ENABLED = True
+            await worker.tick()
+            await session.refresh(sub)
+            assert sub.auto_renew_enabled and sub.balance_renewal_tariff_key == target
+            assert (sub.provider, sub.balance_renewal_duration_days) == (origin, 30)
+            assert await session.scalar(select(func.count()).select_from(Payment)) == 0
+            if opt_out:
+                await subscription_dal.set_auto_renew(session, sub.subscription_id, False)
+            sub.end_date = deadline
+            await session.commit()
+            await worker.tick()
+            await worker.tick()
+            if opt_out:
+                assert await session.scalar(select(func.count()).select_from(Payment)) == 0
+                assert await user_balance_dal.balance_minor(session, 42, "RUB") == price * 100
+                return
+            payment = (await session.scalars(select(Payment))).one()
+            assert (payment.provider, payment.status, payment.user_balance_amount_minor) == (
+                "user_balance",
+                "succeeded",
+                price * 100,
+            )
+            assert await user_balance_dal.balance_minor(session, 42, "RUB") == 0
+            await session.refresh(sub)
+            assert (sub.provider, sub.tariff_key) == ("user_balance", target or None)
+            assert sub.end_date > deadline + timedelta(days=28)
 
     run_scenario(scenario)

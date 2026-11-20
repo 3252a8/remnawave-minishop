@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatMoney as formatCabinetMoney } from "$lib/webapp/formatters.js";
   import ScreenHeading from "$components/patterns/webapp/ScreenHeading.svelte";
   import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
   import { onMount } from "svelte";
@@ -176,6 +177,11 @@
   const pagedCommissions = $derived(sortedCommissions.slice(activityFrom, activityTo));
   const pagedWithdrawals = $derived(sortedWithdrawals.slice(activityFrom, activityTo));
   const activeProfile = $derived(Boolean(preview.profileState));
+  const overviewShown = $derived(
+    !preview.loading &&
+      !preview.error &&
+      (activeProfile || !["none", "pending", "rejected"].includes(preview.applicationState))
+  );
   const partnerPaused = $derived(
     preview.profileState !== null && preview.profileState !== "active"
   );
@@ -248,17 +254,16 @@
         ? t("wa_partner_sbp_phone_placeholder")
         : t("wa_partner_card_number_placeholder")
   );
+  // The cabinet's one money and date format: whole amounts without ".00", dates
+  // in the interface language rather than the browser's.
   function formatMoney(amount: number, currency: PartnerCurrency): string {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      minimumFractionDigits: currency === "RUB" ? 0 : 2,
-      maximumFractionDigits: currency === "RUB" ? 0 : 2,
-    }).format(amount);
+    return formatCabinetMoney(amount, currency);
   }
 
   function formatDate(value: string): string {
-    return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+    return new Intl.DateTimeFormat(t("wa_date_locale", {}, "en"), { dateStyle: "medium" }).format(
+      new Date(value)
+    );
   }
 
   function methodLabel(method: PartnerWithdrawalMethodPreview): string {
@@ -455,8 +460,10 @@
   aria-busy={preview.loading}
   {@attach scrollToLinkedSubsection}
 >
-  {#if goBack}
-    <ScreenBackLink class="partner-back" label={t("wa_back")} onclick={goBack} />
+  <!-- The overview carries the way back in its title row; the centred state
+       cards have no title row, so they keep the same button above them. -->
+  {#if goBack && !overviewShown}
+    <ScreenBackLink railItem class="partner-back" label={t("wa_back")} onclick={goBack} />
   {/if}
   {#if preview.loading}
     {#if loadingPlaceholder === "dashboard"}
@@ -572,7 +579,13 @@
     </Card>
   {:else}
     <Card class="partner-overview-card">
-      <ScreenHeading class="partner-overview-head" title={t("wa_partner_profile_title")}>
+      <ScreenHeading
+        class="partner-overview-head"
+        title={t("wa_partner_profile_title")}
+        back={goBack
+          ? { label: t("wa_back"), onclick: goBack, railItem: true, class: "partner-back" }
+          : undefined}
+      >
         {#snippet icon()}<UsersRound />{/snippet}
         {#snippet meta()}
           <span
@@ -624,6 +637,7 @@
                 <code>{link.url}</code>
                 <Button
                   class="referral-copy-button partner-copy-button"
+                  variant="secondary"
                   size="sm"
                   onclick={() => copyText(link.url, t("wa_link_copied"))}
                   disabled={!link.enabled}

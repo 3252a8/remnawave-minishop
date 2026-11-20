@@ -82,7 +82,7 @@
   const broadcastTargets = $derived(broadcastStore.broadcastTarget.split(",").filter(Boolean));
   const broadcastTargetError = $derived(broadcastStore.broadcastTargetError);
   const broadcastBusy = $derived(broadcastStore.broadcastBusy);
-  const broadcastCounts = $derived(broadcastStore.broadcastCounts as Record<string, number> | null);
+  const broadcastCounts = $derived(broadcastStore.broadcastCounts);
   const broadcastCountsLoading = $derived(Boolean(broadcastStore.broadcastCountsLoading));
   const telegramEnabled = $derived(broadcastStore.broadcastTelegramEnabled);
   const emailEnabled = $derived(broadcastStore.broadcastEmailEnabled);

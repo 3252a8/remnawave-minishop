@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from sqlalchemy.sql.elements import ColumnElement
+
 from .contracts import ExtensionContributions, ExtensionError
 
 IDENTIFIER = re.compile(r"[a-z][a-z0-9_-]{0,63}\Z")
@@ -22,6 +24,33 @@ def split_key(value: str) -> tuple[str, str]:
     if len(parts) != 2:
         raise ExtensionError("invalid_extension_key", 400)
     return identifier(parts[0]), identifier(parts[1])
+
+
+def _valid_label(label: str) -> bool:
+    return isinstance(label, str) and 1 <= len(label.strip()) <= 200
+
+
+def _validate_user_table(value: ExtensionContributions) -> None:
+    for collection in (value.admin_user_columns, value.admin_user_filters):
+        if len(collection) > 32:
+            raise ExtensionError("too_many_admin_user_table_contributions")
+        for item in collection:
+            if not _valid_label(item.label) or (
+                type(item.order) is not int or not -10000 <= item.order <= 10000
+            ):
+                raise ExtensionError("invalid_admin_user_table_contribution")
+    for column in value.admin_user_columns:
+        if not callable(column.resolve):
+            raise ExtensionError("invalid_admin_user_column")
+    for user_filter in value.admin_user_filters:
+        if not callable(user_filter.predicate) or not 1 <= len(user_filter.options) <= 50:
+            raise ExtensionError("invalid_admin_user_filter")
+        option_ids: set[str] = set()
+        for option in user_filter.options:
+            option_id = identifier(option.id)
+            if option_id in option_ids or not _valid_label(option.label):
+                raise ExtensionError("invalid_admin_user_filter_option")
+            option_ids.add(option_id)
 
 
 @dataclass(frozen=True)
@@ -51,6 +80,8 @@ class ExtensionRegistry:
             value.storage,
             value.message_shortcodes,
             value.login_providers,
+            value.admin_user_columns,
+            value.admin_user_filters,
         ):
             seen: set[str] = set()
             for item in collection:
@@ -58,6 +89,7 @@ class ExtensionRegistry:
                 if item.id in seen:
                     raise ExtensionError("duplicate_extension_identifier")
                 seen.add(item.id)
+        _validate_user_table(value)
         for provider in value.login_providers:
             if (
                 not isinstance(provider.name, str)
@@ -83,6 +115,8 @@ class ExtensionRegistry:
                 raise ExtensionError("invalid_extension_job_interval")
         event_keys: set[tuple[str, str]] = set()
         for event in value.events:
+            if event.enabled_when is not None and not isinstance(event.enabled_when, ColumnElement):
+                raise ExtensionError("invalid_extension_subscription")
             if event.job not in jobs or not event.event or len(event.event) > 128:
                 raise ExtensionError("invalid_extension_subscription")
             key = (event.event, event.job)
@@ -126,13 +160,18 @@ def set_registry(registry: ExtensionRegistry) -> None:
 
 
 def _configure_payment_events(registry: ExtensionRegistry) -> None:
-    from db.dal.extension_dal import configure_payment_subscribers
+    from db.dal.extension_dal import PaymentSubscriber, configure_payment_subscribers
 
-    subscribers: list[tuple[str, str, int]] = []
+    subscribers: list[PaymentSubscriber] = []
     for owner, entry in registry.owners().items():
         jobs = {job.id: job for job in entry.contributions.jobs}
         subscribers.extend(
-            (owner, subscription.job, jobs[subscription.job].max_attempts)
+            (
+                owner,
+                subscription.job,
+                jobs[subscription.job].max_attempts,
+                subscription.enabled_when,
+            )
             for subscription in entry.contributions.events
             if subscription.event == "payment.succeeded"
         )

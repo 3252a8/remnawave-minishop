@@ -758,6 +758,8 @@ for (const [device, viewport] of devices) {
       await page.goto(url + query);
       if (name === "user-message")
         await page.getByRole("tab", { name: ru.admin_user_tab_message }).click();
+      if (name === "support" && device === "mobile")
+        await page.locator(".support-tools-toggle").click();
       const editor = page.locator(".message-buttons-editor").first();
       await editor
         .locator("..")

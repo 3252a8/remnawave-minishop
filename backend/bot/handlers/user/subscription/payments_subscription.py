@@ -13,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import (
     sale_mode_with_token,
     subscription_options_callback,
 )
+from bot.keyboards.inline.user_keyboards_context import SUBSCRIPTION_CATALOG_ORIGIN
 from bot.middlewares.i18n import JsonI18n
 from bot.services.checkout_promos import CheckoutPromoResult
 from bot.services.telegram_account import require_telegram_account_id
@@ -108,6 +109,9 @@ async def select_subscription_period_callback_handler(
     sale_mode = sale_mode_with_callback_context(
         "traffic" if traffic_mode else "subscription", callback_context
     )
+    from_subscription = SUBSCRIPTION_CATALOG_ORIGIN in callback_tokens
+    if from_subscription:
+        sale_mode = sale_mode_with_token(sale_mode, SUBSCRIPTION_CATALOG_ORIGIN)
     promo_quote: CheckoutPromoResult | None = None
     stars_promo_quote: CheckoutPromoResult | None = None
     if not traffic_mode and promo_enabled:
@@ -145,6 +149,7 @@ async def select_subscription_period_callback_handler(
         back_callback=subscription_options_callback(
             callback_context,
             promo_enabled=promo_enabled,
+            from_subscription=from_subscription,
         ),
         user_id=account_user_id,
         checkout_promo=promo_quote,

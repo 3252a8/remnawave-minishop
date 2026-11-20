@@ -12,6 +12,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.services.promo_effects import ALLOWED_PROMO_SCOPES
 from bot.states.admin_states import AdminStates
@@ -26,6 +27,7 @@ from .manage_format import (
     _promo_effects_for_update,
     _single_effect_update,
     get_promo_detail_text_and_keyboard,
+    promo_list_page,
 )
 
 router = Router(name="promo_manage_edit_router")
@@ -33,69 +35,74 @@ router = Router(name="promo_manage_edit_router")
 
 @router.callback_query(F.data.startswith("promo_edit_select:"))
 async def promo_edit_select_handler(
-    callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession
+    callback: types.CallbackQuery, i18n_data: dict, session: AsyncSession, state: FSMContext
 ) -> None:
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
     current_lang = i18n_data.get("current_language")
     if not i18n or not callback.message or not current_lang:
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
-    promo_id = int(callback_data(callback).split(":")[1])
+    parts = callback_data(callback).split(":")
+    promo_id = int(parts[1])
+    list_page = promo_list_page(parts, 2)
+    if await state.get_state() == AdminStates.waiting_for_promo_edit_details.state:
+        await state.clear()
 
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
             text=_("admin_promo_edit_bonus_days"),
-            callback_data=f"promo_edit_field:bonus_days:{promo_id}",
+            callback_data=f"promo_edit_field:bonus_days:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
             text="Discount %",
-            callback_data=f"promo_edit_field:discount_percent:{promo_id}",
+            callback_data=f"promo_edit_field:discount_percent:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
             text="Duration x",
-            callback_data=f"promo_edit_field:duration_multiplier:{promo_id}",
+            callback_data=f"promo_edit_field:duration_multiplier:{promo_id}:{list_page}",
         ),
         InlineKeyboardButton(
             text="Traffic x",
-            callback_data=f"promo_edit_field:traffic_multiplier:{promo_id}",
+            callback_data=f"promo_edit_field:traffic_multiplier:{promo_id}:{list_page}",
         ),
     )
     builder.row(
         InlineKeyboardButton(
             text="Scope",
-            callback_data=f"promo_edit_field:applies_to:{promo_id}",
+            callback_data=f"promo_edit_field:applies_to:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
             text="Min months",
-            callback_data=f"promo_edit_field:min_subscription_months:{promo_id}",
+            callback_data=f"promo_edit_field:min_subscription_months:{promo_id}:{list_page}",
         ),
         InlineKeyboardButton(
             text="Min GB",
-            callback_data=f"promo_edit_field:min_traffic_gb:{promo_id}",
+            callback_data=f"promo_edit_field:min_traffic_gb:{promo_id}:{list_page}",
         ),
     )
     builder.row(
         InlineKeyboardButton(
             text=_("admin_promo_edit_max_activations"),
-            callback_data=f"promo_edit_field:max_activations:{promo_id}",
+            callback_data=f"promo_edit_field:max_activations:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
             text=_("admin_promo_edit_validity"),
-            callback_data=f"promo_edit_field:valid_until:{promo_id}",
+            callback_data=f"promo_edit_field:valid_until:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text=_("admin_promo_back_to_detail_button"), callback_data=f"promo_detail:{promo_id}"
+            text=_("admin_promo_back_to_detail_button"),
+            callback_data=f"promo_detail:{promo_id}:{list_page}",
         )
     )
 
@@ -115,8 +122,10 @@ async def promo_edit_field_handler(
         return
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
-    _action, field, promo_id_str = callback_data(callback).split(":")
-    await state.update_data(promo_id=int(promo_id_str), field_to_edit=field)
+    parts = callback_data(callback).split(":")
+    field, promo_id = parts[1], int(parts[2])
+    list_page = promo_list_page(parts, 3)
+    await state.update_data(promo_id=promo_id, field_to_edit=field, list_page=list_page)
 
     prompts = {
         "bonus_days": "admin_promo_prompt_bonus_days",
@@ -135,7 +144,12 @@ async def promo_edit_field_handler(
     elif field in {"duration_multiplier", "traffic_multiplier"}:
         prompt += "\nUse 1 or none to reset."
     await state.set_state(AdminStates.waiting_for_promo_edit_details)
-    await callback_message(callback).edit_text(prompt)
+    await callback_message(callback).edit_text(
+        prompt,
+        reply_markup=get_admin_back_keyboard(
+            current_lang, i18n, f"promo_edit_select:{promo_id}:{list_page}", "cancel_button"
+        ),
+    )
     await callback.answer()
 
 
@@ -211,7 +225,7 @@ async def process_promo_edit_details(
             # Reset state and show updated details
             await state.clear()
             text, keyboard = await get_promo_detail_text_and_keyboard(
-                promo_id, session, i18n, current_lang
+                promo_id, session, i18n, current_lang, list_page=data.get("list_page", 0)
             )
             if text:
                 await message.answer(text, reply_markup=keyboard, parse_mode="HTML")

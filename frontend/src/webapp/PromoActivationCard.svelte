@@ -61,7 +61,7 @@
         <Input
           value={promoCode}
           maxlength={100}
-          placeholder="PROMO2026"
+          placeholder={t("wa_promo_enter")}
           readonly={Boolean(promoEffectStatus)}
           class={[
             "promo-code-input",

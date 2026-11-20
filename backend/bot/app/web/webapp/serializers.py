@@ -11,7 +11,6 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
     get_bot_username,
-    get_optional_subscription_service,
     get_referral_service,
     get_session_factory,
     get_settings,
@@ -21,12 +20,14 @@ from bot.app.web.webapp.auth_common import (
     _trial_oauth_required_reason_for_user,
     _user_has_linked_telegram,
 )
+from bot.infra.auto_renew import auto_renew_chargeable
 from bot.infra.performance import performance_phase
 from bot.infra.promo_policies import (
     PromoCheckoutSuggestionContext,
     resolve_promo_checkout_suggestion,
 )
 from bot.services.device_topup_availability import resolve_device_topup_availability
+from bot.services.grant_wallet_renewal import grant_balance_renewal_tariff_key
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.referral_service import ReferralService
 from bot.services.referral_welcome_trial import referral_welcome_trial_bonus_days
@@ -47,6 +48,7 @@ from config.settings import Settings
 from config.subscription_guides_config import subscription_guides_available
 from config.tariffs_config import default_currency_key_for_settings, payment_currency_code
 from config.webapp_themes_config import public_themes_catalog_payload
+from db.balance_renewal import GRANT_PROVIDERS, renewal_provider
 from db.dal import payment_dal, subscription_dal, support_dal, user_dal
 from db.models import UserEmailAddress, UserExternalIdentity, UserPasskeyCredential
 
@@ -280,6 +282,17 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             user_id=user_id,
             pending_payment=pending_promo_payment,
         )
+        # The switch is offered only when turning it on could charge someone.
+        auto_renew_can_charge = bool(
+            active
+            and local_sub is not None
+            and await auto_renew_chargeable(
+                session,
+                subscription_service,
+                user_id=user_id,
+                provider=renewal_provider(local_sub),
+            )
+        )
         install_share_token = (
             await subscription_dal.ensure_install_share_token(
                 session,
@@ -476,6 +489,7 @@ async def _build_user_payload(request: web.Request, user_id: int) -> dict[str, A
             local_sub,
             lang,
             install_share_token=install_share_token,
+            auto_renew_chargeable=auto_renew_can_charge,
         ),
         "referral": {
             "code": referral_code,
@@ -582,6 +596,7 @@ def _serialize_subscription(
     lang: str | None = None,
     *,
     install_share_token: str | None = None,
+    auto_renew_chargeable: bool = False,
 ) -> dict[str, Any]:
     if lang is None:
         request = None
@@ -676,14 +691,15 @@ def _serialize_subscription(
         and end_date
         and extra_hwid_valid_until < end_date
     )
-    auto_renew_enabled = bool(getattr(local_sub, "auto_renew_enabled", False))
+    auto_renew_provider = renewal_provider(local_sub) or provider
+    auto_renew_enabled = bool(getattr(local_sub, "auto_renew_enabled", False)) and (
+        auto_renew_provider not in GRANT_PROVIDERS
+    )
     auto_renew = resolve_auto_renew_capabilities(
-        provider,
+        auto_renew_provider,
         settings=settings,
         language=lang,
-        subscription_service=(
-            get_optional_subscription_service(request) if request is not None else None
-        ),
+        chargeable=auto_renew_chargeable,
     )
     return {
         "active": seconds_left > 0,
@@ -780,6 +796,9 @@ def _serialize_subscription(
         "device_topup_renewal_available": device_topup_renewal_available,
         "auto_renew_enabled": auto_renew_enabled,
         **auto_renew.payload_fields(enabled=auto_renew_enabled),
+        "balance_renewal_eligible_tariff_key": grant_balance_renewal_tariff_key(
+            settings, local_sub
+        ),
         "provider": getattr(local_sub, "provider", None),
     }
 

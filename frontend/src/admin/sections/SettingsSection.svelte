@@ -784,9 +784,22 @@
 
   function fieldPlaceholderText(field: AdminSettingField): string {
     const fallback = field.placeholder || "";
-    return field.i18n_placeholder_key
+    const text = field.i18n_placeholder_key
       ? adminText(field.i18n_placeholder_key, fieldI18nParams(field), fallback)
       : fallback;
+    return text || fieldDefaultText(field);
+  }
+
+  /** An empty field shows the value it falls back to instead of a blank box. */
+  function fieldDefaultText(field: AdminSettingField): string {
+    const value = field.default;
+    if (field.secret || field.type === "bool") return "";
+    if (value === null || value === undefined || value === "" || typeof value === "object") {
+      return "";
+    }
+    const choice = choiceItems(field).find((item) => String(item.value) === String(value));
+    const label = choice ? choice.label : String(value);
+    return at("settings_default_value", { value: label }, `Default: ${label}`);
   }
 
   function subsectionTitle(group: SettingsSubsection): string {

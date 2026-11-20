@@ -17,10 +17,11 @@ const stateMocks = new Set([
   "user-balance",
   "compact",
   "server-status",
+  "checkout-addons",
   "auth",
   "emails",
 ]);
-const routeMocks = new Set([...stateMocks, "guides", "install"]);
+const routeMocks = new Set([...stateMocks, "guides", "install", "partner-referral-enabled"]);
 const params = new URLSearchParams(window.location.search);
 
 const normalizePath = (value) => {

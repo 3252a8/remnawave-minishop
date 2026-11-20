@@ -1,12 +1,20 @@
 import unittest
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
 
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.app.web.admin_api_impl import users as users_module
+from bot.app.web.admin_api_impl import users_listing
+from bot.app.web.admin_api_impl.users_extensions import UsersTableExtensions
+from bot.plugins.extensions import AdminUserColumn, AdminUserFilter, AdminUserFilterOption
+from bot.utils.ttl_cache import AsyncTTLCache
+from config.settings import Settings
 from db.dal import partner_dal, user_balance_dal
+from db.models import User
 
 
 class FakeResult:
@@ -34,6 +42,94 @@ def _compile_sql(stmt) -> str:
 
 
 class AdminUsersListMetricsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_plugin_column_is_fresh_on_a_shared_base_page(self):
+        settings = Mock(spec=Settings)
+        settings.tariffs_config = None
+        settings.balance_settings.currency = "RUB"
+        cache = AsyncTTLCache(ttl_seconds=60)
+        base = {"users": [{"user_id": 7}], "total": 1}
+        load = AsyncMock(return_value=base)
+        session = AsyncMock(spec=AsyncSession)
+        session.begin_nested.return_value = nullcontext()
+        factory = Mock(return_value=nullcontext(session))
+        resolve = AsyncMock(side_effect=[{7: "first"}, {7: "second"}])
+        extensions = UsersTableExtensions(
+            columns=(("sample:status", AdminUserColumn("status", "Status", resolve)),)
+        )
+
+        async def page(selected):
+            return await users_listing._load_admin_users_list_payload(
+                settings,
+                factory,
+                page=0,
+                page_size=25,
+                query="",
+                filter_value="all",
+                panel_status="all",
+                premium_traffic="all",
+                sort_value="registered_desc",
+                extensions=selected,
+            )
+
+        with (
+            patch.object(users_listing, "_load_admin_users_list_payload_uncached", load),
+            patch.object(users_listing, "_admin_users_list_cache", return_value=cache),
+        ):
+            first = await page(extensions)
+            second = await page(extensions)
+            plain = await page(UsersTableExtensions())
+        load.assert_awaited_once()
+        self.assertEqual(resolve.await_count, 2)
+        self.assertEqual(first["users"][0]["extension_values"], {"sample:status": "first"})
+        self.assertEqual(second["users"][0]["extension_values"], {"sample:status": "second"})
+        self.assertNotIn("extension_values", plain["users"][0])
+
+    async def test_plugin_filter_applies_to_rows_and_total_before_pagination(self):
+        extensions = UsersTableExtensions(
+            filters=(
+                (
+                    "audit:account",
+                    AdminUserFilter(
+                        "account",
+                        "Account",
+                        (AdminUserFilterOption("telegram", "Telegram"),),
+                        lambda value: User.telegram_id.is_not(None),
+                    ),
+                ),
+            ),
+        )
+        assert extensions.predicates(["audit:account=unknown", "removed:filter=telegram"]) == ()
+        session = SimpleNamespace(
+            execute=AsyncMock(side_effect=[FakeResult([]), FakeResult(scalar_value=12)])
+        )
+        _, total = await users_module._filter_and_sort_users(
+            session,
+            filter_value="all",
+            sort_value="registered_desc",
+            page=1,
+            page_size=10,
+            extension_predicates=extensions.predicates(["audit:account=telegram"]),
+        )
+        rows, count = [_compile_sql(call.args[0]) for call in session.execute.await_args_list]
+        self.assertEqual(total, 12)
+        self.assertIn("users.telegram_id is not null", rows)
+        self.assertIn("limit 10 offset 10", rows)
+        self.assertIn("users.telegram_id is not null", count)
+        self.assertNotIn("limit", count)
+
+    async def test_plugin_column_resolves_once_for_page_and_ignores_other_users(self):
+        resolve = AsyncMock(return_value={1: "First", 3: "Off page"})
+        session = AsyncMock(spec=AsyncSession)
+        session.begin_nested.return_value = nullcontext()
+        extensions = UsersTableExtensions(
+            columns=(("audit:label", AdminUserColumn("label", "Label", resolve)),)
+        )
+        self.assertEqual(
+            await extensions.column_values(session, (1, 2)),
+            {1: {"audit:label": "First"}, 2: {"audit:label": None}},
+        )
+        resolve.assert_awaited_once_with(session, (1, 2))
+
     async def test_bulk_user_balances_use_one_grouped_currency_query(self):
         session = SimpleNamespace(
             execute=AsyncMock(

@@ -30,12 +30,22 @@ from bot.infra.auto_renew import (
     stop_provider_managed_recurrence,
 )
 from bot.infra.redis import redis_lock
+from bot.services.balance_recurring import balance_recurring_available
 from bot.services.code_attempts import check_code_attempt
+from bot.services.grant_wallet_renewal import grant_balance_renewal_tariff_key
 from bot.services.promo_code_service import PromoCheckoutRequired, PromoCodeService
 from bot.services.subscription_service_impl.core import SubscriptionService
+from bot.services.subscription_service_impl.renewal import quote_grant_balance_renewal
 from bot.utils.config_link import prepare_config_links
 from bot.utils.install_links import ensure_user_install_guide_share_url
 from config.settings import Settings
+from db.balance_renewal import (
+    GRANT_PROVIDERS,
+    GrantBalanceRenewal,
+    GrantBalanceRenewalCycleStarted,
+    renewal_provider,
+    subscription_provider,
+)
 from db.dal import message_log_dal, subscription_dal, tribute_dal, user_dal
 
 from .billing_common import (
@@ -216,10 +226,25 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                     "Active subscription is required",
                 )
 
-            provider = str(getattr(sub, "provider", "") or "").strip().lower()
+            provider = renewal_provider(sub)
             from bot.payment_providers import provider_label_map, provider_supports_recurring
             from bot.payment_providers.shared import service_supports_recurring
             from bot.payment_providers.shared.recurring import has_recurring_payment_method
+
+            selection = None
+            if requested := auto_renew_payload.balance_renewal:
+                if not enabled or subscription_provider(sub) not in GRANT_PROVIDERS:
+                    return _json_error(
+                        400, "auto_renew_unavailable", "Balance setup is unavailable"
+                    )
+                provider = "user_balance" if requested.source == "user" else "partner_balance"
+                selection = GrantBalanceRenewal(
+                    provider, requested.tariff_key, requested.duration_days
+                )
+                if not balance_recurring_available(settings, provider):
+                    return _json_error(
+                        400, "auto_renew_unavailable", "Selected balance is unavailable"
+                    )
 
             if not auto_renew_toggle_allowed(provider, enable=enabled):
                 await session.rollback()
@@ -313,12 +338,39 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                         "auto_renew_provider_cancel_failed",
                         "The payment provider did not confirm the cancellation",
                     )
-                await subscription_dal.set_auto_renew(
-                    session,
-                    sub.subscription_id,
-                    enabled,
-                    stop_reason=("customer_disabled" if not enabled else "consent_changed"),
-                )
+                if selection is not None:
+                    locked_sub = await subscription_dal.get_subscription_by_id_for_update(
+                        session, sub.subscription_id
+                    )
+                    if locked_sub is None or not locked_sub.is_active:
+                        await session.rollback()
+                        return _json_error(
+                            409, "entitlement_context_changed", "Subscription has changed"
+                        )
+                    if (
+                        grant_balance_renewal_tariff_key(settings, locked_sub)
+                        != selection.tariff_key
+                        or quote_grant_balance_renewal(settings, locked_sub, selection) is None
+                    ):
+                        await session.rollback()
+                        return _json_error(
+                            400, "invalid_plan", "Selected renewal tariff or period is unavailable"
+                        )
+                    updated = await subscription_dal.set_auto_renew(
+                        session, sub.subscription_id, True, balance_renewal=selection
+                    )
+                    if updated is None:
+                        await session.rollback()
+                        return _json_error(
+                            409, "entitlement_context_changed", "Subscription has changed"
+                        )
+                else:
+                    await subscription_dal.set_auto_renew(
+                        session,
+                        sub.subscription_id,
+                        enabled,
+                        stop_reason=("customer_disabled" if not enabled else "consent_changed"),
+                    )
                 await session.commit()
             await _invalidate_webapp_user_caches(settings, user_id)
 
@@ -331,6 +383,11 @@ async def subscription_auto_renew_route(request: web.Request) -> web.Response:
                     "provider": provider,
                     "provider_label": provider_label,
                 }
+            )
+        except GrantBalanceRenewalCycleStarted:
+            await session.rollback()
+            return _json_error(
+                409, "balance_renewal_cycle_started", "The renewal cycle has started"
             )
         except Exception:
             await session.rollback()

@@ -8,6 +8,7 @@ from aiohttp import web
 
 from bot.utils.locale_defaults import tariff_premium_title
 from config.settings import Settings
+from config.stars_pricing import trial_stars_price
 from config.subscription_periods import days_to_legacy_months, with_period_days
 from config.tariffs_config import (
     default_currency_key_for_settings,
@@ -77,7 +78,7 @@ def _serialize_trial_payment_plan(settings: Settings) -> dict[str, Any] | None:
     default_currency = default_currency_key_for_settings(settings)
     default_currency_code = payment_currency_code(default_currency)
     price = max(0.0, float(settings.TRIAL_PAYMENT_PRICE or 0))
-    stars_price = max(0, int(settings.TRIAL_PAYMENT_STARS_PRICE or 0))
+    stars_price = trial_stars_price(settings, default_currency)
     plan: dict[str, Any] = {
         "id": "trial:activation",
         "sale_mode": "trial",

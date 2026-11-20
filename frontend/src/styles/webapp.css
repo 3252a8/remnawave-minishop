@@ -224,13 +224,21 @@ a {
   padding: 16px;
 }
 
-.status-card-inactive {
-  border-color: color-mix(in srgb, var(--danger) 58%, var(--border));
-  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
+/* Not having a subscription is a neutral state, not an error: no red frame,
+   a muted icon and a hint that points to the purchase button below. */
+.status-card-inactive .sub-status {
+  color: var(--text);
 }
 
-.status-card-inactive .sub-status {
-  color: var(--danger);
+.status-card-inactive .sub-status-icon {
+  color: var(--muted);
+}
+
+.sub-status-inactive-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .status-card-warning {
@@ -297,58 +305,37 @@ a {
 }
 
 .auto-renew-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 5px 6px 5px 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: var(--radius-inner);
-  background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
-.auto-renew-state {
-  display: flex;
+.auto-renew-row > svg {
+  color: var(--muted);
+}
+
+.auto-renew-copy {
+  display: grid;
+  gap: 2px;
   min-width: 0;
-  align-items: center;
-  gap: 6px;
+}
+
+.auto-renew-copy strong {
   color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
-.auto-renew-state > svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-.auto-renew-state > span {
-  display: block;
-  min-width: 0;
-}
-
-.auto-renew-state strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.auto-renew-state strong {
+.auto-renew-copy small {
+  color: var(--muted);
   font-size: 12px;
-  line-height: 1.1;
-}
-
-.auto-renew-action {
-  min-height: 28px;
-  padding: 0 9px;
-  flex: 0 0 auto;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.auto-renew-action svg {
-  width: 14px;
-  height: 14px;
+  line-height: 1.3;
 }
 
 @media (max-width: 1023px) {
@@ -407,7 +394,6 @@ a {
     margin-left: 0;
     justify-content: center;
   }
-
 }
 
 .traffic-top,
@@ -1013,8 +999,6 @@ a {
   border-color: var(--danger-border);
   color: var(--danger-text);
 }
-
-
 
 .devices-empty-card {
   display: grid;
@@ -1688,7 +1672,7 @@ a {
   justify-content: space-between;
   gap: 10px;
   padding: 0 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--control-border, var(--border));
   border-radius: var(--radius-control);
   background: var(--surface-muted);
   color: var(--text);
@@ -2888,7 +2872,6 @@ a {
   font-size: 14px;
 }
 
-
 .settings-admin-block {
   display: grid;
   gap: 8px;
@@ -3173,8 +3156,15 @@ a {
   gap: 10px;
   align-items: center;
   width: 100%;
-  border-color: var(--danger-border);
-  background: color-mix(in srgb, var(--danger) 7%, var(--panel));
+  /* An invitation to enable notifications is information, not an error; only a
+     bot the user blocked keeps the warning tone. */
+  border-color: var(--info-border);
+  background: var(--info-soft);
+}
+
+.telegram-notifications-card.is-blocked {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
 }
 
 .home-layout > .telegram-notifications-card {
@@ -3193,8 +3183,13 @@ a {
   height: 38px;
   place-items: center;
   border-radius: var(--radius-inner);
-  background: color-mix(in srgb, #ff4b4b 16%, var(--panel-2));
-  color: #ff6b6b;
+  background: color-mix(in srgb, var(--info) 16%, var(--panel-2));
+  color: var(--info-text);
+}
+
+.telegram-notifications-card.is-blocked .telegram-notifications-icon {
+  background: color-mix(in srgb, var(--warning) 16%, var(--panel-2));
+  color: var(--warning-text);
 }
 
 .telegram-notifications-copy {
@@ -3279,9 +3274,7 @@ a {
   border-radius: var(--radius);
   /* The nav floats over scrolling content; an opaque base keeps it legible
      without a per-frame backdrop blur. */
-  background:
-    linear-gradient(var(--nav-bg), var(--nav-bg)),
-    var(--bg);
+  background: linear-gradient(var(--nav-bg), var(--nav-bg)), var(--bg);
   box-shadow: var(--shadow-soft);
 }
 
@@ -4060,8 +4053,7 @@ a {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: var(--radius-card);
-  background:
-    #071017;
+  background: #071017;
   box-shadow:
     0 28px 80px rgba(0, 0, 0, 0.54),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -4549,7 +4541,6 @@ a {
     align-items: start;
   }
 
-  .security-screen > .security-back,
   .security-screen > .security-status {
     grid-column: 1 / -1;
   }
@@ -4730,7 +4721,6 @@ a {
     border-radius: var(--radius-inner);
     background: var(--surface-subtle);
   }
-
 
   /* Empty/inactive states keep their generous vertical spacing while spanning
      the same desktop content width as the surrounding device cards. */

@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 from aiohttp import web
 
-from bot.app.web.admin_api_impl import users_devices
+from bot.app.web.admin_api_impl import user_panel_account, users_devices
+from bot.app.web.webapp.devices import _device_hwid_token
 
 
 class AdminUserHwidDevicesResetTests(unittest.IsolatedAsyncioTestCase):
@@ -31,10 +32,10 @@ class AdminUserHwidDevicesResetTests(unittest.IsolatedAsyncioTestCase):
         )
         self.auth = self._patch(users_devices, "_require_admin_user_id", return_value=100)
         self.get_user = self._patch(
-            users_devices.user_dal, "get_user_by_id", new=AsyncMock(return_value=self.user)
+            user_panel_account.user_dal, "get_user_by_id", new=AsyncMock(return_value=self.user)
         )
         self.get_active = self._patch(
-            users_devices.subscription_dal,
+            user_panel_account.subscription_dal,
             "get_active_subscription_by_user_id",
             new=AsyncMock(return_value=self.active),
         )
@@ -70,6 +71,39 @@ class AdminUserHwidDevicesResetTests(unittest.IsolatedAsyncioTestCase):
         response = await users_devices.admin_user_hwid_devices_reset_route(self.request)
         self.assertEqual(response.status, 200)
         self.panel.reset_user_hwid_devices.assert_awaited_once_with("panel-user")
+
+    async def test_disconnect_only_a_current_device_of_the_selected_account(self):
+        self._patch(
+            user_panel_account.user_dal, "lock_user_by_id", new=AsyncMock(return_value=self.user)
+        )
+        self.panel.get_user_devices = AsyncMock(return_value=[{"hwid": "mine"}, {"hwid": "keep"}])
+        self.panel.disconnect_device = AsyncMock(return_value=True)
+        parsed = self._patch(users_devices, "parse_body_or_400", new=AsyncMock())
+        parsed.return_value = users_devices.AdminUserDisconnectDeviceBody(
+            device_token=_device_hwid_token("foreign")
+        )
+        response = await users_devices.admin_user_device_disconnect_route(self.request)
+        self.assertEqual(response.status, 404)
+        self.panel.disconnect_device.assert_not_awaited()
+        parsed.return_value = users_devices.AdminUserDisconnectDeviceBody(
+            device_token=_device_hwid_token("mine")
+        )
+        response = await users_devices.admin_user_device_disconnect_route(self.request)
+        self.assertEqual(response.status, 200)
+        self.panel.disconnect_device.assert_awaited_once_with("panel-user", "mine")
+        self.panel.reset_user_hwid_devices.assert_not_awaited()
+        self.invalidate.assert_awaited_once_with(self.settings, 42)
+
+    async def test_list_distinguishes_empty_inventory_from_an_unavailable_panel(self):
+        self.panel.get_user_devices = AsyncMock(return_value=[])
+        self._patch(
+            users_devices.device_name_dal, "get_device_names", new=AsyncMock(return_value={})
+        )
+        response = await users_devices.admin_user_devices_route(self.request)
+        self.assertEqual(json.loads(response.text)["devices"], [])
+        self.panel.get_user_devices.return_value = None
+        response = await users_devices.admin_user_devices_route(self.request)
+        self.assertEqual(response.status, 502)
 
     async def test_falls_back_to_active_subscription_panel_user(self):
         self.user.panel_user_uuid = None

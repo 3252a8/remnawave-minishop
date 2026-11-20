@@ -231,6 +231,27 @@
   }
 
   @media (max-width: 1023px) {
+    .ticket-composer:not(.fills-available-space) .ticket-composer-editor :global(.rt-surface) {
+      max-height: clamp(48px, calc(var(--support-content-height, 100dvh) * 0.25), 160px);
+      border: 1px solid var(--control-border, var(--border));
+      border-radius: var(--radius-card);
+      background: var(--panel-2);
+      padding-inline: 12px;
+      overscroll-behavior: contain;
+    }
+
+    .ticket-composer:not(.fills-available-space)
+      .ticket-composer-editor
+      :global(.rt-surface:focus-within) {
+      border-color: var(--accent);
+    }
+
+    .ticket-composer:not(.fills-available-space) :global(.message-image-previews) {
+      max-height: min(96px, calc(var(--support-content-height, 100dvh) * 0.18));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
     .ticket-composer-editor :global(.ProseMirror) {
       font-size: 16px;
     }
@@ -295,5 +316,13 @@
 
   .fills-available-space .ticket-composer-row :global(.ticket-composer-send) {
     grid-column: 2;
+  }
+
+  @media (min-width: 1024px) {
+    .fills-available-space .ticket-composer-row :global(.ticket-composer-send) {
+      justify-self: end;
+      width: auto;
+      padding-inline: 18px;
+    }
   }
 </style>

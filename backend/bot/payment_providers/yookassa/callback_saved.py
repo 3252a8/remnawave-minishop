@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from aiogram import F, types
+from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import (
@@ -12,6 +13,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_yk_saved_cards_keyboard,
     payment_methods_back_callback,
 )
+from bot.middlewares.confirmation import edit_confirmation
 from bot.middlewares.i18n import JsonI18n
 from bot.services.telegram_account import require_telegram_account_id
 from bot.utils.callback_answer import callback_message_or_none
@@ -47,6 +49,7 @@ async def pay_yk_saved_list_handler(
     i18n_data: dict[str, Any],
     yookassa_service: YooKassaService,
     session: AsyncSession,
+    state: FSMContext | None = None,
 ) -> None:
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
     i18n: JsonI18n | None = i18n_data.get("i18n_instance")
@@ -147,34 +150,14 @@ async def pay_yk_saved_list_handler(
     max_page = max(0, (len(cards) - 1) // per_page)
     page = max(0, min(page, max_page))
 
-    try:
-        await message.edit_text(
-            get_text("yookassa_autopay_choose_saved_card"),
-            reply_markup=get_yk_saved_cards_keyboard(
-                cards,
-                months,
-                price_rub,
-                current_lang,
-                i18n,
-                page=page,
-                sale_mode=sale_mode,
-            ),
-        )
-    except Exception as e_edit:
-        logger.warning("Failed to display saved card list: %s", e_edit)
-        with contextlib.suppress(Exception):
-            await message.answer(
-                get_text("yookassa_autopay_choose_saved_card"),
-                reply_markup=get_yk_saved_cards_keyboard(
-                    cards,
-                    months,
-                    price_rub,
-                    current_lang,
-                    i18n,
-                    page=page,
-                    sale_mode=sale_mode,
-                ),
-            )
+    await edit_confirmation(
+        message,
+        state,
+        get_text("yookassa_autopay_choose_saved_card"),
+        get_yk_saved_cards_keyboard(
+            cards, months, price_rub, current_lang, i18n, page=page, sale_mode=sale_mode
+        ),
+    )
     with contextlib.suppress(Exception):
         await callback.answer()
 

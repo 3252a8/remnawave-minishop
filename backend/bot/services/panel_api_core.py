@@ -465,7 +465,14 @@ class PanelApiCoreMixin:
         # usernames, emails, user ids, or UUIDs. The operation registry label is
         # deliberately identifier-free.
         log_prefix = f"Panel API Req: {method.upper()} {endpoint_label}"
-        if json_payload_for_log:
+        private_body = operation in {
+            PanelApiOperation.USER_GET,
+            PanelApiOperation.USER_UPDATE,
+            PanelApiOperation.HWID_DEVICES_LIST,
+            PanelApiOperation.HWID_DEVICES_GET,
+            PanelApiOperation.HWID_DEVICE_DELETE,
+        }
+        if json_payload_for_log and not private_body:
             try:
                 payload_str = json.dumps(json_payload_for_log)
                 log_prefix += (
@@ -494,7 +501,9 @@ class PanelApiCoreMixin:
 
                 log_suffix = f"| Status: {response_status}"
 
-                if log_full_response or not (200 <= response_status < 300):
+                if private_body:
+                    logger.debug("%s %s", log_prefix, log_suffix)
+                elif log_full_response or not (200 <= response_status < 300):
                     try:
                         parsed_json_for_log = json.loads(response_text)
                         pretty_response_text = json.dumps(

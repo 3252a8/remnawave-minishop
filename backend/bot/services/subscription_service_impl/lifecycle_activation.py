@@ -742,6 +742,9 @@ class SubscriptionLifecycleActivationMixin(SubscriptionServiceMixinContract):
             # trial/bonus suppression carried over on this panel subscription.
             "suppress_early_expiry_notifications": False,
             "auto_renew_enabled": auto_renew_should_enable,
+            "balance_renewal_provider": None,
+            "balance_renewal_tariff_key": None,
+            "balance_renewal_duration_days": None,
             "tariff_key": tariff.key if tariff else None,
             "tariff_binding_source": "payment" if tariff else None,
             "tariff_bound_at": datetime.now(UTC) if tariff else None,

@@ -37,6 +37,71 @@ from .user_management_common import (
 logger = logging.getLogger(__name__)
 
 
+def user_card_back_callback(callback: types.CallbackQuery, user_id: int) -> str:
+    legacy = f"user_action:refresh:{user_id}"
+    prefix = f"uc:{user_id}"
+    markup = getattr(callback.message, "reply_markup", None)
+    if markup:
+        for row in markup.inline_keyboard:
+            for button in row:
+                target = button.callback_data or ""
+                if target == prefix or target.startswith(f"{prefix}:"):
+                    return target
+                if target == legacy or target.startswith(f"{legacy}:"):
+                    return f"{prefix}{target.removeprefix(legacy)}"
+    parts = (callback.data or "").split(":", 3)
+    if len(parts) == 4 and parts[0] == "us" and parts[2] == str(user_id):
+        return f"{prefix}:{parts[3]}"
+    return prefix
+
+
+def user_card_return_origin(callback: types.CallbackQuery, user_id: int) -> str:
+    parts = user_card_back_callback(callback, user_id).split(":", 2)
+    return parts[2] if len(parts) > 2 else ""
+
+
+USER_CARD_SECTIONS = {
+    "a": "add_subscription",
+    "t": "traffic_grant",
+    "p": "premium_override",
+    "h": "hwid_limit",
+    "s": "search_user",
+}
+
+
+def user_card_section_callback(callback: types.CallbackQuery, user_id: int, section: str) -> str:
+    origin = user_card_return_origin(callback, user_id)
+    return f"us:{section}:{user_id}:{origin}"
+
+
+def user_card_origin_target(origin: str) -> tuple[str, str]:
+    back_label = "back_to_admin_panel_button"
+    back_target = "admin_action:main"
+    if origin == "s":
+        back_label, back_target = "back_to_main_menu_button", "admin_action:users_search_prompt"
+    elif origin.startswith("s"):
+        previous_user, _separator, previous_origin = origin[1:].partition(".")
+        if previous_user.isascii() and previous_user.isdecimal():
+            back_label = "back_to_main_menu_button"
+            back_target = f"us:s:{previous_user}:{previous_origin}"
+    elif origin.startswith(("l", "b")) and origin[1:].isascii() and origin[1:].isdecimal():
+        if origin[0] == "l":
+            back_label = "admin_user_back_to_list_button"
+            back_target = f"admin_action:users_list:{origin[1:]}"
+        else:
+            back_label = "user_card_back_to_banned_list_button"
+            back_target = f"admin_action:view_banned:{origin[1:]}"
+    elif origin.startswith("i"):
+        inviter, _separator, payload = origin[1:].partition(".")
+        page, _separator, parent = payload.partition(".")
+        if inviter.isascii() and inviter.isdecimal() and page.isascii() and page.isdecimal():
+            back_label = "back_to_main_menu_button"
+            back_target = f"ui:{inviter}:{page}"
+            if parent:
+                back_target += f":{parent}"
+    return back_label, back_target
+
+
 def get_user_card_keyboard(
     user_id: int,
     i18n_instance: JsonI18n,
@@ -44,10 +109,12 @@ def get_user_card_keyboard(
     referrer_id: int | None = None,
     *,
     telegram_id: int | None = None,
+    origin: str = "",
 ) -> InlineKeyboardBuilder:
     """Generate keyboard for user management actions"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     builder = InlineKeyboardBuilder()
+    suffix = f":{origin}" if origin else ""
 
     # Row 1: Trial and Subscription actions
     builder.button(
@@ -78,7 +145,8 @@ def get_user_card_keyboard(
         text=_(key="admin_user_view_logs_button"), callback_data=f"user_action:view_logs:{user_id}"
     )
     builder.button(
-        text=_(key="admin_user_refresh_button"), callback_data=f"user_action:refresh:{user_id}"
+        text=_(key="admin_user_refresh_button"),
+        callback_data=f"uc:{user_id}{suffix}",
     )
 
     # Row 3b: Referral details
@@ -115,9 +183,10 @@ def get_user_card_keyboard(
 
     # Row 6: Navigation
     builder.button(
-        text=_(key="admin_user_search_new_button"), callback_data="admin_action:users_search_prompt"
+        text=_(key="admin_user_search_new_button"), callback_data=f"us:s:{user_id}:{origin}"
     )
-    builder.button(text=_(key="back_to_admin_panel_button"), callback_data="admin_action:main")
+    back_label, back_target = user_card_origin_target(origin)
+    builder.button(text=_(back_label), callback_data=back_target)
 
     quick_links_count = 1 if telegram_id is not None else 0
     if quick_links_count == 0:

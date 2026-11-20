@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
 from bot.middlewares.i18n import JsonI18n
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
@@ -18,6 +19,11 @@ from config.settings import Settings
 from db.dal import message_log_dal, subscription_dal
 from db.models import User
 
+from .user_management_cards import (
+    user_card_back_callback,
+    user_card_return_origin,
+    user_card_section_callback,
+)
 from .user_management_info import handle_refresh_user_card
 
 logger = logging.getLogger(__name__)
@@ -76,7 +82,7 @@ async def handle_premium_override_menu(
     )
     builder.button(
         text=_("admin_user_back_to_card_button"),
-        callback_data=f"user_action:refresh:{user.user_id}",
+        callback_data=user_card_back_callback(callback, user.user_id),
     )
     builder.adjust(1, 1, 1, 1)
 
@@ -88,7 +94,9 @@ async def handle_premium_override_menu(
         await callback_message(callback).answer(
             text, reply_markup=builder.as_markup(), parse_mode="HTML"
         )
-    await state.update_data(target_user_id=user.user_id)
+    await state.update_data(
+        target_user_id=user.user_id, card_origin=user_card_return_origin(callback, user.user_id)
+    )
     await callback.answer()
 
 
@@ -161,16 +169,24 @@ async def handle_premium_override_bonus_prompt(
 ) -> None:
     """Ask admin for the bonus GB to grant."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    await state.update_data(target_user_id=user.user_id)
+    await state.update_data(
+        target_user_id=user.user_id, card_origin=user_card_return_origin(callback, user.user_id)
+    )
     await state.set_state(AdminStates.waiting_for_premium_override_bonus_gb)
     prompt = _(
         "admin_premium_override_bonus_prompt",
         user_id=getattr(user, "minishop_id", None) or "—",
     )
+    back = get_admin_back_keyboard(
+        lang,
+        i18n_instance,
+        user_card_section_callback(callback, user.user_id, "p"),
+        "cancel_button",
+    )
     try:
-        await callback_message(callback).edit_text(prompt)
+        await callback_message(callback).edit_text(prompt, reply_markup=back)
     except Exception:
-        await callback_message(callback).answer(prompt)
+        await callback_message(callback).answer(prompt, reply_markup=back)
     await callback.answer()
 
 
@@ -241,7 +257,7 @@ async def handle_hwid_limit_menu(
     )
     builder.button(
         text=_("admin_user_back_to_card_button"),
-        callback_data=f"user_action:refresh:{user.user_id}",
+        callback_data=user_card_back_callback(callback, user.user_id),
     )
     builder.adjust(1, 1, 1, 1)
 
@@ -253,7 +269,9 @@ async def handle_hwid_limit_menu(
         await callback_message(callback).answer(
             text, reply_markup=builder.as_markup(), parse_mode="HTML"
         )
-    await state.update_data(target_user_id=user.user_id)
+    await state.update_data(
+        target_user_id=user.user_id, card_origin=user_card_return_origin(callback, user.user_id)
+    )
     await callback.answer()
 
 
@@ -326,11 +344,19 @@ async def handle_hwid_limit_prompt(
 ) -> None:
     """Ask admin for an explicit HWID device limit."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
-    await state.update_data(target_user_id=user.user_id)
+    await state.update_data(
+        target_user_id=user.user_id, card_origin=user_card_return_origin(callback, user.user_id)
+    )
     await state.set_state(AdminStates.waiting_for_hwid_device_limit)
     prompt = _("admin_hwid_limit_prompt", user_id=getattr(user, "minishop_id", None) or "—")
+    back = get_admin_back_keyboard(
+        lang,
+        i18n_instance,
+        user_card_section_callback(callback, user.user_id, "h"),
+        "cancel_button",
+    )
     try:
-        await callback_message(callback).edit_text(prompt)
+        await callback_message(callback).edit_text(prompt, reply_markup=back)
     except Exception:
-        await callback_message(callback).answer(prompt)
+        await callback_message(callback).answer(prompt, reply_markup=back)
     await callback.answer()

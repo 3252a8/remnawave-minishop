@@ -15,8 +15,12 @@
   /* Themes own --font-sans. UI text uses this composed stack so theme overrides
      cannot accidentally remove the bundled country-flag fallback. */
   --font-ui: var(--font-country-flags), var(--font-sans);
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
-  --font-logo: var(--font-mono);
+  /* Ids and codes use the platform's own monospace face; without it Windows
+     falls back to Courier New. The logo keeps its original stack. */
+  --font-mono:
+    "JetBrains Mono", "Fira Code", ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --font-logo: "JetBrains Mono", "Fira Code", monospace;
   color-scheme: dark;
   --accent: #00fe7a;
   --bg: #03070b;
@@ -27,7 +31,8 @@
   --border-strong: rgba(255, 255, 255, 0.2);
   --text: #f2f7f4;
   --muted: #a9b4b0;
-  --dim: #68736f;
+  /* 4.6:1 on --panel: muted labels, hints and placeholders stay readable. */
+  --dim: #7a8480;
   --danger: #ff6b6b;
   --danger-text: #ffb4b4;
   --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--panel));
@@ -131,6 +136,9 @@
 .theme-light {
   color-scheme: light;
   --accent-readable: color-mix(in srgb, var(--accent) 44%, #0f172a);
+  /* Outlines of fields, selects, checkboxes and switches reach 3:1 against the
+     panel (WCAG 1.4.11); the decorative --border stays for cards and dividers. */
+  --control-border: color-mix(in srgb, var(--text) 48%, var(--panel));
 }
 
 .theme-light .ui-spinner,

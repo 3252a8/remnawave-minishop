@@ -41,12 +41,21 @@ export function regularTrafficLimitVisible(sub: SubscriptionTraffic | null | und
   return !sub?.regular_unlimited_override && Number(sub?.traffic_limit_bytes || 0) > 0;
 }
 
+function hasBytes(value: unknown): boolean {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+/**
+ * Used/limit from the byte counters when the server sends them, so the unit
+ * follows the interface language. Use the server's text as the fallback.
+ */
 export function trafficLabel(sub: SubscriptionTraffic | null | undefined, t: TranslateFn): string {
   if (!sub?.traffic_limit_bytes || Number(sub.traffic_limit_bytes) <= 0)
     return t("wa_unlimited_traffic");
+  const exact = hasBytes(sub.traffic_used_bytes);
   return t("wa_traffic_of", {
-    used: sub.traffic_used || "0 GB",
-    limit: sub.traffic_limit || "0 GB",
+    used: exact ? formatTrafficBytes(sub.traffic_used_bytes) : sub.traffic_used || "0 GB",
+    limit: exact ? formatTrafficBytes(sub.traffic_limit_bytes) : sub.traffic_limit || "0 GB",
   });
 }
 
@@ -114,7 +123,9 @@ export function premiumTrafficLabel(
   t: TranslateFn
 ): string {
   return t("wa_traffic_of", {
-    used: sub?.premium_used || "0 GB",
+    used: hasBytes(sub?.premium_used_bytes)
+      ? formatTrafficBytes(sub?.premium_used_bytes)
+      : sub?.premium_used || "0 GB",
     limit: formatTrafficBytes(sub?.premium_limit_bytes),
   });
 }

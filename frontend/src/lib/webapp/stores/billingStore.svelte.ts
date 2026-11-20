@@ -540,6 +540,8 @@ export function createBillingStore({
         null;
       const deeplinkTariff =
         preferredTariff || (options?.selectDefaultTariff ? fallbackTariff : null);
+      const activeTariffKey =
+        subscription?.balance_renewal_eligible_tariff_key || subscription?.tariff_key;
 
       if (tariffMode) {
         if (preferredPlan) {
@@ -549,10 +551,10 @@ export function createBillingStore({
         } else if (
           !preferredTariffKey &&
           subscription?.active &&
-          subscription?.tariff_key &&
-          catalog.some((t) => t.key === subscription.tariff_key)
+          activeTariffKey &&
+          catalog.some((t) => t.key === activeTariffKey)
         ) {
-          tariffKey = String(subscription.tariff_key);
+          tariffKey = activeTariffKey;
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = "checkout";
         } else if (deeplinkTariff?.key) {
@@ -565,10 +567,10 @@ export function createBillingStore({
           step = "checkout";
         } else if (
           subscription?.active &&
-          subscription?.tariff_key &&
-          catalog.some((t) => t.key === subscription.tariff_key)
+          activeTariffKey &&
+          catalog.some((t) => t.key === activeTariffKey)
         ) {
-          tariffKey = String(subscription.tariff_key);
+          tariffKey = activeTariffKey;
           plan = planList.find((p) => p?.tariff_key === tariffKey) || null;
           step = "checkout";
         } else {
@@ -762,6 +764,20 @@ export function createBillingStore({
     if (!s.selectedPlan || !method || s.payBusy) return;
     updateState((s) => ({ ...s, payBusy: true }));
     try {
+      if (options.scheduleBalanceRenewal) {
+        const plan = s.selectedPlan;
+        if (!options.balanceSource || !plan.tariff_key || !Number(plan.duration_days)) return;
+        const result = await billing.postAutoRenew(true, false, {
+          source: options.balanceSource,
+          tariff_key: plan.tariff_key,
+          duration_days: Number(plan.duration_days),
+        });
+        if (!result.ok) throw result;
+        updateState((s) => ({ ...s, paymentModalOpen: false }));
+        showToast(t("wa_auto_renew_enabled"));
+        await loadData({ fresh: true, preserveView: true });
+        return;
+      }
       const response = await billing.postPayment(
         billing.planPaymentBody(s.selectedPlan, method, {
           renewHwidDevices: s.renewHwidDevices && Boolean(s.selectedPlan?.hwid_renewal?.available),

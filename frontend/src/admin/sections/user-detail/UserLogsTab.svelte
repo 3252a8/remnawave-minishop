@@ -29,6 +29,7 @@
     userLogsLoaded?: boolean;
   };
 
+  const userLogsTableLayout = { columnWidths: ["22%", "30%", "48%"], minWidth: "520px" };
   let {
     at,
     fmtDate,
@@ -78,14 +79,14 @@
         headers={[at("date", {}, "Date"), at("event", {}, "Event"), at("content", {}, "Content")]}
         rows={6}
         rowHeight={58}
-        widths={["140px", "140px", "60%"]}
+        {...userLogsTableLayout}
       />
     {:else if !userLogsRows.length}
       <AdminEmptyState tone="card">
         <span class="admin-muted">{at("logs_empty", {}, "No entries")}</span>
       </AdminEmptyState>
     {:else}
-      <AdminTable>
+      <AdminTable {...userLogsTableLayout}>
         <thead>
           <tr>
             <AdminSortableHeader

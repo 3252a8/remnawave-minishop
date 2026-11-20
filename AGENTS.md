@@ -4,6 +4,11 @@ Entry point for AI agents. The single source of truth for conventions, architect
 enforced quality gates is [CONTRIBUTING.md](CONTRIBUTING.md) (written in Russian) — **read it
 before changing code.** Architecture overview: [docs/architecture.md](docs/architecture.md).
 
+For a GitLab image publication network failure, check the effective HTTP(S) proxy in the
+Docker daemon for the affected job. Verify registry authentication and pull the exact failed
+image through that daemon or a disposable daemon on the same runner network. Use this evidence
+before retrying, then verify the scanner ran and the published tags match the requested revision.
+
 Non-negotiables (details in CONTRIBUTING.md §2):
 
 - Never hand-edit generated artifacts — run their generator (`openapi.json`, `events.md`,

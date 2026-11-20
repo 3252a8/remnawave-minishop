@@ -411,6 +411,7 @@
       usersPanelStatus: usersStore.usersPanelStatus,
       usersPremiumTraffic: usersStore.usersPremiumTraffic,
       usersTariffFilter: usersStore.usersTariffFilter,
+      usersExtensionFilters: usersStore.usersExtensionFilters,
     });
   }
 

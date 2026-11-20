@@ -16,6 +16,14 @@ from yarl import URL
 Endpoint = tuple[str, int]
 
 
+class UnsafeOutboundAddress(ValueError):
+    def __init__(self, host: str, port: int, address: str) -> None:
+        super().__init__("unsafe_outbound_address")
+        self.host = host
+        self.port = port
+        self.address = address
+
+
 def url_endpoint(url: str) -> Endpoint:
     try:
         parsed = urlsplit(url)
@@ -58,10 +66,9 @@ class OutboundPolicy:
             or ip.is_multicast
             or ip.is_unspecified
             or (ip.is_reserved and not ip.is_loopback)
+            or (not ip.is_global and not trusted)
         ):
-            raise ValueError("unsafe_outbound_address")
-        if not ip.is_global and not trusted:
-            raise ValueError("unsafe_outbound_address")
+            raise UnsafeOutboundAddress(host, port, address)
 
     def check_url(self, url: str) -> None:
         host, port = url_endpoint(url)
@@ -114,17 +121,29 @@ def connect_socket(
 
 
 class GuardedResolver(ThreadedResolver):
-    def __init__(self, policy: OutboundPolicy) -> None:
+    def __init__(self, policy: OutboundPolicy, *, filter_blocked: bool = False) -> None:
         super().__init__()
         self.policy = policy
+        self.filter_blocked = filter_blocked
 
     async def resolve(
         self, host: str, port: int = 0, family: socket.AddressFamily = socket.AF_INET
     ) -> list[ResolveResult]:
         answers = await super().resolve(host, port, family)
+        allowed = []
+        blocked = None
         for answer in answers:
-            self.policy.check_address(host, port, answer["host"])
-        return answers
+            try:
+                self.policy.check_address(host, port, answer["host"])
+            except UnsafeOutboundAddress as exc:
+                if not self.filter_blocked:
+                    raise
+                blocked = exc
+            else:
+                allowed.append(answer)
+        if not allowed and blocked is not None:
+            raise blocked
+        return allowed
 
 
 def outbound_trace(policy: OutboundPolicy) -> TraceConfig:

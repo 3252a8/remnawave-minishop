@@ -12,6 +12,7 @@
     "build:webapp": "npm --prefix frontend run build:webapp",
     "build:docs": "npm --prefix docs-site run build",
     "generate:readme-screenshot": "npm --prefix frontend run generate:readme-screenshot",
+    "screens": "npm --prefix frontend run screens --",
     "dev:docs": "npm --prefix docs-site run dev",
     "preview:docs": "npm --prefix docs-site run preview",
     "sync:docs": "npm --prefix docs-site run sync:docs",

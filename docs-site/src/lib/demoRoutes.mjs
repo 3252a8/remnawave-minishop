@@ -10,6 +10,7 @@ export const demoUserRoutes = [
   "devices",
   "support",
   "settings",
+  "settings/payments",
   "login",
   "login/password",
 ];

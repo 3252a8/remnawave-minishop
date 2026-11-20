@@ -1,4 +1,5 @@
 import type { ProviderCurrencySupport } from "./stores/tariffsStore";
+import { PAYMENT_PROVIDER_NAMES } from "../paymentProviderNames";
 import type { SettingField, SettingsDirtyEntry } from "./stores/settingsStore";
 
 export type SettingsDirtyState = Record<string, SettingsDirtyEntry>;
@@ -153,30 +154,7 @@ export function trialDaysStrategyOptions(at: TranslateFn): SelectOption[] {
   ];
 }
 
-const PROVIDER_FALLBACK_LABELS = {
-  cryptopay: "CryptoPay",
-  freekassa: "FreeKassa",
-  heleket: "Heleket",
-  lava: "LAVA",
-  paykilla: "PayKilla",
-  platega: "Platega",
-  platega_all_methods: "Platega All methods",
-  platega_card: "Platega Card",
-  platega_crypto: "Platega Crypto",
-  platega_international: "Platega International",
-  platega_sbp: "Platega SBP/card",
-  rollypay: "RollyPay All methods",
-  rollypay_card: "RollyPay Card",
-  rollypay_crypto: "RollyPay Crypto",
-  rollypay_international: "RollyPay International",
-  rollypay_sbp: "RollyPay SBP",
-  rollypay_subscription: "RollyPay Subscription",
-  severpay: "SeverPay",
-  stars: "Telegram Stars",
-  telegram_stars: "Telegram Stars",
-  wata: "Wata",
-  yookassa: "YooKassa",
-} as const;
+const PROVIDER_FALLBACK_LABELS = PAYMENT_PROVIDER_NAMES;
 
 const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
   cryptopay: ["payments", "cryptopay"],
@@ -190,6 +168,8 @@ const PROVIDER_SETTINGS_PATHS: Partial<Record<ProviderKey, string[]>> = {
   platega_crypto: ["payments", "platega", "crypto"],
   platega_international: ["payments", "platega", "international"],
   platega_sbp: ["payments", "platega", "sbp"],
+  rivarapay_crypto: ["payments", "rivarapay"],
+  rivarapay_sbp: ["payments", "rivarapay"],
   rollypay: ["payments", "rollypay", "all-methods"],
   rollypay_card: ["payments", "rollypay", "card"],
   rollypay_crypto: ["payments", "rollypay", "crypto"],

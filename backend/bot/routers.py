@@ -6,6 +6,8 @@ from bot.handlers.admin import admin_router_aggregate
 from bot.handlers.telegram_membership import build_telegram_membership_router
 from bot.handlers.user import user_router_aggregate
 from bot.handlers.user.support_hint import build_support_hint_router
+from bot.middlewares.checkout_navigation import CheckoutNavigationMiddleware
+from bot.middlewares.confirmation import ConfirmationMiddleware
 from bot.plugins import PluginContext, setup_bot_plugins
 from config.settings import Settings
 
@@ -19,6 +21,8 @@ def build_root_router(
     # Allow all updates only in private chats (messages, callback queries, etc.)
     root.message.filter(F.chat.type == "private")
     root.callback_query.filter(F.message.chat.type == "private")
+    root.callback_query.outer_middleware(ConfirmationMiddleware())
+    root.callback_query.middleware(CheckoutNavigationMiddleware())
 
     root.include_router(build_telegram_membership_router())
 

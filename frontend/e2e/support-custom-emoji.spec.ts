@@ -272,6 +272,9 @@ for (const admin of [false, true]) {
 
 async function openButtonEmojiPicker(page: Page) {
   await page.goto("/demo/runtime/admin/support/7");
+  await expect(page.locator(".support-admin-composer")).toBeVisible();
+  const tools = page.locator(".support-tools-toggle");
+  if (await tools.isVisible()) await tools.click();
   await page
     .locator(".support-admin-composer-buttons")
     .getByRole("button", { name: /Add button|Добавить кнопку/ })
@@ -322,6 +325,7 @@ test("support button icons choose Unicode/custom, clear, restore focus and seria
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/demo/runtime/admin/support/7");
   const composer = page.locator(".support-admin-composer");
+  await composer.locator(".support-tools-toggle").click();
   const add = composer.getByRole("button", { name: /Add button|Добавить кнопку/ });
   await add.click();
   const rows = composer.locator(".message-button-row");

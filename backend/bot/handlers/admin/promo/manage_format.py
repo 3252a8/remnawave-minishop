@@ -224,8 +224,13 @@ def get_promo_status_emoji_and_text(
         return "🚫", _("admin_promo_status_inactive")
 
 
+def promo_list_page(parts: list[str], index: int) -> int:
+    token = parts[index] if len(parts) > index else ""
+    return int(token) if token.isascii() and token.isdecimal() else 0
+
+
 async def get_promo_detail_text_and_keyboard(
-    promo_id: int, session: AsyncSession, i18n: JsonI18n, current_lang: str
+    promo_id: int, session: AsyncSession, i18n: JsonI18n, current_lang: str, *, list_page: int = 0
 ) -> tuple[str | None, types.InlineKeyboardMarkup | None]:
     _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
     promo = await promo_code_dal.get_promo_code_by_id(session, promo_id)
@@ -263,28 +268,31 @@ async def get_promo_detail_text_and_keyboard(
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(
-            text=_("admin_promo_edit_button"), callback_data=f"promo_edit_select:{promo_id}"
+            text=_("admin_promo_edit_button"),
+            callback_data=f"promo_edit_select:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text=_("admin_promo_toggle_status_button"), callback_data=f"promo_toggle:{promo_id}"
+            text=_("admin_promo_toggle_status_button"),
+            callback_data=f"promo_toggle:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
             text=_("admin_promo_view_activations_button"),
-            callback_data=f"promo_activations:{promo_id}:0",
+            callback_data=f"promo_activations:{promo_id}:0:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text=_("admin_promo_delete_button"), callback_data=f"promo_delete:{promo_id}"
+            text=_("admin_promo_delete_button"),
+            callback_data=f"promo_delete:{promo_id}:{list_page}",
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text=_("admin_promo_back_to_list_button"), callback_data="admin_action:promo_management"
+            text=_("admin_promo_back_to_list_button"), callback_data=f"promo_management:{list_page}"
         )
     )
 

@@ -124,6 +124,9 @@ class TrialSubscriptionMixin(SubscriptionServiceMixinContract):
             "premium_used_bytes": 0,
             "premium_is_limited": False,
             "auto_renew_enabled": False,
+            "balance_renewal_provider": None,
+            "balance_renewal_tariff_key": None,
+            "balance_renewal_duration_days": None,
             "provider": "trial",
             # Short trial: only warn a few hours before it ends, not days ahead.
             "suppress_early_expiry_notifications": True,

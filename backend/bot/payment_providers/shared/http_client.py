@@ -12,6 +12,7 @@ from bot.utils.outbound_network import (
     CredentialPolicy,
     GuardedResolver,
     OutboundPolicy,
+    UnsafeOutboundAddress,
     outbound_trace,
 )
 
@@ -96,6 +97,15 @@ async def post_json_request(
                     )
                     return False, {"status": response.status, "message": response_data}
                 return True, response_data
+        except UnsafeOutboundAddress as exc:
+            logger.warning(
+                "%s: local outbound policy blocked host=%s port=%d address=%s",
+                log_prefix,
+                exc.host,
+                exc.port,
+                exc.address,
+            )
+            return False, {"message": str(exc), "source": "local_outbound_policy"}
         except Exception as exc:
             if attempt < _TRANSPORT_ATTEMPTS and _should_retry_transport_error(exc, trace_ctx):
                 logger.warning(
@@ -191,7 +201,9 @@ class HttpClientMixin:
             )
             session = ClientSession(
                 timeout=ClientTimeout(total=timeout_seconds),
-                connector=TCPConnector(resolver=GuardedResolver(policy)),
+                connector=TCPConnector(
+                    resolver=GuardedResolver(policy, filter_blocked=approved_urls is not None)
+                ),
                 trace_configs=[_payment_trace_config(), outbound_trace(policy)],
             )
             self._session = session

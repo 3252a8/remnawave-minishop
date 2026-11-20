@@ -8,6 +8,8 @@
   import { USERS_PAGE_SIZE } from "../../lib/admin/stores/usersStoreState";
   import {
     normalizeUsersRouteFilters,
+    type UsersBuiltInFilterKey,
+    type UsersExtensionSelections,
     type UsersRouteFilters,
   } from "../../lib/admin/usersRouteFilters";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
@@ -25,12 +27,14 @@
   type UserTableColumn = {
     key: string;
     label: string;
+    width: string;
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
-  type FilterKey = keyof UsersRouteFilters;
-  type FilterPatch = Partial<Record<FilterKey, string>> & { usersPage?: number };
-  type FilterChip = { key: FilterKey; label: string; value: string };
+  type FilterPatch = Partial<Record<UsersBuiltInFilterKey, string>> & {
+    usersExtensionFilters?: UsersExtensionSelections;
+  };
+  type FilterChip = { key: string; label: string; value: string };
   type UsersSectionProps = {
     routePrefix?: string;
     at?: TranslateFn;
@@ -91,6 +95,9 @@
   const usersPanelStatus = $derived(usersState.usersPanelStatus);
   const usersPremiumTraffic = $derived(usersState.usersPremiumTraffic);
   const usersTariffFilter = $derived(usersState.usersTariffFilter);
+  const usersExtensionColumns = $derived(usersState.usersExtensionColumns);
+  const usersExtensionFilterOptions = $derived(usersState.usersExtensionFilterOptions);
+  const usersExtensionFilters = $derived(usersState.usersExtensionFilters);
   const USERS_TARIFF_OPTIONS = $derived(
     tariffFilterOptions(usersState.usersTariffOptions, usersTariffFilter, currentLang, at)
   );
@@ -198,8 +205,9 @@
       usersPanelStatus: patch.usersPanelStatus ?? usersPanelStatus,
       usersPremiumTraffic: patch.usersPremiumTraffic ?? usersPremiumTraffic,
       usersTariffFilter: patch.usersTariffFilter ?? usersTariffFilter,
+      usersExtensionFilters: patch.usersExtensionFilters ?? usersExtensionFilters,
     });
-    usersStore.updateState({ ...patch, usersPage: 0 });
+    usersStore.updateState({ ...filters, usersPage: 0 });
     onUsersFiltersChange(filters);
     void usersStore.loadUsers();
   }
@@ -222,20 +230,34 @@
     updateUsersFilterState({ usersPremiumTraffic: value });
   }) as ComponentCallback;
 
+  function updateUsersExtensionFilter(id: string, value: string): void {
+    const selections = { ...usersExtensionFilters };
+    if (value) selections[id] = value;
+    else delete selections[id];
+    updateUsersFilterState({ usersExtensionFilters: selections });
+  }
+
   function resetUsersFilters(): void {
     updateUsersFilterState({
       usersFilter: "all",
       usersPanelStatus: "all",
       usersPremiumTraffic: "all",
       usersTariffFilter: "all",
+      usersExtensionFilters: {},
     });
   }
 
-  function clearUsersFilter(key: FilterKey): void {
-    if (key === "usersFilter") updateUsersFilterState({ usersFilter: "all" });
-    if (key === "usersPanelStatus") updateUsersFilterState({ usersPanelStatus: "all" });
-    if (key === "usersPremiumTraffic") updateUsersFilterState({ usersPremiumTraffic: "all" });
-    if (key === "usersTariffFilter") updateUsersFilterState({ usersTariffFilter: "all" });
+  function clearUsersFilter(key: string): void {
+    switch (key) {
+      case "usersFilter":
+      case "usersPanelStatus":
+      case "usersPremiumTraffic":
+      case "usersTariffFilter":
+        updateUsersFilterState({ [key]: "all" });
+        break;
+      default:
+        updateUsersExtensionFilter(key, "");
+    }
   }
 
   function isFilterChip(value: FilterChip | false): value is FilterChip {
@@ -255,54 +277,60 @@
     return trafficOfLabel(pt.used_bytes, pt.limit_bytes);
   }
 
-  function userTableColumns(): UserTableColumn[] {
-    return [
-      { key: "user", label: at("user", {}, "User"), sort: SORT_COLUMNS.user },
-      { key: "tariff", label: at("users_col_tariff", {}, "Tariff / trial") },
-      ...(userBalanceEnabled
-        ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance") }]
-        : []),
-      ...(partnerBalanceEnabled
-        ? [
-            {
-              key: "partnerBalance",
-              label: at("users_col_partner_balance", {}, "Partner balance"),
-            },
-          ]
-        : []),
-      {
-        key: "premium",
-        label: at("premium_traffic_filter_label", {}, "Premium traffic"),
-        sort: SORT_COLUMNS.premium,
-      },
-      {
-        key: "paymentsTotal",
-        label: at("users_col_payments_total", {}, "Paid total"),
-        sort: SORT_COLUMNS.paymentsTotal,
-      },
-      {
-        key: "paymentsCount",
-        label: at("users_col_payments_count", {}, "Payments"),
-        sort: SORT_COLUMNS.paymentsCount,
-      },
-      {
-        key: "invited",
-        label: at("users_col_invited", {}, "Invited"),
-        sort: SORT_COLUMNS.invited,
-      },
-      { key: "status", label: at("status", {}, "Status"), sort: SORT_COLUMNS.status },
-      {
-        key: "subscriptionExpires",
-        label: at("users_col_subscription_expires", {}, "Expires"),
-        sort: SORT_COLUMNS.subscriptionExpires,
-      },
-      {
-        key: "registration",
-        label: at("users_col_registration", {}, "Registered"),
-        sort: SORT_COLUMNS.registration,
-      },
-    ];
-  }
+  const userTableColumns: UserTableColumn[] = $derived([
+    { key: "user", label: at("user", {}, "User"), width: "200px", sort: SORT_COLUMNS.user },
+    { key: "tariff", label: at("users_col_tariff", {}, "Tariff / trial"), width: "144px" },
+    ...(userBalanceEnabled
+      ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance"), width: "118px" }]
+      : []),
+    ...(partnerBalanceEnabled
+      ? [
+          {
+            key: "partnerBalance",
+            label: at("users_col_partner_balance", {}, "Partner balance"),
+            width: "136px",
+          },
+        ]
+      : []),
+    {
+      key: "premium",
+      width: "128px",
+      label: at("premium_traffic_filter_label", {}, "Premium traffic"),
+      sort: SORT_COLUMNS.premium,
+    },
+    {
+      key: "paymentsTotal",
+      width: "112px",
+      label: at("users_col_payments_total", {}, "Paid total"),
+      sort: SORT_COLUMNS.paymentsTotal,
+    },
+    {
+      key: "paymentsCount",
+      width: "96px",
+      label: at("users_col_payments_count", {}, "Payments"),
+      sort: SORT_COLUMNS.paymentsCount,
+    },
+    {
+      key: "invited",
+      width: "124px",
+      label: at("users_col_invited", {}, "Invited"),
+      sort: SORT_COLUMNS.invited,
+    },
+    { key: "status", label: at("status", {}, "Status"), width: "104px", sort: SORT_COLUMNS.status },
+    {
+      key: "subscriptionExpires",
+      width: "112px",
+      label: at("users_col_subscription_expires", {}, "Expires"),
+      sort: SORT_COLUMNS.subscriptionExpires,
+    },
+    {
+      key: "registration",
+      width: "122px",
+      label: at("users_col_registration", {}, "Registered"),
+      sort: SORT_COLUMNS.registration,
+    },
+    ...usersExtensionColumns.map(({ id, label }) => ({ key: id, label, width: "144px" })),
+  ]);
 
   function sortState(column: SortColumn | undefined): "none" | "ascending" | "descending" {
     if (!column) return "none";
@@ -383,25 +411,16 @@
           label: at("users_col_tariff", {}, "Tariff / trial"),
           value: optionLabel(USERS_TARIFF_OPTIONS, usersTariffFilter),
         },
+        ...usersExtensionFilterOptions.map((filter) => {
+          const option = filter.options.find(
+            ({ value }) => value === usersExtensionFilters[filter.id]
+          );
+          return option ? { key: filter.id, label: filter.label, value: option.label } : false;
+        }),
       ] satisfies (FilterChip | false)[]
     ).filter(isFilterChip)
   );
   const activeUsersFilterCount = $derived(activeUserFilterChips.length);
-  const userTableHeaders = $derived(userTableColumns().map((column) => column.label));
-  const userTableWidths = $derived([
-    "220px",
-    "170px",
-    ...(userBalanceEnabled ? ["118px"] : []),
-    ...(partnerBalanceEnabled ? ["136px"] : []),
-    "128px",
-    "112px",
-    "78px",
-    "88px",
-    "96px",
-    "112px",
-    "112px",
-  ]);
-  const userTableColumnCount = $derived(userTableHeaders.length);
 
   onMount(() => {
     usersStore.loadUsers();
@@ -437,6 +456,10 @@
     {usersPanelStatus}
     {usersPremiumTraffic}
     {usersTariffFilter}
+    {usersExtensionColumns}
+    {usersExtensionFilterOptions}
+    {usersExtensionFilters}
+    {updateUsersExtensionFilter}
     {usersQuery}
     {usersTotal}
     {usersPage}
@@ -449,9 +472,6 @@
     {USERS_TARIFF_OPTIONS}
     {activeUsersFilterCount}
     {activeUserFilterChips}
-    {userTableHeaders}
-    {userTableWidths}
-    {userTableColumnCount}
     {userBalanceEnabled}
     {partnerBalanceEnabled}
     {updateUsersFilter}

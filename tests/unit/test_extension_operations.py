@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from sqlalchemy import event, func, select
+from sqlalchemy import column, event, false, func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.plugins.extensions import (
@@ -138,6 +138,27 @@ class ExtensionOperationsTests(IsolatedAsyncioTestCase):
         self.assertTrue(await run_once(self.runtime))
         self.assertFalse(await run_once(self.runtime))
         self.handler.assert_awaited_once()
+
+    async def test_delivery_gate_skips_only_disabled_subscribers_and_preserves_rollback(self):
+        for owner, condition in (("disabled", false()), ("unavailable", column("missing") == 1)):
+            self.registry.register(
+                owner,
+                "1.0",
+                ExtensionContributions(
+                    jobs=(JobHandler("delivery", self.handler),),
+                    events=(DurableSubscription("payment.succeeded", "delivery", condition),),
+                ),
+            )
+        async with self.sessions() as session:
+            with self.assertLogs("db.dal.extension_dal", level="WARNING"):
+                await publish(session, event="payment.succeeded", event_id="guarded", payload={})
+            owners = set(await session.scalars(select(ExtensionOperation.owner)))
+            self.assertEqual(owners, {"test-owner", "unavailable"})
+            await session.rollback()
+        async with self.sessions() as session:
+            self.assertEqual(
+                await session.scalar(select(func.count()).select_from(ExtensionOperation)), 0
+            )
 
     async def test_disabled_owner_keeps_work_until_reenabled(self):
         async with self.sessions.begin() as session:

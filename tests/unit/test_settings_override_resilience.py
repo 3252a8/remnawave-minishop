@@ -317,6 +317,7 @@ def test_admin_reset_restores_the_original_private_api_approval(_memory_override
     [
         ("ROLLYPAY_BASE_URL", "rollypay_service"),
         ("CLOUDPAYMENTS_BASE_URL", "cloudpayments_service"),
+        ("PLATEGA_BASE_URL", "platega_service"),
     ],
 )
 @pytest.mark.parametrize("url", ["https://api.example.com/v1", "http://10.1.2.3:8080/api"])

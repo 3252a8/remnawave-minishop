@@ -1,6 +1,7 @@
 import { demoAdminUserById } from "./users.js";
 import { demoUserRelationships } from "./relationships";
 import { adminBroadcastDemoResponse } from "./adminBroadcasts";
+import { adminUserResourceDemoResponse } from "./adminUserResources";
 import { loadDemoDocuments, storeDemoDocuments } from "./documentsState";
 import { DEV_MOCK } from "../previewMock.js";
 import { adminGiftDemoStats } from "./giftsDemo";
@@ -28,6 +29,7 @@ import {
 import { demoTranslationsPayload } from "./translations";
 import { demoTariffOptions, demoActiveTariffs } from "./subscriptionPlans";
 import { sortAdminRows, type AdminSortColumn, type AdminSortValue } from "$lib/admin/tableSort.js";
+import { USERS_EXTENSION_FILTER_QUERY_PARAM } from "$lib/admin/usersRouteFilters";
 import {
   demoInviteesForUser,
   demoSupportCounts,
@@ -255,11 +257,29 @@ export function demoApiResponse(
 
   if (cleanPath === "/admin/users/relationships") return demoUserRelationships();
   if (cleanPath === "/admin/users") {
-    const filtered = filterDemoUsers(params);
+    const withExtension = new URLSearchParams(window.location.search).has("users_extensions_demo");
+    const extension = { id: "example:segment", label: "Demo segment" };
+    const staffSelected =
+      withExtension &&
+      params.getAll(USERS_EXTENSION_FILTER_QUERY_PARAM).includes(`${extension.id}=staff`);
+    const users = filterDemoUsers(params);
+    const filtered = staffSelected ? users.filter((user) => user.user_id === 910001) : users;
     const page = paged(filtered, params, 25);
+    const items = withDemoAvatars(page.items);
     return {
       ok: true,
-      users: clone(withDemoAvatars(page.items)),
+      users: clone(
+        withExtension
+          ? items.map((user) => ({
+              ...user,
+              extension_values: { [extension.id]: user.user_id === 910001 ? "Staff" : null },
+            }))
+          : items
+      ),
+      ...(withExtension && {
+        extension_columns: [extension],
+        extension_filters: [{ ...extension, options: [{ value: "staff", label: "Staff" }] }],
+      }),
       tariff_options: demoTariffOptions(),
       total: page.total,
       page: page.page,
@@ -284,13 +304,16 @@ export function demoApiResponse(
       },
     };
     if (parts[4]) {
-      if (parts[4] === "hwid-devices" && parts[5] === "reset" && method === "POST") {
-        detail.hwid_devices = {
-          current_devices: 0,
-          max_devices: decoratedDetail.hwid_devices?.max_devices ?? null,
-        };
-        return { ok: true };
-      }
+      const resource = adminUserResourceDemoResponse(
+        parts[4],
+        parts[5],
+        detail,
+        user,
+        decoratedDetail.hwid_devices?.max_devices ?? null,
+        options,
+        clone
+      );
+      if (resource !== undefined) return resource;
       if (parts[4] === "tariff" && method === "POST") {
         const tariffKey = String(jsonBody(options).tariff_key || "");
         const tariff = ((demoTariffs().tariffs || []) as DemoRecord[]).find(
@@ -305,23 +328,6 @@ export function demoApiResponse(
           subscription.hwid_device_limit = tariff.hwid_device_limit ?? null;
         }
         return { ok: true, subscription: clone(subscription) };
-      }
-      if (parts[4] === "broadcast-audiences") {
-        const targets = user?.is_banned
-          ? []
-          : ["all", detail.active_subscription ? "active" : "inactive"];
-        const existing = detail.broadcast_audience_exclusions;
-        const excluded = new Set(Array.isArray(existing) ? existing.map(String) : []);
-        if (method === "PATCH") {
-          const { action, target } = jsonBody(options);
-          if (action === "exclude" && typeof target === "string") excluded.add(target);
-          if (action === "include" && typeof target === "string") excluded.delete(target);
-          if (action === "exclude_all") targets.forEach((name) => excluded.add(name));
-          if (action === "reset") excluded.clear();
-          detail.broadcast_audience_exclusions = [...excluded];
-          return { ok: true, excluded: [...excluded] };
-        }
-        return { ok: true, targets, excluded: [...excluded] };
       }
       if (parts[4] === "notification-preferences" && method === "PATCH") {
         const notificationPreferences = jsonBody(options);

@@ -18,6 +18,7 @@ from bot.infra.event_payloads import (
 )
 from bot.infra.payment_events import build_payment_succeeded_payload
 from bot.keyboards.inline.user_keyboards import get_connect_and_main_keyboard
+from bot.keyboards.inline.user_keyboards_context import payment_receipt_back_callback
 from bot.services.partner_commission_service import PartnerCommissionService
 from bot.services.partner_common import currency_scale, minor_to_decimal_string
 from bot.services.payment_fulfillment import (
@@ -163,6 +164,7 @@ async def send_success_message_to_user(
             connect_button_url=connect_button_url,
             install_share_url=install_share_url,
             preserve_message=True,
+            back_callback=payment_receipt_back_callback(sale_mode),
         )
     try:
         await bot.send_message(

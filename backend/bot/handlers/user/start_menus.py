@@ -10,6 +10,7 @@ from bot.keyboards.inline.user_keyboards import (
     get_main_menu_inline_keyboard,
 )
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import is_admin
 from bot.services.partner_program_service import PartnerProgramService
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.telegram_account import require_telegram_account_id
@@ -83,6 +84,7 @@ async def send_main_menu(
         settings,
         show_trial_button_in_menu,
         user_id=user_id,
+        is_admin=await is_admin(session, user_id),
     )
 
     target_message_obj: types.Message | None = None

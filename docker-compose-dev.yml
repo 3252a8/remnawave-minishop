@@ -7,7 +7,7 @@ x-logging: &minishop_logging
 services:
   postgres:
     logging: *minishop_logging
-    image: postgres:17.11
+    image: postgres:17.12
     container_name: remnawave-minishop-postgres
     env_file:
       - ${APP_ENV_FILE:-.env}

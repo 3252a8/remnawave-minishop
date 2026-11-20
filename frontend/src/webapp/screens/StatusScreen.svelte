@@ -1,11 +1,6 @@
 <script lang="ts">
-  import {
-    Activity,
-    ArrowLeft,
-    ExternalLink,
-    RefreshCw,
-    TriangleAlert,
-  } from "$components/ui/icons.js";
+  import ScreenBackLink from "$components/patterns/webapp/ScreenBackLink.svelte";
+  import { Activity, ExternalLink, RefreshCw, TriangleAlert } from "$components/ui/icons.js";
   import Button from "$components/ui/button.svelte";
   import Card from "$components/ui/card.svelte";
   import { AttentionDot } from "$components/ui/index.js";
@@ -56,9 +51,7 @@
 
 <main class="content with-nav status-layout">
   <div class="status-topbar">
-    <Button variant="secondary" size="icon" onclick={goBack} aria-label={t("wa_back", {}, "Back")}>
-      <ArrowLeft size={21} />
-    </Button>
+    <ScreenBackLink label={t("wa_back", {}, "Back")} onclick={goBack} />
     <div>
       <h1>{t("wa_server_status_title", {}, "Server status")}</h1>
       <p>{t("wa_server_status_subtitle", {}, "Live service availability")}</p>
@@ -152,7 +145,11 @@
                 <span class="status-metrics">
                   <small
                     >{item.latencyMs != null
-                      ? `${Math.round(item.latencyMs)} ms`
+                      ? t(
+                          "wa_server_status_latency_ms",
+                          { value: Math.round(item.latencyMs) },
+                          "{value} ms"
+                        )
                       : t("wa_server_status_latency_unavailable", {}, "n/a")}</small
                   >
                   {#if item.provider === "xray-checker"}

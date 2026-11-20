@@ -48,6 +48,7 @@
   $effect(() => logsTable.setRows(logs));
 
   const logsPageCount = $derived(Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE)));
+  const logTableLayout = { columnWidths: ["16%", "18%", "18%", "18%", "30%"], minWidth: "840px" };
   const logHeaders = $derived([
     at("date", {}, "Date"),
     at("event", {}, "Event"),
@@ -127,7 +128,7 @@
     </div>
   {/snippet}
   {#snippet searchActions()}
-    <AdminButton variant="primary" type="submit">{at("apply", {}, "Apply")}</AdminButton>
+    <AdminButton type="submit">{at("apply", {}, "Apply")}</AdminButton>
   {/snippet}
   {#snippet actions()}
     <AdminButton
@@ -142,12 +143,7 @@
 
 <div class="admin-table-wrap">
   {#if logsLoading}
-    <AdminTableSkeleton
-      headers={logHeaders}
-      rows={10}
-      rowHeight={72}
-      widths={["120px", "120px", "160px", "160px", "220px"]}
-    />
+    <AdminTableSkeleton headers={logHeaders} rows={10} rowHeight={72} {...logTableLayout} />
   {:else if logsError}
     <AdminEmptyState tone="card" class="admin-logs-error-state">
       <TriangleAlert size={18} />
@@ -162,7 +158,7 @@
       ><span class="admin-muted">{at("logs_empty", {}, "No entries")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable>
+    <AdminTable {...logTableLayout}>
       <thead>
         <tr>
           <AdminSortableHeader
@@ -215,7 +211,11 @@
             >
             <td class="admin-cell-mono" data-label={at("event", {}, "Event")}>{entry.event_type}</td
             >
-            <td class="admin-logs-user-cell" data-label={at("user_short", {}, "User")}>
+            <td
+              class="admin-logs-user-cell"
+              class:admin-cell-optional={!userId(entry, "user")}
+              data-label={at("user_short", {}, "User")}
+            >
               {#if userId(entry, "user")}
                 <span class="admin-logs-user">
                   <AdminButton
@@ -237,7 +237,11 @@
                 <span class="admin-muted">—</span>
               {/if}
             </td>
-            <td class="admin-logs-user-cell" data-label={at("target_short", {}, "Target")}>
+            <td
+              class="admin-logs-user-cell"
+              class:admin-cell-optional={!userId(entry, "target")}
+              data-label={at("target_short", {}, "Target")}
+            >
               {#if userId(entry, "target")}
                 <span class="admin-logs-user">
                   <AdminButton
@@ -259,8 +263,10 @@
                 <span class="admin-muted">—</span>
               {/if}
             </td>
-            <td class="admin-cell-wrap" data-label={at("content", {}, "Content")}
-              >{entry.content || ""}</td
+            <td
+              class="admin-cell-wrap"
+              class:admin-cell-optional={!entry.content}
+              data-label={at("content", {}, "Content")}>{entry.content || ""}</td
             >
           </tr>
         {/snippet}

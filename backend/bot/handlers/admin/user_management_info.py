@@ -1,13 +1,15 @@
 import logging
 from datetime import UTC, datetime
 
-from aiogram import F, types
+from aiogram import Bot, F, types
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.markdown import hcode
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.inline.admin_keyboards import get_admin_back_keyboard
 from bot.middlewares.i18n import JsonI18n
+from bot.services.account_roles import can_ban_account
 from bot.services.account_roles import is_admin as account_is_admin
 from bot.services.panel_api_service import PanelApiService
 from bot.services.referral_service import ReferralService
@@ -24,6 +26,9 @@ from .user_management_cards import (
     _send_with_profile_link_fallback,
     format_user_card,
     get_user_card_keyboard,
+    user_card_back_callback,
+    user_card_origin_target,
+    user_card_return_origin,
 )
 from .user_management_common import (
     _admin_user_button_label,
@@ -42,6 +47,8 @@ async def handle_view_user_logs(
     settings: Settings,
     i18n_instance: JsonI18n,
     lang: str,
+    *,
+    origin: str | None = None,
 ) -> None:
     """Show recent user logs"""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
@@ -72,15 +79,19 @@ async def handle_view_user_logs(
 
         logs_text = "\n\n".join(logs_text_parts)
 
-        # Create inline keyboard for full logs
+        # Keep the card origin through both log views and their pagination.
+        origin = origin if origin is not None else user_card_return_origin(callback, user.user_id)
+        card_target = f"uc:{user.user_id}"
+        if origin:
+            card_target += f":{origin}"
         builder = InlineKeyboardBuilder()
         builder.button(
             text=_(key="admin_user_view_all_logs_button"),
-            callback_data=f"admin_logs:view_user:{user.user_id}:0",
+            callback_data=f"ul:{user.user_id}:0:{origin}",
         )
         builder.button(
             text=_(key="admin_user_back_to_card_button"),
-            callback_data=f"user_action:refresh:{user.user_id}",
+            callback_data=card_target,
         )
         builder.adjust(1)
 
@@ -108,10 +119,14 @@ async def handle_view_user_invitees(
     lang: str,
     *,
     page: int = 0,
+    origin: str | None = None,
 ) -> None:
     """Show users invited by the selected account."""
     _ = lambda key, **kwargs: i18n_instance.gettext(lang, key, **kwargs)
     page_size = 10
+    origin = origin if origin is not None else user_card_return_origin(callback, user.user_id)
+    suffix = f":{origin}" if origin else ""
+    card_target = f"uc:{user.user_id}{suffix}"
     safe_page = max(0, int(page or 0))
 
     try:
@@ -158,10 +173,13 @@ async def handle_view_user_invitees(
 
         builder = InlineKeyboardBuilder()
         for invitee in invitees:
+            return_origin = f"i{user.user_id}.{safe_page}"
+            if origin and len(f"uc:{invitee.user_id}:{return_origin}.{origin}") <= 62:
+                return_origin += f".{origin}"
             builder.row(
                 types.InlineKeyboardButton(
                     text=_admin_user_button_label(invitee),
-                    callback_data=f"user_action:refresh:{invitee.user_id}",
+                    callback_data=f"uc:{invitee.user_id}:{return_origin}",
                 )
             )
 
@@ -170,14 +188,14 @@ async def handle_view_user_invitees(
             pagination_buttons.append(
                 types.InlineKeyboardButton(
                     text=_("prev_page_button"),
-                    callback_data=f"user_action:invitees:{user.user_id}:{safe_page - 1}",
+                    callback_data=f"ui:{user.user_id}:{safe_page - 1}{suffix}",
                 )
             )
         if safe_page < total_pages - 1:
             pagination_buttons.append(
                 types.InlineKeyboardButton(
                     text=_("next_page_button"),
-                    callback_data=f"user_action:invitees:{user.user_id}:{safe_page + 1}",
+                    callback_data=f"ui:{user.user_id}:{safe_page + 1}{suffix}",
                 )
             )
         if pagination_buttons:
@@ -185,7 +203,7 @@ async def handle_view_user_invitees(
         builder.row(
             types.InlineKeyboardButton(
                 text=_("admin_user_back_to_card_button"),
-                callback_data=f"user_action:refresh:{user.user_id}",
+                callback_data=card_target,
             )
         )
         builder.row(
@@ -209,6 +227,38 @@ async def handle_view_user_invitees(
         await callback.answer(_("admin_user_invitees_error"), show_alert=True)
 
 
+async def _user_card_content(
+    user: User,
+    bot: Bot | None,
+    subscription_service: SubscriptionService,
+    session: AsyncSession,
+    settings: Settings,
+    i18n: JsonI18n,
+    lang: str,
+    origin: str,
+) -> tuple[str, types.InlineKeyboardMarkup]:
+    referral_service = ReferralService(settings, subscription_service, bot, i18n)
+    text = await format_user_card(
+        user,
+        session,
+        subscription_service,
+        i18n,
+        lang,
+        referral_service,
+        settings=settings,
+        bot_username=await _resolve_bot_username(bot),
+    )
+    markup = get_user_card_keyboard(
+        user.user_id,
+        i18n,
+        lang,
+        user.referred_by_id,
+        telegram_id=user.telegram_id,
+        origin=origin,
+    ).as_markup()
+    return text, markup
+
+
 async def handle_refresh_user_card(
     callback: types.CallbackQuery,
     user: User,
@@ -217,6 +267,8 @@ async def handle_refresh_user_card(
     settings: Settings,
     i18n_instance: JsonI18n,
     lang: str,
+    *,
+    origin: str | None = None,
 ) -> None:
     """Refresh user card with latest information"""
     try:
@@ -226,28 +278,16 @@ async def handle_refresh_user_card(
             await callback.answer("User not found", show_alert=True)
             return
 
-        referral_service = ReferralService(
-            settings, subscription_service, callback_message(callback).bot, i18n_instance
-        )
-        bot_username = await _resolve_bot_username(callback_message(callback).bot)
-        user_card_text = await format_user_card(
+        user_card_text, markup = await _user_card_content(
             fresh_user,
-            session,
+            callback_message(callback).bot,
             subscription_service,
+            session,
+            settings,
             i18n_instance,
             lang,
-            referral_service,
-            settings=settings,
-            bot_username=bot_username,
+            origin if origin is not None else user_card_return_origin(callback, user.user_id),
         )
-        keyboard = get_user_card_keyboard(
-            fresh_user.user_id,
-            i18n_instance,
-            lang,
-            fresh_user.referred_by_id,
-            telegram_id=fresh_user.telegram_id,
-        )
-        markup = keyboard.as_markup()
 
         try:
             await _send_with_profile_link_fallback(
@@ -305,6 +345,7 @@ async def handle_delete_user_prompt(
         target_user_id=user.user_id,
         target_minishop_id=getattr(user, "minishop_id", None),
         delete_initiator_id=int(admin_account.user_id),
+        delete_return_origin=user_card_return_origin(callback, user.user_id),
     )
     await state.set_state(AdminStates.waiting_for_user_delete_confirmation)
 
@@ -313,11 +354,14 @@ async def handle_delete_user_prompt(
         user_id=hcode(str(getattr(user, "minishop_id", None) or "—")),
     )
 
+    markup = get_admin_back_keyboard(
+        lang, i18n_instance, user_card_back_callback(callback, user.user_id), "cancel_button"
+    )
     try:
-        await callback_message(callback).answer(prompt_text, parse_mode="HTML")
+        await callback_message(callback).answer(prompt_text, parse_mode="HTML", reply_markup=markup)
     except Exception as e:
         logger.error("Failed to send delete confirmation prompt for user %s: %s", user.user_id, e)
-        await callback_message(callback).reply(prompt_text, parse_mode="HTML")
+        await callback_message(callback).reply(prompt_text, parse_mode="HTML", reply_markup=markup)
 
     await callback.answer()
 
@@ -362,6 +406,7 @@ async def process_delete_user_confirmation_handler(
     i18n_data: dict,
     panel_service: PanelApiService,
     session: AsyncSession,
+    subscription_service: SubscriptionService | None = None,
 ) -> None:
     """Confirm and execute destructive user deletion."""
     current_lang = i18n_data.get("current_language", settings.DEFAULT_LANGUAGE)
@@ -398,12 +443,24 @@ async def process_delete_user_confirmation_handler(
 
     confirmation_input = (message.text or "").strip() if message.text else ""
     if confirmation_input.lower() in {"/cancel", "cancel"}:
-        await message.answer(
-            _(
-                "admin_user_delete_cancelled",
-            )
-        )
         await state.clear()
+        await message.answer(_("admin_user_delete_cancelled"))
+        if subscription_service is not None and message.bot is not None:
+            user = await user_dal.get_user_by_id(session, int(target_user_id))
+            if user is not None:
+                text, markup = await _user_card_content(
+                    user,
+                    message.bot,
+                    subscription_service,
+                    session,
+                    settings,
+                    i18n,
+                    current_lang,
+                    data.get("delete_return_origin", ""),
+                )
+                await _send_with_profile_link_fallback(
+                    message.answer, text=text, markup=markup, user_id=user.user_id
+                )
         return
 
     target_minishop_id = str(data.get("target_minishop_id") or "").strip()
@@ -419,6 +476,7 @@ async def process_delete_user_confirmation_handler(
         await state.clear()
         return
 
+    await state.clear()
     user_model = await user_dal.get_user_by_id(session, target_user_id)
     if not user_model:
         await message.answer(
@@ -430,6 +488,12 @@ async def process_delete_user_confirmation_handler(
         return
 
     try:
+        if not await can_ban_account(session, int(admin_account.user_id), target_user_id):
+            await session.rollback()
+            await state.clear()
+            await message.answer(_("admin_user_delete_not_allowed"))
+            return
+
         panel_user_uuids = await user_dal.get_panel_user_uuids_for_user(
             session,
             target_user_id,
@@ -466,6 +530,7 @@ async def process_delete_user_confirmation_handler(
         )
         await session.commit()
 
+        label, target = user_card_origin_target(data.get("delete_return_origin", ""))
         await message.answer(
             _(
                 "admin_user_delete_success",
@@ -473,6 +538,7 @@ async def process_delete_user_confirmation_handler(
                     str(target_minishop_id or getattr(user_model, "minishop_id", None) or "—")
                 ),
             ),
+            reply_markup=get_admin_back_keyboard(current_lang, i18n, target, label),
             parse_mode="HTML",
         )
     except Exception as e:

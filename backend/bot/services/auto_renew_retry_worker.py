@@ -15,8 +15,10 @@ from bot.payment_providers.shared.recurring import (
     BALANCE_RECURRING_PROVIDERS,
     get_recurring_payment_method,
 )
+from bot.services.grant_wallet_renewal import schedule_funded_grants
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
+from db.balance_renewal import renewal_provider
 from db.dal import auto_renew_dal, subscription_dal, user_billing_dal
 
 logger = logging.getLogger(__name__)
@@ -100,6 +102,10 @@ class AutoRenewRetryWorker:
         balances = tuple(
             provider for provider in providers if provider in BALANCE_RECURRING_PROVIDERS
         )
+        if "user_balance" in balances:
+            async with self.session_factory() as session:
+                await schedule_funded_grants(session, self.settings, self._batch_size())
+                await session.commit()
         if balances:
             # This is an initial charge, equivalent to the panel's expiry webhook.
             await self._process_due_subscriptions(balances, dry_run=False, initial_only=True)
@@ -273,10 +279,7 @@ class AutoRenewRetryWorker:
             return "subscription_inactive"
         if not bool(getattr(sub, "auto_renew_enabled", False)):
             return "consent_disabled"
-        if (
-            str(getattr(sub, "provider", "") or "").strip().lower()
-            != str(getattr(cycle, "provider", "") or "").strip().lower()
-        ):
+        if renewal_provider(sub) != str(getattr(cycle, "provider", "") or "").strip().lower():
             return "provider_changed"
         if int(getattr(sub, "auto_renew_consent_version", 0) or 0) != int(
             getattr(cycle, "consent_version", 0) or 0
@@ -353,7 +356,7 @@ class AutoRenewRetryWorker:
                         sub is None
                         or not sub.is_active
                         or not sub.auto_renew_enabled
-                        or str(sub.provider or "").strip().lower() not in providers
+                        or renewal_provider(sub) not in providers
                         or sub.end_date is None
                     ):
                         continue

@@ -1,20 +1,30 @@
 <script lang="ts">
   import { AdminBadge } from "$components/patterns/admin/index.js";
-  import { MessageSquare } from "$components/ui/icons.js";
+  import { formatTicketTime } from "$lib/ticketTime";
   import type { SupportTicketLike, SupportUserLike, TranslateFn } from "./types";
 
   type Props = {
     ticket: SupportTicketLike;
     active?: boolean;
+    currentLang?: string;
     at?: TranslateFn;
     onOpen?: (ticket: SupportTicketLike) => void;
   };
 
-  let { ticket, active = false, at = (key) => key, onOpen = () => {} }: Props = $props();
+  let {
+    ticket,
+    currentLang = "en",
+    active = false,
+    at = (key) => key,
+    onOpen = () => {},
+  }: Props = $props();
 
   const user = $derived(ticket?.user || {});
   const timeLabel = $derived(
-    formatTime(ticket?.last_message_at || ticket?.updated_at || ticket?.created_at)
+    formatTicketTime(
+      ticket?.last_message_at || ticket?.updated_at || ticket?.created_at,
+      currentLang.replaceAll("_", "-")
+    )
   );
   const userLabel = $derived(
     user.username ? `@${user.username}` : user.email || user.user_id || "-"
@@ -24,8 +34,13 @@
   const categoryLabel = $derived(
     at(`support_category_${ticket?.category}`, {}, ticket?.category || "-")
   );
+  // Waiting on the admin needs action; waiting on the user is a calm open state.
   const statusVariant = $derived(
-    ticket?.status === "closed" || ticket?.status === "resolved" ? "muted" : "success"
+    ticket?.status === "closed" || ticket?.status === "resolved"
+      ? "muted"
+      : ticket?.status === "awaiting_admin" || ticket?.status === "open"
+        ? "warning"
+        : "success"
   );
   const priorityVariant = $derived(
     ticket?.priority === "urgent" ? "danger" : ticket?.priority === "high" ? "warning" : "muted"
@@ -41,18 +56,6 @@
     const parts = clean.split(/\s+/).filter(Boolean);
     if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return (clean.slice(0, 2) || "U").toUpperCase();
-  }
-
-  function formatTime(value: string | null | undefined): string {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleString(undefined, {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   }
 </script>
 
@@ -75,7 +78,6 @@
 
   <span class="support-inbox-row-main">
     <span class="support-inbox-row-title">
-      <MessageSquare size={15} />
       <strong>{ticket.subject}</strong>
     </span>
     <small>#{ticket.ticket_id} / {userLabel} / {categoryLabel}</small>
@@ -90,6 +92,7 @@
     </AdminBadge>
     {#if ticket.unread_admin_count}
       <b>
+        <span class="sr-only">{at("support_unread", {}, "Unread")}</span>
         <span class="numeric-badge-value">{ticket.unread_admin_count}</span>
       </b>
     {/if}

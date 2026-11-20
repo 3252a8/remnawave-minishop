@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.callback_query(F.data.startswith("admin_user_card_from_list:"))
+@router.callback_query(F.data.startswith("admin_user_card:"))
 async def user_card_from_list_handler(
     callback: types.CallbackQuery,
     state: FSMContext,
@@ -32,12 +33,12 @@ async def user_card_from_list_handler(
     panel_service: PanelApiService,
     session: AsyncSession,
 ) -> None:
-    """Display user card when clicked from user list"""
+    """Show the user card and keep the return path to its originating list."""
     try:
-        parts = callback_data(callback).split(":")
-        user_id = int(parts[1])
-        page = int(parts[2])
-    except (IndexError, ValueError):
+        source, user_id_value, page_value = callback_data(callback).split(":", 2)
+        user_id = int(user_id_value)
+        page = int(page_value)
+    except ValueError:
         await callback.answer("Invalid user data", show_alert=True)
         return
 
@@ -46,7 +47,6 @@ async def user_card_from_list_handler(
     if not i18n:
         await callback.answer("Language service error", show_alert=True)
         return
-    _ = lambda key, **kwargs: i18n.gettext(current_lang, key, **kwargs)
 
     # Get user from database
     user = await user_dal.get_user_by_id(session, user_id)
@@ -55,14 +55,15 @@ async def user_card_from_list_handler(
         return
 
     # Create keyboard with back to list button
+    origin = f"{'b' if source == 'admin_user_card' else 'l'}{max(0, page)}"
     keyboard = get_user_card_keyboard(
-        user_id, i18n, current_lang, user.referred_by_id, telegram_id=user.telegram_id
+        user_id,
+        i18n,
+        current_lang,
+        user.referred_by_id,
+        telegram_id=user.telegram_id,
+        origin=origin,
     )
-    keyboard.button(
-        text=_("admin_user_back_to_list_button"), callback_data=f"admin_action:users_list:{page}"
-    )
-    quick_links_width = 2 if user.referred_by_id else 1
-    keyboard.adjust(2, 2, 2, 1, 2, quick_links_width, 1, 2, 1)
 
     # Format user card
     try:

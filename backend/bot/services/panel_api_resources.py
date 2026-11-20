@@ -55,6 +55,9 @@ class PanelApiResourcesMixin:
 
     if TYPE_CHECKING:
 
+        @classmethod
+        def _panel_response_error_code(cls, response_data: dict[str, Any] | None) -> str | None: ...
+
         async def _request(
             self,
             method: str,
@@ -182,18 +185,29 @@ class PanelApiResourcesMixin:
         return _json_dict(cached)
 
     async def _get_external_squad_uncached(self, squad_uuid: str) -> dict[str, Any] | None:
-        response_data = await self._request(
-            "GET",
-            f"/external-squads/{squad_uuid}",
-            operation=PanelApiOperation.EXTERNAL_SQUAD_GET,
-            log_full_response=False,
-        )
+        response_data = await self._fetch_external_squad(squad_uuid)
         if response_data and not response_data.get("error") and "response" in response_data:
             response = response_data.get("response")
             if isinstance(response, dict):
                 return response
         logger.error("Failed to get external squad %s. Response: %s", squad_uuid, response_data)
         return None
+
+    async def is_external_squad_missing(self, squad_uuid: str) -> bool:
+        response_data = await self._fetch_external_squad(squad_uuid)
+        return (
+            response_data is not None
+            and response_data.get("status_code") == 404
+            and self._panel_response_error_code(response_data) == "A182"
+        )
+
+    async def _fetch_external_squad(self, squad_uuid: str) -> dict[str, Any] | None:
+        return await self._request(
+            "GET",
+            f"/external-squads/{squad_uuid}",
+            operation=PanelApiOperation.EXTERNAL_SQUAD_GET,
+            log_full_response=False,
+        )
 
     async def get_user_devices(
         self,
@@ -279,6 +293,28 @@ class PanelApiResourcesMixin:
             user_uuid,
         )
         return False
+
+    async def get_hwid_devices_page(
+        self, *, start: int, size: int
+    ) -> tuple[int, list[dict[str, Any]]] | None:
+        response = _panel_dict_response(
+            await self._request(
+                "GET",
+                "/hwid/devices",
+                operation=PanelApiOperation.HWID_DEVICES_LIST,
+                params={"start": start, "size": size},
+                log_full_response=False,
+            )
+        )
+        if response is None:
+            return None
+        total = response.get("total")
+        devices = response.get("devices")
+        if not isinstance(total, int) or total < 0 or not isinstance(devices, list):
+            return None
+        if any(not isinstance(device, dict) for device in devices):
+            return None
+        return total, devices
 
     async def get_hwid_devices_stats(self) -> dict[str, Any] | None:
         """Return HWID aggregate stats, including Remnawave 2.8 byPlatform[].byApp."""

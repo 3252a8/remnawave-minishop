@@ -349,7 +349,7 @@ class AdminPanelActivityTests(unittest.IsolatedAsyncioTestCase):
             },
         )
         self.assertEqual(active_sub.last_connected_at, datetime(2026, 6, 5, 12, tzinfo=UTC))
-        panel_service.get_user_by_uuid.assert_awaited_once_with(panel_reference)
+        panel_service.get_user_by_uuid.assert_awaited_once_with(panel_reference, use_cache=False)
         install_links.assert_awaited_once()
         assert install_links.await_args is not None
         self.assertIs(install_links.await_args.kwargs["local_subscription"], active_sub)

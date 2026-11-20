@@ -43,12 +43,13 @@ production эти части запускаются через Docker Compose и
 пользовательские сценарии и веб админ-панель открываются в браузере без backend, базы данных и
 внешних API.
 
-[Открыть демо](/demo/home)
+[Открыть веб-демо](/demo/home) · [Попробовать меню бота в Telegram](/demo/bot/)
 
 Быстрые ссылки:
 
 - [Главный экран](/demo/home)
 - [Инструкции подключения](/demo/install?mock=guides)
+- [Админка в Telegram-боте](/demo/bot/?role=admin&menu=admin)
 - [Пользователи в админ-панели](/demo/admin/users)
 - [Бэкапы в админ-панели](/demo/admin/backups)
 - [Вход и регистрация](/demo/login?mock=auth)

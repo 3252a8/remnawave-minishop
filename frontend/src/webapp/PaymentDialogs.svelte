@@ -28,6 +28,7 @@
   type CheckoutPaymentOptions = {
     balanceSource?: "user" | "partner" | null;
     balanceAutoRenew?: boolean;
+    scheduleBalanceRenewal?: boolean;
     usePartnerBalance?: boolean;
     checkoutAddons?: CheckoutAddonSelection;
     payerEmail?: string;

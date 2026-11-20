@@ -135,6 +135,7 @@
       !backupsCreating
     )
   );
+  const backupTableLayout = { columnWidths: ["auto", "166px", "100px"], minWidth: "460px" };
   const backupHeaders = $derived([
     at("backups_col_archive", {}, "Archive"),
     at("backups_col_created", {}, "Created"),
@@ -479,7 +480,7 @@
         rows={6}
         rowHeight={62}
         class="backups-table"
-        widths={["minmax(220px, 1fr)", "150px", "80px"]}
+        {...backupTableLayout}
       />
     {:else if !archives?.length}
       <AdminEmptyState tone="card">
@@ -492,7 +493,7 @@
         class="backups-archive-radio-group"
         aria-label="Backup archive"
       >
-        <AdminTable class="backups-table">
+        <AdminTable class="backups-table" {...backupTableLayout}>
           <thead>
             <tr>
               <AdminSortableHeader
@@ -742,7 +743,7 @@
   }
 
   @media (max-width: 720px) {
-    .backups-layout :global(.backups-table tbody tr.backups-row) {
+    .backups-layout :global(.backups-table tbody tr) {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px 16px;
@@ -753,17 +754,30 @@
       background: color-mix(in srgb, var(--accent) 6%, var(--admin-surface-2));
     }
 
-    .backups-layout :global(.backups-table .backups-row td) {
+    .backups-layout :global(.backups-table tbody td) {
       min-width: 0;
       padding: 0;
       grid-template-columns: minmax(0, 1fr);
       gap: 4px;
     }
 
-    .backups-layout :global(.backups-table .backups-row .backups-name) {
+    .backups-layout :global(.backups-table tbody td:first-child) {
       grid-column: 1 / -1;
       margin: 0;
       padding-bottom: 10px;
+    }
+
+    .backups-layout :global(.backups-table.admin-table-skeleton td .ui-skeleton-line) {
+      grid-column: 1;
+    }
+
+    .backups-layout :global(.backups-table.admin-table-skeleton td:first-child) {
+      min-height: 54px;
+      align-content: center;
+    }
+
+    .backups-layout :global(.backups-table.admin-table-skeleton td:first-child::before) {
+      display: none;
     }
 
     :global(.backups-archive-choice) {
