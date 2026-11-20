@@ -78,24 +78,17 @@ def _telegram_oauth_callback_url(settings: Settings, request: web.Request) -> st
 
 
 def _telegram_oauth_redirect_url(path: str = "/", *, status: str | None = None) -> str:
-    # Browsers treat backslashes as slashes. Validate the parsed destination as
-    # well as the application route, so it can never introduce an external origin.
-    path = path.replace("\\", "/")
-    try:
-        parsed = urlsplit(path)
-    except ValueError:
-        path = "/"
-        parsed = urlsplit(path)
-    if parsed.scheme or parsed.netloc:
-        path = "/"
-    target_path = path if path.startswith("/") else "/"
-    if target_path not in {"/", "/settings", "/settings/security"} and not re.fullmatch(
-        r"/checkout/[a-f0-9]{32}", target_path
-    ):
-        target_path = "/"
+    # Build the destination from literal local routes and an optional hex code.
+    if path == "/settings":
+        target_path = "/settings"
+    elif path == "/settings/security":
+        target_path = "/settings/security"
+    else:
+        checkout = re.fullmatch(r"/checkout/([a-f0-9]{32})", path)
+        target_path = "/checkout/" + checkout[1] if checkout else "/"
     if not status:
         return target_path
-    return f"{target_path}?{urlencode({'telegram_auth': status})}"
+    return target_path + "?" + urlencode({"telegram_auth": status})
 
 
 def _set_telegram_oauth_state_cookie(

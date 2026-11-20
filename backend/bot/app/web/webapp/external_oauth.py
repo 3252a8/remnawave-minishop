@@ -121,12 +121,12 @@ def _redirect(
     path = (
         "/settings/security"
         if purpose in {"link", "merge"}
-        else f"/checkout/{normalized_access_code}"
+        else "/checkout/" + normalized_access_code
         if normalized_access_code
         else "/"
     )
     query = urlencode({"external_auth": f"{provider}:{status}"}, safe=":")
-    return f"{path}?{query}"
+    return path + "?" + query
 
 
 def _set_state_cookie(
