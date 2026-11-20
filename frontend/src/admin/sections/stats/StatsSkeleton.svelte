@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { paymentTableLayout } from "$lib/admin/paymentTable.js";
   import { ScrollArea } from "$components/ui/index.js";
   import * as Card from "$components/ui/card/index.js";
   import {
@@ -196,7 +197,8 @@
         {headers}
         rows={5}
         rowHeight={76}
-        widths={["11%", "15.5%", "18%", "9%", "7%", "9%", "9.5%", "9%", "12%"]}
+        preserveRowHeightOnMobile
+        {...paymentTableLayout}
       />
     </Card.Content>
   </Card.Root>

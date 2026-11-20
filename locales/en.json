@@ -1915,6 +1915,7 @@
   "admin_clear_filter": "Clear {label}",
   "admin_done": "Done",
   "admin_users_filters_open": "Open filters",
+  "admin_users_filters_count": "Filters ({count})",
   "admin_users_filters_title": "User filters",
   "admin_users_filters_description": "Refine the user list without leaving the table.",
   "admin_sort": "Sort",

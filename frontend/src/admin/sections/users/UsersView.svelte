@@ -36,6 +36,7 @@
   type UserTableColumn = {
     key: string;
     label: string;
+    width: string;
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
@@ -84,9 +85,6 @@
     USERS_TARIFF_OPTIONS,
     activeUsersFilterCount,
     activeUserFilterChips,
-    userTableHeaders,
-    userTableWidths,
-    userTableColumnCount,
     userBalanceEnabled,
     partnerBalanceEnabled,
     updateUsersFilter,
@@ -142,9 +140,6 @@
     USERS_TARIFF_OPTIONS: SelectOption[];
     activeUsersFilterCount: number;
     activeUserFilterChips: FilterChip[];
-    userTableHeaders: string[];
-    userTableWidths: string[];
-    userTableColumnCount: number;
     userBalanceEnabled: boolean;
     partnerBalanceEnabled: boolean;
     updateUsersFilter: ComponentCallback;
@@ -158,7 +153,7 @@
     clearUsersFilter: (key: string) => void;
     handleUsersSearchInput: (event: Event) => void;
     handleUsersSearchKeydown: (event: KeyboardEvent) => void;
-    userTableColumns: () => UserTableColumn[];
+    userTableColumns: UserTableColumn[];
     sortState: (column: SortColumn | undefined) => "none" | "ascending" | "descending";
     sortTitle: (column: SortColumn) => string;
     toggleUsersSortForColumn: (column: UserTableColumn) => void;
@@ -173,6 +168,7 @@
     rowBalance: (user: AdminUser, source: "user" | "partner") => string;
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
+  const columnWidths = $derived(userTableColumns.map((column) => column.width));
 </script>
 
 {#snippet renderExtensionFilters()}
@@ -301,7 +297,7 @@
     <AdminButton
       variant={activeUsersFilterCount ? "primary" : "default"}
       class="admin-users-filter-toggle"
-      aria-label={at("users_filters_open", {}, "Open filters")}
+      aria-label={activeUsersFilterCount ? undefined : at("users_filters_open", {}, "Open filters")}
       aria-haspopup="dialog"
       aria-expanded={usersFilterSheetOpen}
       onclick={() => {
@@ -309,10 +305,9 @@
       }}
     >
       <Sliders size={15} />
-      <span class="admin-users-filter-toggle-label">{at("filters", {}, "Filters")}</span>
-      {#if activeUsersFilterCount}
-        <span class="admin-users-filter-count">{activeUsersFilterCount}</span>
-      {/if}
+      {activeUsersFilterCount
+        ? at("users_filters_count", { count: activeUsersFilterCount }, "Filters ({count})")
+        : at("filters", {}, "Filters")}
     </AdminButton>
   {/snippet}
   {#snippet actions()}
@@ -409,25 +404,25 @@
   </div>
 </Dialog>
 
-<div class="admin-users-table-wrap">
-  {#if usersLoading}
+<div class="admin-users-table-wrap" aria-busy={usersLoading}>
+  {#if usersLoading && !usersTable.rows.length}
     <AdminTableSkeleton
-      headers={userTableHeaders}
+      headers={userTableColumns.map((column) => column.label)}
       rows={USERS_PAGE_SIZE}
       rowHeight={76}
       preserveRowHeightOnMobile
       class="admin-users-table"
-      widths={userTableWidths}
+      {columnWidths}
     />
   {:else if !usersTable.rows.length}
     <AdminEmptyState tone="card"
       ><span class="admin-muted">{at("users_empty", {}, "No users found")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable class="admin-users-table">
+    <AdminTable class="admin-users-table" {columnWidths}>
       <thead>
         <tr>
-          {#each userTableColumns() as column (column.key)}
+          {#each userTableColumns as column (column.key)}
             <th aria-sort={column.sort ? sortState(column.sort) : undefined}>
               {#if column.sort}
                 <AdminSortHeader
@@ -445,7 +440,7 @@
       </thead>
       <VirtualTableRows
         rows={usersTable.rows}
-        colspan={userTableColumnCount}
+        colspan={userTableColumns.length}
         rowHeight={76}
         getKey={(user) => user.user_id}
       >
@@ -621,24 +616,11 @@
 
   :global(.admin-btn.admin-users-filter-toggle) {
     display: inline-flex;
-    position: relative;
     align-items: center;
     gap: 7px;
     min-width: 0;
-  }
-
-  .admin-users-filter-count {
-    display: inline-grid;
-    min-width: 18px;
-    height: 18px;
-    place-items: center;
-    padding: 0 5px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--admin-bg) 74%, transparent);
-    color: inherit;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
   .admin-users-filter-chips {
@@ -722,6 +704,12 @@
     overflow-x: auto;
   }
 
+  .admin-users-table-wrap[aria-busy="true"]
+    :global(.admin-users-table:not(.admin-table-skeleton) tbody),
+  .admin-users-table-wrap[aria-busy="true"] .admin-users-mobile-list {
+    opacity: 0.65;
+  }
+
   .admin-users-mobile-list {
     display: none;
   }
@@ -730,15 +718,6 @@
     .admin-users-table-wrap :global(.admin-users-table :is(th, td)) {
       padding-inline: 8px;
     }
-
-    .admin-users-cell-user {
-      min-width: 176px;
-    }
-
-    .admin-users-cell-tariff {
-      min-width: 124px;
-      max-width: 220px;
-    }
   }
 
   .admin-users-cell-premium {
@@ -746,7 +725,7 @@
   }
 
   .admin-users-cell-premium :global(.admin-user-premium-badge) {
-    max-width: 220px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -794,7 +773,6 @@
   }
 
   .admin-users-cell-extension {
-    min-width: 144px;
     overflow-wrap: anywhere;
   }
 
@@ -813,10 +791,6 @@
       display: inline-flex;
       min-width: 38px;
       padding-inline: 10px;
-    }
-
-    .admin-users-filter-toggle-label {
-      display: none;
     }
 
     .admin-users-filter-chips {

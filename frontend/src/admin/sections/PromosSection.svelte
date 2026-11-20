@@ -205,6 +205,10 @@
   const activationsPageCount = $derived(
     Math.max(1, Math.ceil(Number(activationsTotal || 0) / promosStore.ACTIVATIONS_PAGE_SIZE))
   );
+  const promoTableLayout = {
+    columnWidths: ["184px", "10%", "auto", "9%", "9%", "9%", "9%", "10%", "190px"],
+    minWidth: "1040px",
+  };
   const promoHeaders = $derived([
     at("promo_csv_code", {}, "Code"),
     at("promo_col_type", {}, "Type"),
@@ -635,7 +639,7 @@
       rowHeight={70}
       actionColumn
       class="admin-promos-table"
-      widths={["92px", "86px", "132px", "96px", "104px", "78px", "78px", "96px", "132px"]}
+      {...promoTableLayout}
     />
   {:else if !promos.length}
     {@const filtered = Boolean(
@@ -672,7 +676,7 @@
       {/snippet}
     </AdminEmptyState>
   {:else}
-    <AdminTable class="admin-promos-table">
+    <AdminTable class="admin-promos-table" {...promoTableLayout}>
       <thead>
         <tr>
           <AdminSortableHeader

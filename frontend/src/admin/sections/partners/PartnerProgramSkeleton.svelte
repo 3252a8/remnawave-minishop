@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { partnerTableLayouts } from "$lib/admin/partnerProgramUi.js";
   import Skeleton from "$components/ui/skeleton.svelte";
   import {
     AdminChartSkeleton,
@@ -18,7 +19,9 @@
     view?: string;
   } = $props();
 
-  const isList = $derived(view === "partners" || view === "applications" || view === "withdrawals");
+  const listView = $derived(
+    view === "partners" || view === "applications" || view === "withdrawals" ? view : null
+  );
   const listHeaders = $derived(
     view === "applications"
       ? [
@@ -47,6 +50,7 @@
             at("partners_col_gross", {}, "Revenue"),
             at("partners_col_earned", {}, "Net commission"),
             at("partners_col_available", {}, "Available"),
+            at("actions", {}, "Actions"),
           ]
   );
   const dashboardTableHeaders = $derived([
@@ -136,7 +140,7 @@
         {/each}
       </article>
     </section>
-  {:else if isList}
+  {:else if listView}
     <section class="partners-list-view">
       <AdminListToolbar class="partner-list-toolbar" columns={1}>
         {#snippet search()}<Skeleton width="100%" height="36px" />{/snippet}
@@ -153,7 +157,8 @@
         headers={listHeaders}
         rows={6}
         rowHeight={54}
-        actionColumn={view === "applications" || view === "withdrawals"}
+        actionColumn
+        {...partnerTableLayouts[listView]}
       />
     </section>
   {:else}

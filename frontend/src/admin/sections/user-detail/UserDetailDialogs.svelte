@@ -42,6 +42,7 @@
     userActionBusy?: boolean;
   };
 
+  const referralsTableLayout = { columnWidths: ["38%", "29%", "23%", "10%"], minWidth: "540px" };
   let {
     at,
     fmtDateShort = (value) => String(value ?? ""),
@@ -94,18 +95,20 @@
 >
   <div class="admin-user-referrals-body">
     {#if userReferralsLoading}
-      <AdminTableSkeleton
-        headers={[
-          at("user_col_user", {}, "User"),
-          "ID",
-          at("user_label_registration", {}, "Registration"),
-          "",
-        ]}
-        rows={5}
-        rowHeight={60}
-        class="admin-user-referrals-table"
-        widths={["42%", "18%", "26%", "14%"]}
-      />
+      <ScrollArea class="admin-user-referrals-table-wrap" maxHeight="min(55vh, 460px)">
+        <AdminTableSkeleton
+          headers={[
+            at("user_col_user", {}, "User"),
+            "ID",
+            at("user_label_registration", {}, "Registration"),
+            "",
+          ]}
+          rows={5}
+          rowHeight={60}
+          class="admin-user-referrals-table"
+          {...referralsTableLayout}
+        />
+      </ScrollArea>
     {:else if !userReferralsRows.length}
       <AdminEmptyState tone="card">
         <span class="admin-muted"
@@ -114,7 +117,7 @@
       </AdminEmptyState>
     {:else}
       <ScrollArea class="admin-user-referrals-table-wrap" maxHeight="min(55vh, 460px)">
-        <AdminTable class="admin-user-referrals-table">
+        <AdminTable class="admin-user-referrals-table" {...referralsTableLayout}>
           <thead>
             <tr>
               <AdminSortableHeader

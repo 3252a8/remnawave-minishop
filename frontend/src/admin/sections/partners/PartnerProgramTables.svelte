@@ -26,7 +26,7 @@
     PartnerRow,
     WithdrawalRow,
   } from "$lib/admin/previewMock/partnerProgram.js";
-  import { partnerStatusVariant } from "$lib/admin/partnerProgramUi.js";
+  import { partnerStatusVariant, partnerTableLayouts } from "$lib/admin/partnerProgramUi.js";
   import { fmtDateTime } from "$lib/admin/format.js";
   import type { AdminPartnerListQuery } from "$lib/admin/partnerProgramApi.js";
 
@@ -273,7 +273,7 @@
         >
       {/snippet}
     </AdminListToolbar>
-    <AdminTable>
+    <AdminTable {...partnerTableLayouts[view]}>
       <thead
         ><tr>
           <AdminSortableHeader
@@ -446,7 +446,7 @@
         </AdminField>
       {/snippet}
     </AdminListToolbar>
-    <AdminTable>
+    <AdminTable {...partnerTableLayouts[view]}>
       <thead
         ><tr>
           <AdminSortableHeader
@@ -623,7 +623,7 @@
         </AdminField>
       {/snippet}
     </AdminListToolbar>
-    <AdminTable>
+    <AdminTable {...partnerTableLayouts[view]}>
       <thead
         ><tr>
           <AdminSortableHeader

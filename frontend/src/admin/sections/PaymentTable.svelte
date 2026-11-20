@@ -15,6 +15,7 @@
   import { TableHandler } from "@vincjo/datatables";
   import {
     paymentAmountDisplay,
+    paymentTableLayout,
     paymentDescriptionDisplay,
     paymentDiscountDisplay,
   } from "$lib/admin/paymentTable.js";
@@ -96,25 +97,16 @@
       headers={paymentHeaders}
       rows={skeletonRows}
       rowHeight={76}
-      widths={["11%", "15.5%", "18%", "9%", "7%", "9%", "9.5%", "9%", "12%"]}
+      class="admin-payments-table"
+      preserveRowHeightOnMobile
+      {...paymentTableLayout}
     />
   {:else if !paymentsTable.rows.length}
     <AdminEmptyState tone="card"
       ><span class="admin-muted">{resolvedEmptyLabel}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable class="admin-payments-table">
-      <colgroup>
-        <col class="admin-payments-col-id" />
-        <col class="admin-payments-col-user" />
-        <col class="admin-payments-col-purchases" />
-        <col class="admin-payments-col-amount" />
-        <col class="admin-payments-col-discount" />
-        <col class="admin-payments-col-provider" />
-        <col class="admin-payments-col-description" />
-        <col class="admin-payments-col-status" />
-        <col class="admin-payments-col-date" />
-      </colgroup>
+    <AdminTable class="admin-payments-table" {...paymentTableLayout}>
       <thead>
         <tr>
           <AdminSortableHeader
@@ -389,42 +381,6 @@
     display: none;
   }
 
-  .admin-payments-table-shell :global(.admin-payments-col-id) {
-    width: 11%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-user) {
-    width: 15.5%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-purchases) {
-    width: 18%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-amount) {
-    width: 9%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-discount) {
-    width: 7%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-provider) {
-    width: 9%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-description) {
-    width: 9.5%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-status) {
-    width: 9%;
-  }
-
-  .admin-payments-table-shell :global(.admin-payments-col-date) {
-    width: 12%;
-  }
-
   .admin-payments-table-shell :global(.admin-payments-purchases-header) {
     white-space: normal;
     line-height: 1.25;
@@ -545,7 +501,8 @@
       overflow-x: hidden;
     }
 
-    .admin-payments-table-shell :global(.admin-table-wrap:has(.admin-payments-table)) {
+    .admin-payments-table-shell
+      :global(.admin-table-wrap:has(.admin-payments-table:not(.admin-table-skeleton))) {
       display: none;
     }
 

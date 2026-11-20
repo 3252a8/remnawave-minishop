@@ -65,6 +65,10 @@
     { asc: "provider_asc", desc: "provider_desc", defaultDirection: "asc" },
   ] satisfies AdminSortColumn<never>[];
 
+  const activationTableLayout = {
+    columnWidths: ["16%", "11%", "8%", "8%", "9%", "9%", "11%", "10%", "9%", "9%"],
+    minWidth: "1180px",
+  };
   const activationHeaders = $derived([
     at("user", {}, "User"),
     at("date", {}, "Date"),
@@ -177,20 +181,22 @@
   </section>
 
   {#if loading}
-    <AdminTableSkeleton
-      headers={activationHeaders}
-      rows={6}
-      rowHeight={62}
-      class="admin-promo-activations-table"
-      widths={["160px", "104px", "72px", "86px", "86px", "86px", "120px", "120px", "86px", "90px"]}
-    />
+    <ScrollArea class="admin-promo-activations-scroll" maxHeight="none">
+      <AdminTableSkeleton
+        headers={activationHeaders}
+        rows={6}
+        rowHeight={62}
+        class="admin-promo-activations-table"
+        {...activationTableLayout}
+      />
+    </ScrollArea>
   {:else if !rows.length}
     <AdminEmptyState tone="card">
       <span class="admin-muted">{at("promo_activations_empty", {}, "No activations")}</span>
     </AdminEmptyState>
   {:else}
     <ScrollArea class="admin-promo-activations-scroll" maxHeight="none">
-      <AdminTable class="admin-promo-activations-table">
+      <AdminTable class="admin-promo-activations-table" {...activationTableLayout}>
         <thead>
           <tr>
             <AdminSortableHeader
@@ -409,10 +415,6 @@
     min-height: 0;
   }
 
-  :global(.admin-promo-activations-table) {
-    min-width: 1180px;
-  }
-
   .admin-promos-user-cell {
     display: flex;
     align-items: center;
@@ -454,10 +456,6 @@
     :global(.admin-promo-activations-scroll) {
       height: auto;
       max-height: min(58vh, 520px) !important;
-    }
-
-    :global(.admin-promo-activations-table) {
-      min-width: 0;
     }
   }
 </style>

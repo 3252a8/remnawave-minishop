@@ -7,6 +7,7 @@
     rows?: number;
     actionColumn?: boolean;
     widths?: string[];
+    columnWidths?: readonly string[];
     class?: string;
     rowHeight?: number;
     preserveRowHeightOnMobile?: boolean;
@@ -20,6 +21,7 @@
     rows = 6,
     actionColumn = false,
     widths = [],
+    columnWidths = [],
     class: className = "",
     rowHeight = 48,
     preserveRowHeightOnMobile = false,
@@ -48,15 +50,14 @@
   {appearance}
   {layout}
   {minWidth}
+  {columnWidths}
   class={tableClass}
   style={`--admin-table-skeleton-row-height:${rowHeight}px`}
 >
   <thead>
     <tr>
       {#each headers as header, index (index)}
-        <th class:admin-cell-actions={actionColumn && header === headers[headers.length - 1]}
-          >{header}</th
-        >
+        <th class:admin-cell-actions={actionColumn && index === headers.length - 1}>{header}</th>
       {/each}
     </tr>
   </thead>
@@ -64,7 +65,10 @@
     {#each Array(rows) as _, rowIndex (rowIndex)}
       <tr>
         {#each headers as _header, colIndex (`${rowIndex}-${colIndex}`)}
-          <td data-label={_header}>
+          <td
+            data-label={_header}
+            class:admin-cell-actions={actionColumn && colIndex === headers.length - 1}
+          >
             <Skeleton variant="line" width={widthFor(colIndex)} />
           </td>
         {/each}

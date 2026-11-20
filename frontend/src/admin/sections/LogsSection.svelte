@@ -48,6 +48,7 @@
   $effect(() => logsTable.setRows(logs));
 
   const logsPageCount = $derived(Math.max(1, Math.ceil(Number(logsTotal || 0) / LOGS_PAGE_SIZE)));
+  const logTableLayout = { columnWidths: ["16%", "18%", "18%", "18%", "30%"], minWidth: "840px" };
   const logHeaders = $derived([
     at("date", {}, "Date"),
     at("event", {}, "Event"),
@@ -142,12 +143,7 @@
 
 <div class="admin-table-wrap">
   {#if logsLoading}
-    <AdminTableSkeleton
-      headers={logHeaders}
-      rows={10}
-      rowHeight={72}
-      widths={["120px", "120px", "160px", "160px", "220px"]}
-    />
+    <AdminTableSkeleton headers={logHeaders} rows={10} rowHeight={72} {...logTableLayout} />
   {:else if logsError}
     <AdminEmptyState tone="card" class="admin-logs-error-state">
       <TriangleAlert size={18} />
@@ -162,7 +158,7 @@
       ><span class="admin-muted">{at("logs_empty", {}, "No entries")}</span></AdminEmptyState
     >
   {:else}
-    <AdminTable>
+    <AdminTable {...logTableLayout}>
       <thead>
         <tr>
           <AdminSortableHeader

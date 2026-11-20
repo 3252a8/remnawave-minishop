@@ -27,6 +27,7 @@
   type UserTableColumn = {
     key: string;
     label: string;
+    width: string;
     sort?: SortColumn;
   };
   type ComponentCallback = () => void;
@@ -276,55 +277,60 @@
     return trafficOfLabel(pt.used_bytes, pt.limit_bytes);
   }
 
-  function userTableColumns(): UserTableColumn[] {
-    return [
-      { key: "user", label: at("user", {}, "User"), sort: SORT_COLUMNS.user },
-      { key: "tariff", label: at("users_col_tariff", {}, "Tariff / trial") },
-      ...(userBalanceEnabled
-        ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance") }]
-        : []),
-      ...(partnerBalanceEnabled
-        ? [
-            {
-              key: "partnerBalance",
-              label: at("users_col_partner_balance", {}, "Partner balance"),
-            },
-          ]
-        : []),
-      {
-        key: "premium",
-        label: at("premium_traffic_filter_label", {}, "Premium traffic"),
-        sort: SORT_COLUMNS.premium,
-      },
-      {
-        key: "paymentsTotal",
-        label: at("users_col_payments_total", {}, "Paid total"),
-        sort: SORT_COLUMNS.paymentsTotal,
-      },
-      {
-        key: "paymentsCount",
-        label: at("users_col_payments_count", {}, "Payments"),
-        sort: SORT_COLUMNS.paymentsCount,
-      },
-      {
-        key: "invited",
-        label: at("users_col_invited", {}, "Invited"),
-        sort: SORT_COLUMNS.invited,
-      },
-      { key: "status", label: at("status", {}, "Status"), sort: SORT_COLUMNS.status },
-      {
-        key: "subscriptionExpires",
-        label: at("users_col_subscription_expires", {}, "Expires"),
-        sort: SORT_COLUMNS.subscriptionExpires,
-      },
-      {
-        key: "registration",
-        label: at("users_col_registration", {}, "Registered"),
-        sort: SORT_COLUMNS.registration,
-      },
-      ...usersExtensionColumns.map(({ id, label }) => ({ key: id, label })),
-    ];
-  }
+  const userTableColumns: UserTableColumn[] = $derived([
+    { key: "user", label: at("user", {}, "User"), width: "200px", sort: SORT_COLUMNS.user },
+    { key: "tariff", label: at("users_col_tariff", {}, "Tariff / trial"), width: "144px" },
+    ...(userBalanceEnabled
+      ? [{ key: "userBalance", label: at("users_col_user_balance", {}, "Balance"), width: "118px" }]
+      : []),
+    ...(partnerBalanceEnabled
+      ? [
+          {
+            key: "partnerBalance",
+            label: at("users_col_partner_balance", {}, "Partner balance"),
+            width: "136px",
+          },
+        ]
+      : []),
+    {
+      key: "premium",
+      width: "128px",
+      label: at("premium_traffic_filter_label", {}, "Premium traffic"),
+      sort: SORT_COLUMNS.premium,
+    },
+    {
+      key: "paymentsTotal",
+      width: "112px",
+      label: at("users_col_payments_total", {}, "Paid total"),
+      sort: SORT_COLUMNS.paymentsTotal,
+    },
+    {
+      key: "paymentsCount",
+      width: "96px",
+      label: at("users_col_payments_count", {}, "Payments"),
+      sort: SORT_COLUMNS.paymentsCount,
+    },
+    {
+      key: "invited",
+      width: "124px",
+      label: at("users_col_invited", {}, "Invited"),
+      sort: SORT_COLUMNS.invited,
+    },
+    { key: "status", label: at("status", {}, "Status"), width: "104px", sort: SORT_COLUMNS.status },
+    {
+      key: "subscriptionExpires",
+      width: "112px",
+      label: at("users_col_subscription_expires", {}, "Expires"),
+      sort: SORT_COLUMNS.subscriptionExpires,
+    },
+    {
+      key: "registration",
+      width: "122px",
+      label: at("users_col_registration", {}, "Registered"),
+      sort: SORT_COLUMNS.registration,
+    },
+    ...usersExtensionColumns.map(({ id, label }) => ({ key: id, label, width: "144px" })),
+  ]);
 
   function sortState(column: SortColumn | undefined): "none" | "ascending" | "descending" {
     if (!column) return "none";
@@ -415,22 +421,6 @@
     ).filter(isFilterChip)
   );
   const activeUsersFilterCount = $derived(activeUserFilterChips.length);
-  const userTableHeaders = $derived(userTableColumns().map((column) => column.label));
-  const userTableWidths = $derived([
-    "220px",
-    "170px",
-    ...(userBalanceEnabled ? ["118px"] : []),
-    ...(partnerBalanceEnabled ? ["136px"] : []),
-    "128px",
-    "112px",
-    "78px",
-    "88px",
-    "96px",
-    "112px",
-    "112px",
-    ...usersExtensionColumns.map(() => "144px"),
-  ]);
-  const userTableColumnCount = $derived(userTableHeaders.length);
 
   onMount(() => {
     usersStore.loadUsers();
@@ -482,9 +472,6 @@
     {USERS_TARIFF_OPTIONS}
     {activeUsersFilterCount}
     {activeUserFilterChips}
-    {userTableHeaders}
-    {userTableWidths}
-    {userTableColumnCount}
     {userBalanceEnabled}
     {partnerBalanceEnabled}
     {updateUsersFilter}

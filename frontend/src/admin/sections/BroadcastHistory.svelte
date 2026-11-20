@@ -92,6 +92,10 @@
   ] satisfies AdminSortColumn<BroadcastHistoryItem>[];
   const sortedHistory = $derived(sortAdminRows(history, historySort, historySortColumns));
   const historyRows = $derived(historyTable.rows as BroadcastHistoryItem[]);
+  const historyTableLayout = {
+    columnWidths: ["6%", "180px", "auto", "13%", "15%", "17%", "15%"],
+    minWidth: "960px",
+  };
   const historyHeaders = $derived([
     "ID",
     at("status", {}, "Status"),
@@ -316,16 +320,8 @@
           headers={historyHeaders}
           rows={5}
           rowHeight={64}
-          widths={[
-            "64px",
-            "130px",
-            "minmax(220px, 1fr)",
-            "150px",
-            "130px",
-            "170px",
-            "130px",
-            "170px",
-          ]}
+          class="broadcast-history-table"
+          {...historyTableLayout}
         />
       </div>
     {:else if !history.length}
@@ -334,7 +330,7 @@
       </AdminEmptyState>
     {:else}
       <div class="admin-table-wrap">
-        <AdminTable class="broadcast-history-table">
+        <AdminTable class="broadcast-history-table" {...historyTableLayout}>
           <thead>
             <tr>
               <AdminSortableHeader
@@ -669,12 +665,6 @@
     display: grid;
     gap: 12px;
   }
-  /* The list fits the 1120px content column without a sideways scrollbar: the
-     creation time lives in the broadcast card, and the newest-first default
-     order already follows it. */
-  :global(.broadcast-history-table) {
-    min-width: 960px;
-  }
   :global(.broadcast-history-table tbody tr.broadcast-history-row) {
     cursor: pointer;
   }
@@ -686,15 +676,7 @@
     outline: 2px solid var(--admin-ring);
     outline-offset: -2px;
   }
-  /* Values stay on one line; the text column takes whatever the other columns
-     leave and ellipsizes, so a long message never pushes the table wider than
-     its card. */
-  :global(.broadcast-history-table tbody td:not(.broadcast-history-message-preview)) {
-    white-space: nowrap;
-  }
   .broadcast-history-message-preview {
-    width: 100%;
-    max-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -895,11 +877,7 @@
   }
 
   @media (max-width: 700px) {
-    :global(.broadcast-history-table) {
-      min-width: 0;
-    }
     .broadcast-history-message-preview {
-      max-width: none;
       white-space: normal;
     }
     .broadcast-detail-card {

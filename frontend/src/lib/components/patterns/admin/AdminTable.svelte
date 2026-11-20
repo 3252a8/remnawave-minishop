@@ -8,6 +8,7 @@
     class?: string;
     skeleton?: boolean;
     layout?: "auto" | "fixed";
+    columnWidths?: readonly string[];
     minWidth?: string;
     appearance?: "admin" | "webapp";
   };
@@ -15,6 +16,7 @@
   let {
     skeleton = false,
     layout = "auto",
+    columnWidths = [],
     minWidth = "760px",
     appearance = "admin",
     class: className = "",
@@ -32,12 +34,19 @@
     class={cn(
       "admin-table",
       skeleton && "admin-table-skeleton",
-      layout === "fixed" && "admin-table-fixed",
+      (layout === "fixed" || columnWidths.length > 0) && "admin-table-fixed",
       className
     )}
     aria-hidden={skeleton ? "true" : undefined}
     {...restProps}
   >
+    {#if columnWidths.length}
+      <colgroup>
+        {#each columnWidths as width, index (index)}
+          <col style:width />
+        {/each}
+      </colgroup>
+    {/if}
     {@render children?.()}
   </table>
 </div>

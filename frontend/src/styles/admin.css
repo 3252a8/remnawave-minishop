@@ -2337,8 +2337,8 @@
   gap: 8px;
 }
 
-.admin-table-skeleton td {
-  padding: 12px 16px;
+.admin-table-skeleton td > .ui-skeleton-line {
+  max-width: 100%;
 }
 
 .admin-table-skeleton tbody tr {
@@ -2350,16 +2350,34 @@
     height: auto;
   }
 
-  .admin-table-skeleton.admin-table-skeleton--fixed-mobile-rows tbody tr {
-    height: var(--admin-table-skeleton-row-height, 48px);
+  .admin-table-skeleton--fixed-mobile-rows,
+  .admin-table-skeleton--fixed-mobile-rows tbody {
+    display: block;
+    width: 100%;
   }
 
-  .admin-table-skeleton tbody td > .ui-skeleton-line {
-    display: inline-block;
-    width: 72%;
-    min-width: 40px;
-    max-width: calc(100% - 122px);
-    vertical-align: middle;
+  .admin-table-skeleton--fixed-mobile-rows tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 8px 12px;
+    align-content: center;
+    min-height: var(--admin-table-skeleton-row-height, 76px);
+    margin-bottom: 10px;
+    padding: 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-surface-2);
+  }
+
+  .admin-table-skeleton--fixed-mobile-rows tbody td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .admin-table-skeleton--fixed-mobile-rows tbody td:nth-child(n + 5) {
+    display: none;
   }
 }
 
@@ -5120,15 +5138,15 @@
 
   /* Mobile: each row becomes a self-contained card with an aligned
      label/value grid, so dense listings stay readable and structured on
-     narrow screens. Skeleton and virtual-spacer rows keep their plain shape. */
-  .admin-table:not(.admin-table-skeleton),
-  .admin-table:not(.admin-table-skeleton) tbody {
+     narrow screens. Compact placeholders and virtual spacers have their own layout. */
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows),
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody {
     display: block;
     width: 100%;
     min-width: 0;
   }
 
-  .admin-table:not(.admin-table-skeleton) tbody tr:not(.admin-virtual-spacer) {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody tr:not(.admin-virtual-spacer) {
     display: block;
     padding: 12px 14px;
     margin-bottom: 10px;
@@ -5137,11 +5155,11 @@
     background: var(--admin-surface-2);
   }
 
-  .admin-table:not(.admin-table-skeleton) tbody tr:not(.admin-virtual-spacer):last-child {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody tr:not(.admin-virtual-spacer):last-child {
     margin-bottom: 0;
   }
 
-  .admin-table:not(.admin-table-skeleton) tbody td {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td {
     display: grid;
     grid-template-columns: minmax(84px, 38%) minmax(0, 1fr);
     align-items: baseline;
@@ -5153,7 +5171,7 @@
 
   /* Sentence-case labels: upper-case with tracking wrapped to two lines in the
      narrow label column and made rows uneven. */
-  .admin-table:not(.admin-table-skeleton) tbody td::before {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td::before {
     content: attr(data-label);
     color: var(--admin-muted);
     font-family: var(--font-ui);
@@ -5163,57 +5181,57 @@
   }
 
   /* A record card skips fields this record does not have ("Target —"). */
-  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-optional {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td.admin-cell-optional {
     display: none;
   }
 
   /* Every value element stays in the value column: a cell with two children
      (amount + currency, method + phone) would otherwise place the second one
      under the label. */
-  .admin-table:not(.admin-table-skeleton) tbody td[data-label]:not([data-label=""]) > * {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td[data-label]:not([data-label=""]) > * {
     grid-column: 2;
   }
 
   /* A badge is an inline pill, but as a direct grid item in the value column it
      would stretch to the full track width and stop reading as a pill. */
-  .admin-table:not(.admin-table-skeleton) tbody td > .admin-badge {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td > .admin-badge {
     justify-self: start;
   }
 
   /* Column widths belong to the desktop table. Kept here, the 80px id column
      squeezes the card's label/value grid until the id wraps one character
      per line. */
-  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-id {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td.admin-cell-id {
     width: auto;
   }
 
   /* Cells without a label span the full card width instead of leaving an
      empty label column. */
-  .admin-table:not(.admin-table-skeleton) tbody td:not([data-label]),
-  .admin-table:not(.admin-table-skeleton) tbody td[data-label=""] {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td:not([data-label]),
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td[data-label=""] {
     display: block;
   }
 
-  .admin-table:not(.admin-table-skeleton) tbody td:not([data-label])::before,
-  .admin-table:not(.admin-table-skeleton) tbody td[data-label=""]::before {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td:not([data-label])::before,
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td[data-label=""]::before {
     display: none;
   }
 
   /* The primary entity cell (user/order/etc.) leads the card at full width
      without a label prefix, separated from the detail rows below it. */
-  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-primary {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td.admin-cell-primary {
     display: block;
     margin-bottom: 6px;
     padding: 0 0 10px;
     border-bottom: 1px solid var(--admin-border);
   }
 
-  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-primary::before {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td.admin-cell-primary::before {
     display: none;
   }
 
   /* Row actions sit as a full-width control strip at the foot of the card. */
-  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-actions {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td.admin-cell-actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -5222,7 +5240,7 @@
     text-align: left;
   }
 
-  .admin-table:not(.admin-table-skeleton) tbody td.admin-cell-actions::before {
+  .admin-table:not(.admin-table-skeleton--fixed-mobile-rows) tbody td.admin-cell-actions::before {
     display: none;
   }
 }
@@ -7878,20 +7896,6 @@
 
 /* Promo section */
 
-.admin-promos-table-wrap .admin-promos-table {
-  min-width: 900px;
-}
-
-/* The code column has one stable width: typical codes fit whole, a longer
-   one ellipsizes instead of widening the column for every row. */
-@media (min-width: 721px) {
-  .admin-promos-table-wrap .admin-promos-table td.admin-cell-primary {
-    width: 184px;
-    min-width: 184px;
-    max-width: 184px;
-  }
-}
-
 .admin-promo-kind-tabs {
   margin-bottom: 12px;
 }
@@ -8214,10 +8218,6 @@
 }
 
 @media (max-width: 720px) {
-  .admin-promos-table-wrap .admin-promos-table {
-    min-width: 0;
-  }
-
   .dialog-card.admin-dialog.admin-promo-dialog,
   .dialog-card.admin-dialog.admin-promo-edit-dialog {
     width: min(100%, calc(100vw - 32px));

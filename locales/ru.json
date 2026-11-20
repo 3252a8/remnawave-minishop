@@ -1915,6 +1915,7 @@
   "admin_clear_filter": "Сбросить {label}",
   "admin_done": "Готово",
   "admin_users_filters_open": "Открыть фильтры",
+  "admin_users_filters_count": "Фильтры ({count})",
   "admin_users_filters_title": "Фильтры пользователей",
   "admin_users_filters_description": "Уточните список пользователей, не уходя из таблицы.",
   "admin_sort": "Сортировка",

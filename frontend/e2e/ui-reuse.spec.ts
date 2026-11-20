@@ -10,6 +10,62 @@ type RelationshipCanvas = HTMLDivElement & {
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
+test("user columns and scroll position stay stable while sorting", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.addInitScript(() => {
+    type Api = (path: string, options?: RequestInit) => Promise<unknown>;
+    type Bundle = { mount: (target: HTMLElement, props: { api: Api }) => unknown };
+    let bundle: Bundle | undefined;
+    Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+      configurable: true,
+      get: () => bundle,
+      set(value: Bundle) {
+        const mount = value.mount;
+        value.mount = (target, props) =>
+          mount(target, {
+            ...props,
+            api: async (path, options) => {
+              if (
+                path.startsWith("/admin/users?") &&
+                new URL(path, location.origin).searchParams.get("sort") === "registered_desc"
+              ) {
+                await new Promise<void>((resolve) => {
+                  document.addEventListener("release-user-sort", () => resolve(), { once: true });
+                  document.documentElement.dataset.userSortPending = "true";
+                });
+              }
+              return props.api(path, options);
+            },
+          });
+        bundle = value;
+      },
+    });
+  });
+  await page.goto("/demo/runtime/admin/users?theme_preview=dark&users_extensions_demo=1");
+  const table = page.locator("table.admin-users-table");
+  const sort = table.getByRole("button", { name: "Регистрация" });
+  await sort.scrollIntoViewIfNeeded();
+  await sort.focus();
+  const geometry = () =>
+    table.evaluate((element) => ({
+      widths: [...element.querySelectorAll("th")].map((cell) => cell.getBoundingClientRect().width),
+      scroll: element.parentElement!.scrollLeft,
+    }));
+  const before = await geometry();
+  expect(before.scroll).toBeGreaterThan(0);
+  await sort.press("Enter");
+  await expect(page.locator("html")).toHaveAttribute("data-user-sort-pending", "true");
+  expect(await geometry()).toEqual(before);
+  await expect(sort).toBeFocused();
+  await page.evaluate(() => document.dispatchEvent(new Event("release-user-sort")));
+  await expect(page.locator(".admin-users-table-wrap")).not.toHaveAttribute("aria-busy", "true");
+  await expect(table.getByRole("columnheader", { name: "Регистрация" })).toHaveAttribute(
+    "aria-sort",
+    "descending"
+  );
+  expect(await geometry()).toEqual(before);
+});
+
 for (const width of [1440, 390]) {
   test(`user table plugin columns and filters work at ${width}px`, async ({ page }, testInfo) => {
     const mobile = width < 720;
@@ -25,7 +81,10 @@ for (const width of [1440, 390]) {
     await page.screenshot({ path: testInfo.outputPath(`users-extension-menu-${width}.png`) });
     await page.getByRole("option", { name: "Staff", exact: true }).click();
     await expect(page).toHaveURL(/extension_filter=example%3Asegment%3Dstaff/);
-    if (mobile) await page.keyboard.press("Escape");
+    if (mobile) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Фильтры (1)", exact: true })).toBeVisible();
+    }
 
     const row = page.locator(mobile ? '[data-mobile-user-id="910001"]' : '[data-user-id="910001"]');
     const cell = row.getByText("Staff", { exact: true });
@@ -43,6 +102,10 @@ for (const width of [1440, 390]) {
     await filter.click();
     await page.getByRole("option", { name: /^(Все|All)$/ }).click();
     await expect(page).not.toHaveURL(/extension_filter/);
+    if (mobile) {
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Открыть фильтры" })).toHaveText("Фильтры");
+    }
   });
 }
 

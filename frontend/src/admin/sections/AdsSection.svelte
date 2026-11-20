@@ -126,6 +126,10 @@
       ];
     })
   );
+  const adTableLayout = {
+    columnWidths: ["30%", "12%", "12%", "12%", "10%", "12%", "12%"],
+    minWidth: "1040px",
+  };
   const adHeaders = $derived([
     at("ads_campaign"),
     at("ads_col_advertiser"),
@@ -263,7 +267,8 @@
           rows={6}
           rowHeight={76}
           actionColumn
-          widths={["30%", "12%", "12%", "12%", "10%", "12%", "12%"]}
+          class="ads-campaign-table"
+          {...adTableLayout}
         />
       {:else if !ads.length}
         <AdminEmptyState tone="card"
@@ -271,12 +276,7 @@
           ></AdminEmptyState
         >
       {:else}
-        <AdminTable layout="fixed" minWidth="1040px" class="ads-campaign-table">
-          <colgroup
-            ><col style="width:30%" /><col style="width:12%" /><col style="width:12%" /><col
-              style="width:12%"
-            /><col style="width:10%" /><col style="width:12%" /><col style="width:12%" /></colgroup
-          >
+        <AdminTable class="ads-campaign-table" {...adTableLayout}>
           <thead
             ><tr>
               <AdminSortableHeader
