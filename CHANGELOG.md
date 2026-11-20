@@ -10,7 +10,13 @@
 
 ## В разработке · dev
 
-Черновик **v3.8.6** по состоянию на [fed6d7d9](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fed6d7d9d21f2d25fda2a822fbb24c3f0578768d).
+Новых изменений для следующей версии пока нет.
+
+[Сравнить с v3.8.6](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.6...dev).
+
+## v3.8.6 — 2026-11-20
+
+[GitLab](https://gitlab.com/3252a8/remnawave-minishop/-/releases/v3.8.6) · [GitHub](https://github.com/3252a8/remnawave-minishop/releases/tag/v3.8.6)
 
 ### Обзор
 
@@ -117,7 +123,7 @@
 - Встроенная тема обновляется автоматически до `assets_version` 4 для уже
   установленных копий. [6655c264](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6655c2648c65740a893dba32f5505022e40c4798)
 
-[Сравнить с v3.8.5](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.5...fed6d7d9d21f2d25fda2a822fbb24c3f0578768d).
+[Сравнить с v3.8.5](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.5...v3.8.6).
 
 ## v3.8.5 — 2026-11-13
 
