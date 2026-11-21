@@ -181,6 +181,19 @@ class BuildPipelineVersionMetadataTests(unittest.TestCase):
         self.assertIn("core_commit: $commit, core_digests: $digests", workflow)
         self.assertNotIn("remnawave-minishop-pro", workflow)
 
+    def test_github_candidate_version_is_verified_before_promotion(self):
+        publisher = (REPOSITORY_ROOT / ".github/workflows/_docker-publish-ghcr.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('tag="v$VERSION"', publisher)
+        self.assertIn("REMNAWAVE_MINISHOP_BUILD_TAG=", publisher)
+        self.assertIn("cat /app/.build-version", publisher)
+        self.assertIn("cat /build-tag", publisher)
+        self.assertLess(
+            publisher.index("Verify application version inside the candidate"),
+            publisher.index("Record verified digest"),
+        )
+
 
 class LiveGitFallbackTests(unittest.TestCase):
     """Local dev path: no env, no baked file, but ``git`` works."""

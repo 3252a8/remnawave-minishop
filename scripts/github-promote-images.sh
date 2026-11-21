@@ -5,6 +5,7 @@ channel="$1"
 commit="$2"
 tag="$3"
 metadata_dir="$4"
+original_manifest="${5:-}"
 source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
 branch=dev
 version="$tag"
@@ -15,7 +16,16 @@ fi
 
 head="$(git ls-remote "$source.git" "refs/heads/$branch" | cut -f1)"
 test -n "$head"
-if [ "$head" != "$commit" ]; then
+if [ -n "$original_manifest" ]; then
+  test "$channel" = release
+  test "$head" = "$GITHUB_SHA"
+  jq -e --arg repo "$GITHUB_REPOSITORY" --arg commit "$commit" --arg tag "$tag" '
+    .schema_version == 1 and .release.repository == $repo and
+    .release.commit == $commit and .release.tag == $tag and
+    ([.images[].target] | sort) == ["backend", "frontend", "worker"] and
+    all(.images[].digest; test("^sha256:[0-9a-f]{64}$"))
+  ' "$original_manifest" > /dev/null
+elif [ "$head" != "$commit" ]; then
   if [ "$channel" = dev ]; then
     echo "Skipping dev publication for superseded revision $commit"
     exit 0
@@ -51,6 +61,17 @@ for target in "${targets[@]}"; do
        ."org.opencontainers.image.ref.name" == $tag and ."org.opencontainers.image.version" == $version' \
       <<< "$labels" > /dev/null
     if [ "$channel" = release ]; then
+      if [ -n "$original_manifest" ]; then
+        original="$(jq -er --arg target "$target" '.images[] | select(.target == $target) | .digest' "$original_manifest")"
+        for published_tag in "$version" latest; do
+          previous="$(existing_digest "$image:$published_tag")"
+          if [ "$previous" != "$original" ] && [ "$previous" != "$digest" ]; then
+            echo "Refusing to reissue $image:$published_tag at an unexpected digest" >&2
+            exit 1
+          fi
+        done
+        continue
+      fi
       previous="$(existing_digest "$image:$version")"
       if [ -n "$previous" ] && [ "$previous" != "$digest" ]; then
         echo "Refusing to overwrite immutable tag $image:$version" >&2
