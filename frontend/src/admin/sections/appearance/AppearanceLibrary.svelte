@@ -8,7 +8,7 @@
     AdminEmptyState,
     AdminListToolbar,
   } from "$components/patterns/admin/index.js";
-  import { Checkbox, Dialog, FileInput, Input } from "$components/ui/index.js";
+  import { Button, Checkbox, Dialog, FileInput, Input } from "$components/ui/index.js";
   import {
     Check,
     ExternalLink,
@@ -244,6 +244,18 @@
           placeholder={at("appearance_demo_search", {}, "Search themes")}
           aria-label={at("appearance_demo_search", {}, "Search themes")}
         />
+      {/snippet}
+      {#snippet actions()}
+        <Button
+          variant="outline"
+          size="sm"
+          href="https://minishop.minidoc.cc/awesome-minishop/#themes"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {at("appearance_community_catalog", {}, "Themes in Awesome Minishop")}
+          <ExternalLink size={14} aria-hidden="true" />
+        </Button>
       {/snippet}
     </AdminListToolbar>
     <div class="theme-library-grid">

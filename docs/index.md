@@ -1,5 +1,30 @@
 # Remnawave Minishop
 
+<section class="minishop-home" aria-labelledby="minishop-community-title">
+  <header class="minishop-home-header">
+    <h2 id="minishop-community-title">Awesome Minishop</h2>
+    <p>Каталог проектов сообщества Remnawave Minishop. Здесь можно выбрать готовую тему, найти расширение или инструмент и открыть инструкцию автора.</p>
+    <a class="minishop-card-link" href="/awesome-minishop/">Открыть весь каталог <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></a>
+  </header>
+  <div class="minishop-feature-grid">
+    <a class="minishop-feature-card" href="/awesome-minishop/#themes">
+      <h3>Темы</h3>
+      <p>Готовое оформление для Mini App и админки. У каждой темы есть превью и данные для установки.</p>
+      <span class="minishop-card-link">Смотреть темы <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
+    </a>
+    <a class="minishop-feature-card" href="/awesome-minishop/#plugins">
+      <h3>Плагины</h3>
+      <p>Расширения для новых возможностей магазина и автоматизации задач.</p>
+      <span class="minishop-card-link">Смотреть плагины <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
+    </a>
+    <a class="minishop-feature-card" href="/awesome-minishop/#tools">
+      <h3>Инструменты</h3>
+      <p>Утилиты сообщества для обслуживания и диагностики Minishop.</p>
+      <span class="minishop-card-link">Смотреть инструменты <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
+    </a>
+  </div>
+</section>
+
 <section class="minishop-home" aria-labelledby="minishop-features-title">
   <header class="minishop-home-header">
     <span class="minishop-eyebrow">Возможности платформы</span>
@@ -11,73 +36,73 @@
       <span class="minishop-feature-index">01 · Главное</span>
       <h3>Продажи и полный жизненный цикл подписки</h3>
       <p>Тарифы на срок и по трафику, гибкие лимиты при оформлении, отдельные несгораемые докупки, продление, premium-сквады и синхронизация с Remnawave Panel.</p>
-      <span class="minishop-card-link">Управление подписками <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Управление подписками <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/web-app/">
       <span class="minishop-feature-index">02</span>
       <h3>Mini App и способы входа</h3>
       <p>Личный кабинет с подпиской, трафиком, подключением, покупками и поддержкой. Вход через email, Telegram, Google, Яндекс или passkey.</p>
-      <span class="minishop-card-link">Возможности Mini App <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Возможности Mini App <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/admin-panel/">
       <span class="minishop-feature-index">03</span>
       <h3>Операционная админ-панель</h3>
       <p>Пользователи, тарифы, платежи, рассылки, настройки, логи и обращения поддержки — без ручной правки конфигурации.</p>
-      <span class="minishop-card-link">Обзор админ-панели <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Обзор админ-панели <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/promocodes/">
       <span class="minishop-feature-index">04</span>
       <h3>Промокоды, рефералы и уведомления</h3>
       <p>Скидки, бонусные дни и постоянные обычные/premium GB, приглашения пользователей, оповещения об окончании подписки и достижении лимита трафика.</p>
-      <span class="minishop-card-link">Настройка промокодов <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Настройка промокодов <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/partner-program/">
       <span class="minishop-feature-index">05</span>
       <h3>Партнёрская программа</h3>
       <p>Заявки и отдельные ссылки, закрепление клиентов, комиссии, раздельные балансы, ручные выплаты и полная или частичная оплата покупок из баланса.</p>
-      <span class="minishop-card-link">Настроить партнёрскую программу <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Настроить партнёрскую программу <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/user-balance/">
       <span class="minishop-feature-index">06</span>
       <h3>Баланс пользователя</h3>
       <p>Пополнение через платёжных провайдеров, полная и частичная оплата покупок, админские корректировки и безопасная конвертация с партнёрским балансом.</p>
-      <span class="minishop-card-link">Настроить пользовательский баланс <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Настроить пользовательский баланс <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/support/">
       <span class="minishop-feature-index">07</span>
       <h3>Поддержка внутри продукта</h3>
       <p>Тикеты из Mini App, ответы администраторов, уведомления и история обращений в одном рабочем процессе.</p>
-      <span class="minishop-card-link">Поддержка/тикеты <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Поддержка/тикеты <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/backups/">
       <span class="minishop-feature-index">08</span>
       <h3>Развертывание и надежность</h3>
       <p>Docker Compose, управляемые обновления, автоматические бэкапы, восстановление и готовые сценарии миграции.</p>
-      <span class="minishop-card-link">Бэкапы <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Бэкапы <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/server-status/">
       <span class="minishop-feature-index">09</span>
       <h3>Статус серверов для пользователей</h3>
       <p>Внешняя страница статуса или встроенные данные Uptime Kuma и xray-checker с кэшированием и показом последних доступных данных при сбое.</p>
-      <span class="minishop-card-link">Настроить статус серверов <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Настроить статус серверов <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/advertising/">
       <span class="minishop-feature-index">10</span>
       <h3>Реклама и источники покупателей</h3>
       <p>Кампании с отдельными ссылками и UTM, импорт расходов Telegram Ads и отчёты по обороту, ROAS и когортам — видно, какая реклама приводит покупателей.</p>
-      <span class="minishop-card-link">Настроить рекламу <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Настроить рекламу <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/gifts/">
       <span class="minishop-feature-index">11</span>
       <h3>Подарочные подписки</h3>
       <p>Покупатель оплачивает подписку в подарок и отправляет ссылку. Срок начинается при активации, а у неактивированного подарка нет срока годности.</p>
-      <span class="minishop-card-link">Как работают подарки <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Как работают подарки <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
     <a class="minishop-feature-card" href="/features/webapp-themes/">
       <span class="minishop-feature-index">12</span>
       <h3>Темы и внешний вид</h3>
       <p>Настройка без кода: пресеты, тёмный и светлый варианты, палитра, шрифты и логотип. Готовые темы устанавливаются из ZIP-архива или публичного репозитория.</p>
-      <span class="minishop-card-link">Настроить внешний вид <span aria-hidden="true">→</span></span>
+      <span class="minishop-card-link">Настроить внешний вид <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
     </a>
   </div>
   <div class="minishop-panel-row">
@@ -90,7 +115,7 @@
     <span class="minishop-provider-list" aria-label="Поддерживаемые платежные провайдеры">
       <span>YooKassa</span><span>Telegram Stars</span><span>Stripe</span><span>Tribute</span><span>CloudPayments</span><span>Platega</span><span>FreeKassa</span><span>Wata</span><span>CryptoPay</span><span>Heleket</span><span>OxaPay</span><span>PayKilla</span><span>LAVA</span><span>Pally</span><span>Overpay</span><span>SeverPay</span>
     </span>
-    <span class="minishop-provider-link">Все платежные сценарии <span aria-hidden="true">→</span></span>
+    <span class="minishop-provider-link">Все платежные сценарии <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
   </a>
   <a class="minishop-provider-panel" href="/migrations/">
     <span class="minishop-provider-copy">
@@ -101,7 +126,7 @@
     <span class="minishop-provider-list" aria-label="Поддерживаемые источники миграции">
       <span>remnawave-tg-shop</span><span>Remnashop</span><span>Bedolaga</span>
     </span>
-    <span class="minishop-provider-link">Все сценарии миграции <span aria-hidden="true">→</span></span>
+    <span class="minishop-provider-link">Все сценарии миграции <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></span>
   </a>
   </div>
 </section>
@@ -117,19 +142,19 @@
       <span>01</span>
       <strong>Откройте демо</strong>
       <p>Изучите Mini App и админ-панель без установки.</p>
-      <a href="/demo/home">Перейти в демо <span aria-hidden="true">→</span></a>
+      <a href="/demo/home">Перейти в демо <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></a>
     </li>
     <li>
       <span>02</span>
       <strong>Разверните Minishop</strong>
       <p>Запустите готовый Docker Compose стек по пошаговой инструкции.</p>
-      <a href="/getting-started/setup/">Открыть установку <span aria-hidden="true">→</span></a>
+      <a href="/getting-started/setup/">Открыть установку <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></a>
     </li>
     <li>
       <span>03</span>
       <strong>Настройте продажи</strong>
       <p>Подключите Remnawave Panel, тарифы, платежи и внешний вид.</p>
-      <a href="/getting-started/configuration/">Перейти к настройке <span aria-hidden="true">→</span></a>
+      <a href="/getting-started/configuration/">Перейти к настройке <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></a>
     </li>
   </ol>
 </section>
@@ -140,7 +165,7 @@
     <h2 id="minishop-pro-title">Когда магазин растёт: аналитика, автоцепочки и AI&#8209;помощник</h2>
     <p>PRO добавляет разделы в ту же админку и подключается к работающей установке. Бесплатный Minishop остаётся самостоятельным продуктом и не зависит от PRO.</p>
     <span class="minishop-pro-home-actions">
-      <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">Купить PRO <span aria-hidden="true">→</span></a>
+      <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">Купить PRO <span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span></a>
       <a class="minishop-pro-more" href="/features/minishop-pro/">Что входит в PRO</a>
     </span>
   </div>

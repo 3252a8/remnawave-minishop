@@ -30,7 +30,7 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
             <img src={`/awesome/category-${category.icon}.webp`} alt="" width="64" height="64" decoding="async" />
           </picture>
           <span class="category-name">{category.title}<small>{category.projects.length} {category.id === 'themes' ? 'тем' : 'проект'}</small></span>
-          <span class="category-arrow" aria-hidden="true">↓</span>
+          <span class="category-arrow minishop-icon" data-icon="arrow-down" aria-hidden="true"></span>
         </a>
       ))}
     </nav>
@@ -44,12 +44,29 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
                 <source media="(prefers-reduced-motion: reduce)" srcset={`/awesome/category-${category.icon}-static.webp`} />
                 <img src={`/awesome/category-${category.icon}.webp`} alt="" width="56" height="56" decoding="async" />
               </picture>
-              {category.title}<span class="section-count">{category.projects.length}</span>
+              <a class="section-permalink" href={`#${category.id}`}>
+                {category.title}<span class="minishop-icon" data-icon="link" aria-hidden="true"></span>
+              </a>
+              <span class="section-count">{category.projects.length}</span>
             </h2>
             <p>{category.description}</p>
           </div>
-          <a class="awesome-guide" href={category.guide.href}>{category.guide.label} <span aria-hidden="true">↗︎</span></a>
+          <a class="awesome-guide" href={category.guide.href}>
+            {category.guide.label}<span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span>
+          </a>
         </div>
+        {category.id === 'plugins' && (
+          <aside class="awesome-pro" aria-labelledby="minishop-pro">
+            <span class="awesome-pro-icon minishop-icon" data-icon="gem" aria-hidden="true"></span>
+            <div class="awesome-pro-copy">
+              <h3 id="minishop-pro">minishop PRO</h3>
+              <p>Официальное расширение Minishop для аналитики продаж, сегментации клиентов и автоматических рассылок. К поддержке можно подключить свою AI-модель.</p>
+            </div>
+            <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">
+              Подключить PRO<span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span>
+            </a>
+          </aside>
+        )}
         <div class:list={['awesome-grid', { 'awesome-grid-single': category.projects.length === 1 }]}>
           {category.projects.map((project, projectIndex) => <CommunityProjectCard project={project} wide={category.projects.length === 1} eager={index === 0 && projectIndex < 2} />)}
         </div>
@@ -62,8 +79,12 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
         <h2 id="add-project">Ваш проект тоже может быть здесь</h2>
         <p>Создали тему, плагин или инструмент для Minishop? Предложите его через issue или PR в ветку <code>dev</code>: добавьте ссылку, краткое описание и превью.</p>
         <div class="contribute-links">
-          <a href="https://github.com/3252a8/remnawave-minishop/issues/new" target="_blank" rel="noopener noreferrer">Предложить проект ↗︎</a>
-          <a href="https://gitlab.com/3252a8/remnawave-minishop/-/tree/dev" target="_blank" rel="noopener noreferrer">Репозиторий Minishop ↗︎</a>
+          <a href="https://github.com/3252a8/remnawave-minishop/issues/new" target="_blank" rel="noopener noreferrer">
+            Предложить проект<span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span>
+          </a>
+          <a href="https://gitlab.com/3252a8/remnawave-minishop/-/tree/dev" target="_blank" rel="noopener noreferrer">
+            Репозиторий Minishop<span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span>
+          </a>
         </div>
       </div>
     </aside>
@@ -97,12 +118,30 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
   .awesome-section + .awesome-section { margin-top: 3.5rem; }
   .awesome-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; margin-bottom: 1.25rem; }
   .awesome-section h2 { display: flex; align-items: center; gap: 0.85rem; margin: 0; color: var(--sl-color-white); font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 750; line-height: 1.2; letter-spacing: -0.035em; scroll-margin-top: 6rem; }
+  .section-permalink { display: inline-flex; align-items: center; gap: 0.4em; color: inherit; text-decoration: none; }
+  .section-permalink .minishop-icon { color: var(--sl-color-gray-2); font-size: 0.5em; }
+  .section-permalink:is(:hover, :focus-visible) .minishop-icon { color: var(--awesome-accent); }
   .section-symbol { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; flex-shrink: 0; }
   .section-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; }
   .section-count { display: grid; place-items: center; min-width: 1.5rem; height: 1.5rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.4rem; color: var(--sl-color-gray-2); font-size: 0.75rem; font-weight: 400; letter-spacing: 0; }
   .awesome-section-heading p { margin: 0.55rem 0 0; color: var(--sl-color-gray-2); font-size: 0.85rem; line-height: 1.7; }
-  .awesome-guide { color: var(--awesome-accent); font-size: 0.75rem; text-decoration: none; }
+  .awesome-guide { display: inline-flex; align-items: center; gap: 0.45em; color: var(--awesome-accent); font-size: 0.75rem; text-decoration: none; }
   .awesome-guide:hover { text-decoration: underline; }
+  .awesome-pro {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--minishop-pro-accent) 55%, var(--minishop-border));
+    border-radius: 1rem;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    background: color-mix(in srgb, var(--minishop-pro-accent) 10%, var(--sl-color-bg));
+  }
+  .awesome-pro-icon { color: var(--minishop-pro-accent-strong); font-size: 1.75rem; }
+  .awesome-pro-copy { flex: 1 1 16rem; }
+  .awesome-pro h3 { margin: 0; color: var(--minishop-pro-accent-strong); font-size: 1.2rem; }
+  .awesome-pro p { margin: 0.25rem 0 0; color: var(--sl-color-gray-2); font-size: 0.9rem; line-height: 1.65; }
   .awesome-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
   .awesome-grid-single { grid-template-columns: minmax(0, 1fr); }
   .awesome-contribute { display: flex; gap: 1.25rem; align-items: flex-start; border: 1px solid color-mix(in srgb, var(--awesome-accent) 40%, var(--sl-color-gray-5)); border-radius: 1rem; margin-top: 3.5rem; padding: 1.75rem; background: var(--awesome-soft); }
@@ -110,7 +149,7 @@ const projectCount = communityCategories.reduce((count, category) => count + cat
   .awesome-contribute h2 { margin: 0; color: var(--sl-color-white); font-size: 1.15rem; line-height: 1.4; scroll-margin-top: 6rem; }
   .awesome-contribute p { margin: 0.65rem 0 1rem; color: var(--sl-color-gray-2); font-size: 0.85rem; line-height: 1.75; }
   .contribute-links { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; }
-  .contribute-links a { color: var(--awesome-accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; }
+  .contribute-links a { display: inline-flex; align-items: center; gap: 0.45em; color: var(--awesome-accent); font-size: 0.8rem; font-weight: 600; text-decoration: none; }
   .contribute-links a:hover { text-decoration: underline; }
   .awesome-note { margin: 1.25rem 0 0; color: var(--sl-color-gray-2); font-size: 0.75rem; line-height: 1.7; }
   a:focus-visible { outline: 2px solid var(--awesome-accent); outline-offset: 4px; }

@@ -28,6 +28,25 @@
     --minishop-border: var(--sl-color-gray-5);
   }
 
+  .minishop-icon {
+    display: inline-block;
+    flex: none;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    background: currentColor;
+    mask: var(--minishop-icon) center / contain no-repeat;
+  }
+
+  .minishop-icon[data-icon='arrow-down'] { --minishop-icon: url('lucide-static/icons/arrow-down.svg'); }
+  .minishop-icon[data-icon='arrow-right'] { --minishop-icon: url('lucide-static/icons/arrow-right.svg'); }
+  .minishop-icon[data-icon='external-link'] { --minishop-icon: url('lucide-static/icons/external-link.svg'); }
+  .minishop-icon[data-icon='gem'] { --minishop-icon: url('lucide-static/icons/gem.svg'); }
+  .minishop-icon[data-icon='link'] { --minishop-icon: url('lucide-static/icons/link.svg'); }
+  .minishop-icon[data-icon='plus'] { --minishop-icon: url('lucide-static/icons/plus.svg'); }
+  .minishop-icon[data-icon='star'] { --minishop-icon: url('lucide-static/icons/star.svg'); }
+  .minishop-icon[data-icon='x'] { --minishop-icon: url('lucide-static/icons/x.svg'); }
+
   .sl-markdown-content .starlight-aside[aria-label='Друзья проекта'] {
     border: 1px solid var(--sl-color-asides-border);
     border-radius: 8px;
@@ -362,11 +381,19 @@
     margin-top: 0;
   }
 
+  .sl-markdown-content .minishop-home + .minishop-home {
+    margin-top: clamp(2.75rem, 6vw, 4.5rem);
+  }
+
   .sl-markdown-content .minishop-home-header {
     display: grid;
     max-width: 48rem;
     gap: 0.75rem;
     margin: 0;
+  }
+
+  .sl-markdown-content .minishop-home-header > .minishop-card-link {
+    justify-self: start;
   }
 
   .sl-markdown-content .minishop-eyebrow {

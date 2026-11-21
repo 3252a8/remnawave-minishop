@@ -5,7 +5,7 @@
   <strong>Больше данных о продажах и инструменты для системной работы с клиентами.</strong>
   <p>minishop PRO расширяет бесплатный Remnawave Minishop бизнес-аналитикой, клиентскими сегментами, автоматизацией коммуникаций и возможностью подключить AI-модель к поддержке. Core продолжает работать как самостоятельный продукт, а PRO подключается и лицензируется отдельно.</p>
   <p>Эти инструменты помогают находить точки роста, снижать отток, развивать повторные продажи и увеличивать прибыль за счёт решений на основе данных.</p>
-  <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">Купить minishop PRO <span aria-hidden="true">→</span></a>
+  <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">Купить minishop PRO <span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span></a>
 </div>
 
 ## Что входит в PRO

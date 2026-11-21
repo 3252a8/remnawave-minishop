@@ -50,7 +50,7 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
         data-stars-status="snapshot"
         data-forge={project.forge}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9L12 3Z" /></svg>
+        <span class="minishop-icon" data-icon="star" aria-hidden="true"></span>
         <span data-star-count>{stars ?? '—'}</span>
       </a>
     </div>
@@ -61,7 +61,7 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
     </ul>
     <div class="community-actions">
       <button class="community-details-button" type="button" data-project-dialog={`${project.id}-dialog`} aria-haspopup="dialog" aria-controls={`${project.id}-dialog`}>
-        Подробнее{project.install ? ' и установка' : ''} <span aria-hidden="true">+</span>
+        Подробнее{project.install ? ' и установка' : ''} <span class="minishop-icon" data-icon="plus" aria-hidden="true"></span>
       </button>
       <a class="community-repository" href={project.repository} target="_blank" rel="noopener noreferrer">
         <Icon name={forgeIcon} size="1rem" /><span>{project.forge}</span>
@@ -72,7 +72,9 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
     <div class="community-dialog-body">
       <div class="community-dialog-heading">
         <h2 id={`${project.id}-dialog-title`}>{project.name}</h2>
-        <button type="button" class="community-dialog-close" data-close-project aria-label={`Закрыть сведения о ${project.name}`} autofocus>×</button>
+        <button type="button" class="community-dialog-close" data-close-project aria-label={`Закрыть сведения о ${project.name}`} autofocus>
+          <span class="minishop-icon" data-icon="x" aria-hidden="true"></span>
+        </button>
       </div>
       <p class="community-dialog-author">Автор: <a href={project.authorUrl} target="_blank" rel="noopener noreferrer">@{project.author}</a></p>
       <p id={`${project.id}-dialog-description`} class="community-description">{project.description}</p>
@@ -85,11 +87,11 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
             <div><dt>Ветка</dt><dd><code>{project.install.branch}</code></dd></div>
             {project.install.directory && <div><dt>Подпапка</dt><dd><code>{project.install.directory}</code></dd></div>}
           </dl>
-          <a href="/features/theme-packages/">Инструкция по установке тем →</a>
+          <a href="/features/theme-packages/">Инструкция по установке тем <span class="minishop-icon" data-icon="arrow-right" aria-hidden="true"></span></a>
         </div>
       )}
       <a class="community-repository community-dialog-repository" href={project.repository} target="_blank" rel="noopener noreferrer">
-        <Icon name={forgeIcon} size="1rem" /><span>{project.forge}</span><span aria-hidden="true">↗︎</span>
+        <Icon name={forgeIcon} size="1rem" /><span>{project.forge}</span><span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span>
       </a>
     </div>
   </dialog>
@@ -132,7 +134,7 @@ const forgeIcon = project.forge === 'GitHub' ? 'github' : 'gitlab';
   .community-card h3 a { color: var(--sl-color-white); text-decoration: none; }
   .community-author { width: fit-content; margin-top: -0.6rem; color: var(--sl-color-gray-2); font-size: 0.8rem; text-decoration: none; overflow-wrap: anywhere; }
   .community-stars { display: inline-flex; flex-shrink: 0; align-items: center; gap: 0.35rem; padding: 0.2rem 0.45rem; border: 1px solid var(--sl-color-gray-5); border-radius: 0.4rem; color: var(--sl-color-gray-2); font-size: 0.75rem; line-height: 1.4; text-decoration: none; }
-  .community-stars svg { color: #d8a62d; }
+  .community-stars .minishop-icon { color: #d8a62d; font-size: 0.875rem; }
   .community-stars:hover { border-color: var(--awesome-accent); }
   .community-description { flex: 1; margin: 0; color: var(--sl-color-gray-2); font-size: 0.9rem; line-height: 1.7; }
   .community-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }

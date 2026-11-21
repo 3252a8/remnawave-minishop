@@ -21,7 +21,11 @@
   Установщик службы выбирает файлы по каналу и проверяет запущенный Compose,
   начиная с текущей папки. Уведомления Telegram для `dev` выключены по умолчанию.
   [46963f55](https://gitlab.com/3252a8/remnawave-minishop/-/commit/46963f55cbe49a4ade3ec94ecb2da0ce5c498c73),
-  [b7d8c847](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b7d8c8472c548f3ca39adfa99486c23283cd7295)
+  [b7d8c847](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b7d8c8472c548f3ca39adfa99486c23283cd7295),
+  [70769c97](https://gitlab.com/3252a8/remnawave-minishop/-/commit/70769c979486d3156c9bea377d181a47199d8bed)
+
+- Из разделов плагинов и тем в админке можно перейти сразу в нужную категорию
+  Awesome Minishop. В списке плагинов также доступна ссылка на minishop PRO.
 
 ### Исправлено
 
@@ -34,6 +38,13 @@
 
 - Официальные Docker-образы указывают тег сборки в логах запуска и версию
   приложения в сайдбаре админки. [e29c0d9f](https://gitlab.com/3252a8/remnawave-minishop/-/commit/e29c0d9f0cc5e29e3622a98ea0f4c9cba50067c8)
+
+### Документация
+
+- На главной странице появился обзор Awesome Minishop со ссылками на темы,
+  плагины и инструменты. Категории получили ссылки на свои заголовки, а в начале
+  списка плагинов появился блок minishop PRO. Стрелки в кнопках и ссылках
+  документации заменены на SVG-иконки Lucide.
 
 [Сравнить с v3.8.6](https://gitlab.com/3252a8/remnawave-minishop/-/compare/v3.8.6...dev).
 

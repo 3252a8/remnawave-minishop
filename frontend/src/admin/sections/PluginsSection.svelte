@@ -6,9 +6,10 @@
     AdminEmptyState,
     AdminListToolbar,
   } from "$components/patterns/admin/index.js";
-  import { Dialog, Input, Switch, Tabs } from "$components/ui/index.js";
+  import { Button, Dialog, Input, Switch, Tabs } from "$components/ui/index.js";
   import {
     ArrowLeft,
+    ExternalLink,
     Plus,
     RefreshCw,
     Search,
@@ -343,6 +344,26 @@
         </div>
       {/snippet}
       {#snippet actions()}
+        <Button
+          variant="outline"
+          size="sm"
+          href="https://minishop.minidoc.cc/awesome-minishop/#plugins"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {at("plugins_community_catalog", {}, "Plugins in Awesome Minishop")}
+          <ExternalLink size={14} aria-hidden="true" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          href="https://cloud.minidoc.cc"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {at("plugins_get_pro", {}, "Get minishop PRO")}
+          <ExternalLink size={14} aria-hidden="true" />
+        </Button>
         <AdminButton size="sm" onclick={() => void run(load)} disabled={busy || applyBusy}
           ><RefreshCw size={14} />{at("btn_refresh", {}, "Refresh")}</AdminButton
         >
