@@ -13,6 +13,7 @@
     onCreateCode: ActionCallback;
     onCreateDocument: ActionCallback;
     onExportPayments: ActionCallback;
+    onOpenUpdater: (event: MouseEvent) => void;
     onSaveSettings: ActionCallback;
     onSaveTranslations: ActionCallback;
     onSyncStats: ActionCallback;
@@ -30,6 +31,7 @@
     onCreateCode,
     onCreateDocument,
     onExportPayments,
+    onOpenUpdater,
     onSaveSettings,
     onSaveTranslations,
     onSyncStats,
@@ -42,6 +44,14 @@
 
 <div class="admin-header-actions">
   {#if active === "stats"}
+    <AdminButton
+      data-admin-action="check-updates"
+      title={at("core_update_check_action")}
+      onclick={onOpenUpdater}
+    >
+      <Download size={14} aria-hidden="true" />
+      <span class="admin-header-action-label">{at("core_update_check_action")}</span>
+    </AdminButton>
     <AdminButton data-admin-action="sync-stats" onclick={onSyncStats} disabled={syncBusy}>
       <RefreshCw size={14} />
       <span class="admin-header-action-label"

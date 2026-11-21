@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 
+const dashboard = "/demo/runtime/admin/stats";
+const updater = `${dashboard}/updater`;
+
 for (const width of [390, 1440]) {
   test(`an administrator connects an offline updater at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
@@ -8,11 +11,14 @@ for (const width of [390, 1440]) {
     await page.getByRole("button", { name: "Update Minishop", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("The update service is offline", { exact: true })).toBeVisible();
-    await dialog.getByText("How to connect the service", { exact: true }).click();
-    await expect(dialog.locator("pre").first()).toContainText("--enroll /opt/remnawave-minishop");
-    await expect(
-      dialog.getByRole("link", { name: "Service files for this build" })
-    ).toHaveAttribute("href", /\/archive\/7a51b934\//);
+    await expect(dialog.getByRole("button", { name: "Copy command" })).toBeVisible();
+    await expect(dialog.locator("pre").first()).toContainText(
+      "/-/raw/7a51b934/deploy/docker/install-updater.sh"
+    );
+    await expect(dialog.getByRole("link", { name: "Installer script on GitLab" })).toHaveAttribute(
+      "href",
+      /\/-\/blob\/7a51b934\/deploy\/docker\/install-updater\.sh$/
+    );
     await expect(
       dialog.getByRole("link", { name: "Compatibility and troubleshooting" })
     ).toHaveAttribute("href", /\/troubleshooting\/maintenance\/#/);
@@ -28,6 +34,46 @@ for (const width of [390, 1440]) {
     await recheck.click();
     await expect(dialog.getByRole("button", { name: "Start update" })).toBeEnabled();
     await expect(dialog.getByText("Update queued", { exact: true })).toHaveCount(0);
+  });
+
+  test(`the up-to-date dashboard opens the installer by URL at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.addInitScript(() => localStorage.setItem("rw_minishop_demo_language", "en"));
+    const query = "?theme_preview=light&mock=core-update-current";
+    await page.goto(dashboard + query);
+    const check = page.getByRole("button", { name: "Check for updates" });
+    await expect(check.locator("..").getByRole("button", { name: "Synchronize" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Minishop updates" })).toHaveCount(0);
+    await check.click();
+    const dialog = page.getByRole("dialog", { name: "Minishop updates" });
+    await expect(page).toHaveURL(updater + query);
+    await expect(
+      dialog.getByRole("status").filter({ hasText: "This tag is up to date." })
+    ).toBeVisible();
+    await page.goBack();
+    await expect(dialog).toHaveCount(0);
+    await expect(check).toBeFocused();
+    await page.goForward();
+    await expect(dialog).toBeVisible();
+    await page.reload();
+    await expect(dialog.getByText("This tag is up to date.")).toBeVisible();
+    await expect(dialog.getByRole("link", { name: "Installer script on GitLab" })).toHaveAttribute(
+      "href",
+      /\/-\/blob\/dev\/deploy\/docker\/install-updater\.sh$/
+    );
+    const code = dialog.locator("pre code").first();
+    await expect(code).toBeVisible();
+    const command = await code.textContent();
+    expect(command).toContain("/-/raw/dev/deploy/docker/install-updater.sh");
+    expect(command).not.toContain("\n");
+    await dialog.getByRole("button", { name: "Copy command" }).click();
+    await expect(dialog.getByText("Command copied.")).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command);
+    expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(page).toHaveURL(dashboard + query);
+    await expect(dialog).toHaveCount(0);
   });
 
   test(`an administrator previews a tag before updating at ${width}px`, async ({ page }) => {

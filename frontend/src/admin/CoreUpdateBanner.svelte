@@ -1,36 +1,42 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { AdminButton, AdminField } from "$components/patterns/admin/index.js";
   import { Dialog, Input, Switch } from "$components/ui/index.js";
-  import { ArrowUp, Check, Download, RefreshCw } from "$components/ui/icons.js";
+  import { ArrowUp, Check, Copy, Download, RefreshCw } from "$components/ui/icons.js";
   import { getAdminApi } from "$lib/admin/context";
   import type { components } from "$lib/api/openapi.generated";
   import { unwrap } from "$lib/webapp/publicApi";
+  import { copyTextToClipboard } from "$lib/webapp/clipboard.js";
   import { documentationBaseUrlForVersion } from "$lib/webapp/documentationUrl";
 
   type State = components["schemas"]["CoreUpdateState"];
   let {
     at,
     visible,
-  }: { at: (key: string, params?: Record<string, unknown>) => string; visible: boolean } = $props();
+    open,
+    onopen,
+    onclose,
+  }: {
+    at: (key: string, params?: Record<string, unknown>) => string;
+    visible: boolean;
+    open: boolean;
+    onopen: (event: MouseEvent) => void;
+    onclose: () => void;
+  } = $props();
   const api = getAdminApi();
   let status = $state<State | null>(null);
   let preview = $state<State | null>(null);
   let checkedTag = $state("");
-  let open = $state(false);
   let tag = $state("");
   let busy = $state(false);
   let error = $state("");
   let reconnecting = $state(false);
   let awaitingJob = $state(false);
   let connectionChecked = $state(false);
-  const setupCommands = [
-    "sudo install -m 0755 deploy/docker/core-updater.py /usr/local/sbin/minishop-updater",
-    "sudo install -m 0644 deploy/docker/minishop-updater.service /etc/systemd/system/",
-    "sudo python3 -I /usr/local/sbin/minishop-updater --enroll /opt/remnawave-minishop",
-    "sudo systemctl daemon-reload",
-    "sudo systemctl enable --now minishop-updater",
-  ].join("\n");
+  let copyResult = $state<"copied" | "failed" | null>(null);
+  let requestSequence = 0;
+  const installerRepository = "https://gitlab.com/3252a8/remnawave-minishop";
+  const installerPath = "deploy/docker/install-updater.sh";
   const steps = ["queued", "pulling", "migrating", "starting", "complete"];
   const phaseLabels: Record<string, string> = {
     queued: "core_update_phase_queued",
@@ -59,22 +65,46 @@
   const guide = $derived(
     documentationBaseUrlForVersion(status?.current) + "troubleshooting/maintenance/#host-updater"
   );
-  const sourceRevision = $derived(status?.current.match(/\+g([0-9a-f]{7,40})$/)?.[1]);
-  const valid = $derived(/^(?:latest|dev|[0-9]+\.[0-9]+\.[0-9]+)$/.test(tag) && tag.length <= 64);
+  const installerRef = $derived(
+    status?.current.startsWith("dev") ? "dev" : status?.current.match(/\+g([0-9a-f]{7,40})$/)?.[1]
+  );
+  const installerCommand = $derived(
+    installerRef
+      ? `(set -e; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; curl -fsSL '${installerRepository}/-/raw/${installerRef}/${installerPath}' -o "$installer"; sudo bash "$installer" /opt/remnawave-minishop ${installerRef})`
+      : ""
+  );
+  const valid = $derived(validImageTag(tag));
 
-  async function load() {
+  function validImageTag(value: string): boolean {
+    return /^(?:latest|dev|[0-9]+\.[0-9]+\.[0-9]+)$/.test(value) && value.length <= 64;
+  }
+
+  async function checkTag(imageTag: string): Promise<State> {
+    return unwrap(
+      await api("/admin/core-updates/check", {
+        method: "POST",
+        body: JSON.stringify({ tag: imageTag }),
+      })
+    ).state;
+  }
+
+  async function load(refresh = false) {
+    const sequence = ++requestSequence;
     try {
-      const next = unwrap(await api("/admin/core-updates")).state;
+      let next = (refresh && status) || unwrap(await api("/admin/core-updates")).state;
+      if (refresh && next.official && validImageTag(next.tag)) next = await checkTag(next.tag);
+      if (sequence !== requestSequence) return;
       if (awaitingJob && !next.phase) error = "core_update_expired";
+      if (open && !status) tag = next.tag || "latest";
       status = next;
       reconnecting = false;
       awaitingJob = steps.slice(0, 4).includes(next.phase);
     } catch {
-      reconnecting = true;
+      if (sequence === requestSequence) reconnecting = true;
     }
   }
   onMount(() => {
-    void load();
+    if (!open) void load();
     const refreshOnFocus = () => {
       if (open && setupNeeded && !busy) void load();
     };
@@ -95,14 +125,22 @@
     };
   });
 
-  function show() {
+  $effect(() => {
+    if (open) untrack(refreshDialog);
+  });
+
+  function refreshDialog() {
     preview = null;
     checkedTag = "";
-    tag = status?.tag || "latest";
+    tag = status?.tag || "";
     error = "";
     connectionChecked = false;
-    open = true;
-    void load();
+    copyResult = null;
+    void load(true);
+  }
+
+  async function copyInstaller() {
+    copyResult = (await copyTextToClipboard(installerCommand)) ? "copied" : "failed";
   }
   async function checkConnection() {
     busy = true;
@@ -116,14 +154,13 @@
   async function run(action: "check" | "apply" | "notify", enabled = false) {
     if (busy) return;
     busy = true;
+    requestSequence += 1;
     error = "";
     try {
       if (action === "check") {
-        preview = unwrap(
-          await api("/admin/core-updates/check", { method: "POST", body: JSON.stringify({ tag }) })
-        ).state;
+        preview = await checkTag(tag);
         checkedTag = tag;
-        if (tag === preview.tag) status = preview;
+        if (tag === status?.tag) status = preview;
       } else if (action === "notify") {
         status = unwrap(
           await api("/admin/core-updates/notifications", {
@@ -141,6 +178,7 @@
         ).state;
         preview = null;
       }
+      reconnecting = false;
     } catch {
       error = "core_update_request_failed";
       if (action === "apply") await load();
@@ -150,33 +188,23 @@
   }
 </script>
 
-{#if visible}
-  {#if status?.available || active}
-    <section class="update-banner" aria-label={at("core_update_title")}>
-      <span class="update-icon"><Download size={20} aria-hidden="true" /></span>
-      <div class="summary">
-        <strong
-          >{active
-            ? at("core_update_in_progress")
-            : at("core_update_available", { version: status?.release?.version })}</strong
-        >
-        <span
-          >{active
-            ? at(phaseLabel)
-            : at("core_update_installed", { version: currentVersion })}</span
-        >
-      </div>
-      <AdminButton variant="primary" onclick={show}
-        >{active ? at("core_update_progress") : at("core_update_open")}</AdminButton
+{#if visible && (status?.available || active)}
+  <section class="update-banner" aria-label={at("core_update_title")}>
+    <span class="update-icon"><Download size={20} aria-hidden="true" /></span>
+    <div class="summary">
+      <strong
+        >{active
+          ? at("core_update_in_progress")
+          : at("core_update_available", { version: status?.release?.version })}</strong
       >
-    </section>
-  {:else}
-    <div class="update-link"
-      ><AdminButton variant="ghost" size="sm" onclick={show}
-        ><Download size={14} />{at("core_update_title")}</AdminButton
-      ></div
+      <span
+        >{active ? at(phaseLabel) : at("core_update_installed", { version: currentVersion })}</span
+      >
+    </div>
+    <AdminButton variant="primary" onclick={onopen}
+      >{active ? at("core_update_progress") : at("core_update_open")}</AdminButton
     >
-  {/if}
+  </section>
 {/if}
 
 <Dialog
@@ -184,7 +212,7 @@
   portal
   title={at("core_update_title")}
   closeLabel={at("close")}
-  onclose={() => (open = false)}
+  {onclose}
   class={setupNeeded ? "admin-dialog" : "admin-dialog admin-dialog-compact"}
 >
   <div class="update-body">
@@ -211,7 +239,14 @@
       </div>
     {/if}
     {#if reconnecting}<p role="status">{at("core_update_reconnecting")}</p>{/if}
-    {#if !active}
+    {#if !status && !reconnecting}<p role="status">{at("loading")}</p>{/if}
+    {#if !active && status}
+      {#if candidate && !selected?.available}
+        <div class="current-status" role="status">
+          <Check size={18} aria-hidden="true" />
+          <strong>{at("core_update_current_ok")}</strong>
+        </div>
+      {/if}
       {#if status}
         <div class="versions">
           <div
@@ -219,7 +254,7 @@
               >{currentVersion}</strong
             ></div
           >
-          {#if candidate}
+          {#if candidate && selected?.available}
             <div><small>{at("core_update_target")}</small><strong>{candidate.version}</strong></div>
           {/if}
         </div>
@@ -237,8 +272,7 @@
       {:else if !candidate && (tag === checkedTag || (tag === status?.tag && !status.release))}<p
           role="status">{at("core_update_no_image")}</p
         >
-      {:else if candidate && !selected?.available}<p role="status">{at("core_update_current_ok")}</p
-        >{/if}
+      {/if}
       {#if status}
         <label class="preference"
           ><span>{at("core_update_notify")}</span>
@@ -253,24 +287,40 @@
         {#if setupNeeded}
           <section class="setup" aria-label={at("core_update_setup_title")}>
             <strong>{at("core_update_setup_title")}</strong>
-            <p>{at("core_update_no_executor")}</p>
-            <details>
-              <summary>{at("core_update_setup_commands")}</summary>
+            {#if installerRef}
               <p>{at("core_update_setup_location")}</p>
-              {#if sourceRevision}
+              <div class="installer-code">
+                <div class="installer-actions">
+                  <AdminButton variant="ghost" size="sm" onclick={copyInstaller}>
+                    {#if copyResult === "copied"}<Check size={14} aria-hidden="true" />{:else}<Copy
+                        size={14}
+                        aria-hidden="true"
+                      />{/if}
+                    {at("core_update_copy")}
+                  </AdminButton>
+                </div>
+                <pre><code>{installerCommand}</code></pre>
+              </div>
+              {#if copyResult}
+                <p role="status">
+                  {at(
+                    copyResult === "copied" ? "core_update_copy_copied" : "core_update_copy_failed"
+                  )}
+                </p>
+              {/if}
+            {/if}
+            <div class="setup-links">
+              {#if installerRef}
                 <a
-                  href={`https://gitlab.com/3252a8/remnawave-minishop/-/archive/${sourceRevision}/remnawave-minishop-${sourceRevision}.tar.gz`}
+                  href={`${installerRepository}/-/blob/${installerRef}/${installerPath}`}
                   target="_blank"
                   rel="noopener noreferrer">{at("core_update_setup_files")}</a
                 >
               {/if}
-              <pre><code>{setupCommands}</code></pre>
-              <p>{at("core_update_setup_diagnostics")}</p>
-              <pre><code>sudo systemctl status minishop-updater</code></pre>
-            </details>
-            <a href={guide} target="_blank" rel="noopener noreferrer"
-              >{at("core_update_setup_guide")}</a
-            >
+              <a href={guide} target="_blank" rel="noopener noreferrer"
+                >{at("core_update_setup_guide")}</a
+              >
+            </div>
           </section>
           {#if connectionChecked && !reconnecting}<p role="status">{at("core_update_setup_wait")}</p
             >{/if}
@@ -281,7 +331,7 @@
   </div>
   {#snippet footer()}
     <div class="dialog-actions">
-      <AdminButton onclick={() => (open = false)}>{at("close")}</AdminButton>
+      <AdminButton onclick={onclose}>{at("close")}</AdminButton>
       {#if !active && (setupNeeded || reconnecting)}
         <AdminButton variant="primary" disabled={busy} onclick={checkConnection}
           ><RefreshCw size={15} />{at("core_update_setup_recheck")}</AdminButton
@@ -341,12 +391,10 @@
     border-radius: var(--radius, 10px);
     font-size: 13px;
   }
-  .setup summary {
-    cursor: pointer;
-    font-weight: 600;
-  }
-  .setup details > :global(*) {
-    margin-block: 8px 0;
+  .setup-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
   }
   .setup a {
     color: var(--accent);
@@ -362,10 +410,32 @@
   .versions strong {
     overflow-wrap: anywhere;
   }
-  .update-link {
+  .current-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    color: var(--success-text);
+    background: var(--success-soft);
+    border: 1px solid var(--success-border);
+    border-radius: var(--radius, 10px);
+  }
+  .current-status :global(svg) {
+    flex: none;
+  }
+  .installer-code {
+    min-width: 0;
+    padding: 4px 10px 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--radius, 10px);
+    background: var(--admin-elev);
+  }
+  .installer-actions {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 8px;
+  }
+  .installer-code pre {
+    margin: 4px 0 0;
   }
   .update-body {
     display: grid;

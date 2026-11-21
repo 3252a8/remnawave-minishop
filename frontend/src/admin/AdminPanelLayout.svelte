@@ -92,6 +92,8 @@
     NAV_GROUPS,
     onClose,
     onCloseUser,
+    onCloseUpdater,
+    onOpenUpdater,
     onExportPayments,
     onLanguageChange,
     onOpenPaymentUserCard,
@@ -119,6 +121,7 @@
     statsStore,
     supportStore,
     syncBusy,
+    updaterOpen,
     translationsDirtyCount,
     translationsSaving,
     translationsStore,
@@ -162,6 +165,8 @@
     NAV_GROUPS: NavGroup[];
     onClose: () => void;
     onCloseUser: () => void;
+    onCloseUpdater: () => void;
+    onOpenUpdater: (event: MouseEvent) => void;
     onExportPayments: () => void;
     onLanguageChange: (value: string, meta: LanguageChangeMeta) => void;
     onOpenPaymentUserCard: (userId: unknown) => void;
@@ -192,6 +197,7 @@
     statsStore: StatsStoreBridge;
     supportStore: SupportStoreBridge;
     syncBusy: boolean;
+    updaterOpen: boolean;
     translationsDirtyCount: number;
     translationsSaving: boolean;
     translationsStore: TranslationsStoreBridge;
@@ -546,6 +552,7 @@
           onCreateCode={() => promosStore.setCreateOpen(true)}
           onCreateDocument={documentsStore.openCreateDocument}
           {onExportPayments}
+          {onOpenUpdater}
           onSaveSettings={() => settingsStore.saveSettings(onSaveSettings)}
           onSaveTranslations={() => translationsStore.saveTranslations(onSaveTranslations)}
           onSyncStats={statsStore.triggerSync}
@@ -589,7 +596,13 @@
         hidden={Boolean(usersStore.openedUser)}
         style:display={usersStore.openedUser ? "none" : undefined}
       >
-        <CoreUpdateBanner {at} visible={active === "stats"} />
+        <CoreUpdateBanner
+          {at}
+          visible={active === "stats"}
+          open={active === "stats" && updaterOpen}
+          onopen={onOpenUpdater}
+          onclose={onCloseUpdater}
+        />
         <ConfigAlertsBanner {at} section={active} onNavigate={onSetActive} />
         {#key `${active}:${runtimeSectionEntry}`}
           <div

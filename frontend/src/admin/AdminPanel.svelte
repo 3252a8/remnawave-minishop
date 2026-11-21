@@ -1,5 +1,5 @@
 ﻿<script lang="ts">
-  import { onMount, untrack } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { Tooltip } from "$components/ui/primitives.js";
 
   import AdminPanelLayout from "./AdminPanelLayout.svelte";
@@ -35,9 +35,11 @@
   } from "../lib/admin/users.js";
   import { adminErrorMessage } from "../lib/admin/errors.js";
   import {
+    ADMIN_UPDATER_PATH,
     adminPaymentsUserIdFromPath,
     adminSettingsPathFromPath,
     adminUserIdFromPath,
+    isAdminUpdaterPath,
     stripRoutePrefix,
     withRoutePrefix,
   } from "../lib/webapp/routes.js";
@@ -239,6 +241,8 @@
   const initialActive = initialActiveSection();
   const initialSettingsPathSnapshot = initialSettingsPathValue();
   let active = $state(initialActive);
+  let updaterOpen = $state(isAdminUpdaterPath(currentRoutePathname()));
+  let updaterTrigger: HTMLElement | null = null;
   let lastInitialSection = $state(initialActive);
   let settingsPath = $state<SettingsPath>(initialSettingsPathSnapshot);
   let lastInitialSettingsPathKey = $state(settingsPathKey(initialSettingsPathSnapshot));
@@ -355,7 +359,12 @@
   function setActive(id: string): void {
     const next = normalizeSection(id);
     sidebarOpen = false;
-    if (active === next && !usersStore.openedUser) return;
+    if (active === next && !usersStore.openedUser) {
+      if (next === "stats" && updaterOpen) closeUpdater();
+      return;
+    }
+    updaterOpen = false;
+    updaterTrigger = null;
     userReturnPath = "";
     userReturnScrollTop = 0;
     active = next;
@@ -497,6 +506,41 @@
     return stripRoutePrefix(window.location.pathname, routePrefix);
   }
 
+  function openUpdater(event: MouseEvent): void {
+    if (updaterOpen) return;
+    updaterTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+    if (window.location.protocol !== "file:") {
+      const path = withRoutePrefix(ADMIN_UPDATER_PATH, routePrefix);
+      window.history.pushState(
+        { minishopUpdater: true },
+        "",
+        path + location.search + location.hash
+      );
+    }
+    updaterOpen = true;
+  }
+
+  function dismissUpdater(): void {
+    updaterOpen = false;
+    const trigger = updaterTrigger;
+    updaterTrigger = null;
+    if (trigger) void tick().then(() => trigger.focus());
+  }
+
+  function closeUpdater(): void {
+    if (!updaterOpen) return;
+    if (isAdminUpdaterPath(currentRoutePathname())) {
+      if (window.history.state?.minishopUpdater) {
+        dismissUpdater();
+        window.history.back();
+        return;
+      }
+      const path = withRoutePrefix("/admin/stats", routePrefix);
+      window.history.replaceState(window.history.state, "", path + location.search + location.hash);
+    }
+    dismissUpdater();
+  }
+
   function readSectionFromPath(): AdminSectionId {
     if (typeof window === "undefined") return "stats";
     const match = currentRoutePathname().match(/^\/admin\/([a-z0-9_-]+)(?:\/.*)?$/i);
@@ -539,6 +583,8 @@
   function onPopState(): void {
     const previousActive = active;
     active = readSectionFromPath();
+    if (isAdminUpdaterPath(currentRoutePathname())) updaterOpen = true;
+    else if (updaterOpen) dismissUpdater();
     settingsPath = active === "settings" ? readSettingsPathFromPath() : [];
     sidebarOpen = false;
     if (active === "users") {
@@ -865,6 +911,8 @@
     {onClose}
     {onLanguageChange}
     onCloseUser={closeUserCard}
+    onCloseUpdater={closeUpdater}
+    onOpenUpdater={openUpdater}
     onExportPayments={exportPayments}
     onOpenPaymentUserCard={openPaymentUserCard}
     onOpenPaymentPromoCard={openPaymentPromoCard}
@@ -891,6 +939,7 @@
     {statsStore}
     {supportStore}
     {syncBusy}
+    {updaterOpen}
     {translationsDirtyCount}
     {translationsSaving}
     {translationsStore}

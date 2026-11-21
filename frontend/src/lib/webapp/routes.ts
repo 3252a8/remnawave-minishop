@@ -150,6 +150,12 @@ export function adminSectionFromPath(pathname: unknown, routePrefix: unknown = "
   return normalizeAdminSection(m ? m[1] : "");
 }
 
+export const ADMIN_UPDATER_PATH = "/admin/stats/updater";
+
+export function isAdminUpdaterPath(pathname: unknown, routePrefix: unknown = ""): boolean {
+  return stripRoutePrefix(pathname, routePrefix).toLowerCase() === ADMIN_UPDATER_PATH;
+}
+
 function decodePathSegment(segment: string): string {
   try {
     return decodeURIComponent(segment);
@@ -281,6 +287,8 @@ export function syncSectionPath(
     else if (adm === "settings" && settingsPath.length)
       targetPath = `/admin/settings/${settingsPath.map(encodeURIComponent).join("/")}`;
     else if (partnersDeepLink) targetPath = partnersDeepLink;
+    else if (adm === "stats" && isAdminUpdaterPath(window.location.pathname, routePrefix))
+      targetPath = ADMIN_UPDATER_PATH;
     else targetPath = `/admin/${adm}`;
   }
   if (normalized === "extensions") {
