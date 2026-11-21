@@ -10,6 +10,10 @@ on:
         description: "Existing vMAJOR.MINOR.PATCH tag to publish or retry"
         required: true
         type: string
+      reissue:
+        description: "Rebuild the latest published release from its original Git tag"
+        type: boolean
+        default: false
 
 concurrency:
   group: core-stable-images
@@ -44,6 +48,7 @@ jobs:
           EVENT_REF_NAME: ${{ github.ref_name }}
           EVENT_REF_TYPE: ${{ github.ref_type }}
           EVENT_SHA: ${{ github.sha }}
+          REISSUE: ${{ inputs.reissue || false }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -69,19 +74,26 @@ jobs:
               exit 1
             fi
           fi
-          if [ "$tag_commit" != "$(git rev-parse origin/main)" ]; then
-            echo "Release tag must point at current main" >&2
-            exit 1
-          fi
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$EVENT_REF_NAME" != "main" ]; then
             echo "Stable retries must run from main" >&2
             exit 1
           fi
-          if ! gh release view "$release_tag" --json isDraft --jq .isDraft > draft-state; then
-            gh release create "$release_tag" --verify-tag --draft --title "$release_tag" --generate-notes
-          elif [ "$(cat draft-state)" != true ]; then
-            echo "Release $release_tag has already been published" >&2
-            exit 1
+          if [ "$REISSUE" = true ]; then
+            test "$EVENT_NAME" = workflow_dispatch
+            test "$EVENT_SHA" = "$(git rev-parse origin/main)"
+            git merge-base --is-ancestor "$tag_commit" origin/main
+            test "$release_tag" = "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          else
+            if [ "$tag_commit" != "$(git rev-parse origin/main)" ]; then
+              echo "Release tag must point at current main" >&2
+              exit 1
+            fi
+            if ! gh release view "$release_tag" --json isDraft --jq .isDraft > draft-state; then
+              gh release create "$release_tag" --verify-tag --draft --title "$release_tag" --generate-notes
+            elif [ "$(cat draft-state)" != true ]; then
+              echo "Release $release_tag has already been published" >&2
+              exit 1
+            fi
           fi
 
           {
@@ -118,6 +130,7 @@ jobs:
       RELEASE_TAG: ${{ needs.validate.outputs.tag }}
       RELEASE_VERSION: ${{ needs.validate.outputs.version }}
       RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+      REISSUE: ${{ inputs.reissue || false }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -139,22 +152,41 @@ jobs:
 
       - name: Promote version and latest tags in both registries
         id: images
-        run: bash scripts/github-promote-images.sh release "$RELEASE_COMMIT" "$RELEASE_TAG" verified-digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          original_manifest=""
+          if [ "$REISSUE" = true ]; then
+            test "$RELEASE_TAG" = "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+            mkdir original
+            gh release download "$RELEASE_TAG" --dir original \
+              --pattern release-images.json --pattern release-images.json.sha256
+            gh release verify-asset "$RELEASE_TAG" original/release-images.json
+            (cd original && sha256sum -c release-images.json.sha256)
+            original_manifest=original/release-images.json
+            original_sha="$(sha256sum "$original_manifest" | cut -d ' ' -f 1)"
+            printf 'original_manifest_sha256=%s\n' "$original_sha" >> "$GITHUB_OUTPUT"
+          fi
+          bash scripts/github-promote-images.sh release "$RELEASE_COMMIT" "$RELEASE_TAG" verified-digests "$original_manifest"
 
       - name: Write immutable image digest manifest
         env:
           DIGESTS: ${{ steps.images.outputs.digests }}
+          ORIGINAL_SHA: ${{ steps.images.outputs.original_manifest_sha256 }}
         run: |
           set -euo pipefail
           jq -n --arg repo "$GITHUB_REPOSITORY" --arg tag "$RELEASE_TAG" --arg version "$RELEASE_VERSION" \
             --arg commit "$RELEASE_COMMIT" --arg workflow_commit "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" \
-            --arg attempt "$GITHUB_RUN_ATTEMPT" --arg owner "$GITHUB_REPOSITORY_OWNER" --argjson digests "$DIGESTS" '
+            --arg attempt "$GITHUB_RUN_ATTEMPT" --arg owner "$GITHUB_REPOSITORY_OWNER" \
+            --arg original "$ORIGINAL_SHA" --argjson digests "$DIGESTS" '
               {schema_version: 1, release: {repository: $repo, tag: $tag, version: $version, commit: $commit},
                workflow: {commit: $workflow_commit, run_id: $run, run_attempt: $attempt},
                images: ($digests | to_entries | map(
                  .key as $target | .value as $digest | "\($owner)/remnawave-minishop-\($target)" as $image |
                  {target: $target, digest: $digest, ghcr: "ghcr.io/\($image)", ghcr_ref: "ghcr.io/\($image)@\($digest)",
                   dockerhub: "docker.io/\($image)", dockerhub_ref: "docker.io/\($image)@\($digest)"}))}
+              | if $original == "" then . else . + {reissue: {original_manifest_sha256: $original}} end
               ' > release-images.json
           sha256sum release-images.json > release-images.json.sha256
 
@@ -164,9 +196,21 @@ jobs:
           subject-path: release-images.json
 
       - name: Upload the digest manifest and publish the draft
+        if: inputs.reissue != true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh release upload "$RELEASE_TAG" release-images.json release-images.json.sha256 --clobber
           gh release edit "$RELEASE_TAG" --draft=false
+
+      - name: Upload the attested reissue manifest
+        if: inputs.reissue == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-release-image-reissue-${{ needs.validate.outputs.tag }}
+          path: |
+            release-images.json
+            release-images.json.sha256
+          if-no-files-found: error
+          retention-days: 90

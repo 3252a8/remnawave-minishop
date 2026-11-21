@@ -96,6 +96,24 @@ jobs:
           SOURCE_COMMIT: ${{ inputs.source_commit }}
         run: test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
 
+      - name: Resolve application build tag
+        id: build-version
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = release ]; then
+            tag="v$VERSION"
+          else
+            tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' 2>/dev/null || true)"
+          fi
+          if [ -n "$tag" ] && ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid application build tag: $tag" >&2
+            exit 1
+          fi
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -144,12 +162,36 @@ jobs:
           build-args: |
             REMNAWAVE_MINISHOP_BRANCH=${{ inputs.channel == 'release' && 'main' || 'dev' }}
             REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official
+            REMNAWAVE_MINISHOP_BUILD_TAG=${{ steps.build-version.outputs.tag }}
             REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ inputs.source_commit }}
             REMNAWAVE_MINISHOP_APK_REFRESH=${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
           cache-from: type=gha,scope=${{ matrix.target }}-ghcr
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}-ghcr
           provenance: mode=max
           sbom: true
+
+      - name: Verify application version inside the candidate
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          TARGET: ${{ matrix.target }}
+          CHANNEL: ${{ inputs.channel }}
+          TAG: ${{ steps.build-version.outputs.tag }}
+          COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --entrypoint /bin/sh "$IMAGE" +            -ec '
+              target="$1"; tag="$2"; commit="$3"; channel="$4"
+              if [ "$target" = frontend ]; then
+                test "$(cat /build-tag)" = "${tag:-unknown}"
+                test "$(cat /build-commit)" = "$commit"
+              else
+                test "$(cat /app/.build-tag)" = "${tag:-unknown}"
+                test "$(cat /app/.build-commit)" = "$commit"
+                suffix=""
+                if [ "$channel" = dev ]; then suffix="-dev"; fi
+                test "$(cat /app/.build-version)" = "${tag:-dev}${suffix}+g$commit"
+              fi
+            ' sh "$TARGET" "$TAG" "$COMMIT" "$CHANNEL"
 
       - name: Scan the published candidate
         uses: aquasecurity/trivy-action@v0.36.0
