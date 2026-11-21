@@ -2,12 +2,13 @@ import type { components } from "$lib/api/openapi.generated";
 
 let started = 0;
 let jobTag = "";
-let notifications = true;
+let notifications: boolean | undefined;
 
 export function coreUpdateResponse(path: string, options: RequestInit) {
   if (!path.startsWith("/admin/core-updates")) return undefined;
   const scenario = new URLSearchParams(location.search).get("mock");
-  const demo = scenario === "core-update" || scenario === "core-update-offline";
+  const bundled = scenario === "core-update-bundled";
+  const demo = scenario === "core-update" || scenario === "core-update-offline" || bundled;
   const currentDev = scenario === "core-update-current";
   const body = JSON.parse(String(options.body || "{}"));
   if (path.endsWith("/notifications")) notifications = body.enabled === true;
@@ -44,8 +45,9 @@ export function coreUpdateResponse(path: string, options: RequestInit) {
     },
     available,
     official: true,
+    installable: !bundled,
     executor: scenario === "core-update",
-    notifications,
+    notifications: notifications ?? !currentDev,
     phase,
     job_tag: jobTag,
   };

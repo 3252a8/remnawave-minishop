@@ -61,17 +61,14 @@
   const canApply = $derived(
     candidate && (selected?.available || (status?.phase === "failed" && status.job_tag === tag))
   );
-  const setupNeeded = $derived(status?.official && !status.executor && !active);
+  const setupNeeded = $derived(status?.installable && !status.executor && !active);
   const guide = $derived(
     documentationBaseUrlForVersion(status?.current) + "troubleshooting/maintenance/#host-updater"
   );
-  const installerRef = $derived(
-    status?.current.startsWith("dev") ? "dev" : status?.current.match(/\+g([0-9a-f]{7,40})$/)?.[1]
-  );
+  const installerChannel = $derived(status?.tag === "dev" ? "dev" : "latest");
+  const installerRef = $derived(installerChannel === "dev" ? "dev" : "main");
   const installerCommand = $derived(
-    installerRef
-      ? `(set -e; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; curl -fsSL '${installerRepository}/-/raw/${installerRef}/${installerPath}' -o "$installer"; sudo bash "$installer" /opt/remnawave-minishop ${installerRef})`
-      : ""
+    `(set -e; installer=$(mktemp); trap 'rm -f -- "$installer"' EXIT; url='${installerRepository}/-/raw/${installerRef}/${installerPath}'; if command -v curl >/dev/null; then curl -fsSL --proto '=https' "$url" -o "$installer"; else wget -qO "$installer" "$url"; fi; sudo bash "$installer" --channel ${installerChannel})`
   );
   const valid = $derived(validImageTag(tag));
 
@@ -195,14 +192,18 @@
       <strong
         >{active
           ? at("core_update_in_progress")
-          : at("core_update_available", { version: status?.release?.version })}</strong
+          : at(status?.installable ? "core_update_available" : "core_update_base_available", {
+              version: status?.release?.version,
+            })}</strong
       >
       <span
         >{active ? at(phaseLabel) : at("core_update_installed", { version: currentVersion })}</span
       >
     </div>
     <AdminButton variant="primary" onclick={onopen}
-      >{active ? at("core_update_progress") : at("core_update_open")}</AdminButton
+      >{active
+        ? at("core_update_progress")
+        : at(status?.installable ? "core_update_open" : "core_update_title")}</AdminButton
     >
   </section>
 {/if}
@@ -255,7 +256,12 @@
             ></div
           >
           {#if candidate && selected?.available}
-            <div><small>{at("core_update_target")}</small><strong>{candidate.version}</strong></div>
+            <div>
+              <small
+                >{at(status.installable ? "core_update_target" : "core_update_published")}</small
+              >
+              <strong>{candidate.version}</strong>
+            </div>
           {/if}
         </div>
       {/if}
@@ -284,39 +290,38 @@
             class="admin-switch-root"><Switch.Thumb class="admin-switch-thumb" /></Switch.Root
           >
         </label>
-        {#if setupNeeded}
+        {#if status.official && !status.installable}
+          <p>{at("core_update_base_only")}</p>
+        {:else if setupNeeded}
           <section class="setup" aria-label={at("core_update_setup_title")}>
             <strong>{at("core_update_setup_title")}</strong>
-            {#if installerRef}
-              <p>{at("core_update_setup_location")}</p>
-              <div class="installer-code">
-                <div class="installer-actions">
-                  <AdminButton variant="ghost" size="sm" onclick={copyInstaller}>
-                    {#if copyResult === "copied"}<Check size={14} aria-hidden="true" />{:else}<Copy
-                        size={14}
-                        aria-hidden="true"
-                      />{/if}
-                    {at("core_update_copy")}
-                  </AdminButton>
-                </div>
-                <pre><code>{installerCommand}</code></pre>
+            <p>{at("core_update_setup_location")}</p>
+            <div class="installer-code">
+              <div class="installer-actions">
+                <AdminButton variant="ghost" size="sm" onclick={copyInstaller}>
+                  {#if copyResult === "copied"}<Check size={14} aria-hidden="true" />{:else}<Copy
+                      size={14}
+                      aria-hidden="true"
+                    />{/if}
+                  {at("core_update_copy")}
+                </AdminButton>
               </div>
-              {#if copyResult}
-                <p role="status">
-                  {at(
-                    copyResult === "copied" ? "core_update_copy_copied" : "core_update_copy_failed"
-                  )}
-                </p>
-              {/if}
+              <pre><code>{installerCommand}</code></pre>
+            </div>
+            {#if copyResult}
+              <p role="status">
+                {at(
+                  copyResult === "copied" ? "core_update_copy_copied" : "core_update_copy_failed"
+                )}
+              </p>
             {/if}
+            <p>{at("core_update_setup_options")}</p>
             <div class="setup-links">
-              {#if installerRef}
-                <a
-                  href={`${installerRepository}/-/blob/${installerRef}/${installerPath}`}
-                  target="_blank"
-                  rel="noopener noreferrer">{at("core_update_setup_files")}</a
-                >
-              {/if}
+              <a
+                href={`${installerRepository}/-/blob/${installerRef}/${installerPath}`}
+                target="_blank"
+                rel="noopener noreferrer">{at("core_update_setup_files")}</a
+              >
               <a href={guide} target="_blank" rel="noopener noreferrer"
                 >{at("core_update_setup_guide")}</a
               >
@@ -336,7 +341,7 @@
         <AdminButton variant="primary" disabled={busy} onclick={checkConnection}
           ><RefreshCw size={15} />{at("core_update_setup_recheck")}</AdminButton
         >
-      {:else if !active && status?.official}
+      {:else if !active && status?.installable}
         <AdminButton
           variant="primary"
           disabled={busy || !status.executor || !canApply}

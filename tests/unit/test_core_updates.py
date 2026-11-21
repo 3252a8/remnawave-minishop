@@ -36,6 +36,36 @@ def test_image_check_compares_published_revision_and_caches_by_tag(monkeypatch):
     assert asyncio.run(core_updates.check_image("latest", "docker.io")) is None
 
 
+@pytest.mark.parametrize("unready", ["missing", "different revision", None])
+def test_publication_requires_all_three_images(monkeypatch, unready):
+    revision = "a" * 40
+    seen: set[str] = set()
+
+    async def image_release(session, tag, registry, role):
+        seen.add(role)
+        if role == "frontend" and unready == "missing":
+            raise ValueError("Image is missing")
+        if role == "worker" and unready == "different revision":
+            return core_updates.Release(tag=tag, revision="b" * 40, version="v3.9.0")
+        return core_updates.Release(tag=tag, revision=revision, version="v3.9.0")
+
+    monkeypatch.setattr(core_updates, "_image_release", image_release)
+    monkeypatch.setattr(core_updates, "_cache", {})
+    release = asyncio.run(core_updates.check_image("latest", "ghcr.io"))
+    assert seen == {"backend", "worker", "frontend"}
+    assert (release.revision if release else None) == (None if unready else revision)
+
+
+@pytest.mark.parametrize(
+    ("version", "channel"), [("dev-dev+gabcd1234", "dev"), ("v3.8.6+gabcd1234", "latest")]
+)
+def test_bundled_distribution_follows_base_core_channel(monkeypatch, version, channel):
+    monkeypatch.setenv("MINISHOP_BUNDLED_PLUGIN_ARCHIVE", "/opt/minishop-plugin/package.zip")
+    monkeypatch.setenv("IMAGE_TAG", "local-tag")
+    monkeypatch.setattr(core_updates, "resolve_app_version", lambda: version)
+    assert core_updates.image_tag() == channel
+
+
 def test_worker_notifies_linked_admins_once_and_obeys_preference(monkeypatch):
     ctx = MagicMock()
     ctx.settings.REDIS_KEY_PREFIX = "test"
@@ -54,6 +84,7 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(monkeypatch):
     monkeypatch.setattr(core_update_notices, "resolve_build_provenance", lambda: "official")
     monkeypatch.setattr(core_update_notices, "available", lambda release: True)
     monkeypatch.setattr(core_update_notices, "resolve_app_version", lambda: "v1")
+    monkeypatch.setattr(core_update_notices, "image_tag", lambda: "latest")
     release = core_updates.Release(tag="latest", revision="a" * 40, version="v2")
     monkeypatch.setattr(core_update_notices, "check_image", AsyncMock(return_value=release))
     lock = MagicMock()
@@ -66,6 +97,14 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(monkeypatch):
     release.revision = "b" * 40
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert ctx.bot.send_message.await_count == 2
+
+    monkeypatch.setattr(core_update_notices, "image_tag", lambda: "dev")
+    values["test:core-update:notify"] = "1"
+    asyncio.run(core_update_notices.deliver_update_notices(ctx))
+    assert ctx.bot.send_message.await_count == 2
+    values["test:core-update:notify:dev"] = "1"
+    asyncio.run(core_update_notices.deliver_update_notices(ctx))
+    assert ctx.bot.send_message.await_count == 4
 
 
 @pytest.mark.parametrize("mismatch", [True, False])

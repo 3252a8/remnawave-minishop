@@ -9048,6 +9048,8 @@ export interface components {
       current: string;
       /** Executor */
       executor: boolean;
+      /** Installable */
+      installable: boolean;
       /** Job Tag */
       job_tag: string;
       /** Notifications */

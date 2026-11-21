@@ -13,12 +13,14 @@ for (const width of [390, 1440]) {
     await expect(dialog.getByText("The update service is offline", { exact: true })).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Copy command" })).toBeVisible();
     await expect(dialog.locator("pre").first()).toContainText(
-      "/-/raw/7a51b934/deploy/docker/install-updater.sh"
+      "/-/raw/main/deploy/docker/install-updater.sh"
     );
     await expect(dialog.getByRole("link", { name: "Installer script on GitLab" })).toHaveAttribute(
       "href",
-      /\/-\/blob\/7a51b934\/deploy\/docker\/install-updater\.sh$/
+      /\/-\/blob\/main\/deploy\/docker\/install-updater\.sh$/
     );
+    await expect(dialog.locator("pre").first()).toContainText("--channel latest");
+    await expect(dialog.getByText(/--directory PATH/)).toBeVisible();
     await expect(
       dialog.getByRole("link", { name: "Compatibility and troubleshooting" })
     ).toHaveAttribute("href", /\/troubleshooting\/maintenance\/#/);
@@ -66,6 +68,9 @@ for (const width of [390, 1440]) {
     await expect(code).toBeVisible();
     const command = await code.textContent();
     expect(command).toContain("/-/raw/dev/deploy/docker/install-updater.sh");
+    expect(command).toContain("--channel dev");
+    expect(command).not.toContain("/opt/remnawave-minishop");
+    await expect(dialog.getByRole("switch")).toHaveAttribute("aria-checked", "false");
     expect(command).not.toContain("\n");
     await dialog.getByRole("button", { name: "Copy command" }).click();
     await expect(dialog.getByText("Command copied.")).toBeVisible();
@@ -103,3 +108,15 @@ for (const width of [390, 1440]) {
     );
   });
 }
+
+test("a bundled build reports Core publication without offering installation", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("rw_minishop_demo_language", "en"));
+  await page.goto(dashboard + "?mock=core-update-bundled");
+  const banner = page.getByRole("region", { name: "Minishop updates" });
+  await expect(banner.getByText("Minishop Core v3.8.6 has been published")).toBeVisible();
+  await banner.getByRole("button", { name: "Minishop updates" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText(/Use your deployment's usual update process/)).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Start update" })).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "Copy command" })).toHaveCount(0);
+});

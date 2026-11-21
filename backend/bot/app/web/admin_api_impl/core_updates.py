@@ -14,7 +14,16 @@ from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
 from bot.infra.redis import get_redis, redis_key
-from bot.services.core_updates import TAG_PATTERN, Release, available, check_image, image_tag
+from bot.services.core_updates import (
+    TAG_PATTERN,
+    Release,
+    available,
+    bundled_distribution,
+    check_image,
+    image_tag,
+    notifications_enabled,
+    notifications_key,
+)
 from bot.utils.app_version import resolve_app_version, resolve_build_provenance
 
 from .auth import _require_admin_user_id
@@ -40,6 +49,7 @@ class CoreUpdateState(HttpResponseModel):
     release: Release | None
     available: bool
     official: bool
+    installable: bool
     executor: bool
     notifications: bool
     phase: str
@@ -66,22 +76,22 @@ async def _state(request: web.Request, *, tag: str = "", manual: bool = False) -
     redis = await get_redis(settings)
     registry: Literal["docker.io", "ghcr.io"] = "docker.io"
     executor = False
-    notifications = True
+    current_tag = image_tag()
+    preference = None
     job: dict[str, str] = {}
     if redis is not None:
         try:
-            live, saved_registry, pref = await redis.mget(
-                f"{prefix}:live", f"{prefix}:registry", f"{prefix}:notify"
+            live, saved_registry, preference = await redis.mget(
+                f"{prefix}:live", f"{prefix}:registry", notifications_key(prefix, current_tag)
             )
             executor = bool(live)
             if saved_registry == "ghcr.io":
                 registry = "ghcr.io"
-            notifications = pref != "0"
             job = await redis.hgetall(f"{prefix}:job")
         except RedisError:
             return _error(503, "core_update_storage_unavailable")
-    current_tag = image_tag()
     official = resolve_build_provenance() == "official"
+    installable = official and not bundled_distribution()
     release = await check_image(tag or current_tag, registry, manual=manual) if official else None
     state = CoreUpdateState(
         current=resolve_app_version(),
@@ -89,10 +99,11 @@ async def _state(request: web.Request, *, tag: str = "", manual: bool = False) -
         release=release,
         available=available(release) or bool(release and release.tag != current_tag),
         official=official,
-        executor=executor,
-        notifications=notifications,
-        phase=job.get("phase", ""),
-        job_tag=job.get("tag", ""),
+        installable=installable,
+        executor=installable and executor,
+        notifications=notifications_enabled(current_tag, preference),
+        phase=job.get("phase", "") if installable else "",
+        job_tag=job.get("tag", "") if installable else "",
     )
     return _ok({"state": state.model_dump()})
 
@@ -115,7 +126,8 @@ async def admin_core_preference_route(request: web.Request) -> web.Response:
     redis = await get_redis(settings)
     if redis is None:
         return _error(503, "core_update_storage_unavailable")
-    await redis.set(redis_key(settings, "core-update", "notify"), "1" if body.enabled else "0")
+    prefix = redis_key(settings, "core-update")
+    await redis.set(notifications_key(prefix, image_tag()), "1" if body.enabled else "0")
     return await _state(request)
 
 
@@ -134,7 +146,7 @@ async def admin_core_apply_route(request: web.Request) -> web.Response:
     body = await parse_body_or_400(request, CoreUpdateBody)
     settings = get_settings(request)
     redis = await get_redis(settings)
-    if redis is None or resolve_build_provenance() != "official":
+    if redis is None or resolve_build_provenance() != "official" or bundled_distribution():
         return _error(409, "core_update_unavailable")
     prefix = redis_key(settings, "core-update")
     registry = await redis.get(f"{prefix}:registry")

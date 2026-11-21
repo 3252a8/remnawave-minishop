@@ -9354,6 +9354,10 @@
             "title": "Executor",
             "type": "boolean"
           },
+          "installable": {
+            "title": "Installable",
+            "type": "boolean"
+          },
           "job_tag": {
             "title": "Job Tag",
             "type": "string"
@@ -9391,6 +9395,7 @@
           "release",
           "available",
           "official",
+          "installable",
           "executor",
           "notifications",
           "phase",

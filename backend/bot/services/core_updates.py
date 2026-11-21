@@ -14,8 +14,9 @@ from pydantic import BaseModel
 from bot.utils.app_version import resolve_app_version, resolve_build_provenance
 
 TAG_PATTERN = r"^(?:latest|dev|[0-9]+\.[0-9]+\.[0-9]+)$"
-IMAGE = "3252a8/remnawave-minishop-backend"
+IMAGE_ROLES = ("backend", "worker", "frontend")
 Registry = Literal["docker.io", "ghcr.io"]
+_image_metadata: dict[tuple[Registry, str, str], tuple[str, Release]] = {}
 
 
 class Release(BaseModel):
@@ -25,7 +26,22 @@ class Release(BaseModel):
 
 
 def image_tag() -> str:
+    if bundled_distribution():
+        version = resolve_app_version().partition("+")[0]
+        return "dev" if version == "dev" or version.endswith("-dev") else "latest"
     return os.environ.get("IMAGE_TAG", "latest").strip() or "latest"
+
+
+def bundled_distribution() -> bool:
+    return bool(os.environ.get("MINISHOP_BUNDLED_PLUGIN_ARCHIVE"))
+
+
+def notifications_key(prefix: str, tag: str) -> str:
+    return f"{prefix}:notify:dev" if tag == "dev" else f"{prefix}:notify"
+
+
+def notifications_enabled(tag: str, preference: str | None) -> bool:
+    return preference == "1" if tag == "dev" else preference != "0"
 
 
 def available(release: Release | None) -> bool:
@@ -39,6 +55,21 @@ def available(release: Release | None) -> bool:
 
 
 async def _published_image(tag: str, registry: Registry) -> Release:
+    async with aiohttp.ClientSession(raise_for_status=True) as session:
+        results = await asyncio.gather(
+            *(_image_release(session, tag, registry, role) for role in IMAGE_ROLES),
+            return_exceptions=True,
+        )
+    first = results[0]
+    if not isinstance(first, Release) or any(result != first for result in results[1:]):
+        raise ValueError("The image set is incomplete")
+    return first
+
+
+async def _image_release(
+    session: aiohttp.ClientSession, tag: str, registry: Registry, role: str
+) -> Release:
+    image = f"3252a8/remnawave-minishop-{role}"
     ghcr = registry == "ghcr.io"
     host = "https://ghcr.io" if ghcr else "https://registry-1.docker.io"
     auth = "https://ghcr.io/token" if ghcr else "https://auth.docker.io/token"
@@ -50,44 +81,53 @@ async def _published_image(tag: str, registry: Registry) -> Release:
             "application/vnd.docker.distribution.manifest.v2+json",
         ]
     )
-    async with aiohttp.ClientSession(raise_for_status=True) as session:
-        async with session.get(
-            auth,
-            params={
-                "service": "ghcr.io" if ghcr else "registry.docker.io",
-                "scope": f"repository:{IMAGE}:pull",
-            },
-        ) as response:
-            token = (await response.json())["token"]
-        headers = {"Authorization": f"Bearer {token}", "Accept": media}
+    async with session.get(
+        auth,
+        params={
+            "service": "ghcr.io" if ghcr else "registry.docker.io",
+            "scope": f"repository:{image}:pull",
+        },
+    ) as response:
+        token = (await response.json())["token"]
+    headers = {"Authorization": f"Bearer {token}", "Accept": media}
 
-        async def fetch(kind: str, ref: str) -> dict[str, Any]:
-            async with session.get(f"{host}/v2/{IMAGE}/{kind}/{ref}", headers=headers) as response:
-                return await response.json(content_type=None)
+    async def fetch(kind: str, ref: str) -> dict[str, Any]:
+        async with session.get(f"{host}/v2/{image}/{kind}/{ref}", headers=headers) as response:
+            return await response.json(content_type=None)
 
-        manifest = await fetch("manifests", tag)
-        if "manifests" in manifest:
-            child = next(
-                (
-                    m
-                    for m in manifest["manifests"]
-                    if m.get("platform", {}).get("os") == "linux"
-                    and m["platform"].get("architecture") == "amd64"
-                ),
-                None,
-            )
-            if child is None:
-                raise ValueError("Missing supported platform")
-            manifest = await fetch("manifests", _digest(child))
-        config = await fetch("blobs", _digest(manifest["config"]))
-        labels = config["config"]["Labels"]
-        revision = labels["org.opencontainers.image.revision"]
-        if not re.fullmatch(r"[a-f0-9]{40}", revision):
-            raise ValueError("Image revision unavailable")
-        version = str(labels.get("org.opencontainers.image.ref.name", tag))
-        if not re.fullmatch(r"v?\d+\.\d+\.\d+", version):
-            version = f"{tag} · {revision[:8]}"
-        return Release(tag=tag, revision=revision, version=version)
+    async with session.head(f"{host}/v2/{image}/manifests/{tag}", headers=headers) as response:
+        digest = _digest({"digest": response.headers["Docker-Content-Digest"]})
+    key = (registry, role, tag)
+    cached = _image_metadata.get(key)
+    if cached and cached[0] == digest:
+        return cached[1]
+    manifest = await fetch("manifests", digest)
+    if "manifests" in manifest:
+        child = next(
+            (
+                m
+                for m in manifest["manifests"]
+                if m.get("platform", {}).get("os") == "linux"
+                and m["platform"].get("architecture") == "amd64"
+            ),
+            None,
+        )
+        if child is None:
+            raise ValueError("Missing supported platform")
+        manifest = await fetch("manifests", _digest(child))
+    config = await fetch("blobs", _digest(manifest["config"]))
+    labels = config["config"]["Labels"]
+    revision = labels["org.opencontainers.image.revision"]
+    if not re.fullmatch(r"[a-f0-9]{40}", revision):
+        raise ValueError("Image revision unavailable")
+    version = str(labels.get("org.opencontainers.image.ref.name", tag))
+    if not re.fullmatch(r"v?\d+\.\d+\.\d+", version):
+        version = f"{tag} · {revision[:8]}"
+    release = Release(tag=tag, revision=revision, version=version)
+    if len(_image_metadata) >= 192:
+        _image_metadata.pop(next(iter(_image_metadata)))
+    _image_metadata[key] = (digest, release)
+    return release
 
 
 def _digest(descriptor: dict[str, Any]) -> str:
