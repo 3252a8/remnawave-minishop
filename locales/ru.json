@@ -2366,6 +2366,7 @@
   "admin_broadcast_audience_group_subscription": "Статус подписки",
   "admin_broadcast_audience_group_roles": "Роли",
   "admin_broadcast_audience_group_platforms": "Платформа зарегистрированного устройства",
+  "admin_broadcast_platforms_empty": "Нет зарегистрированных устройств с указанной ОС",
   "admin_broadcast_platforms_unavailable": "Не удалось загрузить устройства из панели",
   "admin_broadcast_platform_identifier": "Платформа устройства · {id}",
   "admin_broadcast_audience_group_tariffs": "Конкретный тариф",

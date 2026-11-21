@@ -788,25 +788,15 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
 
     settings: Settings = get_settings(request)
     service = request.app.get("audience_segmentation_service")
+    platforms_unavailable = True
     if isinstance(service, AudienceSegmentationService):
         try:
             platforms = await service.platform_groups()
-            audiences = service.audiences(platforms)
+            platforms_unavailable = service.panel_service is None
         except AudienceUnavailableError:
             logger.warning("Device platform audiences unavailable while loading broadcast counts")
             platforms = {}
-            audiences = service.audiences()
-            audiences.append(
-                AudienceDefinition(
-                    target="device-platforms-unavailable",
-                    label_key="broadcast_platforms_unavailable",
-                    fallback_label="Could not load devices from the panel",
-                    order=600,
-                    available=False,
-                    group_label_key="broadcast_audience_group_platforms",
-                    group_fallback_label="Registered device platform",
-                )
-            )
+        audiences = service.audiences(platforms)
         counts = await service.counts(platforms)
     else:
         async_session_factory: sessionmaker = get_session_factory(request)
@@ -817,6 +807,28 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
             panel_service,
         )
         audiences = []
+        platforms = {}
+
+    if not platforms:
+        audiences.append(
+            AudienceDefinition(
+                target="device-platforms-unavailable"
+                if platforms_unavailable
+                else "device-platforms-empty",
+                label_key="broadcast_platforms_unavailable"
+                if platforms_unavailable
+                else "broadcast_platforms_empty",
+                fallback_label=(
+                    "Could not load devices from the panel"
+                    if platforms_unavailable
+                    else "No registered devices with a reported platform"
+                ),
+                order=600,
+                available=False,
+                group_label_key="broadcast_audience_group_platforms",
+                group_fallback_label="Registered device platform",
+            )
+        )
 
     return _ok(
         AdminBroadcastAudienceCountsOut(
