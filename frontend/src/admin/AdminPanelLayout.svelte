@@ -13,6 +13,7 @@
   import { getUsersStore } from "$lib/admin/context";
   import AdminSectionTabs from "./AdminSectionTabs.svelte";
   import ConfigAlertsBanner from "./ConfigAlertsBanner.svelte";
+  import CoreUpdateBanner from "./CoreUpdateBanner.svelte";
   import {
     dynamicComponent,
     loadDynamicComponent,
@@ -588,6 +589,7 @@
         hidden={Boolean(usersStore.openedUser)}
         style:display={usersStore.openedUser ? "none" : undefined}
       >
+        <CoreUpdateBanner {at} visible={active === "stats"} />
         <ConfigAlertsBanner {at} section={active} onNavigate={onSetActive} />
         {#key `${active}:${runtimeSectionEntry}`}
           <div

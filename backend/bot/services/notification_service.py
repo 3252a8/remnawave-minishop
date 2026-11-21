@@ -142,7 +142,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
                 "Failed to queue notification to log channel %s.", self.settings.LOG_CHAT_ID
             )
 
-    async def _admin_telegram_ids(self) -> list[int]:
+    async def admin_telegram_ids(self) -> list[int]:
         if self.session_factory is None:
             return []
         async with self.session_factory() as session:
@@ -168,7 +168,7 @@ class NotificationService(NotificationPartnerMixin, NotificationSupportMixin):
         if self.bot is None:
             return
 
-        admin_telegram_ids = await self._admin_telegram_ids()
+        admin_telegram_ids = await self.admin_telegram_ids()
         if not admin_telegram_ids:
             return
 

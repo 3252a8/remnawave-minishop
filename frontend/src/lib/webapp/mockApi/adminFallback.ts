@@ -1,5 +1,6 @@
 import { DEV_MOCK } from "../previewMock.js";
 import { themePackageResponse } from "./themePackages";
+import { coreUpdateResponse } from "./coreUpdates";
 import { adminGiftDemoStats } from "./giftsDemo";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset";
 import type { AdminDemoFixtures } from "./adminFixtures";
@@ -19,6 +20,8 @@ export function adminFallbackResponse(
   fixtures: AdminDemoFixtures
 ): unknown {
   const themeResponse = themePackageResponse(path, options);
+  const updateResponse = coreUpdateResponse(cleanPath, options);
+  if (updateResponse !== undefined) return updateResponse;
   if (themeResponse !== undefined) return themeResponse;
   const { clone = defaultClone } = context;
   const {

@@ -51,6 +51,7 @@ from bot.services.admin_broadcast_delivery import AdminBroadcastDeliveryService
 from bot.services.admin_broadcast_worker import AdminBroadcastWorker
 from bot.services.auto_renew_retry_worker import AutoRenewRetryWorker
 from bot.services.backup_worker import BackupWorker
+from bot.services.core_update_notices import run_core_update_notices
 from bot.services.event_reactions import register_core_reactions
 from bot.services.hwid_device_notifications import (
     HWID_DEVICE_NOTIFICATION_RUNTIME_SETTING_KEYS,
@@ -558,6 +559,7 @@ def _account_cleanup_task(ctx: PluginContext) -> Coroutine[Any, Any, None]:
 def _core_worker_tasks() -> list[WorkerTaskSpec]:
     return [
         WorkerTaskSpec(name="AccountCleanupWorker", factory=_account_cleanup_task),
+        WorkerTaskSpec(name="CoreUpdateNotices", factory=run_core_update_notices),
         WorkerTaskSpec(name="PanelMaintenanceWorker", factory=_panel_maintenance_task),
         WorkerTaskSpec(name="OutboundSettingsRefresh", factory=_outbound_settings_refresh_task),
         WorkerTaskSpec(name="GiftActivationWorker", factory=_gift_activation_task),

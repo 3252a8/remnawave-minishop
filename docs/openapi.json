@@ -9291,6 +9291,114 @@
         "title": "Compatibility",
         "type": "object"
       },
+      "CoreUpdateBody": {
+        "properties": {
+          "revision": {
+            "pattern": "^[a-f0-9]{40}$",
+            "title": "Revision",
+            "type": "string"
+          },
+          "tag": {
+            "maxLength": 64,
+            "pattern": "^(?:latest|dev|[0-9]+\\.[0-9]+\\.[0-9]+)$",
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "revision"
+        ],
+        "title": "CoreUpdateBody",
+        "type": "object"
+      },
+      "CoreUpdatePreference": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "CoreUpdatePreference",
+        "type": "object"
+      },
+      "CoreUpdateSelection": {
+        "properties": {
+          "tag": {
+            "maxLength": 64,
+            "pattern": "^(?:latest|dev|[0-9]+\\.[0-9]+\\.[0-9]+)$",
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag"
+        ],
+        "title": "CoreUpdateSelection",
+        "type": "object"
+      },
+      "CoreUpdateState": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "current": {
+            "title": "Current",
+            "type": "string"
+          },
+          "executor": {
+            "title": "Executor",
+            "type": "boolean"
+          },
+          "job_tag": {
+            "title": "Job Tag",
+            "type": "string"
+          },
+          "notifications": {
+            "title": "Notifications",
+            "type": "boolean"
+          },
+          "official": {
+            "title": "Official",
+            "type": "boolean"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Release"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "tag",
+          "release",
+          "available",
+          "official",
+          "executor",
+          "notifications",
+          "phase",
+          "job_tag"
+        ],
+        "title": "CoreUpdateState",
+        "type": "object"
+      },
       "CreateTicketPayload": {
         "properties": {
           "body": {
@@ -15249,6 +15357,29 @@
           "enabled"
         ],
         "title": "PublicSubscriptionGuidesOut",
+        "type": "object"
+      },
+      "Release": {
+        "properties": {
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "revision",
+          "version"
+        ],
+        "title": "Release",
         "type": "object"
       },
       "RepositoryRequest": {
@@ -24230,6 +24361,208 @@
           }
         ],
         "summary": "Admin Broadcast Failures",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/core-updates": {
+      "get": {
+        "operationId": "get_admin_core_updates_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "$ref": "#/components/schemas/CoreUpdateState"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "state"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Core Updates",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/core-updates/apply": {
+      "post": {
+        "operationId": "post_admin_core_apply_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoreUpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "$ref": "#/components/schemas/CoreUpdateState"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "state"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Core Apply",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/core-updates/check": {
+      "post": {
+        "operationId": "post_admin_core_check_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoreUpdateSelection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "$ref": "#/components/schemas/CoreUpdateState"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "state"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Core Check",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/core-updates/notifications": {
+      "put": {
+        "operationId": "put_admin_core_preference_route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoreUpdatePreference"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "$ref": "#/components/schemas/CoreUpdateState"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "state"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Core Preference",
         "tags": [
           "admin"
         ]

@@ -1,0 +1,18 @@
+[Unit]
+Description=Minishop image updates requested by administrators
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -I /usr/local/sbin/minishop-updater
+Restart=on-failure
+RestartSec=10
+StateDirectory=minishop-updater
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

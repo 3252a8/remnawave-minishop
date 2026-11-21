@@ -58,7 +58,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         bot_username: str
         bot: Bot | None
 
-        async def _admin_telegram_ids(self) -> list[int]: ...
+        async def admin_telegram_ids(self) -> list[int]: ...
 
         async def _send_to_admins(
             self,
@@ -326,7 +326,7 @@ class NotificationSupportMixin(NotificationUserContextMixin):
         thread_id = self._support_log_thread_id()
         if not self._support_thread_is_configured():
             if images:
-                for admin_id in await self._admin_telegram_ids():
+                for admin_id in await self.admin_telegram_ids():
                     for image in images:
                         await self._send_support_photo(int(admin_id), image)
             await self._send_to_admins(message, reply_markup=admin_markup)

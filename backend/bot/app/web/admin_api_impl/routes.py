@@ -34,6 +34,12 @@ from .broadcast_shortcodes import (
     admin_broadcast_preview_route,
     admin_broadcast_shortcodes_route,
 )
+from .core_updates import (
+    admin_core_apply_route,
+    admin_core_check_route,
+    admin_core_preference_route,
+    admin_core_updates_route,
+)
 from .documents import (
     admin_document_create_route,
     admin_document_delete_route,
@@ -212,6 +218,10 @@ def setup_admin_routes(app: web.Application) -> None:
     setup_theme_library(app.router)
     setup_plugin_packages(app.router)
     router = app.router
+    router.add_get("/api/admin/core-updates", admin_core_updates_route)
+    router.add_post("/api/admin/core-updates/check", admin_core_check_route)
+    router.add_put("/api/admin/core-updates/notifications", admin_core_preference_route)
+    router.add_post("/api/admin/core-updates/apply", admin_core_apply_route)
     router.add_get("/api/admin/telegram-menu", admin_telegram_menu_route)
     router.add_put("/api/admin/telegram-menu", admin_telegram_menu_save_route)
     router.add_post("/api/admin/telegram-menu/preview", admin_telegram_menu_preview_route)

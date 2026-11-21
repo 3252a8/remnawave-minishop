@@ -1128,6 +1128,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/core-updates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Core Updates */
+    get: operations["get_admin_core_updates_route"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/core-updates/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Core Apply */
+    post: operations["post_admin_core_apply_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/core-updates/check": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Core Check */
+    post: operations["post_admin_core_check_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/core-updates/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Admin Core Preference */
+    put: operations["put_admin_core_preference_route"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/documents": {
     parameters: {
       query?: never;
@@ -8955,6 +9023,43 @@ export interface components {
        */
       theme_api: number;
     };
+    /** CoreUpdateBody */
+    CoreUpdateBody: {
+      /** Revision */
+      revision: string;
+      /** Tag */
+      tag: string;
+    };
+    /** CoreUpdatePreference */
+    CoreUpdatePreference: {
+      /** Enabled */
+      enabled: boolean;
+    };
+    /** CoreUpdateSelection */
+    CoreUpdateSelection: {
+      /** Tag */
+      tag: string;
+    };
+    /** CoreUpdateState */
+    CoreUpdateState: {
+      /** Available */
+      available: boolean;
+      /** Current */
+      current: string;
+      /** Executor */
+      executor: boolean;
+      /** Job Tag */
+      job_tag: string;
+      /** Notifications */
+      notifications: boolean;
+      /** Official */
+      official: boolean;
+      /** Phase */
+      phase: string;
+      release: components["schemas"]["Release"] | null;
+      /** Tag */
+      tag: string;
+    };
     /** CreateTicketPayload */
     CreateTicketPayload: {
       /** Body */
@@ -11523,6 +11628,15 @@ export interface components {
       source: string | null;
       /** @default null */
       subscription: components["schemas"]["PublicSubscriptionContextOut"] | null;
+    };
+    /** Release */
+    Release: {
+      /** Revision */
+      revision: string;
+      /** Tag */
+      tag: string;
+      /** Version */
+      version: string;
     };
     /** RepositoryRequest */
     RepositoryRequest: {
@@ -15626,6 +15740,114 @@ export interface operations {
             /** @constant */
             ok: true;
           } & components["schemas"]["AdminBroadcastFailuresOut"];
+        };
+      };
+    };
+  };
+  get_admin_core_updates_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            state: components["schemas"]["CoreUpdateState"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_core_apply_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CoreUpdateBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            state: components["schemas"]["CoreUpdateState"];
+          };
+        };
+      };
+    };
+  };
+  post_admin_core_check_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CoreUpdateSelection"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            state: components["schemas"]["CoreUpdateState"];
+          };
+        };
+      };
+    };
+  };
+  put_admin_core_preference_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CoreUpdatePreference"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            state: components["schemas"]["CoreUpdateState"];
+          };
         };
       };
     };
