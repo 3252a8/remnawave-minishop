@@ -1,16 +1,19 @@
-# Resolve the application version from .git at build time and emit a tiny
-# .build-version file. The .git tree is consumed in this throwaway stage and
-# never copied into the runtime image; only the tag + commit version string and
-# a low-cardinality build provenance marker ship. Non-main builds include the
-# branch name so they are visibly distinct from release builds. This matches the
-# runtime fallback chain in _resolve_app_version (REMNAWAVE_MINISHOP_VERSION env
-# > .build-version file > live git > "dev+unknown") so the admin sidebar always
-# shows a tag / sha even though the runtime images have no git tooling and no
-# .git tree.
-FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS version-builder
+# Official builds receive verified Git metadata from CI. Only a local source
+# build needs Git or the checkout history in its build context.
+ARG VERSION_SOURCE=git
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS version-input-ci
+WORKDIR /repo
+
+FROM version-input-ci AS version-input-git
 COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
 RUN sh /tmp/retry_apk.sh add --no-cache git
-WORKDIR /repo
+RUN --mount=type=bind,source=.git,target=/repo/.git \
+    git config --global --add safe.directory /repo && \
+    { git describe --tags --abbrev=0 2>/dev/null || true; } > /git-tag && \
+    { git rev-parse --short HEAD 2>/dev/null || true; } > /git-commit && \
+    { git symbolic-ref --quiet --short HEAD 2>/dev/null || true; } > /git-branch
+
+FROM version-input-${VERSION_SOURCE} AS version-builder
 ARG REMNAWAVE_MINISHOP_BRANCH=""
 ARG GIT_BRANCH=""
 ARG BRANCH_NAME=""
@@ -19,17 +22,14 @@ ARG CI_COMMIT_REF_NAME=""
 ARG REMNAWAVE_MINISHOP_BUILD_PROVENANCE="custom"
 ARG REMNAWAVE_MINISHOP_BUILD_TAG=""
 ARG REMNAWAVE_MINISHOP_BUILD_COMMIT=""
-RUN --mount=type=bind,source=.git,target=/repo/.git \
-    set -eu; \
+RUN set -eu; \
     tag="$REMNAWAVE_MINISHOP_BUILD_TAG"; \
     sha="$REMNAWAVE_MINISHOP_BUILD_COMMIT"; \
     branch="${REMNAWAVE_MINISHOP_BRANCH:-${GIT_BRANCH:-${BRANCH_NAME:-${GITHUB_REF_NAME:-${CI_COMMIT_REF_NAME:-}}}}}"; \
-    if [ -z "$sha" ]; then \
-        git config --global --add safe.directory /repo; \
-        if [ -z "$tag" ]; then tag=$(git describe --tags --abbrev=0 2>/dev/null || true); fi; \
-        if [ -z "$sha" ]; then sha=$(git rev-parse --short HEAD 2>/dev/null || true); fi; \
-        if [ -z "$branch" ]; then branch=$(git branch --show-current 2>/dev/null || true); fi; \
-        if [ -z "$branch" ]; then branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true); fi; \
+    if [ -z "$sha" ] && [ -f /git-commit ]; then \
+        sha=$(cat /git-commit); \
+        tag=${tag:-$(cat /git-tag)}; \
+        branch=${branch:-$(cat /git-branch)}; \
     fi; \
     case "$branch" in \
         refs/heads/*) branch="${branch#refs/heads/}" ;; \
@@ -62,7 +62,7 @@ RUN --mount=type=bind,source=.git,target=/repo/.git \
     printf '%s' "$provenance" > /build-provenance
 
 
-FROM ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5 AS python-dependencies
+FROM ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289 AS python-dependencies
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -72,8 +72,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Reuse the publication nonce so Ubuntu security upgrades cannot stay cached
-# across published build attempts, just like the Alpine package refresh below.
+# The publisher rotates this cache key daily and forces a fresh release or retry.
 ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
 
 # A 502 from an Ubuntu mirror fails the image build outright, so index refreshes
@@ -95,49 +94,43 @@ RUN set -eux; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
-      gnupg \
       python3.12 \
       python3.12-venv; \
     # CVE-2026-111497: require the fixed Noble Brotli decoder used by curl.
     dpkg --compare-versions "$(dpkg-query -W -f='${Version}' libbrotli1)" ge '1.1.0-2ubuntu0.1'; \
     . /etc/os-release; \
     install -d /usr/share/postgresql-common/pgdg; \
+    # APT accepts the upstream ASCII-armored key directly.
     curl --fail --silent --show-error --location \
       --retry 4 --retry-all-errors --retry-max-time 150 --connect-timeout 15 --max-time 45 \
-      --output /tmp/pgdg-key.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
-    gpg --dearmor --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg /tmp/pgdg-key.asc; \
-    rm /tmp/pgdg-key.asc; \
-    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+      --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc; \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list; \
     apt_update_with_retries; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-client-17; \
     python3.12 -m venv "$VIRTUAL_ENV"; \
-    # Keep curl in the runtime image: it backs the container healthcheck. A
-    # spawned curl is far cheaper than booting a full Python interpreter every
-    # interval. Only gnupg (build-time key import) is purged here.
-    apt-get purge -y --auto-remove gnupg; \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -u 10001 -m appuser
 
 COPY backend/requirements.txt backend/requirements.txt
-COPY deploy/docker/refresh_pip_vendor.py /tmp/refresh_pip_vendor.py
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=bind,source=deploy/docker/refresh_pip_vendor.py,target=/tmp/refresh_pip_vendor.py \
+    --mount=type=cache,target=/root/.cache/pip \
     pip install --no-compile --upgrade "pip==26.3" && \
     pip install --no-compile --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
       "setuptools==80.9.0" && \
     pip install --no-compile -r backend/requirements.txt && \
     python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
-    rm -rf /tmp/pip-vendor-fixes /tmp/refresh_pip_vendor.py
+    rm -rf /tmp/pip-vendor-fixes
 
 FROM python-dependencies AS python-base
 
-COPY locales ./locales
-COPY data ./data
-COPY backend ./backend
+COPY --link locales ./locales
+COPY --chown=appuser:appuser data ./data
 RUN mkdir -p /app/logs /app/data \
     && if [ ! -f /app/data/locales-overrides.json ]; then printf '{}\n' > /app/data/locales-overrides.json; fi \
-    && chown -R appuser:appuser /app/logs /app/data
+    && chown appuser:appuser /app/logs /app/data /app/data/locales-overrides.json
+COPY --link backend ./backend
 COPY --from=version-builder /build-version /app/.build-version
 COPY --from=version-builder /build-tag /app/.build-tag
 COPY --from=version-builder /build-commit /app/.build-commit
@@ -152,14 +145,12 @@ FROM node-runtime AS frontend-builder
 
 WORKDIR /app/frontend
 
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    if [ -f package-lock.json ]; then npm ci; else npm install; fi
+    npm ci --no-audit --no-fund
 
 COPY frontend ./
 COPY backend/config/defaults/svg_policy.json ../backend/config/defaults/svg_policy.json
-RUN mkdir -p ../backend/bot/app/web/templates
-
 RUN npm run build:webapp
 COPY backend/bot/app/web/templates/subscription_webapp.html ../backend/bot/app/web/templates/subscription_webapp.html
 RUN node ./scripts/prepare_nginx_assets.mjs --out ../frontend-nginx-dist
@@ -178,9 +169,8 @@ USER root
 # revalidate -> stale CSS and a broken-looking Mini App on iOS only. Pull the
 # freshly built assets (the same hashes the nginx image serves) into the image so
 # the shell emits immutable, cache-busting URLs.
-COPY --from=frontend-builder /app/backend/bot/app/web/templates/ ./backend/bot/app/web/templates/
-COPY deploy/docker/backend-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/backend-entrypoint.sh
+COPY --link --from=frontend-builder /app/backend/bot/app/web/templates/ ./backend/bot/app/web/templates/
+COPY --chmod=755 deploy/docker/backend-entrypoint.sh /usr/local/bin/
 ENTRYPOINT ["/usr/local/bin/backend-entrypoint.sh"]
 
 # GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
@@ -220,7 +210,9 @@ WORKDIR /workspace
 CMD ["python", "-m", "pytest"]
 
 FROM qa-deps AS qa
-COPY . /workspace
+# Keep Git history out of the QA layer on supported Docker 25 builders too.
+RUN --mount=type=bind,target=/src \
+    find /src -mindepth 1 -maxdepth 1 ! -name .git -exec cp -a -t /workspace -- {} +
 CMD ["python", "-m", "pytest"]
 
 
@@ -235,39 +227,32 @@ LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minis
 CMD ["python", "backend/plugin_launcher.py", "worker"]
 
 
-FROM nginx:1.30.7-alpine@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598 AS nginx-brotli-builder
+FROM nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 AS nginx-brotli-builder
 
-# Refresh Alpine packages for every published source revision.
-ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
+# Only the static module ships: it serves files compressed by the web build.
+# The pinned nginx base determines its ABI. Release builds refresh the tools.
 COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
+RUN sh /tmp/retry_apk.sh add --no-cache gcc linux-headers make musl-dev pcre2-dev zlib-dev
 RUN set -eu; \
-    : "$REMNAWAVE_MINISHOP_APK_REFRESH"; \
-    sh /tmp/retry_apk.sh upgrade --no-cache; \
-    sh /tmp/retry_apk.sh add --no-cache \
-        build-base \
-        git \
-        linux-headers \
-        openssl-dev \
-        pcre2-dev \
-        wget \
-        zlib-dev; \
     nginx_version="$(nginx -v 2>&1 | sed 's#nginx version: nginx/##')"; \
     cd /tmp; \
-    wget -q "https://nginx.org/download/nginx-${nginx_version}.tar.gz"; \
-    tar -xzf "nginx-${nginx_version}.tar.gz"; \
-    git clone --branch v1.0.0rc --depth 1 --recurse-submodules \
-        https://github.com/google/ngx_brotli.git; \
+    curl -fsSL --retry 4 --retry-all-errors -o nginx.tar.gz "https://nginx.org/download/nginx-${nginx_version}.tar.gz"; \
+    tar -xzf nginx.tar.gz; \
+    curl -fsSL --retry 4 --retry-all-errors -o ngx_brotli.tar.gz \
+      https://codeload.github.com/google/ngx_brotli/tar.gz/25f86f0bac1101b6512135eac5f93c49c63609e3; \
+    echo 'd044ea1393d0a5cf6ddfaf44bd0f5df3e295ab8f02fd45be8da4c868524e0c93  ngx_brotli.tar.gz' | sha256sum -c -; \
+    mkdir ngx_brotli; tar -xzf ngx_brotli.tar.gz -C ngx_brotli --strip-components=1; \
     cd "nginx-${nginx_version}"; \
     ./configure \
         --with-compat \
         --with-cc-opt='-Wno-error=vla-parameter -Wno-error=unterminated-string-initialization' \
-        --add-dynamic-module=../ngx_brotli; \
+        --add-dynamic-module=../ngx_brotli/static; \
     make modules; \
     mkdir -p /brotli-modules; \
-    cp objs/ngx_http_brotli_static_module.so /brotli-modules/
+    strip -o /brotli-modules/ngx_http_brotli_static_module.so objs/ngx_http_brotli_static_module.so
 
 
-FROM nginx:1.30.7-alpine@sha256:bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598 AS frontend
+FROM nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 AS frontend
 
 ARG REMNAWAVE_MINISHOP_APK_REFRESH=""
 COPY deploy/docker/retry_apk.sh /tmp/retry_apk.sh
@@ -284,12 +269,9 @@ RUN set -eu; \
     rm /tmp/retry_apk.sh; \
     sed -i '1i load_module modules/ngx_http_brotli_static_module.so;' /etc/nginx/nginx.conf
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/minishop/default.conf.template
-COPY deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh
+COPY --chmod=755 deploy/docker/frontend/00-startup-banner.sh /docker-entrypoint.d/00-startup-banner.sh
 COPY deploy/docker/frontend/robots.txt /usr/share/nginx/html/robots.txt
-RUN set -eu; \
-    find /docker-entrypoint.d -type f -name '*.sh' -exec sed -i 's/\r$//' {} +; \
-    chmod +x /docker-entrypoint.d/00-startup-banner.sh
-COPY --from=frontend-builder /app/frontend-nginx-dist/ /usr/share/nginx/html/
+COPY --link --from=frontend-builder /app/frontend-nginx-dist/ /usr/share/nginx/html/
 COPY --from=version-builder /build-tag /build-tag
 COPY --from=version-builder /build-commit /build-commit
 

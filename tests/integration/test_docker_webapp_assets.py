@@ -30,7 +30,7 @@ class DockerWebappAssetTests(unittest.TestCase):
     def test_backend_stage_copies_built_webapp_assets(self) -> None:
         self.assertRegex(
             self.dockerfile,
-            r"COPY\s+--from=frontend-builder\s+\S*backend/bot/app/web/templates/"
+            r"COPY\s+(?:--link\s+)?--from=frontend-builder\s+\S*backend/bot/app/web/templates/"
             r"\s+\S*backend/bot/app/web/templates/",
             "backend image must copy the freshly built (hashed) webapp assets so the "
             "shell emits immutable, cache-busting asset URLs",
@@ -50,12 +50,14 @@ class DockerWebappAssetTests(unittest.TestCase):
     def test_frontend_builder_builds_the_webapp_assets(self) -> None:
         self.assertIn("npm run build:webapp", self.dockerfile)
 
-    def test_docker_context_ignores_local_admin_split_chunks(self) -> None:
+    def test_docker_context_ignores_locally_generated_assets(self) -> None:
         dockerignore = DOCKERIGNORE_PATH.read_text(encoding="utf-8")
 
         for pattern in (
             "bot/app/web/templates/subscription_webapp_admin.*.*.js",
             "backend/bot/app/web/templates/subscription_webapp_admin.*.*.js",
+            "backend/bot/app/web/templates/provider-logos/",
+            "backend/bot/app/web/templates/fonts/",
         ):
             self.assertIn(pattern, dockerignore)
 

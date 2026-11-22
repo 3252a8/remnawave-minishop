@@ -32,33 +32,27 @@ jobs:
   build:
     needs: lockfiles
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        target: [backend, worker, frontend]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build remnawave-minishop-${{ matrix.target }}
-        uses: docker/build-push-action@v7
+      - name: Build all runtime images
+        uses: docker/bake-action@v7
+        env:
+          CACHE_SUFFIX: ci
         with:
-          context: .
-          file: deploy/docker/Dockerfile
-          target: ${{ matrix.target }}
-          platforms: linux/amd64
+          source: .
+          files: deploy/docker/images.hcl
           push: false
           pull: true
-          tags: remnawave-minishop-${{ matrix.target }}:ci
-          build-args: |
-            GITHUB_REF_NAME=${{ github.ref_name }}
-            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
-          cache-from: type=gha,scope=${{ matrix.target }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+          set: |
+            *.args.GITHUB_REF_NAME=${{ github.ref_name }}
+            *.args.REMNAWAVE_MINISHOP_BUILD_PROVENANCE=${{ github.repository == '3252a8/remnawave-minishop' && 'official' || 'custom' }}
           provenance: false
           sbom: false

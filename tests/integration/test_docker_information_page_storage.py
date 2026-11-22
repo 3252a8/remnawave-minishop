@@ -20,5 +20,6 @@ def test_runtime_entrypoint_repairs_persisted_information_page_directory_ownersh
 def test_backend_image_installs_the_unprivileged_runtime_entrypoint() -> None:
     dockerfile = DOCKERFILE_PATH.read_text(encoding="utf-8")
 
-    assert dockerfile.count("COPY deploy/docker/backend-entrypoint.sh /usr/local/bin/") == 1
+    entrypoint_copy = "COPY --chmod=755 deploy/docker/backend-entrypoint.sh /usr/local/bin/"
+    assert dockerfile.count(entrypoint_copy) == 1
     assert dockerfile.count('ENTRYPOINT ["/usr/local/bin/backend-entrypoint.sh"]') == 1

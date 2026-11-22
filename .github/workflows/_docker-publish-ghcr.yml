@@ -50,20 +50,13 @@ jobs:
       - name: Check npm lockfiles
         run: npm run check:lockfiles
 
-  publish:
-    name: Publish ${{ matrix.image }}
+  build:
+    name: Build all candidate images
     needs: lockfiles
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: backend
-            image: remnawave-minishop-backend
-          - target: worker
-            image: remnawave-minishop-worker
-          - target: frontend
-            image: remnawave-minishop-frontend
+    outputs:
+      digests: ${{ steps.digests.outputs.digests }}
+      tag: ${{ steps.build-version.outputs.tag }}
     steps:
       - name: Validate publishing inputs
         env:
@@ -90,6 +83,7 @@ jobs:
         with:
           ref: ${{ inputs.source_ref }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify checked-out source
         env:
@@ -112,6 +106,9 @@ jobs:
             echo "Invalid application build tag: $tag" >&2
             exit 1
           fi
+          refresh="$(date -u +%F)"
+          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then refresh="$refresh-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"; fi
+          printf 'refresh=%s\n' "$refresh" >> "$GITHUB_OUTPUT"
           printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
@@ -134,7 +131,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          images: ghcr.io/${{ github.repository }}
           flavor: latest=false
           tags: |
             type=raw,value=dev,enable=${{ inputs.channel == 'dev' }}
@@ -144,42 +141,71 @@ jobs:
             org.opencontainers.image.ref.name=${{ inputs.channel == 'release' && format('v{0}', inputs.version) || 'dev' }}
             org.opencontainers.image.revision=${{ inputs.source_commit }}
 
-      - name: Build and push ${{ matrix.image }}
+      - name: Build and push all candidates
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/bake-action@v7
+        env:
+          CANDIDATE_TAG: candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          CACHE_SUFFIX: ghcr
         with:
-          context: .
-          file: deploy/docker/Dockerfile
-          target: ${{ matrix.target }}
-          platforms: linux/amd64
+          source: .
+          files: |
+            deploy/docker/images.hcl
+            ${{ steps.meta.outputs.bake-file-labels }}
           push: true
           pull: true
           no-cache: ${{ inputs.channel == 'release' }}
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
-            docker.io/${{ github.repository_owner }}/${{ matrix.image }}:candidate-${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            REMNAWAVE_MINISHOP_BRANCH=${{ inputs.channel == 'release' && 'main' || 'dev' }}
-            REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official
-            REMNAWAVE_MINISHOP_BUILD_TAG=${{ steps.build-version.outputs.tag }}
-            REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ inputs.source_commit }}
-            REMNAWAVE_MINISHOP_APK_REFRESH=${{ inputs.source_commit }}-${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=${{ matrix.target }}-ghcr
-          cache-to: type=gha,mode=max,scope=${{ matrix.target }}-ghcr
           provenance: mode=max
           sbom: true
+          set: |
+            *.args.VERSION_SOURCE=ci
+            *.args.REMNAWAVE_MINISHOP_BRANCH=${{ inputs.channel == 'release' && 'main' || 'dev' }}
+            *.args.REMNAWAVE_MINISHOP_BUILD_PROVENANCE=official
+            *.args.REMNAWAVE_MINISHOP_BUILD_TAG=${{ steps.build-version.outputs.tag }}
+            *.args.REMNAWAVE_MINISHOP_BUILD_COMMIT=${{ inputs.source_commit }}
+            *.args.REMNAWAVE_MINISHOP_APK_REFRESH=${{ steps.build-version.outputs.refresh }}
+
+      - name: Select immutable image digests
+        id: digests
+        env:
+          METADATA: ${{ steps.build.outputs.metadata }}
+        run: |
+          digests=$(jq -ce 'with_entries(.value = .value["containerimage.digest"])
+            | select(keys == ["backend","frontend","worker"] and all(.[]; test("^sha256:[0-9a-f]{64}$")))' <<< "$METADATA")
+          echo "digests=$digests" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Verify ${{ matrix.target }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [backend, worker, frontend]
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Verify application version inside the candidate
         env:
-          IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/remnawave-minishop-${{ matrix.target }}@${{ fromJSON(needs.build.outputs.digests)[matrix.target] }}
           TARGET: ${{ matrix.target }}
           CHANNEL: ${{ inputs.channel }}
-          TAG: ${{ steps.build-version.outputs.tag }}
+          TAG: ${{ needs.build.outputs.tag }}
           COMMIT: ${{ inputs.source_commit }}
         run: |
           set -euo pipefail
-          docker run --rm --network none --entrypoint /bin/sh "$IMAGE" +            -ec '
+          docker run --rm --network none --entrypoint /bin/sh "$IMAGE" -ec '
               target="$1"; tag="$2"; commit="$3"; channel="$4"
               if [ "$target" = frontend ]; then
                 test "$(cat /build-tag)" = "${tag:-unknown}"
@@ -201,7 +227,7 @@ jobs:
         with:
           version: v0.76.2
           scan-type: image
-          image-ref: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/remnawave-minishop-${{ matrix.target }}@${{ fromJSON(needs.build.outputs.digests)[matrix.target] }}
           scanners: vuln
           severity: CRITICAL,HIGH
           exit-code: "1"
@@ -215,7 +241,7 @@ jobs:
       - name: Sign and verify the Docker Hub candidate
         env:
           COSIGN_EXPERIMENTAL: "1"
-          IMAGE: docker.io/${{ github.repository_owner }}/${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          IMAGE: docker.io/${{ github.repository_owner }}/remnawave-minishop-${{ matrix.target }}@${{ fromJSON(needs.build.outputs.digests)[matrix.target] }}
           SOURCE_COMMIT: ${{ inputs.source_commit }}
           CHANNEL_TAG: ${{ inputs.channel == 'release' && inputs.version || 'dev' }}
         run: |
@@ -239,13 +265,13 @@ jobs:
         if: inputs.channel == 'release'
         uses: actions/attest@v4
         with:
-          subject-name: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-name: ghcr.io/${{ github.repository_owner }}/remnawave-minishop-${{ matrix.target }}
+          subject-digest: ${{ fromJSON(needs.build.outputs.digests)[matrix.target] }}
           push-to-registry: true
 
       - name: Record verified digest
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ fromJSON(needs.build.outputs.digests)[matrix.target] }}
           TARGET: ${{ matrix.target }}
         run: printf '%s\n' "$DIGEST" > "$TARGET.digest"
 

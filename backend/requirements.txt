@@ -6,7 +6,7 @@
 #
 aiofiles==25.1.0
     # via aiogram
-aiogram==3.32.0
+aiogram==3.33.0
     # via -r backend/requirements.in
 aiohappyeyeballs==2.7.1
     # via aiohttp
@@ -29,7 +29,7 @@ attrs==26.1.0
     # via aiohttp
 cbor2==6.3.0
     # via webauthn
-certifi==2026.10.23
+certifi==2026.11.20
     # via
     #   -r backend/requirements.in
     #   aiogram
@@ -127,7 +127,7 @@ redis==8.1.0
     # via -r backend/requirements.in
 requests==2.34.2
     # via yookassa
-sqlalchemy[asyncio]==2.0.57
+sqlalchemy[asyncio]==2.0.58
     # via -r backend/requirements.in
 tinycss2==1.5.1
     # via -r backend/requirements.in

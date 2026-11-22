@@ -83,6 +83,10 @@ backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.br
 backend/bot/app/web/templates/subscription_webapp_docs_demo.*.css.gz
 
+# Vite copies these from frontend assets during the image build.
+backend/bot/app/web/templates/provider-logos/
+backend/bot/app/web/templates/fonts/
+
 # Split chunks, source maps and compressed variants are rebuilt in Docker too.
 bot/app/web/templates/subscription_webapp*.js*
 bot/app/web/templates/subscription_webapp*.css*
@@ -177,3 +181,10 @@ venv/
 !deploy/compose/*.yml
 !.dockerignore
 !.env.example
+
+# Local secrets and dependency trees can also live under backend or frontend.
+**/.env
+**/.env.*
+!**/.env*.example
+**/.venv/
+**/node_modules/

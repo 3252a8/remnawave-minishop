@@ -53,38 +53,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Warm current-source backend build
-        uses: docker/build-push-action@v7
+      - name: Build current-source stand images together
+        uses: docker/bake-action@v7
+        env:
+          LOCAL_TAG: qa-${{ github.sha }}
         with:
-          context: .
-          file: deploy/docker/Dockerfile
-          target: backend
+          source: .
+          files: deploy/docker/images.hcl
           load: true
-          tags: 3252a8/remnawave-minishop-backend:qa-${{ github.sha }}
-          cache-from: type=gha,scope=backend,timeout=2m
           provenance: false
-
-      - name: Warm current-source worker build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: deploy/docker/Dockerfile
-          target: worker
-          load: true
-          tags: 3252a8/remnawave-minishop-worker:qa-${{ github.sha }}
-          cache-from: type=gha,scope=worker,timeout=2m
-          provenance: false
-
-      - name: Warm current-source frontend build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: deploy/docker/Dockerfile
-          target: frontend
-          load: true
-          tags: 3252a8/remnawave-minishop-frontend:qa-${{ github.sha }}
-          cache-from: type=gha,scope=frontend,timeout=2m
-          provenance: false
+          set: |
+            backend.cache-from=type=gha,scope=backend-ci,timeout=2m
+            worker.cache-from=type=gha,scope=worker-ci,timeout=2m
+            frontend.cache-from=type=gha,scope=frontend-ci,timeout=2m
 
       - name: Start dev stand
         env:
