@@ -30,6 +30,11 @@
 
 ### Исправлено
 
+- В Docker-образах backend и worker установщик `pip` читает метаданные через
+  стандартную библиотеку Python 3.12. Убраны устаревший модуль `pkg_resources`
+  и системный wheel `setuptools`. Новые виртуальные окружения получают тот же
+  `pip`, что и основное приложение.
+
 - Обновлён aiogram до 3.33.0. Библиотека скрывает токен бота в сообщениях
   о сетевых ошибках и исправляет обработку фильтров и некорректных webhook-обновлений.
   [b3ef7b73](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b3ef7b730e06e2dcbbe0e9a2c8936776f9e22487)
@@ -55,7 +60,9 @@
 - В официальных Docker-образах backend и worker используют общие слои ОС,
   Python-зависимостей и кода. Docker загружает их один раз на хост. При
   повторной dev-сборке в течение суток неизменные зависимости берутся из кеша.
-  [b3ef7b73](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b3ef7b730e06e2dcbbe0e9a2c8936776f9e22487)
+  Тесты используют образ с проверенным digest.
+  [b3ef7b73](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b3ef7b730e06e2dcbbe0e9a2c8936776f9e22487),
+  [edd9c17e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/edd9c17ed6d2612245a76f561ddd528bf3f3186e)
 
 ### Документация
 

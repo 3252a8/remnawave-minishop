@@ -109,6 +109,11 @@ RUN set -eux; \
     apt_update_with_retries; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends postgresql-client-17; \
     python3.12 -m venv "$VIRTUAL_ENV"; \
+    # Python 3.12 seeds only pip. Keep Ubuntu's matching ensurepip module for
+    # new virtual environments, then supply the same pip wheel used below.
+    cp -a /usr/lib/python3.12/ensurepip /tmp/ensurepip; \
+    apt-get purge -y python3.12-venv python3-pip-whl python3-setuptools-whl; \
+    mv /tmp/ensurepip /usr/lib/python3.12/ensurepip; \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -u 10001 -m appuser
@@ -116,12 +121,19 @@ RUN useradd -u 10001 -m appuser
 COPY backend/requirements.txt backend/requirements.txt
 RUN --mount=type=bind,source=deploy/docker/refresh_pip_vendor.py,target=/tmp/refresh_pip_vendor.py \
     --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-compile --upgrade "pip==26.3" && \
-    pip install --no-compile --no-deps --only-binary=:all: --target /tmp/pip-vendor-fixes \
-      "setuptools==80.9.0" && \
-    pip install --no-compile -r backend/requirements.txt && \
-    python /tmp/refresh_pip_vendor.py /tmp/pip-vendor-fixes && \
-    rm -rf /tmp/pip-vendor-fixes
+    set -eu; \
+    tools=/tmp/pip-wheel; \
+    pip_version=26.3; \
+    pip install --only-binary=:all: --no-compile --target "$tools" "wheel==0.48.0" "packaging==26.3"; \
+    pip download --only-binary=:all: --no-deps --dest "$tools" "pip==$pip_version"; \
+    PYTHONPATH="$tools" python -m wheel unpack --dest "$tools" "$tools"/pip-*.whl; \
+    python /tmp/refresh_pip_vendor.py "$tools/pip-$pip_version"; \
+    SOURCE_DATE_EPOCH=315532800 PYTHONPATH="$tools" python -m wheel pack --dest-dir "$tools" "$tools/pip-$pip_version"; \
+    pip install --no-index --no-deps --no-compile "$tools"/pip-*.whl; \
+    install -D -m 0644 -t /usr/share/python-wheels "$tools"/pip-*.whl; \
+    rm -rf "$tools"; \
+    python -m pip install --no-compile -r backend/requirements.txt; \
+    python -m pip check
 
 FROM python-dependencies AS python-base
 
