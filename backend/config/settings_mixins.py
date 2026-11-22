@@ -26,7 +26,7 @@ from config.settings_models import (
 )
 from config.settings_protocol import _SettingsComputedMixinBase, computed_field
 from config.settings_validation import SettingsValidationMixin as SettingsValidationMixin
-from config.stars_pricing import apply_catalog_stars_rate, rub_to_stars
+from config.stars_pricing import apply_catalog_stars_rate, convert_rub_prices
 from config.support_links import normalize_support_link
 from config.tariff_config_utils import normalize_currency_key
 from config.tariffs_config import (
@@ -433,10 +433,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             and self.STARS_RUB_PER_STAR
             and normalize_currency_key(self.DEFAULT_CURRENCY_SYMBOL) == "rub"
         ):
-            options.update(
-                (months, rub_to_stars(price, self.STARS_RUB_PER_STAR))
-                for months, price in self.subscription_options.items()
-            )
+            options.update(convert_rub_prices(self.subscription_options, self.STARS_RUB_PER_STAR))
         return options
 
     @computed_field
@@ -487,10 +484,7 @@ class SettingsComputedMixin(_SettingsComputedMixinBase):
             self.STARS_RUB_PER_STAR
             and normalize_currency_key(self.DEFAULT_CURRENCY_SYMBOL) == "rub"
         ):
-            packages.update(
-                (gb, rub_to_stars(price, self.STARS_RUB_PER_STAR))
-                for gb, price in self.traffic_packages.items()
-            )
+            packages.update(convert_rub_prices(self.traffic_packages, self.STARS_RUB_PER_STAR))
         return packages
 
     @computed_field

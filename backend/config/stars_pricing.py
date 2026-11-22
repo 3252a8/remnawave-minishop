@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 from config.tariffs_config import HwidDevicePackageSet, PackageSet
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from config.settings import Settings
     from config.tariffs_config import TariffsConfig
 
@@ -18,6 +20,15 @@ def rub_to_stars(price: float, rub_per_star: float) -> int:
         return 0
     amount = Decimal(str(price)) / Decimal(str(rub_per_star))
     return int(amount.to_integral_value(rounding=ROUND_CEILING))
+
+
+def convert_rub_prices[Key](prices: Mapping[Key, float], rate: float) -> dict[Key, int]:
+    """Convert payable RUB prices without replacing manual Stars prices with zero."""
+    converted: dict[Key, int] = {}
+    for key, price in prices.items():
+        if stars := rub_to_stars(price, rate):
+            converted[key] = stars
+    return converted
 
 
 def trial_stars_price(settings: Settings, currency: str) -> int:
@@ -31,10 +42,9 @@ def _convert_traffic_prices(packages: PackageSet | None, rate: float) -> Package
     if packages is None or not packages.rub:
         return packages
     stars = {package.gb: package for package in packages.stars}
-    stars.update(
-        (package.gb, package.model_copy(update={"price": rub_to_stars(package.price, rate)}))
-        for package in packages.rub
-    )
+    for package in packages.rub:
+        if price := rub_to_stars(package.price, rate):
+            stars[package.gb] = package.model_copy(update={"price": price})
     return PackageSet(packages.root | {"stars": list(stars.values())})
 
 
@@ -45,12 +55,14 @@ def _convert_device_prices(
         return packages
     stars = {package.count: package for package in packages.stars}
     for package in packages.rub:
+        price = rub_to_stars(package.price, rate)
+        prices = {period: rub_to_stars(price, rate) for period, price in package.prices.items()}
+        if not price and not any(prices.values()):
+            continue
         stars[package.count] = package.model_copy(
             update={
-                "price": rub_to_stars(package.price, rate),
-                "prices": {
-                    period: rub_to_stars(price, rate) for period, price in package.prices.items()
-                },
+                "price": price,
+                "prices": prices,
                 "min_price": (
                     rub_to_stars(package.min_price, rate) if package.min_price is not None else None
                 ),
@@ -64,9 +76,7 @@ def apply_catalog_stars_rate(config: TariffsConfig, rate: float) -> TariffsConfi
     config.topup_packages_default = _convert_traffic_prices(config.topup_packages_default, rate)
     for tariff in config.tariffs:
         if rub_prices := tariff.prices.get("rub"):
-            tariff.prices_stars = tariff.prices_stars | {
-                period: rub_to_stars(price, rate) for period, price in rub_prices.items()
-            }
+            tariff.prices_stars = tariff.prices_stars | convert_rub_prices(rub_prices, rate)
             tariff.prices["stars"] = tariff.prices_stars
         tariff.traffic_packages = _convert_traffic_prices(tariff.traffic_packages, rate)
         tariff.topup_packages = _convert_traffic_prices(tariff.topup_packages, rate)

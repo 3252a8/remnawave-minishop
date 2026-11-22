@@ -21,10 +21,17 @@ def test_catalog_stars_prices_are_derived_without_changing_stored_prices(tmp_pat
                         "period_unit": "day",
                         "monthly_gb": 10,
                         "enabled_periods": [1, 3],
-                        "prices": {"rub": {"1": 100}, "stars": {"1": 80, "3": 250}},
-                        "topup_packages": {"rub": [{"gb": 20, "price": 19}]},
+                        "prices": {"rub": {"1": 100, "3": 0}, "stars": {"1": 80, "3": 250}},
+                        "topup_packages": {
+                            "rub": [{"gb": 20, "price": 19}, {"gb": 10, "price": 0}],
+                            "stars": [{"gb": 10, "price": 15}],
+                        },
                         "hwid_device_packages": {
-                            "rub": [{"count": 2, "price": 28, "prices": {"3": 57}, "min_price": 5}]
+                            "rub": [
+                                {"count": 2, "price": 28, "prices": {"3": 57}, "min_price": 5},
+                                {"count": 1, "price": 0},
+                            ],
+                            "stars": [{"count": 1, "price": 12}],
                         },
                         "hwid_device_limit": 3,
                         "checkout_addons": {
@@ -49,9 +56,12 @@ def test_catalog_stars_prices_are_derived_without_changing_stored_prices(tmp_pat
     assert tariff.period_price(3, "stars") == 250
     assert stored.default.period_price(1, "stars") == 80
     assert tariff.topup_packages is not None
-    assert tariff.topup_packages.stars[0].price == 20
+    topup_prices = {package.gb: package.price for package in tariff.topup_packages.stars}
+    assert topup_prices == {10: 15, 20: 20}
     assert tariff.hwid_device_packages is not None
-    devices = tariff.hwid_device_packages.stars[0]
+    devices_by_count = {package.count: package for package in tariff.hwid_device_packages.stars}
+    assert devices_by_count[1].price == 12
+    devices = devices_by_count[2]
     assert devices.price_for_period(3) == 60
     assert devices.min_price == 6
     assert tariff.checkout_addons.devices.stars_price_per_device == 10
@@ -62,8 +72,10 @@ def test_legacy_and_trial_prices_share_the_rate_and_keep_manual_prices_by_defaul
         STARS_ENABLED=True,
         DEFAULT_CURRENCY_SYMBOL="RUB",
         RUB_PRICE_1_MONTH=100,
+        RUB_PRICE_3_MONTHS=0,
         STARS_PRICE_1_MONTH=80,
-        TRAFFIC_PACKAGES="10:19",
+        STARS_PRICE_3_MONTHS=250,
+        TRAFFIC_PACKAGES="10:19,20:0",
         STARS_TRAFFIC_PACKAGES="10:15,20:25",
         TRIAL_PAYMENT_PRICE=9.5,
         TRIAL_PAYMENT_STARS_PRICE=7,
@@ -74,6 +86,7 @@ def test_legacy_and_trial_prices_share_the_rate_and_keep_manual_prices_by_defaul
 
     converted = settings.model_copy(update={"STARS_RUB_PER_STAR": 0.95})
     assert converted.stars_subscription_options[1] == 106
+    assert converted.stars_subscription_options[3] == 250
     assert converted.stars_traffic_packages == {10: 20, 20: 25}
     assert trial_stars_price(converted, "rub") == 10
     assert trial_stars_price(converted, "usd") == 7

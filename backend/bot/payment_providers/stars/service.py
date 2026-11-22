@@ -57,6 +57,14 @@ else:
 
 logger = logging.getLogger(__name__)
 
+_INVOICE_TITLE_LIMIT = 32
+
+
+def _invoice_title(description: str) -> str:
+    if len(description) <= _INVOICE_TITLE_LIMIT:
+        return description
+    return description[: _INVOICE_TITLE_LIMIT - 1].rstrip() + "…"
+
 
 class StarsPresentation(ProviderEnvConfig):
     model_config = SettingsConfigDict(
@@ -93,7 +101,7 @@ class StarsService:
         self,
         session: AsyncSession,
         user_id: int,
-        months: int,
+        months: float,
         stars_price: int,
         description: str,
         chat_id: int,
@@ -147,12 +155,12 @@ class StarsService:
             logger.exception("Failed to create stars payment record")
             return None
 
-        payload = f"{db_payment_record.payment_id}:{months}:{sale_mode}"
+        payload = f"{db_payment_record.payment_id}:{format_number_for_payload(months)}:{sale_mode}"
         prices = [LabeledPrice(label=description, amount=stars_price)]
         try:
             await self.bot.send_invoice(
                 chat_id=chat_id,
-                title=description,
+                title=_invoice_title(description),
                 description=description,
                 payload=payload,
                 # Required to be empty for Telegram Stars (XTR) per Telegram Bot API.
@@ -314,7 +322,7 @@ async def pay_stars_callback_handler(
         session=session,
         user_id=account_user_id,
         chat_id=callback.from_user.id,
-        months=int(parts.months),
+        months=parts.months,
         stars_price=stars_price,
         description=payment_description,
         sale_mode=parts.sale_mode,
@@ -431,11 +439,12 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
         )
         payload_units = amounts.purchased_gb if amounts.traffic_sale else ctx.months
         payload = f"{payment.payment_id}:{format_number_for_payload(payload_units)}:{ctx.sale_mode}"
+        title = _invoice_title(ctx.description)
         prices = [LabeledPrice(label=ctx.description, amount=ctx.stars_price)]
         create_invoice_link = getattr(bot, "create_invoice_link", None)
         if callable(create_invoice_link):
             invoice_url = await create_invoice_link(
-                title=ctx.description,
+                title=title,
                 description=ctx.description,
                 payload=payload,
                 # Required to be empty for Telegram Stars (XTR) per Telegram Bot API.
@@ -454,7 +463,7 @@ async def create_webapp_payment(ctx: WebAppPaymentContext) -> web.Response:
 
         await bot.send_invoice(
             chat_id=ctx.user_id,
-            title=ctx.description,
+            title=title,
             description=ctx.description,
             payload=payload,
             provider_token="",
