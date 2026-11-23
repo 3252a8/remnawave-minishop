@@ -16,6 +16,7 @@ from bot.services.panel_tariff_tags import (
 )
 from bot.services.subscription_order_terms import gift_tariff
 from config.settings import Settings
+from config.tariffs_config import TariffsConfig
 from db.dal import user_dal
 from db.models import Subscription, User
 
@@ -43,17 +44,22 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
         source: str,
         db_user: User | None = None,
         is_trial: bool = False,
+        tag_catalog: tuple[TariffsConfig | None, frozenset[str]] | None = None,
     ) -> dict[str, Any]:
         if db_user is None:
             db_user = await user_dal.get_user_by_id(session, user_id)
         if db_user is None:
             return panel_user
-        tariffs_config = getattr(self.settings, "tariffs_config", None)
+        if tag_catalog is None:
+            tariffs_config = getattr(self.settings, "tariffs_config", None)
+            known_tags = configured_tariff_tags(tariffs_config)
+        else:
+            tariffs_config, known_tags = tag_catalog
         plan = plan_panel_tariff_tag(
             current_tag=panel_user.get("tag"),
             managed_tag=getattr(db_user, "managed_panel_tariff_tag", None),
             desired_tag=panel_tariff_tag_for_key(desired_tag, tariffs_config, is_trial=is_trial),
-            known_tariff_tags=configured_tariff_tags(tariffs_config),
+            known_tariff_tags=known_tags,
         )
         if not plan.allowed:
             db_user.managed_panel_tariff_tag = None
@@ -134,6 +140,10 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
         rows_by_user: dict[int, tuple[User, Subscription | None]] = {}
         for db_user, subscription in result.all():
             rows_by_user.setdefault(int(db_user.user_id), (db_user, subscription))
+        if not rows_by_user:
+            return
+        tariffs_config = getattr(self.settings, "tariffs_config", None)
+        tag_catalog = (tariffs_config, configured_tariff_tags(tariffs_config))
         panel_users_by_uuid: dict[str, dict[str, Any]] | None = None
         get_all_panel_users = getattr(self.panel_service, "get_all_panel_users", None)
         if callable(get_all_panel_users):
@@ -160,9 +170,9 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
                 # A stored binding remains authoritative when its catalog entry is removed.
                 desired_tag = normalize_panel_tag(subscription.tariff_key)
                 try:
-                    tariff = gift_tariff(
-                        subscription
-                    ) or self.settings.tariffs_config.require_configured(subscription.tariff_key)
+                    tariff = gift_tariff(subscription)
+                    if tariff is None and tariffs_config is not None:
+                        tariff = tariffs_config.require_configured(subscription.tariff_key)
                 except Exception:
                     tariff = None
                 if tariff is not None:
@@ -196,6 +206,7 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
                     source="tariff_tag_reconciliation",
                     db_user=db_user,
                     is_trial=is_trial,
+                    tag_catalog=tag_catalog,
                 )
             except Exception:
                 logger.exception(

@@ -34,7 +34,7 @@ class AsyncTTLCache:
         self._waiters: dict[asyncio.Task[Any], int] = {}
         self._load_slots = asyncio.Semaphore(32)
 
-    def _remember(self, key: str, value: Any) -> None:
+    def remember_local(self, key: str, value: Any) -> None:
         self._data[key] = (time.monotonic() + self.ttl_seconds, value)
         self._data.move_to_end(key)
         while len(self._data) > self.max_entries:
@@ -150,14 +150,14 @@ class AsyncTTLCache:
                 cached = await cache_get_json(self.settings, cache_key)
                 if cached is not None:
                     if self._is_cacheable(cached) and self._owns_flight(key):
-                        self._remember(key, cached)
+                        self.remember_local(key, cached)
                     return cached
             except Exception:
                 cache_key = None
 
         value = await loader()
         if self._is_cacheable(value) and self._owns_flight(key):
-            self._remember(key, value)
+            self.remember_local(key, value)
             if cache_key is not None:
                 try:
                     from bot.infra.redis import cache_set_json

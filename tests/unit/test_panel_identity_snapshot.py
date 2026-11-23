@@ -22,6 +22,16 @@ class PanelIdentitySnapshotTests(IsolatedAsyncioTestCase):
         )
         self.panel._panel_api_compatibility_detected_at = time.monotonic()
 
+    async def test_stats_seed_count_hint_without_masking_failed_health_probes(self):
+        from bot.services.panel_user_snapshot import panel_user_count_hint
+
+        stats = {"users": {"totalUsers": 42}}
+        self.panel._request = AsyncMock(side_effect=[{"response": stats}, {"error": True}])
+        self.assertEqual(await self.panel.get_system_stats(), stats)
+        self.assertEqual(await panel_user_count_hint(self.panel), 42)
+        self.assertIsNone(await self.panel.get_system_stats())
+        self.assertEqual(self.panel._request.await_count, 2)
+
     async def test_empty_cached_snapshot_does_not_hide_a_new_profile(self):
         self.panel._request = AsyncMock(
             side_effect=[

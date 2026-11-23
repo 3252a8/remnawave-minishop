@@ -262,7 +262,7 @@ def test_worker_refreshes_saved_outbound_settings_and_restores_deleted_overrides
         PAYKILLA_EXCHANGE_RATE_URL="http://rates.internal:8000/{source}",
     )
     monkeypatch.setattr(
-        svc.app_settings_dal, "get_all_overrides", AsyncMock(return_value=_memory_overrides)
+        svc.app_settings_dal, "get_override_values", AsyncMock(return_value=_memory_overrides)
     )
     assert (
         asyncio.run(svc.refresh_overrides_from_db(settings, lambda: _FakeSession(), keys=keys)) == 5

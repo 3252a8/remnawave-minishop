@@ -15,15 +15,13 @@ from bot.services.panel_activity import (
 )
 from bot.services.panel_api_service import PanelApiService
 from bot.services.panel_identity_match import panel_origin_fingerprint
+from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.advisory_locks import (
     acquire_subscription_background_sync_lock,
     commit_subscription_background_sync_batch,
 )
-from db.dal import (
-    panel_sync_dal,
-    subscription_dal,
-)
+from db.dal import panel_sync_dal, subscription_dal
 from db.models import Subscription, User, UserEmailAddress
 
 from .sync_admin_common import (
@@ -77,6 +75,7 @@ async def perform_sync(
     session: AsyncSession,
     settings: Settings,
     i18n_instance: JsonI18n,
+    verified_identities: AsyncTTLCache | None = None,
 ) -> dict:
     """Single-flight entry point — skips when another sync is already running."""
     if _sync_lock.locked():
@@ -94,6 +93,7 @@ async def perform_sync(
             session=session,
             settings=settings,
             i18n_instance=i18n_instance,
+            verified_identities=verified_identities,
         )
 
 
@@ -102,11 +102,9 @@ async def _perform_sync_impl(
     session: AsyncSession,
     settings: Settings,
     i18n_instance: JsonI18n,
+    verified_identities: AsyncTTLCache | None = None,
 ) -> dict:
-    """
-    Perform panel synchronization and return results
-    Returns dict with status, details, and sync statistics
-    """
+    """Synchronize panel records and return the status, details and counters."""
     panel_records_checked = 0
     users_found_in_db = 0
     users_updated = 0
@@ -576,6 +574,7 @@ async def _perform_sync_impl(
                             panel_user_dict,
                             existing_user,
                             desired_description,
+                            verified_identities,
                         )
                         current_description = panel_user_for_identity.get("description")
                         description_has_email = _description_contains_email(
