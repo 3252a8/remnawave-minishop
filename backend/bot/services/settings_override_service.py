@@ -426,7 +426,11 @@ async def refresh_overrides_from_db(
 
     try:
         async with async_session_factory() as session:
-            overrides = await app_settings_dal.get_all_overrides(session)
+            overrides = (
+                await app_settings_dal.get_all_overrides(session)
+                if keys is None
+                else await app_settings_dal.get_override_values(session, keys)
+            )
     except Exception as exc:
         logger.warning("Could not refresh setting overrides from DB: %s", exc)
         return 0
@@ -435,7 +439,7 @@ async def refresh_overrides_from_db(
             from bot.payment_providers import find_manifest_owner, get_provider_bundle
             from bot.payment_providers.base import ProviderEnvConfig
 
-            env_only = Settings()
+            env_only: Settings | None = None
             fresh_configs: dict[type[ProviderEnvConfig], ProviderEnvConfig | None] = {}
             for key in keys:
                 if key in overrides:
@@ -464,6 +468,8 @@ async def refresh_overrides_from_db(
                     if attr not in fresh.model_fields_set:
                         target.model_fields_set.discard(attr)
                     continue
+                if env_only is None:
+                    env_only = Settings()
                 attr_name = _resolve_attribute_name(env_only, key)
                 if attr_name and hasattr(env_only, attr_name):
                     setattr(settings, attr_name, getattr(env_only, attr_name))
@@ -471,7 +477,6 @@ async def refresh_overrides_from_db(
                         settings.model_fields_set.discard(attr_name)
         except Exception as exc:
             logger.warning("Failed to restore env defaults while refreshing overrides: %s", exc)
-        overrides = {key: value for key, value in overrides.items() if key in keys}
     return apply_overrides(settings, overrides)
 
 

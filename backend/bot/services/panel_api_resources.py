@@ -22,6 +22,15 @@ def _json_dict(value: object) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def stats_user_count(stats: dict[str, Any] | None) -> int:
+    users = stats.get("users") if isinstance(stats, dict) else None
+    raw_total = users.get("totalUsers") if isinstance(users, dict) else None
+    try:
+        return max(0, int(raw_total or 0))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 def _json_dict_list(value: object) -> list[dict[str, Any]] | None:
     if not isinstance(value, list):
         return None
@@ -54,6 +63,8 @@ class PanelApiResourcesMixin:
     _users_cache: AsyncTTLCache
 
     if TYPE_CHECKING:
+
+        def remember_panel_user_count(self, count: int) -> None: ...
 
         @classmethod
         def _panel_response_error_code(cls, response_data: dict[str, Any] | None) -> str | None: ...
@@ -407,7 +418,10 @@ class PanelApiResourcesMixin:
             log_full_response=False,
         )
         if response_data and not response_data.get("error") and "response" in response_data:
-            return _json_dict(response_data.get("response"))
+            stats = _json_dict(response_data.get("response"))
+            if total := stats_user_count(stats):
+                self.remember_panel_user_count(total)
+            return stats
         return None
 
     async def get_bandwidth_stats(self) -> dict[str, Any] | None:

@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from bot.services.panel_api_resources import stats_user_count
 from bot.services.panel_api_service import PanelApiService
 
 logger = logging.getLogger(__name__)
@@ -42,12 +43,7 @@ async def panel_user_count_hint(panel_service: PanelApiService) -> int:
     except Exception:
         logger.exception("Failed to fetch Remnawave user count for adaptive loading")
         return 0
-    users = stats.get("users") if isinstance(stats, dict) else None
-    raw_total = users.get("totalUsers") if isinstance(users, dict) else None
-    try:
-        total = max(0, int(raw_total or 0))
-    except (TypeError, ValueError):
-        return 0
+    total = stats_user_count(stats)
     if total > 0:
         remember = getattr(panel_service, "remember_panel_user_count", None)
         if callable(remember):

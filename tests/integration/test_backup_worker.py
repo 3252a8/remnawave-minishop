@@ -269,7 +269,7 @@ def test_backup_settings_refresh_restores_env_default_when_override_is_deleted(m
     settings = SimpleNamespace(BACKUP_ENABLED=True)
     monkeypatch.setattr(
         settings_override_service.app_settings_dal,
-        "get_all_overrides",
+        "get_override_values",
         AsyncMock(return_value={}),
     )
     monkeypatch.setattr(
