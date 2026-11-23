@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 type UsageLookup = dict[str, dict[Any, int]]
 type UsageBatchKey = tuple[tuple[str, ...], str, str]
-type VersionedUsageBatchKey = tuple[str, tuple[str, ...], str, str]
+type VersionedUsageBatchKey = tuple[str | None, tuple[str, ...], str, str]
 
 PREMIUM_USAGE_CACHE_TTL_SECONDS = 115.0
 PREMIUM_USAGE_CROSS_TICK_CACHE_SIZE = 32
@@ -169,26 +169,28 @@ class TariffWorkerPremiumUsageMixin:
         nodes = tuple(sorted(dict.fromkeys(str(value) for value in node_uuids if str(value))))
         if not nodes:
             return PremiumUsageSnapshot(self._empty_usage_lookup(), {}, True, "empty")
-        batch_key = self._usage_batch_key(list(nodes), start_date, end_date)
-
-        # Old test doubles and third-party PanelApiService-compatible adapters
-        # continue through the established per-node contract.
-        if not hasattr(self.panel_service, "get_multi_node_user_usage"):
-            legacy_snapshot = await self._premium_usage_snapshot_from_per_node(
-                nodes,
-                start_date,
-                end_date,
-            )
-            self._premium_usage_completion_tick[batch_key] = legacy_snapshot.complete
-            return legacy_snapshot
-
-        compatibility = await self.panel_service.get_panel_api_compatibility()
-        version_key = compatibility.version or compatibility.generation.value
+        batch_key = (nodes, start_date, end_date)
+        compatibility = (
+            await self.panel_service.get_panel_api_compatibility()
+            if hasattr(self.panel_service, "get_multi_node_user_usage")
+            else None
+        )
+        version_key = (
+            (compatibility.version or compatibility.generation.value) if compatibility else None
+        )
         cache_key = (version_key, nodes, start_date, end_date)
         tick_cached = self._premium_usage_batch_tick_cache.get(cache_key)
         if tick_cached is not None:
             self._premium_usage_completion_tick[batch_key] = tick_cached.complete
             return tick_cached
+
+        # A per-node adapter has no versioned aggregate. Its source lookups
+        # live for one worker tick, so their merged view has the same lifetime.
+        if compatibility is None:
+            per_node = await self._premium_usage_snapshot_from_per_node(nodes, start_date, end_date)
+            self._remember_usage_tick_snapshot(cache_key, per_node)
+            self._premium_usage_completion_tick[batch_key] = per_node.complete
+            return per_node
 
         now = time.monotonic()
         cross_tick = self._premium_usage_snapshot_cache.get(cache_key)
@@ -309,7 +311,7 @@ class TariffWorkerPremiumUsageMixin:
                 continue
             by_node[node_uuid] = lookup
         return PremiumUsageSnapshot(
-            totals=self._merge_usage_lookups(by_node.values()),
+            totals=self._sum_node_usage(by_node),
             by_node=by_node,
             complete=complete,
             source="per_node",
@@ -369,7 +371,7 @@ class TariffWorkerPremiumUsageMixin:
                 lookup["by_uuid"][key] = lookup["by_uuid"].get(key, 0) + total
             by_node[node_uuid] = lookup
         return PremiumUsageSnapshot(
-            totals=cls._merge_usage_lookups(by_node.values()),
+            totals=cls._sum_node_usage(by_node),
             by_node=by_node,
             complete=True,
             source="multi_node_usage",
@@ -382,8 +384,10 @@ class TariffWorkerPremiumUsageMixin:
         panel_username: str | None,
     ) -> int:
         user_key = str(user_uuid or "").strip()
-        username = str(panel_username or "").strip()
         uuid_total = int(lookup["by_uuid"].get(user_key, 0) or 0) if user_key else 0
+        if not lookup["by_username"]:
+            return uuid_total
+        username = str(panel_username or "").strip()
         username_total = int(lookup["by_username"].get(username, 0) or 0) if username else 0
         overlap = (
             int(lookup["by_uuid_username"].get((user_key, username), 0) or 0)
@@ -397,12 +401,16 @@ class TariffWorkerPremiumUsageMixin:
         return {"by_uuid": {}, "by_username": {}, "by_uuid_username": {}}
 
     @classmethod
-    def _merge_usage_lookups(cls, lookups: Any) -> UsageLookup:
+    def _sum_node_usage(cls, by_node: dict[str, UsageLookup]) -> UsageLookup:
+        # Published snapshot lookups are read-only. With one node the two
+        # views contain the same counters and can share the entire index.
+        if len(by_node) == 1:
+            return next(iter(by_node.values()))
         merged = cls._empty_usage_lookup()
-        for lookup in lookups:
-            for bucket in ("by_uuid", "by_username", "by_uuid_username"):
+        for lookup in by_node.values():
+            for bucket, totals in merged.items():
                 for key, value in lookup[bucket].items():
-                    merged[bucket][key] = merged[bucket].get(key, 0) + int(value or 0)
+                    totals[key] = totals.get(key, 0) + value
         return merged
 
     @staticmethod

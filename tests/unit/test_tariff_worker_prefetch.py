@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from bot.services.tariff_worker import TariffTrafficWorker
 from bot.services.tariff_worker_prefetch import prefetch_premium_periods
+from config.settings import Settings
 from config.tariffs_config import Tariff
 from db.models import Subscription
 
@@ -52,3 +54,49 @@ def test_premium_prefetch_handles_optional_catalog_and_keeps_saved_terms(source)
         )
     if config:
         config.require_configured.assert_called_once_with(tariff.key)
+
+
+def test_per_node_adapter_reuses_partial_snapshot_only_within_its_tick_and_period():
+    async def run():
+        panel = Mock(spec=["get_node_users_bandwidth_stats"])
+        available = {"topUsers": [{"user": {"uuid": "u", "username": "alice"}, "total": 9}]}
+        panel.get_node_users_bandwidth_stats = AsyncMock(
+            side_effect=[available, None, available, available, available, available]
+        )
+        subscriptions = Mock()
+        subscriptions._trial_premium_squad_uuids.return_value = []
+        settings = Settings(
+            _env_file=None, BOT_TOKEN="token", POSTGRES_USER="bench", POSTGRES_PASSWORD="bench"
+        )
+        worker = TariffTrafficWorker(settings, Mock(), panel, subscriptions)
+        nodes = ["a", "b"]
+        start, end = "2026-05-01", "2026-05-20"
+        partial = await worker._premium_usage_snapshot_for_nodes(nodes, start, end)
+        assert partial is not None and not partial.complete
+        assert (
+            await worker._premium_usage_snapshot_for_nodes(["b", "a", "b"], start, end) is partial
+        )
+        assert (
+            await worker._premium_usage_for_user("u", nodes, start, end, panel_username="alice")
+            == 9
+        )
+        assert (
+            worker._premium_usage_with_partial_stats_floor(
+                Subscription(premium_used_bytes=12), 9, nodes, start, end, same_period=True
+            )
+            == 12
+        )
+        assert await worker._premium_usage_for_user("u", nodes, start, "2026-05-21") == 18
+        assert panel.get_node_users_bandwidth_stats.await_count == 4
+        assert not worker._premium_usage_snapshot_cache
+
+        # A normal fast tick drops both source lookups and their merged view.
+        empty_result = Mock()
+        empty_result.scalars.return_value = []
+        await worker.premium_fast_tick(Mock(execute=AsyncMock(return_value=empty_result)))
+        refreshed = await worker._premium_usage_snapshot_for_nodes(nodes, start, end)
+        assert refreshed is not None and refreshed.complete
+        assert refreshed.totals["by_uuid"]["u"] == 18
+        assert panel.get_node_users_bandwidth_stats.await_count == 6
+
+    asyncio.run(run())

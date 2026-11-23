@@ -6,6 +6,7 @@ from types import TracebackType
 from typing import Any
 
 import aiohttp
+from pydantic_core import from_json
 
 from bot.services.panel_api_compat import (
     PanelApiCompatibility,
@@ -25,6 +26,18 @@ from config.settings_models import PanelSettings
 logger = logging.getLogger(__name__)
 
 _ENDPOINT_LOG_LABELS = endpoint_log_labels()
+_BULK_JSON_OPERATIONS = {PanelApiOperation.NODES_USER_USAGE, PanelApiOperation.USERS_STREAM}
+
+
+def _decode_panel_json(body: str, operation: PanelApiOperation | None) -> Any:
+    if len(body) >= 64 * 1024 and operation in _BULK_JSON_OPERATIONS:
+        try:
+            return from_json(body, cache_strings="keys", allow_inf_nan=False)
+        except ValueError:
+            # Keep stdlib handling for unusual strings, non-finite numbers and
+            # malformed responses, including the existing JSONDecodeError details.
+            pass
+    return json.loads(body)
 
 
 def _endpoint_log_label(
@@ -571,7 +584,7 @@ class PanelApiCoreMixin:
                             "details": {"content_type": content_type or None},
                         }
                     try:
-                        data = json.loads(response_text)
+                        data = _decode_panel_json(response_text, operation)
                         if isinstance(data, dict):
                             return data
                         return {"status": "success", "code": response_status, "data": data}

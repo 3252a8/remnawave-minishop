@@ -1,10 +1,11 @@
 import asyncio
+import json
 import time
 import unittest
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import ClassVar
-from unittest.mock import AsyncMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import aiohttp
 
@@ -229,6 +230,36 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["message"], "Panel API returned invalid JSON.")
         self.assertIn("parse_error", result["details"])
         self.assertNotIn("data_text", result)
+
+    async def test_bulk_json_reads_preserve_values_and_protocol_errors(self):
+        service = self._make_service()
+        padding = " " * 65536
+        for operation, method, path in (
+            (PanelApiOperation.NODES_USER_USAGE, "POST", "/bandwidth-stats/nodes/usage"),
+            (PanelApiOperation.USERS_STREAM, "GET", "/users/stream"),
+        ):
+            for value in ('{"id":18446744073709551617,"name":"Москва"}', r'{"name":"\ud800"}', "{"):
+                with self.subTest(operation=operation, value=value):
+                    body = padding + value
+                    response = Mock(
+                        status=200,
+                        headers={"Content-Type": "application/json"},
+                        content_length=len(body),
+                        text=AsyncMock(return_value=body),
+                    )
+                    context = MagicMock()
+                    context.__aenter__.return_value = response
+                    service._get_session = AsyncMock(
+                        return_value=Mock(request=Mock(return_value=context))
+                    )
+                    result = await service._request_once(method, path, operation=operation)
+                    if value == "{":
+                        with self.assertRaises(json.JSONDecodeError) as error:
+                            json.loads(body)
+                        self.assertTrue(result["error"])
+                        self.assertEqual(result["details"]["parse_error"], str(error.exception))
+                    else:
+                        self.assertEqual(result, json.loads(body))
 
     async def test_successful_empty_204_response_is_not_a_protocol_error(self):
         service = self._make_service()
