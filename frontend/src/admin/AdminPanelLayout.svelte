@@ -598,6 +598,7 @@
       >
         <CoreUpdateBanner
           {at}
+          {currentLang}
           visible={active === "stats"}
           open={active === "stats" && updaterOpen}
           onopen={onOpenUpdater}

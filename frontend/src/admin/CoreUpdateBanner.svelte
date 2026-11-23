@@ -12,12 +12,14 @@
   type State = components["schemas"]["CoreUpdateState"];
   let {
     at,
+    currentLang,
     visible,
     open,
     onopen,
     onclose,
   }: {
     at: (key: string, params?: Record<string, unknown>) => string;
+    currentLang: string;
     visible: boolean;
     open: boolean;
     onopen: (event: MouseEvent) => void;
@@ -65,6 +67,19 @@
   const guide = $derived(
     documentationBaseUrlForVersion(status?.current) + "troubleshooting/maintenance/#host-updater"
   );
+  const bundledGuide = $derived(
+    documentationBaseUrlForVersion(status?.current) + "troubleshooting/maintenance/#bundled-updates"
+  );
+  const dateFormat = $derived(
+    new Intl.DateTimeFormat(currentLang || undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    })
+  );
   const installerChannel = $derived(status?.tag === "dev" ? "dev" : "latest");
   const installerRef = $derived(installerChannel === "dev" ? "dev" : "main");
   const installerCommand = $derived(
@@ -74,6 +89,11 @@
 
   function validImageTag(value: string): boolean {
     return /^(?:latest|dev|[0-9]+\.[0-9]+\.[0-9]+)$/.test(value) && value.length <= 64;
+  }
+
+  function shortVersion(version: string, revision: string): string {
+    const short = revision.slice(0, 8);
+    return version.endsWith(short) ? version : `${version} · ${short}`;
   }
 
   async function checkTag(imageTag: string): Promise<State> {
@@ -185,6 +205,17 @@
   }
 </script>
 
+{#snippet publicationDate(value?: string | null, showUnknown = false)}
+  {@const date = value ? new Date(value) : null}
+  {#if date && !Number.isNaN(date.getTime())}
+    <time class="publication-date" datetime={value ?? undefined} title={date.toISOString()}>
+      {at("core_update_publication_time", { date: dateFormat.format(date) })}
+    </time>
+  {:else if showUnknown}
+    <small>{at("core_update_publication_unknown")}</small>
+  {/if}
+{/snippet}
+
 {#if visible && (status?.available || active)}
   <section class="update-banner" aria-label={at("core_update_title")}>
     <span class="update-icon"><Download size={20} aria-hidden="true" /></span>
@@ -193,12 +224,17 @@
         >{active
           ? at("core_update_in_progress")
           : at(status?.installable ? "core_update_available" : "core_update_base_available", {
-              version: status?.release?.version,
+              version: status?.release
+                ? shortVersion(status.release.version, status.release.revision)
+                : "",
             })}</strong
       >
       <span
         >{active ? at(phaseLabel) : at("core_update_installed", { version: currentVersion })}</span
       >
+      {#if !active && status?.release?.published_at}
+        {@render publicationDate(status.release.published_at)}
+      {/if}
     </div>
     <AdminButton variant="primary" onclick={onopen}
       >{active
@@ -250,17 +286,28 @@
       {/if}
       {#if status}
         <div class="versions">
-          <div
-            ><small>{at("core_update_current")}</small><strong title={status.current}
-              >{currentVersion}</strong
-            ></div
-          >
+          <div>
+            <small
+              >{at(
+                status.official && !status.installable
+                  ? "core_update_current_base"
+                  : "core_update_current"
+              )}</small
+            >
+            <strong title={status.current}>{currentVersion}</strong>
+            {#if status.official}
+              {@render publicationDate(status.current_published_at, true)}
+            {/if}
+          </div>
           {#if candidate && selected?.available}
             <div>
               <small
                 >{at(status.installable ? "core_update_target" : "core_update_published")}</small
               >
-              <strong>{candidate.version}</strong>
+              <strong title={candidate.revision}
+                >{shortVersion(candidate.version, candidate.revision)}</strong
+              >
+              {@render publicationDate(candidate.published_at, true)}
             </div>
           {/if}
         </div>
@@ -291,7 +338,13 @@
           >
         </label>
         {#if status.official && !status.installable}
-          <p>{at("core_update_base_only")}</p>
+          <section class="setup" aria-label={at("core_update_base_setup_title")}>
+            <strong>{at("core_update_base_setup_title")}</strong>
+            <p>{at("core_update_base_only")}</p>
+            <a href={bundledGuide} target="_blank" rel="noopener noreferrer">
+              {at("core_update_base_setup_action")}
+            </a>
+          </section>
         {:else if setupNeeded}
           <section class="setup" aria-label={at("core_update_setup_title")}>
             <strong>{at("core_update_setup_title")}</strong>
@@ -382,6 +435,7 @@
     font-size: 15px;
   }
   .summary span,
+  .publication-date,
   small,
   .update-body p {
     color: var(--admin-muted);

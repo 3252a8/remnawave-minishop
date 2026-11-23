@@ -37,11 +37,14 @@ export function coreUpdateResponse(path: string, options: RequestInit) {
       : demo && phase !== "complete"
         ? "v3.8.5+g7a51b934"
         : "v3.8.6+gb38dce21",
+    current_published_at:
+      demo && phase !== "complete" ? "2026-11-13T10:39:34Z" : "2026-11-20T20:38:56Z",
     tag,
     release: {
       tag: target,
       revision: "b".repeat(40),
       version: target === "latest" ? "v3.8.6" : target,
+      published_at: "2026-11-20T20:38:56Z",
     },
     available,
     official: true,

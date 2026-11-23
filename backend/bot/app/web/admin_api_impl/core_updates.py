@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from aiohttp import web
@@ -14,6 +16,7 @@ from bot.app.web.http_contracts import HttpBodyModel, HttpResponseModel
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
 from bot.infra.redis import get_redis, redis_key
+from bot.services.core_update_publications import build_publication, publication_time
 from bot.services.core_updates import (
     TAG_PATTERN,
     Release,
@@ -45,6 +48,7 @@ class CoreUpdateSelection(HttpBodyModel):
 
 class CoreUpdateState(HttpResponseModel):
     current: str
+    current_published_at: datetime | None = None
     tag: str
     release: Release | None
     available: bool
@@ -93,8 +97,22 @@ async def _state(request: web.Request, *, tag: str = "", manual: bool = False) -
     official = resolve_build_provenance() == "official"
     installable = official and not bundled_distribution()
     release = await check_image(tag or current_tag, registry, manual=manual) if official else None
+    current = resolve_app_version()
+    current_published_at = None
+    if official:
+        current_label, current_revision = build_publication(current)
+        if release:
+            target_label = "dev" if release.tag == "dev" else release.version
+            current_published_at, published = await asyncio.gather(
+                publication_time(current_label, current_revision),
+                publication_time(target_label, release.revision),
+            )
+            release = release.model_copy(update={"published_at": published})
+        else:
+            current_published_at = await publication_time(current_label, current_revision)
     state = CoreUpdateState(
-        current=resolve_app_version(),
+        current=current,
+        current_published_at=current_published_at,
         tag=current_tag,
         release=release,
         available=available(release) or bool(release and release.tag != current_tag),
@@ -105,7 +123,7 @@ async def _state(request: web.Request, *, tag: str = "", manual: bool = False) -
         phase=job.get("phase", "") if installable else "",
         job_tag=job.get("tag", "") if installable else "",
     )
-    return _ok({"state": state.model_dump()})
+    return _ok({"state": state.model_dump(mode="json")})
 
 
 async def admin_core_updates_route(request: web.Request) -> web.Response:

@@ -109,14 +109,23 @@ for (const width of [390, 1440]) {
   });
 }
 
-test("a bundled build reports Core publication without offering installation", async ({ page }) => {
+test("a bundled build shows both Core publication times and upgrade instructions", async ({
+  page,
+}) => {
   await page.addInitScript(() => localStorage.setItem("rw_minishop_demo_language", "en"));
   await page.goto(dashboard + "?mock=core-update-bundled");
   const banner = page.getByRole("region", { name: "Minishop updates" });
-  await expect(banner.getByText("Minishop Core v3.8.6 has been published")).toBeVisible();
+  await expect(
+    banner.getByText("Minishop Core v3.8.6 · bbbbbbbb has been published")
+  ).toBeVisible();
+  await expect(banner.locator("time")).toHaveAttribute("datetime", "2026-11-20T20:38:56Z");
   await banner.getByRole("button", { name: "Minishop updates" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText(/Use your deployment's usual update process/)).toBeVisible();
+  await expect(dialog.locator("time").first()).toHaveAttribute("datetime", "2026-11-13T10:39:34Z");
+  await expect(dialog.locator("time").last()).toHaveAttribute("datetime", "2026-11-20T20:38:56Z");
+  await expect(
+    dialog.getByRole("link", { name: "Update instructions for this build" })
+  ).toHaveAttribute("href", /\/maintenance\/#bundled-updates$/);
   await expect(dialog.getByRole("button", { name: "Start update" })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Copy command" })).toHaveCount(0);
 });

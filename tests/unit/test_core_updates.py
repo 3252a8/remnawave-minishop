@@ -1,12 +1,91 @@
 import asyncio
 import importlib.util
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from bot.services import core_update_notices, core_updates
+from bot.services import core_update_notices, core_update_publications, core_updates
+
+
+def test_running_core_build_identity_for_publication():
+    revision = "a" * 40
+    assert core_update_publications.build_publication(f"v3.8.6-dev+g{revision}") == (
+        "dev",
+        revision,
+    )
+    assert core_update_publications.build_publication(f"v3.8.6+g{revision}") == ("v3.8.6", revision)
+    assert core_update_publications.build_publication("custom") == ("", "")
+
+
+def test_stable_release_publication_requires_the_exact_revision(monkeypatch):
+    revision = "a" * 40
+    session = MagicMock()
+    response = session.get.return_value.__aenter__.return_value
+    response.json = AsyncMock(
+        return_value={
+            "tag_name": "v3.8.6",
+            "commit": {"id": revision},
+            "released_at": "2026-11-20T20:38:56.534Z",
+        }
+    )
+    client = MagicMock()
+    client.return_value.__aenter__.return_value = session
+    monkeypatch.setattr(core_update_publications.aiohttp, "ClientSession", client)
+    read = core_update_publications._read_publication
+    assert asyncio.run(read("v3.8.6", revision)) == datetime(2026, 11, 20, 20, 38, 56, 534000, UTC)
+    assert not asyncio.run(read("v3.8.6", "b" * 40))
+
+
+def test_dev_uses_the_completed_promotion_step():
+    revision = "a" * 40
+    session = MagicMock()
+    response = session.get.return_value.__aenter__.return_value
+    response.json = AsyncMock(
+        side_effect=[
+            {
+                "workflow_runs": [
+                    {
+                        "id": 1,
+                        "head_sha": "b" * 40,
+                        "head_branch": "dev",
+                        "conclusion": "success",
+                        "event": "push",
+                        "created_at": "2026-11-23T07:00:00Z",
+                    },
+                    {
+                        "id": 2,
+                        "head_sha": revision,
+                        "head_branch": "dev",
+                        "conclusion": "success",
+                        "event": "push",
+                        "created_at": "2026-11-23T07:01:00Z",
+                    },
+                ]
+            },
+            {
+                "jobs": [
+                    {
+                        "name": "Promote all verified dev images",
+                        "conclusion": "success",
+                        "steps": [
+                            {
+                                "name": "Verify revisions and update both registries",
+                                "conclusion": "success",
+                                "completed_at": "2026-11-23T07:32:32Z",
+                            },
+                        ],
+                    },
+                ]
+            },
+        ]
+    )
+    assert asyncio.run(core_update_publications._dev_promotion(session, revision)) == (
+        "2026-11-23T07:32:32Z"
+    )
+    assert session.get.call_args.args[0].endswith("/actions/runs/2/jobs")
 
 
 def host_executor():

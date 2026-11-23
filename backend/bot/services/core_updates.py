@@ -6,6 +6,7 @@ import asyncio
 import os
 import re
 import time
+from datetime import datetime
 from typing import Any, Literal
 
 import aiohttp
@@ -23,6 +24,7 @@ class Release(BaseModel):
     tag: str
     revision: str
     version: str
+    published_at: datetime | None = None
 
 
 def image_tag() -> str:

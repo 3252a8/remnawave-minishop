@@ -9350,6 +9350,19 @@
             "title": "Current",
             "type": "string"
           },
+          "current_published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Current Published At"
+          },
           "executor": {
             "title": "Executor",
             "type": "boolean"
@@ -15366,6 +15379,19 @@
       },
       "Release": {
         "properties": {
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Published At"
+          },
           "revision": {
             "title": "Revision",
             "type": "string"

@@ -9046,6 +9046,11 @@ export interface components {
       available: boolean;
       /** Current */
       current: string;
+      /**
+       * Current Published At
+       * @default null
+       */
+      current_published_at: string | null;
       /** Executor */
       executor: boolean;
       /** Installable */
@@ -11633,6 +11638,11 @@ export interface components {
     };
     /** Release */
     Release: {
+      /**
+       * Published At
+       * @default null
+       */
+      published_at: string | null;
       /** Revision */
       revision: string;
       /** Tag */
