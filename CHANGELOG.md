@@ -101,9 +101,12 @@
 - В официальных Docker-образах backend и worker используют общие слои ОС,
   Python-зависимостей и кода. Docker загружает их один раз на хост. При
   повторной dev-сборке в течение суток неизменные зависимости берутся из кеша.
-  Тесты используют образ с проверенным digest.
+  Тесты используют образ с проверенным digest. Если Docker Hub не показывает
+  отправленную подпись, сборка повторяет её публикацию для того же digest.
+  Тег обновляется после успешной проверки подписи.
   [b3ef7b73](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b3ef7b730e06e2dcbbe0e9a2c8936776f9e22487),
-  [edd9c17e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/edd9c17ed6d2612245a76f561ddd528bf3f3186e)
+  [edd9c17e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/edd9c17ed6d2612245a76f561ddd528bf3f3186e),
+  [6a59f042](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6a59f042cf81186b5654414cc20d3631bf491b31)
 
 ### Документация
 

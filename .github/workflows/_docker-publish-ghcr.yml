@@ -246,19 +246,23 @@ jobs:
           CHANNEL_TAG: ${{ inputs.channel == 'release' && inputs.version || 'dev' }}
         run: |
           set -euo pipefail
-          cosign sign --yes --registry-referrers-mode oci-1-1 \
-            --annotations "tag=$CHANNEL_TAG" \
-            --annotations "org.opencontainers.image.revision=$SOURCE_COMMIT" "$IMAGE"
-          for attempt in 1 2 3 4 5; do
-            if cosign verify --experimental-oci11 \
-              --annotations "tag=$CHANNEL_TAG" \
-              --annotations "org.opencontainers.image.revision=$SOURCE_COMMIT" \
-              --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/_docker-publish-ghcr.yml@$GITHUB_REF" \
-              --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE" > /dev/null; then
-              break
+          annotations=(--annotations "tag=$CHANNEL_TAG" --annotations "org.opencontainers.image.revision=$SOURCE_COMMIT")
+          verify_log="$RUNNER_TEMP/cosign-verify.log"
+          for publication in 1 2; do
+            cosign sign --yes --registry-referrers-mode oci-1-1 "${annotations[@]}" "$IMAGE"
+            for delay in 0 5 10 15 30 60 60; do
+              sleep "$delay"
+              if cosign verify --experimental-oci11 "${annotations[@]}" \
+                --certificate-identity "https://github.com/$GITHUB_REPOSITORY/.github/workflows/_docker-publish-ghcr.yml@$GITHUB_REF" \
+                --certificate-oidc-issuer https://token.actions.githubusercontent.com "$IMAGE" > /dev/null 2>"$verify_log"; then
+                exit 0
+              fi
+              cat "$verify_log" >&2
+            done
+            if [[ "$publication" == 2 ]] || ! grep -Fxq 'Error: no signatures found' "$verify_log"; then
+              exit 1
             fi
-            [ "$attempt" != 5 ] || exit 1
-            sleep "$((attempt * 5))"
+            echo "Docker Hub has no discoverable signature for $IMAGE. Publishing the signature again."
           done
 
       - name: Attest the stable image
