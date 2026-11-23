@@ -341,6 +341,9 @@ register_contract(
 )
 register_contract("admin_user_delete_route", RouteContract(response_schema=ok_envelope_with()))
 register_contract(
+    "admin_user_traffic_reset_route", RouteContract(response_schema=ok_envelope_with())
+)
+register_contract(
     "admin_user_hwid_devices_reset_route", RouteContract(response_schema=ok_envelope_with())
 )
 register_contract("admin_user_reset_trial_route", RouteContract(response_schema=ok_envelope_with()))

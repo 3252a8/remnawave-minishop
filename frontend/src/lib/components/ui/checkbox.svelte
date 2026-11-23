@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Checkbox as CheckboxPrimitive } from "bits-ui";
   import { cn } from "$lib/utils.js";
-  import { Check } from "./icons.js";
+  import { Check, Minus } from "./icons.js";
 
   type Props = CheckboxPrimitive.RootProps & {
     ariaLabel?: string;
@@ -33,7 +33,9 @@
   onCheckedChange={handleCheckedChange}
   {...rest}
 >
-  {#if checked || indeterminate}
+  {#if indeterminate}
+    <Minus size={13} strokeWidth={3} aria-hidden="true" />
+  {:else if checked}
     <Check size={13} strokeWidth={3} aria-hidden="true" />
   {/if}
 </CheckboxPrimitive.Root>

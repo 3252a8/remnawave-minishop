@@ -7861,6 +7861,11 @@
             "default": null,
             "title": "Extend Hwid Devices"
           },
+          "keep_tariff": {
+            "default": false,
+            "title": "Keep Tariff",
+            "type": "boolean"
+          },
           "tariff_key": {
             "default": null,
             "title": "Tariff Key"
@@ -34211,6 +34216,55 @@
           }
         ],
         "summary": "Admin User Traffic Grant",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/traffic-reset": {
+      "post": {
+        "operationId": "post_admin_user_traffic_reset_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Traffic Reset",
         "tags": [
           "admin"
         ]

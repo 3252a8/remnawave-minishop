@@ -149,6 +149,7 @@ const ADMIN_ERROR_KEYS: Record<string, string> = {
   payload_too_large: "error_image_too_large",
   missing_amount: "error_missing_amount",
   no_active_subscription: "error_no_active_subscription",
+  traffic_reset_period_required: "error_traffic_reset_period_required",
   no_panel_user: "error_no_panel_user",
   devices_load_failed: "user_devices_load_failed",
   device_disconnect_failed: "error_user_device_disconnect",

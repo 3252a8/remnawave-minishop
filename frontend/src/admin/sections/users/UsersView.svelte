@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { Input } from "$components/ui/index.js";
+  import { Checkbox, Input } from "$components/ui/index.js";
   import { Sliders, X, UsersRound } from "$components/ui/icons.js";
+  import { tick } from "svelte";
   import Dialog from "$components/ui/dialog.svelte";
   import { Label } from "$components/ui/primitives.js";
   import {
@@ -24,7 +25,14 @@
   } from "$lib/admin/stores/usersStoreState";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
   import type { UsersExtensionSelections } from "$lib/admin/usersRouteFilters";
+  import type {
+    BulkUserAction,
+    BulkUserActionResult,
+  } from "$lib/admin/stores/usersStoreBulkActions";
   import UserMobileCard from "./UserMobileCard.svelte";
+  import UserBulkActionDialog from "./UserBulkActionDialog.svelte";
+  import UserBulkActionBar from "./UserBulkActionBar.svelte";
+  import { openUserOnClick } from "./openUserOnClick";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type SelectOption = { value: string; label: string };
@@ -54,6 +62,7 @@
     updateState: (patch: Record<string, unknown>) => void;
     loadUsers: () => void | Promise<void>;
     openUser: (user: AdminUser) => void;
+    usersSort: string;
   };
   type UsersTableBridge = { rows: readonly AdminUser[] };
 
@@ -168,7 +177,77 @@
     rowBalance: (user: AdminUser, source: "user" | "partner") => string;
     fmtDateShort: (value: string | null | undefined) => string;
   } = $props();
-  const columnWidths = $derived(userTableColumns.map((column) => column.width));
+  const columnWidths = $derived(["44px", ...userTableColumns.map((column) => column.width)]);
+  const selectionScope = $derived(
+    JSON.stringify([
+      usersPage,
+      usersQuery,
+      usersFilter,
+      usersPanelStatus,
+      usersPremiumTraffic,
+      usersTariffFilter,
+      usersExtensionFilters,
+      usersStore.usersSort,
+    ])
+  );
+  type UserId = AdminUser["user_id"];
+  let selection = $state.raw<{ scope: string; ids: Set<UserId> }>({ scope: "", ids: new Set() });
+  let bulkAction = $state.raw<{ type: BulkUserAction["type"]; users: AdminUser[] } | null>(null);
+  let bulkTrigger: HTMLElement | null = null;
+  let list: HTMLDivElement | undefined = $state();
+  const selectedUsers = $derived(
+    selection.scope === selectionScope
+      ? usersTable.rows.filter((user) => selection.ids.has(user.user_id))
+      : []
+  );
+  const selectedIds = $derived(new Set(selectedUsers.map((user) => user.user_id)));
+  const pageSelected = $derived(
+    selectedIds.size > 0 && selectedIds.size === usersTable.rows.length
+  );
+
+  $effect(() => {
+    if (selection.scope !== selectionScope) {
+      selection = { scope: selectionScope, ids: new Set() };
+    }
+  });
+
+  function toggleUser(userId: UserId, checked: boolean) {
+    const ids = new Set(selectedIds);
+    if (checked) ids.add(userId);
+    else ids.delete(userId);
+    selection = { scope: selectionScope, ids };
+  }
+
+  function togglePage() {
+    selection = {
+      scope: selectionScope,
+      ids: new Set(pageSelected ? [] : usersTable.rows.map((user) => user.user_id)),
+    };
+  }
+
+  function openBulkAction(type: BulkUserAction["type"], trigger: HTMLElement | null) {
+    if (!selectedUsers.length || usersLoading) return;
+    bulkTrigger = trigger;
+    bulkAction = { type, users: selectedUsers };
+  }
+
+  async function closeBulkAction(results: readonly BulkUserActionResult[]) {
+    const ids = new Set(selectedIds);
+    for (const result of results) {
+      if (result.status !== "rejected") ids.delete(result.userId);
+    }
+    selection = { scope: selectionScope, ids };
+    bulkAction = null;
+    await tick();
+    if (bulkTrigger?.isConnected) bulkTrigger.focus();
+    else {
+      const checkboxes = list?.querySelectorAll<HTMLElement>("[data-users-select-page]");
+      Array.from(checkboxes ?? [])
+        .find((checkbox) => checkbox.getClientRects().length)
+        ?.focus();
+    }
+    bulkTrigger = null;
+  }
 </script>
 
 {#snippet renderExtensionFilters()}
@@ -404,10 +483,40 @@
   </div>
 </Dialog>
 
-<div class="admin-users-table-wrap" aria-busy={usersLoading}>
+{#snippet selectPage(id?: string)}
+  <Checkbox
+    class="admin-users-select-checkbox"
+    {id}
+    data-users-select-page
+    checked={pageSelected}
+    indeterminate={selectedIds.size > 0 && !pageSelected}
+    ariaLabel={at("users_bulk_select_page")}
+    disabled={usersLoading}
+    onCheckedChange={togglePage}
+  />
+{/snippet}
+
+<div class="admin-users-table-wrap" aria-busy={usersLoading} bind:this={list}>
+  {#if usersTable.rows.length}
+    <div class="mobile-page-select">
+      {@render selectPage("admin-users-mobile-page-select")}
+      <Label.Root for="admin-users-mobile-page-select">
+        {at("users_bulk_select_page")}
+      </Label.Root>
+    </div>
+  {/if}
+  {#if selectedIds.size}
+    <UserBulkActionBar
+      {at}
+      count={selectedIds.size}
+      busy={usersLoading}
+      onclear={() => (selection = { scope: selectionScope, ids: new Set() })}
+      onaction={openBulkAction}
+    />
+  {/if}
   {#if usersLoading && !usersTable.rows.length}
     <AdminTableSkeleton
-      headers={userTableColumns.map((column) => column.label)}
+      headers={["", ...userTableColumns.map((column) => column.label)]}
       rows={USERS_PAGE_SIZE}
       rowHeight={76}
       preserveRowHeightOnMobile
@@ -422,6 +531,7 @@
     <AdminTable class="admin-users-table" {columnWidths}>
       <thead>
         <tr>
+          <th class="user-select-cell" scope="col">{@render selectPage()}</th>
           {#each userTableColumns as column (column.key)}
             <th aria-sort={column.sort ? sortState(column.sort) : undefined}>
               {#if column.sort}
@@ -440,7 +550,7 @@
       </thead>
       <VirtualTableRows
         rows={usersTable.rows}
-        colspan={userTableColumns.length}
+        colspan={columnWidths.length}
         rowHeight={76}
         getKey={(user) => user.user_id}
       >
@@ -449,17 +559,19 @@
           {@const badge = panelStatusBadge(user)}
           <tr
             class="is-clickable"
-            role="button"
-            tabindex="0"
+            class:bulk-selected={selectedIds.has(user.user_id)}
             data-user-id={user.user_id}
-            onclick={() => onOpenUserCard(user)}
-            onkeydown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onOpenUserCard(user);
-              }
-            }}
+            {@attach openUserOnClick(() => onOpenUserCard(user))}
           >
+            <td class="user-select-cell">
+              <Checkbox
+                class="admin-users-select-checkbox"
+                ariaLabel={at("users_bulk_select_user", { user: userDisplayName(user) })}
+                checked={selectedIds.has(user.user_id)}
+                disabled={usersLoading}
+                onCheckedChange={(checked) => toggleUser(user.user_id, checked)}
+              />
+            </td>
             <td
               class="admin-users-cell-user admin-cell-primary"
               data-label={at("user", {}, "User")}
@@ -470,6 +582,7 @@
                 idText={user.minishop_id || ""}
                 initials={userInitials(user)}
                 avatarUrl={avatar}
+                onopen={() => onOpenUserCard(user)}
               />
             </td>
             <td
@@ -566,6 +679,9 @@
           {currentLang}
           {user}
           onopen={() => onOpenUserCard(user)}
+          selected={selectedIds.has(user.user_id)}
+          selectionDisabled={usersLoading}
+          onselect={(checked) => toggleUser(user.user_id, checked)}
           {resolvedAvatarUrl}
           {panelStatusBadge}
           {userInitials}
@@ -584,6 +700,17 @@
     </ul>
   {/if}
 </div>
+
+{#if bulkAction}
+  <UserBulkActionDialog
+    {at}
+    {currentLang}
+    {userDisplayName}
+    type={bulkAction.type}
+    users={bulkAction.users}
+    onclose={closeBulkAction}
+  />
+{/if}
 
 <AdminPagination
   page={usersPage}
@@ -714,6 +841,22 @@
     display: none;
   }
 
+  .mobile-page-select {
+    display: none;
+  }
+
+  .user-select-cell {
+    text-align: center;
+  }
+
+  .user-select-cell :global(.ui-checkbox) {
+    vertical-align: middle;
+  }
+
+  .bulk-selected > td {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
   @media (min-width: 721px) {
     .admin-users-table-wrap :global(.admin-users-table :is(th, td)) {
       padding-inline: 8px;
@@ -776,12 +919,23 @@
     overflow-wrap: anywhere;
   }
 
-  .admin-users-table-wrap :global(.admin-users-table tbody tr.is-clickable:focus-visible) {
-    outline: 2px solid var(--admin-ring);
-    outline-offset: -2px;
-  }
-
   @media (max-width: 720px) {
+    .mobile-page-select {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 4px 6px;
+      color: var(--admin-muted);
+      font-size: 13px;
+    }
+
+    .mobile-page-select :global(label) {
+      display: flex;
+      align-items: center;
+      min-height: 32px;
+      cursor: pointer;
+    }
+
     :global(.admin-users-search-button) {
       min-width: 0;
       padding-inline: 10px;

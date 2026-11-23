@@ -10,6 +10,88 @@ type RelationshipCanvas = HTMLDivElement & {
 const adminUrl = (route: string) =>
   `/demo/runtime/admin/${route}?theme_preview=dark&mock=checkout-addons`;
 
+for (const width of [1440, 390]) {
+  test(`bulk traffic grant preserves only rejected selection at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.addInitScript(() => {
+      type Api = (path: string, options?: RequestInit) => Promise<unknown>;
+      type Bundle = { mount: (target: HTMLElement, props: { api: Api }) => unknown };
+      let bundle: Bundle | undefined;
+      const grants: { path: string; body: unknown }[] = [];
+      Object.defineProperty(window, "SubscriptionWebAppAdmin", {
+        configurable: true,
+        get: () => bundle,
+        set(value: Bundle) {
+          const mount = value.mount;
+          value.mount = (target, props) =>
+            mount(target, {
+              ...props,
+              api: async (path, options) => {
+                if (!path.endsWith("/traffic-grant")) return props.api(path, options);
+                grants.push({ path, body: JSON.parse(String(options?.body)) });
+                document.documentElement.dataset.testGrants = JSON.stringify(grants);
+                if (grants.length === 3) throw new Error("connection closed");
+                if (grants.length === 2) return { ok: false, error: "no_active_subscription" };
+                return { ok: true, grant: { kind: "regular", granted_bytes: 2 ** 32 } };
+              },
+            });
+          bundle = value;
+        },
+      });
+    });
+    await page.goto("/demo/runtime/admin/users");
+    const checkboxes = page.getByRole("checkbox", { name: /^Выбрать пользователя / });
+    const selectPage = page.getByRole("checkbox", { name: "Выбрать всех на странице" });
+    const bulk = page.locator("[data-users-bulk-actions]");
+    await selectPage.click();
+    await expect(selectPage).toBeChecked();
+    await expect(bulk.getByRole("status")).toHaveText("Выбрано: 25");
+    await bulk.getByRole("button", { name: "Снять выделение" }).click();
+    for (let index = 0; index < 3; index++) {
+      await checkboxes.nth(index).press("Space");
+    }
+    await expect(selectPage).toHaveAttribute("aria-checked", "mixed");
+    await expect(page).toHaveURL(/\/admin\/users\/?$/);
+    const actionMenu = bulk.locator("[data-users-bulk-trigger]");
+    const grant = page.locator('[data-users-bulk-action="traffic-grant"]');
+    await actionMenu.click();
+    await grant.click();
+    const dialog = page.getByRole("dialog", { name: "Начислить трафик" });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(actionMenu).toBeFocused();
+    await actionMenu.click();
+    await grant.click();
+    await dialog.getByRole("spinbutton").fill("4");
+    await dialog.getByRole("button", { name: "Начислить трафик" }).click();
+    const result = dialog.locator("[data-users-bulk-result]");
+    await expect(result).toContainText("Выполнено: 1");
+    await expect(result).toContainText("Отклонено: 1");
+    await expect(result).toContainText("Без подтверждения: 1");
+    const requests = await page.locator("html").getAttribute("data-test-grants");
+    expect(requests).not.toBeNull();
+    const grants = JSON.parse(requests ?? "[]") as { path: string; body: unknown }[];
+    expect(new Set(grants.map(({ path }) => path)).size).toBe(3);
+    expect(grants.map(({ body }) => body)).toEqual(
+      Array.from({ length: 3 }, () => ({ kind: "regular", gb: 4 }))
+    );
+    await dialog.getByRole("button", { name: "Закрыть", exact: true }).last().click();
+    await expect(bulk.getByRole("status")).toHaveText("Выбрано: 1");
+    await expect(checkboxes.nth(0)).not.toBeChecked();
+    await expect(checkboxes.nth(1)).toBeChecked();
+    await expect(checkboxes.nth(2)).not.toBeChecked();
+    if (width === 390) {
+      const card = page.locator("[data-mobile-user-id]").first();
+      const checkbox = card.locator(".admin-user-mobile-status").getByRole("checkbox");
+      await checkbox.click();
+      await expect(checkbox).toBeChecked();
+      await expect(page).toHaveURL(/\/admin\/users\/?$/);
+      await card.locator(".admin-user-cell-name").click();
+      await expect(page).toHaveURL(/\/admin\/users\/[^/?]+/);
+    }
+  });
+}
+
 test("user columns and scroll position stay stable while sorting", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.addInitScript(() => {

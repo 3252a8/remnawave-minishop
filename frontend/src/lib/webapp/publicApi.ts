@@ -488,6 +488,7 @@ export type AdminUserAction =
   | "hwid-device-limit"
   | "hwid-devices/reset"
   | "traffic-grant"
+  | "traffic-reset"
   | "balance-adjustment"
   | "balance-conversion"
   | "notification-preferences";
@@ -508,6 +509,7 @@ type AdminUserActionTemplate =
   | "/api/admin/users/{user_id}/hwid-device-limit"
   | "/api/admin/users/{user_id}/hwid-devices/reset"
   | "/api/admin/users/{user_id}/traffic-grant"
+  | "/api/admin/users/{user_id}/traffic-reset"
   | "/api/admin/users/{user_id}/balance-adjustment"
   | "/api/admin/users/{user_id}/balance-conversion"
   | "/api/admin/users/{user_id}/notification-preferences";

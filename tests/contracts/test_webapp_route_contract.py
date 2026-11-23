@@ -214,6 +214,7 @@ class WebAppRouteContractTests(unittest.TestCase):
                 "/api/admin/users/{user_id}/hwid-device-limit",
             ): "admin_user_hwid_device_limit_route",
             ("POST", "/api/admin/users/{user_id}/traffic-grant"): "admin_user_traffic_grant_route",
+            ("POST", "/api/admin/users/{user_id}/traffic-reset"): "admin_user_traffic_reset_route",
             ("DELETE", "/api/admin/users/{user_id}"): "admin_user_delete_route",
             ("GET", "/api/admin/payments"): "admin_payments_list_route",
             ("GET", "/api/admin/payments/export.csv"): "admin_payments_export_route",

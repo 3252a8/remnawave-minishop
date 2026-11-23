@@ -271,6 +271,7 @@ async def settle_regular_topup(
     traffic_strategy: str,
     now: datetime,
     usage_source: RegularUsageSource | None = None,
+    manual_reset: bool = False,
 ) -> int:
     """Close regular periods using their own quotas; keep unconfirmed history safe."""
     lifetime_used = subscription_service._extract_lifetime_used_traffic(panel_user_data)
@@ -330,7 +331,15 @@ async def settle_regular_topup(
     periods = traffic_periods_between(state.period_start_at, current_date, state.traffic_strategy)
     consumed: int | None = None
     same_strategy = strategy == state.traffic_strategy and not state.strategy_changed
-    if same_strategy and periods == 1:
+    if manual_reset:
+        # The administrator reset a single counter after observing its current
+        # allowance. A manual reset need not align with the scheduled calendar.
+        overflow = max(
+            state.observed_overflow_bytes,
+            max(0, ended_used - state.allowance_bytes) if state.allowance_bytes > 0 else 0,
+        )
+        consumed = min(balance, overflow)
+    elif same_strategy and periods == 1:
         allowance = state.allowance_bytes
         if current_date > state.period_start_at and balance > 0:
             # A grant can begin and expire while the worker is offline. Its DB

@@ -8,6 +8,7 @@
     initials?: string;
     avatarUrl?: string;
     details?: Snippet;
+    onopen?: () => void;
   };
 
   let {
@@ -17,6 +18,7 @@
     initials = "",
     avatarUrl = "",
     details,
+    onopen,
   }: Props = $props();
 
   // Minishop ids share a long prefix, so the tail is what tells rows apart;
@@ -34,7 +36,11 @@
     {/if}
   </span>
   <div class="admin-user-cell-text">
-    <span class="admin-user-cell-name">{name}</span>
+    {#if onopen}
+      <button type="button" class="admin-user-cell-name" onclick={onopen}>{name}</button>
+    {:else}
+      <span class="admin-user-cell-name">{name}</span>
+    {/if}
     {#if secondary}
       <span class="admin-user-cell-secondary">{secondary}</span>
     {/if}
@@ -74,6 +80,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  button.admin-user-cell-name {
+    justify-self: start;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  button.admin-user-cell-name:focus-visible {
+    outline: 2px solid var(--admin-ring);
+    outline-offset: 2px;
   }
 
   .admin-user-cell-secondary {

@@ -27,6 +27,7 @@ from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
 from bot.services.subscription_service_impl.traffic import resolve_main_traffic_baseline
 from bot.utils.traffic_reset import (
+    aware_utc,
     panel_traffic_limit_strategy,
     previous_traffic_reset,
     traffic_accounting_period_start,
@@ -231,6 +232,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                 )
                 await session.commit()
             fetched_refs = {sub.subscription_id: sub.panel_user_uuid for sub in chunk}
+            fetched_at = datetime.now(UTC)
             panel_payloads = await asyncio.gather(*(_fetch_panel(s) for s in chunk))
             if isinstance(session, AsyncSession):
                 await prefetch_premium_periods(
@@ -252,6 +254,8 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                     if sub.is_active
                     and sub.end_date > now
                     and sub.panel_user_uuid == fetched_refs[sub.subscription_id]
+                    # An administrator can reset the counter during the network read.
+                    and (aware_utc(sub.period_start_at) or fetched_at) <= fetched_at
                 }
             else:
                 current_ids = {sub.subscription_id for sub in chunk}

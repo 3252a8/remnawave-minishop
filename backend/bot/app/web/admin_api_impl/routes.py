@@ -208,6 +208,7 @@ from .users import (
 from .users_devices import admin_user_device_disconnect_route, admin_user_devices_route
 from .users_merge import admin_user_merge_route
 from .users_merge_context import admin_user_merge_context_route
+from .users_traffic_reset import admin_user_traffic_reset_route
 
 
 def setup_admin_routes(app: web.Application) -> None:
@@ -409,6 +410,9 @@ def setup_admin_routes(app: web.Application) -> None:
         admin_user_traffic_grant_route,
     )
     router.add_delete("/api/admin/users/{user_id:-?\\d+}", admin_user_delete_route)
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/traffic-reset", admin_user_traffic_reset_route
+    )
 
     router.add_get("/api/admin/payments", admin_payments_list_route)
     router.add_get("/api/admin/payments/{payment_id:\\d+}", admin_payment_detail_route)

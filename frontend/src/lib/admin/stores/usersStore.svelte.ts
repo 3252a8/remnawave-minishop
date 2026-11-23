@@ -18,6 +18,7 @@ import { createUsersStoreHwidResetAction } from "./usersStoreHwidReset";
 import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
 import { createUsersStoreNotificationPreferenceActions } from "./usersStoreNotificationPreferences";
 import { createUsersStoreBalanceActions } from "./usersStoreBalanceActions";
+import { createUsersStoreBulkActions } from "./usersStoreBulkActions";
 import { buildAdminUserActionPath, buildAdminUserPath } from "../../webapp/publicApi";
 import {
   USERS_PAGE_SIZE,
@@ -965,6 +966,7 @@ export function createUsersStore({
     saveTrafficStrategy,
     saveHwidDeviceLimit,
     grantTraffic,
+    ...createUsersStoreBulkActions(api, invalidateUsersQueries, () => loadUsers({ refresh: true })),
     ...balanceActions,
     ...squadOverrideActions,
     ...subscriptionReissueActions,

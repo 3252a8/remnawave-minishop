@@ -1,5 +1,6 @@
 <script lang="ts">
   import { UsersRound } from "$components/ui/icons.js";
+  import { Checkbox } from "$components/ui/index.js";
   import {
     AdminBadge,
     AdminUserCell,
@@ -8,6 +9,7 @@
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserExtensionColumn } from "$lib/admin/stores/usersStoreState";
   import type { AdminBadgeVariant } from "$components/patterns/admin/types";
+  import { openUserOnClick } from "./openUserOnClick";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
   type TrafficBadge =
@@ -24,6 +26,9 @@
     currentLang,
     user,
     onopen,
+    selected,
+    selectionDisabled,
+    onselect,
     resolvedAvatarUrl,
     panelStatusBadge,
     userInitials,
@@ -42,6 +47,9 @@
     currentLang: string;
     user: AdminUser;
     onopen: () => void;
+    selected: boolean;
+    selectionDisabled: boolean;
+    onselect: (checked: boolean) => void;
     resolvedAvatarUrl: (user: AdminUser) => string;
     panelStatusBadge: (user: AdminUser) => { label?: string; variant?: AdminBadgeVariant };
     userInitials: (user: AdminUser) => string;
@@ -67,12 +75,6 @@
   const hasPremium = $derived(
     Boolean(user.premium_traffic && user.premium_traffic.state !== "none")
   );
-
-  function handleKeydown(event: KeyboardEvent): void {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    onopen();
-  }
 </script>
 
 <!-- Two lines instead of a label grid: who and status, plan and term, then only
@@ -80,11 +82,9 @@
 <li>
   <div
     class="admin-user-mobile-card"
-    role="button"
-    tabindex="0"
+    class:bulk-selected={selected}
     data-mobile-user-id={user.user_id}
-    onclick={onopen}
-    onkeydown={handleKeydown}
+    {@attach openUserOnClick(onopen)}
   >
     <div class="admin-user-mobile-head">
       <AdminUserCell
@@ -93,8 +93,18 @@
         idText={user.minishop_id || ""}
         initials={userInitials(user)}
         avatarUrl={avatar}
+        {onopen}
       />
-      <AdminBadge variant={badge.variant}>{badge.label}</AdminBadge>
+      <div class="admin-user-mobile-status">
+        <AdminBadge variant={badge.variant}>{badge.label}</AdminBadge>
+        <Checkbox
+          class="admin-mobile-user-select"
+          ariaLabel={at("users_bulk_select_user", { user: userDisplayName(user) })}
+          checked={selected}
+          disabled={selectionDisabled}
+          onCheckedChange={onselect}
+        />
+      </div>
     </div>
 
     <div class="admin-user-mobile-plan">
@@ -176,9 +186,9 @@
     border-color: color-mix(in srgb, var(--admin-border) 65%, var(--accent));
   }
 
-  .admin-user-mobile-card:focus-visible {
-    outline: 2px solid var(--admin-ring);
-    outline-offset: 2px;
+  .admin-user-mobile-card.bulk-selected {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--admin-border));
+    background: color-mix(in srgb, var(--accent) 10%, var(--admin-surface-2));
   }
 
   .admin-user-mobile-head {
@@ -193,8 +203,21 @@
     flex: 1 1 auto;
   }
 
-  .admin-user-mobile-head :global(.admin-badge) {
-    flex: 0 0 auto;
+  .admin-user-mobile-status {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .admin-user-mobile-status :global(.admin-mobile-user-select) {
+    position: relative;
+  }
+
+  .admin-user-mobile-status :global(.admin-mobile-user-select)::before {
+    position: absolute;
+    inset: -7px -4px;
+    content: "";
   }
 
   .admin-user-mobile-plan {

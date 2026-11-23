@@ -100,6 +100,7 @@ class SettleRegularTopupTests(unittest.IsolatedAsyncioTestCase):
         current_baseline: int | None = None,
         history: dict[str, Any] | None = None,
         strategy: str = "MONTH",
+        manual_reset: bool = False,
     ) -> tuple[int, AsyncMock]:
         summary = AsyncMock(
             side_effect=lambda _session, **kw: {
@@ -140,11 +141,25 @@ class SettleRegularTopupTests(unittest.IsolatedAsyncioTestCase):
                 period_start=current,
                 traffic_strategy=strategy,
                 now=current + timedelta(minutes=5),
+                manual_reset=manual_reset,
                 usage_source=SimpleNamespace(
                     get_user_bandwidth_stats=AsyncMock(return_value=history)
                 ),
             )
         return consumed, summary
+
+    async def test_manual_reset_charges_only_used_part_of_the_pack(self) -> None:
+        sub = self._sub(state_used=70 * GB, state_overflow=20 * GB)
+        consumed, _ = await self._settle(
+            sub,
+            used=2 * GB,
+            lifetime=555 * GB,
+            current=datetime(2026, 9, 15, tzinfo=UTC),
+            manual_reset=True,
+        )
+        self.assertEqual(consumed, 23 * GB)
+        self.assertEqual(sub.topup_balance_bytes, 27 * GB)
+        self.assertEqual(sub.traffic_period_lifetime_start_bytes, 553 * GB)
 
     async def test_reset_charges_the_pack_beyond_base_and_device_bonus(self) -> None:
         # Allowance is 50 GB base plus 15 GB device bonus; the period used 80 GB.

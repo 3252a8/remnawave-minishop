@@ -3399,6 +3399,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/traffic-reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Traffic Reset */
+    post: operations["post_admin_user_traffic_reset_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/traffic-strategy": {
     parameters: {
       query?: never;
@@ -8339,6 +8356,11 @@ export interface components {
        * @default null
        */
       extend_hwid_devices: unknown;
+      /**
+       * Keep Tariff
+       * @default false
+       */
+      keep_tariff: boolean;
       /**
        * Tariff Key
        * @default null
@@ -20283,6 +20305,31 @@ export interface operations {
             /** @constant */
             ok: true;
             subscription?: components["schemas"]["AdminSubscriptionOut"] | null;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_traffic_reset_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
           };
         };
       };

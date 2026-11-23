@@ -97,8 +97,42 @@ const appDialogs = [
   ["app.settings.language-menu", "/settings", [{ click: ".language-select-trigger" }]],
 ];
 
+const userCheckbox =
+  'tr[data-user-id] [role="checkbox"], .admin-users-mobile-list [role="checkbox"]';
+const selectTwoUsers = [{ click: userCheckbox }, { click: userCheckbox, nth: 1 }];
+const openBulkUserMenu = [...selectTwoUsers, { click: "[data-users-bulk-trigger]" }];
 const adminScreens = [
   ["admin.users.1366", "/admin/users", { viewports: ["desktop"], captureWidth: 1366 }],
+  ["admin.users.bulk-selected", "/admin/users", { steps: selectTwoUsers, fullPage: false }],
+  ["admin.users.bulk-menu", "/admin/users", { steps: openBulkUserMenu, fullPage: false }],
+  ...["extend", "traffic-reset", "subscription-reissue", "delete"].map((action) => [
+    `admin.users.bulk-${action}`,
+    "/admin/users",
+    {
+      steps: [...openBulkUserMenu, { click: `[data-users-bulk-action="${action}"]` }],
+      fullPage: false,
+    },
+  ]),
+  ...[
+    ["traffic-grant", "Тип трафика"],
+    ["tariff", "Тариф"],
+  ].flatMap(([action, field]) => {
+    const steps = [...openBulkUserMenu, { click: `[data-users-bulk-action="${action}"]` }];
+    return [
+      [`admin.users.bulk-${action}`, "/admin/users", { steps, fullPage: false }],
+      [
+        `admin.users.bulk-${action}-options`,
+        "/admin/users",
+        {
+          steps: [
+            ...steps,
+            { click: `.admin-users-bulk-dialog [role="combobox"][aria-label="${field}"]` },
+          ],
+          fullPage: false,
+        },
+      ],
+    ];
+  }),
   [
     "admin.users.detail",
     "/admin/users/910001",

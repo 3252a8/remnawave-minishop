@@ -753,13 +753,18 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
     extend_hwid_devices = body.extend_hwid_devices
     extend_hwid_devices = True if extend_hwid_devices is None else bool(extend_hwid_devices)
     apply_tariff_hwid_limit = bool(body.apply_tariff_hwid_limit)
-    tariff_key, tariff_error = _resolve_admin_period_tariff_key(
-        settings,
-        body.tariff_key,
-        allow_legacy_without_tariffs=True,
-    )
-    if tariff_error:
-        return _error(400, tariff_error)
+    tariff_key = None
+    if body.keep_tariff:
+        if body.tariff_key or apply_tariff_hwid_limit:
+            return _error(400, "invalid_tariff")
+    else:
+        tariff_key, tariff_error = _resolve_admin_period_tariff_key(
+            settings,
+            body.tariff_key,
+            allow_legacy_without_tariffs=True,
+        )
+        if tariff_error:
+            return _error(400, tariff_error)
 
     subscription_service = get_optional_subscription_service(request)
     if subscription_service is None:
@@ -767,6 +772,10 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
 
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
+        if body.keep_tariff:
+            await user_dal.lock_user_entitlement(session, target_id)
+            if not await subscription_dal.get_active_subscription_by_user_id(session, target_id):
+                return _error(404, "no_active_subscription")
         if days < 0 or requested_end_date is not None:
             active = await subscription_dal.get_active_subscription_by_user_id(session, target_id)
             current_end = getattr(active, "end_date", None) if active else None
@@ -812,7 +821,7 @@ async def admin_user_extend_route(request: web.Request) -> web.Response:
                 "content": (
                     f"{days:+d}d -> {new_end.isoformat()} "
                     f"(hwid={'yes' if extend_hwid_devices else 'no'} "
-                    f"tariff={tariff_key or 'legacy'} "
+                    f"tariff={tariff_key or ('keep' if body.keep_tariff else 'legacy')} "
                     f"apply_tariff_hwid_limit={'yes' if apply_tariff_hwid_limit else 'no'})"
                 ),
                 "is_admin_event": True,
