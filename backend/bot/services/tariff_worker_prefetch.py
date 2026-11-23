@@ -2,12 +2,14 @@
 
 import asyncio
 from datetime import datetime
+from functools import cached_property
 from typing import Any, Protocol
 
 from bot.infra.performance import performance_phase
 from bot.services.subscription_order_terms import gift_tariff
 from bot.services.subscription_service_impl.core import SubscriptionService
 from config.settings import Settings
+from config.tariffs_config import Tariff, TariffsConfig
 from db.models import Subscription
 
 
@@ -31,12 +33,31 @@ class PremiumPrefetchWorker(Protocol):
     ) -> Any: ...
 
 
+class BatchTariffs:
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    @cached_property
+    def catalog(self) -> TariffsConfig | None:
+        return self.settings.tariffs_config
+
+    def for_subscription(self, sub: Subscription) -> Tariff | None:
+        frozen = gift_tariff(sub)
+        if frozen is not None:
+            return frozen
+        if self.catalog is None or not sub.tariff_key:
+            return None
+        return self.catalog.require_configured(sub.tariff_key)
+
+
 async def prefetch_premium_periods(
     worker: PremiumPrefetchWorker,
     subs: list[Subscription],
     payloads: list[dict],
     now: datetime,
+    tariffs: BatchTariffs | None = None,
 ) -> None:
+    tariffs = tariffs or BatchTariffs(worker.settings)
     groups: set[tuple[tuple[str, ...], str, str]] = set()
     for sub, payload in zip(subs, payloads, strict=True):
         if not payload:
@@ -45,10 +66,7 @@ async def prefetch_premium_periods(
             if not sub.tariff_key and worker._is_trial_subscription(sub):
                 tariff = worker._trial_premium_tariff()
             else:
-                tariff = gift_tariff(sub)
-                config = worker.settings.tariffs_config
-                if tariff is None and config is not None:
-                    tariff = config.require_configured(sub.tariff_key)
+                tariff = tariffs.for_subscription(sub)
         except (KeyError, ValueError):
             continue
         if tariff is None or not tariff.premium_squad_uuids or not tariff.has_premium_squad_limit():

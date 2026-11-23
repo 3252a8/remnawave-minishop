@@ -22,7 +22,6 @@ from bot.services.regular_topup_settlement import (
     regular_accounting_traffic_limit,
     settle_regular_topup,
 )
-from bot.services.subscription_order_terms import gift_tariff
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.subscription_service_impl.hwid_limits import resolve_hwid_base_limit
 from bot.services.subscription_service_impl.traffic import resolve_main_traffic_baseline
@@ -43,7 +42,7 @@ from db.dal.subscription_panel_identity_dal import relink_panel_subscriptions
 from db.dal.tariff_read_batch import clear_tariff_read_batch, prefetch_tariff_read_batch
 from db.models import Subscription
 
-from .tariff_worker_prefetch import PremiumPrefetchWorker, prefetch_premium_periods
+from .tariff_worker_prefetch import BatchTariffs, PremiumPrefetchWorker, prefetch_premium_periods
 from .tariff_worker_regular_tags import TariffWorkerRegularTagMixin
 from .tariff_worker_regular_warnings import _RegularTariff
 from .tariff_worker_shared import (
@@ -216,6 +215,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
             return {}
 
         for chunk_start in range(0, len(subs), TARIFF_WORKER_BATCH_SIZE):
+            tariffs = BatchTariffs(self.settings)
             chunk = subs[chunk_start : chunk_start + TARIFF_WORKER_BATCH_SIZE]
             if isinstance(session, AsyncSession):
                 # Keep only compact identities for the full scan. ORM state and
@@ -236,7 +236,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
             panel_payloads = await asyncio.gather(*(_fetch_panel(s) for s in chunk))
             if isinstance(session, AsyncSession):
                 await prefetch_premium_periods(
-                    cast(PremiumPrefetchWorker, self), chunk, panel_payloads, now
+                    cast(PremiumPrefetchWorker, self), chunk, panel_payloads, now, tariffs
                 )
                 await acquire_subscription_background_sync_lock(session)
                 # Reload after network I/O and each committed batch. Entitlements
@@ -285,9 +285,9 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                         continue
                 else:
                     try:
-                        tariff = gift_tariff(
-                            sub
-                        ) or self.settings.tariffs_config.require_configured(sub.tariff_key)
+                        tariff = tariffs.for_subscription(sub)
+                        if tariff is None:
+                            continue
                     except Exception:
                         continue
                 (

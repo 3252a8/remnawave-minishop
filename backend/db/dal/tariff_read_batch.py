@@ -2,9 +2,10 @@
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from itertools import chain
 from typing import Any
 
-from sqlalchemy import event, select
+from sqlalchemy import event, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
 from sqlalchemy.orm import Session
 
@@ -17,7 +18,7 @@ from db.models import (
 )
 
 _KEY = "tariff_read_batch"
-_MODELS = (FlexibleTrafficLimit, HwidDevicePurchase, TrafficTopup, UserPanelSquadOverride)
+_ENTITLEMENTS = (FlexibleTrafficLimit, HwidDevicePurchase, TrafficTopup)
 
 
 def utc(value: datetime) -> datetime:
@@ -74,10 +75,7 @@ class TariffReadBatch:
 def current_tariff_read_batch(session: AsyncSession) -> TariffReadBatch | None:
     if not isinstance(session, AsyncSession):
         return None
-    batch = session.info.get(_KEY)
-    if any(isinstance(row, _MODELS) for row in session.new | session.dirty | session.deleted):
-        clear_tariff_read_batch(session)
-        return None
+    batch = _invalidate_pending_writes(session)
     if isinstance(batch, TariffReadBatch) and batch.transaction is session.get_transaction():
         return batch
     session.info.pop(_KEY, None)
@@ -89,12 +87,32 @@ def clear_tariff_read_batch(session: AsyncSession) -> None:
         session.info.pop(_KEY, None)
 
 
+def invalidate_user_overrides(session: AsyncSession, user_id: int) -> None:
+    if isinstance(session, AsyncSession):
+        batch = session.info.get(_KEY)
+        if isinstance(batch, TariffReadBatch):
+            batch.user_ids.discard(user_id)
+
+
+def _invalidate_pending_writes(session: Session | AsyncSession) -> TariffReadBatch | None:
+    batch = session.info.get(_KEY)
+    if not isinstance(batch, TariffReadBatch):
+        return None
+    for row in chain(session.new, session.dirty, session.deleted):
+        if isinstance(row, _ENTITLEMENTS):
+            session.info.pop(_KEY, None)
+            return None
+        if isinstance(row, UserPanelSquadOverride):
+            if row not in session.new and inspect(row).attrs.user_id.history.has_changes():
+                batch.user_ids.clear()
+            else:
+                batch.user_ids.discard(row.user_id)
+    return batch
+
+
 @event.listens_for(Session, "before_flush")
 def _invalidate_changed_entitlements(session: Session, context: Any, instances: Any) -> None:
-    if _KEY in session.info and any(
-        isinstance(row, _MODELS) for row in session.new | session.dirty | session.deleted
-    ):
-        session.info.pop(_KEY, None)
+    _invalidate_pending_writes(session)
 
 
 async def prefetch_tariff_read_batch(session: AsyncSession, subs: list[Subscription]) -> None:

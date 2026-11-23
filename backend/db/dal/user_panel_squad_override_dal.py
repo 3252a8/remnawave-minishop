@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import UserPanelSquadOverride
 
 from ._sqlalchemy import rowcount
-from .tariff_read_batch import clear_tariff_read_batch, current_tariff_read_batch
+from .tariff_read_batch import current_tariff_read_batch, invalidate_user_overrides
 
 INTERNAL_KIND = "internal"
 EXTERNAL_KIND = "external"
@@ -35,7 +35,7 @@ async def _get_override(
     kind: str,
     override_key: str,
 ) -> UserPanelSquadOverride | None:
-    clear_tariff_read_batch(session)
+    invalidate_user_overrides(session, user_id)
     stmt = select(UserPanelSquadOverride).where(
         UserPanelSquadOverride.user_id == user_id,
         UserPanelSquadOverride.panel_user_uuid == panel_user_uuid,
@@ -196,7 +196,7 @@ async def deactivate_internal_override(
     panel_user_uuid: str,
     squad_uuid: str,
 ) -> int:
-    clear_tariff_read_batch(session)
+    invalidate_user_overrides(session, user_id)
     cleaned_squad_uuid = _clean_text(squad_uuid)
     if not cleaned_squad_uuid:
         return 0
@@ -242,7 +242,7 @@ async def deactivate_panel_internal_overrides_for_squads(
         )
     ):
         return 0
-    clear_tariff_read_batch(session)
+    invalidate_user_overrides(session, user_id)
     now = _now()
     result = await session.execute(
         update(UserPanelSquadOverride)
@@ -348,7 +348,7 @@ async def deactivate_external_override(
     )
     affected = rowcount(result)
     if affected:
-        clear_tariff_read_batch(session)
+        invalidate_user_overrides(session, user_id)
     await session.flush()
     return affected
 

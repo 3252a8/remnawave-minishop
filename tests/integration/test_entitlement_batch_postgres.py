@@ -295,6 +295,15 @@ def test_batch_matches_sql_for_overlapping_future_expired_and_empty_entitlements
                 == 0
             )
             assert "tariff_read_batch" in session.info
+            await user_panel_squad_override_dal.upsert_internal_override(
+                session, user_id=1, panel_user_uuid="panel-1", squad_uuid="manual", source="admin"
+            )
+            batch = session.info["tariff_read_batch"]
+            assert 1 not in batch.user_ids and batch.subscription_ids == {1, 2}
+            assert await read() == expected
+            assert "manual" in await user_panel_squad_override_dal.get_active_internal_squad_uuids(
+                session, user_id=1, panel_user_uuid="panel-1"
+            )
             await tariff_dal.create_traffic_topup(
                 session,
                 subscription_id=1,
