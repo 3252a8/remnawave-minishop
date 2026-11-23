@@ -11,6 +11,7 @@ import aiohttp
 
 from bot.services.panel_api_compat import PanelApiCompatibility
 from bot.services.panel_api_contracts import PanelApiCapability, PanelApiOperation
+from bot.services.panel_api_core import _panel_response_body
 from bot.services.panel_api_service import PanelApiService, _endpoint_log_label
 from config.settings import Settings
 from tests.support.settings_stub import settings_stub
@@ -231,6 +232,19 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("parse_error", result["details"])
         self.assertNotIn("data_text", result)
 
+    async def test_bulk_response_uses_bytes_only_for_utf8_without_body_logging(self):
+        body = '{"name":"Москва","padding":"' + "x" * 65536 + '"}'
+        response = Mock(status=200, charset="utf-8", read=AsyncMock(return_value=body.encode()))
+        response.text = AsyncMock(return_value=body)
+        with patch("bot.services.panel_api_core.logger.isEnabledFor", return_value=False):
+            operation = PanelApiOperation.USERS_STREAM
+            self.assertEqual(await _panel_response_body(response, operation, False), body.encode())
+            response.text.assert_not_awaited()
+            self.assertEqual(await _panel_response_body(response, operation, True), body)
+            response.charset = "windows-1251"
+            self.assertEqual(await _panel_response_body(response, operation, False), body)
+        self.assertEqual(response.read.await_count, 1)
+
     async def test_bulk_json_reads_preserve_values_and_protocol_errors(self):
         service = self._make_service()
         padding = " " * 65536
@@ -240,11 +254,13 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
         ):
             for value in ('{"id":18446744073709551617,"name":"Москва"}', r'{"name":"\ud800"}', "{"):
                 with self.subTest(operation=operation, value=value):
-                    body = padding + value
+                    body = value.replace("{", "{" + padding, 1)
                     response = Mock(
                         status=200,
+                        charset="utf-8",
                         headers={"Content-Type": "application/json"},
                         content_length=len(body),
+                        read=AsyncMock(return_value=body.encode()),
                         text=AsyncMock(return_value=body),
                     )
                     context = MagicMock()

@@ -29,7 +29,7 @@ _ENDPOINT_LOG_LABELS = endpoint_log_labels()
 _BULK_JSON_OPERATIONS = {PanelApiOperation.NODES_USER_USAGE, PanelApiOperation.USERS_STREAM}
 
 
-def _decode_panel_json(body: str, operation: PanelApiOperation | None) -> Any:
+def _decode_panel_json(body: str | bytes, operation: PanelApiOperation | None) -> Any:
     if len(body) >= 64 * 1024 and operation in _BULK_JSON_OPERATIONS:
         try:
             return from_json(body, cache_strings="keys", allow_inf_nan=False)
@@ -37,7 +37,23 @@ def _decode_panel_json(body: str, operation: PanelApiOperation | None) -> Any:
             # Keep stdlib handling for unusual strings, non-finite numbers and
             # malformed responses, including the existing JSONDecodeError details.
             pass
-    return json.loads(body)
+    return json.loads(body.decode("utf-8") if isinstance(body, bytes) else body)
+
+
+async def _panel_response_body(
+    response: aiohttp.ClientResponse, operation: PanelApiOperation | None, log_full_response: bool
+) -> str | bytes:
+    if (
+        operation in _BULK_JSON_OPERATIONS
+        and response.status == 200
+        and not log_full_response
+        and not logger.isEnabledFor(logging.DEBUG)
+        and getattr(response, "charset", "") in (None, "utf-8", "utf8", "UTF-8")
+    ):
+        raw = await response.read()
+        if len(raw) >= 64 * 1024 and raw.startswith((b"{", b"[")):
+            return raw
+    return await response.text()
 
 
 def _endpoint_log_label(
@@ -499,7 +515,7 @@ class PanelApiCoreMixin:
                 method.upper(), url_for_request, headers=headers, **kwargs
             ) as response:
                 response_status = response.status
-                response_text = await response.text()
+                response_text = await _panel_response_body(response, operation, log_full_response)
                 logger.info(
                     "metric panel_request_total=1 panel_latency_seconds=%.3f "
                     "panel_response_bytes=%s method=%s endpoint=%s status=%s",
