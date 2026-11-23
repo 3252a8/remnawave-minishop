@@ -26,6 +26,7 @@ from bot.app.web.webapp_auth import (
     create_webapp_session_token,
     verify_telegram_oauth_nonce,
 )
+from bot.payment_providers import registry
 from bot.payment_providers.base import ProviderWebhookPayload
 from bot.payment_providers.cryptopay import CryptoPayService
 from bot.payment_providers.freekassa import SPEC as FREEKASSA_SPEC
@@ -1356,6 +1357,17 @@ class WebAppSecurityTests(unittest.IsolatedAsyncioTestCase):
 
 
 class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.enterContext(
+            patch.multiple(
+                registry,
+                _provider_configs={},
+                _provider_presentations={},
+                _reporting_fee_sources={},
+            )
+        )
+        registry.build_provider_configs()
+
     async def test_admin_settings_masks_secret_values_and_exposes_has_value(self):
         class AsyncSessionFactory:
             def __call__(self):
@@ -1367,13 +1379,7 @@ class AdminSettingsSecurityTests(unittest.IsolatedAsyncioTestCase):
             async def __aexit__(self, exc_type, exc, tb):
                 return False
 
-        from bot.payment_providers import (
-            build_provider_configs,
-            get_provider_bundle,
-        )
-
-        build_provider_configs(force=True)
-        bundle = get_provider_bundle("yookassa_service")
+        bundle = registry.get_provider_bundle("yookassa_service")
         if bundle and bundle.config is not None:
             bundle.config.SECRET_KEY = "super-secret"
 
