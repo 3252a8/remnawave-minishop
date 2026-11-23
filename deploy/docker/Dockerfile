@@ -151,7 +151,7 @@ COPY --from=version-builder /build-provenance /app/.build-provenance
 USER appuser
 
 
-FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS node-runtime
+FROM node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS node-runtime
 
 FROM node-runtime AS frontend-builder
 
@@ -206,6 +206,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
       bash \
       git \
+      libatomic1 \
       openssl \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements-dev.txt /tmp/requirements-dev.txt
@@ -216,7 +217,8 @@ COPY --from=docker-test-tools /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-test-tools /usr/local/libexec/docker/cli-plugins /usr/local/libexec/docker/cli-plugins
 COPY --from=node-runtime /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
-    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && node --version && npm --version
 LABEL minishop.test.runtime="core" minishop.local.keep="true"
 WORKDIR /workspace
 CMD ["python", "-m", "pytest"]

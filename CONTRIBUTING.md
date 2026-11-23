@@ -92,7 +92,7 @@ npm run test:env:refresh # обновить ОС/зависимости явно
 npm run test:env:gc     # освободить старые удерживающие контейнеры
 ```
 
-`check:local` требует Node 24, uv и Python 3.12 (uv может скачать Python).
+`check:local` требует Node 26, uv и Python 3.12 (uv может скачать Python).
 Native Python и frontend node_modules хранятся вне checkout в
 `%LOCALAPPDATA%/minishop/test-envs` либо `$XDG_CACHE_HOME/minishop/test-envs`
 (по умолчанию `~/.cache/minishop/test-envs`); `MINISHOP_TEST_CACHE_DIR` меняет
@@ -151,7 +151,7 @@ npm run test:e2e     # Playwright docs-demo smoke: webapp+админка, окн
 
 Frontend закрепляет `minimatch@11.0.8` через override: ESLint пока требует
 уязвимую ветку 10.x ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)).
-Версия 11 поддерживает используемый API и Node 24; совместимость проверяется
+Версия 11 поддерживает используемый API и Node 26; совместимость проверяется
 полным lint/frontend gate. Удали override, когда ESLint и остальные потребители
 перейдут на исправленные версии.
 
@@ -484,7 +484,7 @@ UI-примитив. Например, для провайдера нужен `P
 
 Документацию собирает только GitLab CI. Для push/web pipeline веток `dev` и `main`
 job **build-docs** один раз устанавливает зависимости, проверяет документацию и
-создаёт production-сборку на Node.js 24. Готовый `docs-site/dist/` передаётся как
+создаёт production-сборку на Node.js 26. Готовый `docs-site/dist/` передаётся как
 artifact в **publish-docs** того же pipeline. Секрет Pages доступен только окружению
 публикации; job сборки его не получает. GitHub workflow документации удалён.
 
@@ -513,7 +513,7 @@ HEAD ветки GitLab. Для конкретного deployment ID из отв�
 не должны иметь флаг protected, иначе job не получит их. Не передавайте токен
 сборкам, artifact или журналам. GitHub secrets и variables для документации
 больше не используются. Файлы `.node-version` в корне и `docs-site/` также выбирают
-Node.js 24 для локальной разработки.
+Node.js 26 для локальной разработки.
 
 После временного сбоя повторите неудавшийся GitLab job публикации. Он использует
 готовый artifact того же pipeline и проверяет SHA заново. Если artifact истёк,

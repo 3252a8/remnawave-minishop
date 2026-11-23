@@ -77,7 +77,7 @@ installation-guide settings in the UI. See [docs/index.md](docs/index.md) for th
 
 ## Contributor Map
 
-The local and CI toolchain is Python 3.12 plus Node.js 22.
+The local and CI toolchain is Python 3.12 plus Node.js 26.
 
 Run the aggregate gate before pushing:
 

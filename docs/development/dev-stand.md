@@ -249,7 +249,7 @@ docker compose -f docker-compose.test.yml run --build --rm test-runner
 ### Все тесты без пропусков, включая Windows
 
 Для полного локального прогона используйте Docker Desktop с Linux-контейнерами,
-Python и Node.js 22+ с установленными зависимостями разработки:
+Python и Node.js 26+ с установленными зависимостями разработки:
 
 ```powershell
 npm run qa:all

@@ -47,7 +47,7 @@ class FullTestRun:
         self.built_images: set[str] = set()
         self.node = shutil.which("node")
         if not self.node:
-            raise RuntimeError("Node.js 24+ must be installed on the host")
+            raise RuntimeError("Node.js 26+ must be installed on the host")
         self.environment = dict(os.environ)
         # A developer's exported production settings must not override the QA env file.
         for filename in COMPOSE_FILES:
@@ -69,7 +69,7 @@ class FullTestRun:
         self.environment["PYTHONUTF8"] = "1"
         self.npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
         if not self.npm:
-            raise RuntimeError("Node.js 22+ and npm must be installed on the host")
+            raise RuntimeError("Node.js 26+ and npm must be installed on the host")
 
     def run(self, command: list[str], *, log: str | None = None) -> None:
         print(f"Running: {' '.join(command[:7])}", flush=True)

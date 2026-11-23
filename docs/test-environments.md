@@ -1,7 +1,7 @@
 # Reusable test environments
 
 Use `npm run check:local` for the full quality gate and `npm run qa:local` for
-isolated live-panel and upgrade tests. Node 24, uv, Python 3.12 and Linux Docker
+isolated live-panel and upgrade tests. Node 26, uv, Python 3.12 and Linux Docker
 are required for the complete Windows gate. A successful unit suite with skips
 is not the same as a successful zero-skips full stand.
 

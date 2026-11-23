@@ -39,7 +39,8 @@
 
 ### Исправлено
 
-- TypeScript 7 проверяет приложение, тесты и код демо документации.
+- Сборка веб-приложения и документации, а также проверки в CI используют Node.js 26.13.1 LTS.
+  TypeScript 7 проверяет приложение, тесты и код демо документации.
   Проверка типов охватывает также сценарии и конфигурацию Playwright.
   [9d6bbfd3](https://gitlab.com/3252a8/remnawave-minishop/-/commit/9d6bbfd3057a507be2a10c6d4eb67201ed1d10b0)
 
@@ -93,7 +94,8 @@
   от 4 КиБ, для страниц списка пользователей — от 64 КиБ.
   [befc26cd](https://gitlab.com/3252a8/remnawave-minishop/-/commit/befc26cdb9d8b4a4eaba0bdd898c8a6ca8355266),
   [3a63e059](https://gitlab.com/3252a8/remnawave-minishop/-/commit/3a63e0597b26b9313c744b1dc0eb9ca9d592942e),
-  [cc2220d0](https://gitlab.com/3252a8/remnawave-minishop/-/commit/cc2220d077a5c36b8adaf26c67c4bd553975c4c6)
+  [cc2220d0](https://gitlab.com/3252a8/remnawave-minishop/-/commit/cc2220d077a5c36b8adaf26c67c4bd553975c4c6),
+  [a9b6c957](https://gitlab.com/3252a8/remnawave-minishop/-/commit/a9b6c957db0d22ec73de63c9cba99b7c29170c19)
 
 - В официальных Docker-образах backend и worker используют общие слои ОС,
   Python-зависимостей и кода. Docker загружает их один раз на хост. При

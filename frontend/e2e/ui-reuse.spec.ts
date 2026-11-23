@@ -57,6 +57,7 @@ for (const width of [1440, 390]) {
     await actionMenu.click();
     await grant.click();
     const dialog = page.getByRole("dialog", { name: "Начислить трафик" });
+    await expect(dialog.and(page.locator(":focus-within"))).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(actionMenu).toBeFocused();
