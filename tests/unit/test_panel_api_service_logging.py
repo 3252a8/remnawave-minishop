@@ -245,10 +245,37 @@ class PanelApiServiceLoggingTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await _panel_response_body(response, operation, False), body)
         self.assertEqual(response.read.await_count, 1)
 
+    async def test_node_stats_byte_threshold_is_independent_of_users_stream(self):
+        body = b'{"value":0}' + b" " * (4096 - len(b'{"value":0}'))
+        response = Mock(status=200, charset="utf-8")
+        for size in (4095, 4096):
+            raw = body[:size]
+            response.read = AsyncMock(return_value=raw)
+            response.text = AsyncMock(return_value=raw.decode())
+            with patch("bot.services.panel_api_core.logger.isEnabledFor", return_value=False):
+                for operation in (
+                    PanelApiOperation.NODE_STATS,
+                    PanelApiOperation.NODE_BANDWIDTH,
+                    PanelApiOperation.NODE_USER_BANDWIDTH,
+                    PanelApiOperation.NODES_USER_BANDWIDTH,
+                    PanelApiOperation.NODES_USER_USAGE,
+                ):
+                    with self.subTest(operation=operation, size=size):
+                        result = await _panel_response_body(response, operation, False)
+                        self.assertEqual(result, raw if size == 4096 else raw.decode())
+                for operation in (PanelApiOperation.USERS_STREAM, PanelApiOperation.SYSTEM_STATS):
+                    self.assertEqual(
+                        await _panel_response_body(response, operation, False), raw.decode()
+                    )
+
     async def test_bulk_json_reads_preserve_values_and_protocol_errors(self):
         service = self._make_service()
         padding = " " * 65536
         for operation, method, path in (
+            (PanelApiOperation.NODE_STATS, "GET", "/system/stats/nodes"),
+            (PanelApiOperation.NODE_BANDWIDTH, "GET", "/bandwidth-stats/nodes"),
+            (PanelApiOperation.NODE_USER_BANDWIDTH, "GET", "/bandwidth-stats/nodes/example/users"),
+            (PanelApiOperation.NODES_USER_BANDWIDTH, "POST", "/bandwidth-stats/nodes/users"),
             (PanelApiOperation.NODES_USER_USAGE, "POST", "/bandwidth-stats/nodes/usage"),
             (PanelApiOperation.USERS_STREAM, "GET", "/users/stream"),
         ):

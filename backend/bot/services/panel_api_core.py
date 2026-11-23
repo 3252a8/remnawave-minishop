@@ -26,11 +26,23 @@ from config.settings_models import PanelSettings
 logger = logging.getLogger(__name__)
 
 _ENDPOINT_LOG_LABELS = endpoint_log_labels()
-_BULK_JSON_OPERATIONS = {PanelApiOperation.NODES_USER_USAGE, PanelApiOperation.USERS_STREAM}
+_NODE_STATS_MIN_BYTES = 4 * 1024
+_BULK_JSON_MIN_BYTES = {
+    PanelApiOperation.NODE_STATS: _NODE_STATS_MIN_BYTES,
+    PanelApiOperation.NODE_BANDWIDTH: _NODE_STATS_MIN_BYTES,
+    PanelApiOperation.NODE_USER_BANDWIDTH: _NODE_STATS_MIN_BYTES,
+    PanelApiOperation.NODES_USER_BANDWIDTH: _NODE_STATS_MIN_BYTES,
+    PanelApiOperation.NODES_USER_USAGE: _NODE_STATS_MIN_BYTES,
+    PanelApiOperation.USERS_STREAM: 64 * 1024,
+}
 
 
 def _decode_panel_json(body: str | bytes, operation: PanelApiOperation | None) -> Any:
-    if len(body) >= 64 * 1024 and operation in _BULK_JSON_OPERATIONS:
+    if (
+        operation is not None
+        and (minimum := _BULK_JSON_MIN_BYTES.get(operation)) is not None
+        and len(body) >= minimum
+    ):
         try:
             return from_json(body, cache_strings="keys", allow_inf_nan=False)
         except ValueError:
@@ -44,14 +56,15 @@ async def _panel_response_body(
     response: aiohttp.ClientResponse, operation: PanelApiOperation | None, log_full_response: bool
 ) -> str | bytes:
     if (
-        operation in _BULK_JSON_OPERATIONS
+        operation is not None
+        and (minimum := _BULK_JSON_MIN_BYTES.get(operation)) is not None
         and response.status == 200
         and not log_full_response
         and not logger.isEnabledFor(logging.DEBUG)
         and getattr(response, "charset", "") in (None, "utf-8", "utf8", "UTF-8")
     ):
         raw = await response.read()
-        if len(raw) >= 64 * 1024 and raw.startswith((b"{", b"[")):
+        if len(raw) >= minimum and raw.startswith((b"{", b"[")):
             return raw
     return await response.text()
 
