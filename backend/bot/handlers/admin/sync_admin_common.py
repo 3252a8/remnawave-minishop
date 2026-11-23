@@ -8,6 +8,7 @@ from aiogram import Router
 
 from bot.services.panel_api_service import PanelApiService
 from bot.utils.text_sanitizer import panel_description_from_profile
+from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings
 from db.models import Subscription, User
 
@@ -320,6 +321,7 @@ async def _panel_identity_view_for_comparison(
     panel_user: dict[str, Any],
     user: User,
     desired_description: str = "",
+    verified_identities: AsyncTTLCache | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Return the most reliable panel user view available for identity comparison.
 
@@ -328,18 +330,33 @@ async def _panel_identity_view_for_comparison(
     repair PATCH.
     """
 
-    needs_full_fetch = _panel_identity_needs_full_fetch(panel_user, user)
-    if not needs_full_fetch and _panel_identity_needs_legacy_description_cleanup(
-        panel_user,
-        user,
-        desired_description,
+    missing_identity = _panel_identity_needs_full_fetch(panel_user, user)
+    if not missing_identity and not _panel_identity_needs_legacy_description_cleanup(
+        panel_user, user, desired_description
     ):
-        needs_full_fetch = True
-
-    if not needs_full_fetch:
         return panel_user, True
+    proof = None
+    identity_keys = ("updatedAt", "email", "telegramId", "description")
+    if verified_identities is not None:
+        if (
+            not missing_identity
+            and panel_user.get("updatedAt")
+            and all(key in panel_user for key in identity_keys)
+        ):
+            proof = (
+                *[panel_user[key] for key in identity_keys],
+                user.email,
+                user.telegram_id,
+                desired_description,
+            )
+            if verified_identities.get_fresh(panel_uuid) == proof:
+                return panel_user, False
+        verified_identities.invalidate(panel_uuid)
     try:
-        full_panel_user = await panel_service.get_user_by_uuid(panel_uuid)
+        if proof is not None:
+            full_panel_user = await panel_service.get_user_by_uuid(panel_uuid, use_cache=False)
+        else:
+            full_panel_user = await panel_service.get_user_by_uuid(panel_uuid)
     except Exception:
         logger.exception(
             "Sync: failed to fetch full panel user %s for identity comparison",
@@ -348,6 +365,20 @@ async def _panel_identity_view_for_comparison(
         return panel_user, True
     if not full_panel_user:
         return panel_user, True
+    if (
+        verified_identities is not None
+        and proof is not None
+        and full_panel_user.get("uuid") == panel_uuid
+        and all(
+            key in full_panel_user and full_panel_user[key] == panel_user[key]
+            for key in identity_keys
+        )
+        and _panel_identity_matches_user(
+            full_panel_user, user, "", missing_identity_fields_match=False
+        )
+        and not _description_contains_email(full_panel_user.get("description"), user.email)
+    ):
+        verified_identities.remember_local(panel_uuid, proof)
     return full_panel_user, False
 
 

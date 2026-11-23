@@ -441,6 +441,39 @@ def test_panel_identity_view_fetches_full_user_when_list_email_missing():
     panel_service.get_user_by_uuid.assert_awaited_once_with("panel-1")
 
 
+def test_scheduled_identity_cache_requires_a_verified_unchanged_profile():
+    from bot.utils.ttl_cache import AsyncTTLCache
+
+    cache = AsyncTTLCache(3600)
+    user = SimpleNamespace(email="a@example.org", telegram_id=42)
+    profile = {
+        "uuid": "p",
+        "email": user.email,
+        "telegramId": 42,
+        "description": "Alice",
+        "updatedAt": "v1",
+    }
+    service = SimpleNamespace(get_user_by_uuid=AsyncMock(return_value=profile.copy()))
+
+    async def compare():
+        return await _panel_identity_view_for_comparison(
+            service, "p", profile, user, "Alice", cache
+        )
+
+    assert asyncio.run(compare()) == (profile, False)
+    assert asyncio.run(compare()) == (profile, False)
+    assert service.get_user_by_uuid.await_count == 1
+    with patch("bot.utils.ttl_cache.time.monotonic", return_value=float("inf")):
+        assert asyncio.run(compare()) == (profile, False)
+    assert service.get_user_by_uuid.await_count == 2
+    profile["updatedAt"] = "v2"
+    service.get_user_by_uuid.return_value = {**profile, "description": "Alice a@example.org"}
+    for _ in range(2):
+        full, _ = asyncio.run(compare())
+        assert full["description"] == "Alice a@example.org"
+    assert service.get_user_by_uuid.await_count == 4
+
+
 def test_panel_identity_view_fetches_full_user_to_clean_legacy_description_email():
     panel_service = SimpleNamespace(
         get_user_by_uuid=AsyncMock(

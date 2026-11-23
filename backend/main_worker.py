@@ -74,6 +74,7 @@ from bot.services.torrent_blocker_webhook import TORRENT_BLOCKER_EVENT
 from bot.services.wata_reconciliation_worker import WataReconciliationWorker
 from bot.services.yookassa_reconciliation_worker import YooKassaReconciliationWorker
 from bot.utils.message_queue import get_queue_manager, init_queue_manager
+from bot.utils.ttl_cache import AsyncTTLCache
 from config.settings import Settings, get_settings
 from config.telegram_proxy import safe_telegram_network_error_detail
 
@@ -359,6 +360,7 @@ async def _panel_sync_loop(ctx: PluginContext) -> None:
     settings = ctx.settings
     session_factory = ctx.require_session_factory()
     i18n = ctx.require_i18n()
+    verified_identities = AsyncTTLCache(ttl_seconds=3600, max_entries=4096)
     while True:
         try:
             async with redis_lock(
@@ -374,6 +376,7 @@ async def _panel_sync_loop(ctx: PluginContext) -> None:
                             session=session,
                             settings=settings,
                             i18n_instance=i18n,
+                            verified_identities=verified_identities,
                         )
                     logger.info(
                         "metric worker_tick_duration_seconds=%.3f worker=panel_sync",
