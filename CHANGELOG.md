@@ -42,7 +42,8 @@
 - Сборка веб-приложения и документации, а также проверки в CI используют Node.js 26.13.1 LTS.
   TypeScript 7 проверяет приложение, тесты и код демо документации.
   Проверка типов охватывает также сценарии и конфигурацию Playwright.
-  [9d6bbfd3](https://gitlab.com/3252a8/remnawave-minishop/-/commit/9d6bbfd3057a507be2a10c6d4eb67201ed1d10b0)
+  [9d6bbfd3](https://gitlab.com/3252a8/remnawave-minishop/-/commit/9d6bbfd3057a507be2a10c6d4eb67201ed1d10b0),
+  [25b7f160](https://gitlab.com/3252a8/remnawave-minishop/-/commit/25b7f160807287035ecdf88b31b07a5baead8a5b)
 
 - В Docker-образах backend и worker установщик `pip` читает метаданные через
   стандартную библиотеку Python 3.12. Убраны устаревший модуль `pkg_resources`
