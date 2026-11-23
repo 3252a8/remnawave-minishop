@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
+from html import escape
 
 from aiogram.exceptions import TelegramAPIError
 from redis.exceptions import RedisError
@@ -42,14 +44,16 @@ async def deliver_update_notices(ctx: PluginContext) -> None:
         release = await check_image(tag, "ghcr.io" if registry == "ghcr.io" else "docker.io")
         if not release or not available(release):
             return
+        current = re.sub(r"(\+g[0-9a-f]{8})[0-9a-f]{1,32}$", r"\1", resolve_app_version())
+        version = release.version.removeprefix(f"{release.tag} · ")
         text = ctx.require_i18n().gettext(
             settings.DEFAULT_LANGUAGE,
             "admin_core_update_base_telegram"
             if bundled_distribution()
             else "admin_core_update_telegram",
-            current=resolve_app_version(),
-            version=release.version,
-            tag=release.tag,
+            current=escape(current),
+            version=escape(version),
+            tag=escape(release.tag),
         )
         for chat_id in await notifier.admin_telegram_ids():
             mode = "dev:" if tag == "dev" else ""
@@ -57,7 +61,7 @@ async def deliver_update_notices(ctx: PluginContext) -> None:
             if await redis.get(key) == release.revision:
                 continue
             try:
-                await ctx.bot.send_message(chat_id, text, parse_mode=None)
+                await ctx.bot.send_message(chat_id, text, parse_mode="HTML")
             except TelegramAPIError:
                 logger.warning("Core update notification could not be delivered")
                 continue

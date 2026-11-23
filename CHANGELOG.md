@@ -28,6 +28,8 @@
   начиная с текущей папки. Уведомления Telegram для `dev` выключены по умолчанию.
   Рядом с ревизиями видны даты публикации. Для сборок со встроенными расширениями
   окно подсказывает, как обновить комплект образов через Compose.
+  Уведомления Minishop в Telegram показывают новую и установленную версии
+  и тег образа на отдельных строках. Хеш сборки сокращён до восьми знаков.
   [46963f55](https://gitlab.com/3252a8/remnawave-minishop/-/commit/46963f55cbe49a4ade3ec94ecb2da0ce5c498c73),
   [b7d8c847](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b7d8c8472c548f3ca39adfa99486c23283cd7295),
   [70769c97](https://gitlab.com/3252a8/remnawave-minishop/-/commit/70769c979486d3156c9bea377d181a47199d8bed),
@@ -114,7 +116,8 @@
   Тег обновляется после успешной проверки подписи.
   [b3ef7b73](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b3ef7b730e06e2dcbbe0e9a2c8936776f9e22487),
   [edd9c17e](https://gitlab.com/3252a8/remnawave-minishop/-/commit/edd9c17ed6d2612245a76f561ddd528bf3f3186e),
-  [6a59f042](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6a59f042cf81186b5654414cc20d3631bf491b31)
+  [6a59f042](https://gitlab.com/3252a8/remnawave-minishop/-/commit/6a59f042cf81186b5654414cc20d3631bf491b31),
+  [60a69bcd](https://gitlab.com/3252a8/remnawave-minishop/-/commit/60a69bcd3470dc5ab1743f86e49058160011b881)
 
 ### Документация
 

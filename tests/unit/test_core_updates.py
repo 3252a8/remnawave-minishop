@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from bot.middlewares.i18n import JsonI18n
 from bot.services import core_update_notices, core_update_publications, core_updates
 
 
@@ -145,12 +146,33 @@ def test_bundled_distribution_follows_base_core_channel(monkeypatch, version, ch
     assert core_updates.image_tag() == channel
 
 
-def test_worker_notifies_linked_admins_once_and_obeys_preference(monkeypatch):
+@pytest.mark.parametrize(
+    ("language", "bundled", "title", "next_step"),
+    [
+        (
+            "ru",
+            True,
+            "Опубликовано обновление Minishop",
+            "Проверьте обновления в канале вашей установки.",
+        ),
+        (
+            "en",
+            False,
+            "Minishop update available",
+            "Open the admin dashboard to start the update.",
+        ),
+    ],
+)
+def test_worker_notifies_linked_admins_once_and_obeys_preference(
+    monkeypatch, language, bundled, title, next_step
+):
     ctx = MagicMock()
     ctx.settings.REDIS_KEY_PREFIX = "test"
+    ctx.settings.DEFAULT_LANGUAGE = language
     ctx.bot.send_message = AsyncMock()
     ctx.notification_service.admin_telegram_ids = AsyncMock(return_value=[123, 456])
-    ctx.require_i18n.return_value.gettext.return_value = "New image"
+    locales = Path(__file__).resolve().parents[2] / "locales"
+    ctx.require_i18n.return_value = JsonI18n(str(locales), default=language)
     values: dict[str, str] = {}
 
     async def write(key, value):
@@ -162,9 +184,13 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(monkeypatch):
     monkeypatch.setattr(core_update_notices, "get_redis", AsyncMock(return_value=redis))
     monkeypatch.setattr(core_update_notices, "resolve_build_provenance", lambda: "official")
     monkeypatch.setattr(core_update_notices, "available", lambda release: True)
-    monkeypatch.setattr(core_update_notices, "resolve_app_version", lambda: "v1")
+    monkeypatch.setattr(core_update_notices, "bundled_distribution", lambda: bundled)
+    current_revision = "12345678" + "a" * 32
+    monkeypatch.setattr(
+        core_update_notices, "resolve_app_version", lambda: f"v3.8.6-dev+g{current_revision}"
+    )
     monkeypatch.setattr(core_update_notices, "image_tag", lambda: "latest")
-    release = core_updates.Release(tag="latest", revision="a" * 40, version="v2")
+    release = core_updates.Release(tag="latest", revision="a" * 40, version="v3.8.7")
     monkeypatch.setattr(core_update_notices, "check_image", AsyncMock(return_value=release))
     lock = MagicMock()
     lock.__aenter__.return_value = True
@@ -172,18 +198,36 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(monkeypatch):
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert [call.args[0] for call in ctx.bot.send_message.await_args_list] == [123, 456]
+    stable_notice = ctx.bot.send_message.await_args_list[0]
+    assert stable_notice.kwargs["parse_mode"] == "HTML"
+    header, details, action = stable_notice.args[1].split("\n\n")
+    assert header == f"<b>{title}</b>"
+    assert action == next_step
+    assert [line.partition(" — ")[2] for line in details.splitlines()] == [
+        "<code>v3.8.7</code>",
+        "<code>v3.8.6-dev+g12345678</code>",
+        "<code>latest</code>",
+    ]
     values["test:core-update:notify"] = "0"
     release.revision = "b" * 40
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert ctx.bot.send_message.await_count == 2
 
     monkeypatch.setattr(core_update_notices, "image_tag", lambda: "dev")
+    release.tag = "dev"
+    release.version = "dev · bbbbbbbb"
     values["test:core-update:notify"] = "1"
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert ctx.bot.send_message.await_count == 2
     values["test:core-update:notify:dev"] = "1"
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert ctx.bot.send_message.await_count == 4
+    dev_details = ctx.bot.send_message.await_args.args[1].split("\n\n")[1]
+    assert [line.partition(" — ")[2] for line in dev_details.splitlines()] == [
+        "<code>bbbbbbbb</code>",
+        "<code>v3.8.6-dev+g12345678</code>",
+        "<code>dev</code>",
+    ]
 
 
 @pytest.mark.parametrize("mismatch", [True, False])
