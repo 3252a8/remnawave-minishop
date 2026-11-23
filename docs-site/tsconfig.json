@@ -1,0 +1,10 @@
+{
+  "extends": "../frontend/jsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "noEmit": true,
+    "types": ["astro/client"]
+  },
+  "include": ["src/**/*.ts"]
+}

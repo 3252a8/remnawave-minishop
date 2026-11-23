@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 
+declare global {
+  interface Window {
+    backupTest: { uploads: string[][]; restores: Record<string, unknown>[] };
+  }
+}
+
 const sha256 = (value: Buffer) => createHash("sha256").update(value).digest("hex");
 const archiveName = "minishop-from-telegram.zip";
 const contents = Buffer.from("PK\u0003\u0004backup-data");
@@ -47,7 +53,7 @@ async function installBackupApi(page: Page) {
     };
     const uploads: string[][] = [];
     const restores: Record<string, unknown>[] = [];
-    Object.assign(window, { backupTest: { uploads, restores } });
+    window.backupTest = { uploads, restores };
     const archives: Archive[] = [];
     let bundle: Bundle | undefined;
     async function hash(file: Blob) {
@@ -135,9 +141,7 @@ async function installBackupApi(page: Page) {
 }
 
 async function uploadCount(page: Page) {
-  return page.evaluate(
-    () => (window as Window & { backupTest: { uploads: string[][] } }).backupTest.uploads.length
-  );
+  return page.evaluate(() => window.backupTest.uploads.length);
 }
 
 for (const [device, viewport] of [
@@ -166,30 +170,15 @@ for (const [device, viewport] of [
     const { manifest, parts } = backupFiles();
     await input.setInputFiles([parts[1], manifest, parts[0]]);
     await expect(page.locator(".backups-selected-name")).toHaveText(archiveName);
-    const uploads = await page.evaluate(
-      () => (window as Window & { backupTest: { uploads: string[][] } }).backupTest.uploads
-    );
+    const uploads = await page.evaluate(() => window.backupTest.uploads);
     expect(uploads).toEqual([["single.zip"], [parts[1].name, manifest.name, parts[0].name]]);
     await expect(page.locator(".backups-table")).toContainText(archiveName);
 
     await page.locator(".backups-check").nth(1).getByRole("checkbox").check();
     await page.locator(".backups-confirmation input").fill(archiveName);
     await page.locator(".backups-restore-body").getByRole("button").last().click();
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () =>
-            (window as Window & { backupTest: { restores: unknown[] } }).backupTest.restores.length
-        )
-      )
-      .toBe(1);
-    expect(
-      await page.evaluate(
-        () =>
-          (window as Window & { backupTest: { restores: Record<string, unknown>[] } }).backupTest
-            .restores[0]
-      )
-    ).toMatchObject({
+    await expect.poll(() => page.evaluate(() => window.backupTest.restores.length)).toBe(1);
+    expect(await page.evaluate(() => window.backupTest.restores[0])).toMatchObject({
       archive_name: archiveName,
       restore_compose: true,
       restore_database: false,

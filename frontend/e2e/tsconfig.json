@@ -1,0 +1,7 @@
+{
+  "extends": "../jsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "svelte", "vite/client"]
+  },
+  "include": ["./**/*.ts", "../playwright.config.ts"]
+}

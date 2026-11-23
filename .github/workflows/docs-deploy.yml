@@ -46,7 +46,7 @@ jobs:
 
       - name: Build and check documentation
         run: |
-          npm --prefix docs-site ci --no-audit --no-fund
+          npm --prefix docs-site ci --strict-peer-deps --no-audit --no-fund
           npm run check:docs
           npm run build:docs
 

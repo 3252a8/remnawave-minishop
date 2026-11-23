@@ -64,6 +64,7 @@ async function checkProject(projectName) {
     "--yes",
     `npm@${npmVersion}`,
     "ci",
+    "--strict-peer-deps",
     "--dry-run",
     "--ignore-scripts",
     "--no-audit",

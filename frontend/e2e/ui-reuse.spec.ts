@@ -264,6 +264,7 @@ for (const width of [1440, 768, 390, 320]) {
           rootRows: new Set(
             cy
               .nodes()
+              .toArray()
               .filter((node) => !targets.has(node.id()))
               .map((node) => Math.round(node.position("y")))
           ).size,

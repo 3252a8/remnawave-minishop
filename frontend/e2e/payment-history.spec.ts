@@ -195,8 +195,9 @@ for (const width of [1440, 780, 390]) {
     test(`payment history keeps list geometry during updates at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.addInitScript(() => {
-        const setTimeout = window.setTimeout.bind(window);
-        window.setTimeout = (handler, timeout, ...args) =>
+        const browser: Window = window;
+        const setTimeout = browser.setTimeout.bind(browser);
+        browser.setTimeout = (handler, timeout, ...args) =>
           setTimeout(handler, timeout === 120 ? 800 : timeout, ...args);
       });
       await page.goto("/demo/runtime/settings/payments?theme_preview=dark");
@@ -205,7 +206,7 @@ for (const width of [1440, 780, 390]) {
       await expect(list).toHaveAttribute("aria-busy", "false");
       await expect(rows).toHaveCount(10);
       const geometry = () =>
-        list.evaluate((element) => ({
+        list.evaluate((element: HTMLElement) => ({
           top: element.offsetTop,
           height: element.getBoundingClientRect().height,
         }));

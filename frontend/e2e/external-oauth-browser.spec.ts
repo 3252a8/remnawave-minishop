@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import type { TelegramWebApp } from "../src/lib/webapp/telegramRuntime.js";
 
 const locales = {
   ru: JSON.parse(readFileSync("../locales/ru.json", "utf8")),
@@ -10,18 +11,17 @@ async function configure(page: Page) {
   await page.addInitScript(() => {
     const browser = window as Window & { oauthOpenedUrls?: string[] };
     browser.oauthOpenedUrls = [];
-    window.Telegram = {
-      WebApp: {
-        initData: "signed-test-data",
-        platform: "android",
-        ready() {},
-        expand() {},
-        isVersionAtLeast: () => true,
-        onEvent() {},
-        offEvent() {},
-        openLink: (url: string) => browser.oauthOpenedUrls?.push(url),
-      },
-    };
+    const webApp = {
+      initData: "signed-test-data",
+      platform: "android",
+      ready() {},
+      expand() {},
+      isVersionAtLeast: () => true,
+      onEvent() {},
+      offEvent() {},
+      openLink: (url: string) => browser.oauthOpenedUrls?.push(url),
+    } satisfies TelegramWebApp;
+    Object.assign(window, { Telegram: { WebApp: webApp } });
   });
   await page.route("https://telegram.org/js/telegram-web-app.js*", (route) =>
     route.fulfill({ contentType: "application/javascript", body: "" })

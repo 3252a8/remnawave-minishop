@@ -56,7 +56,7 @@ jobs:
         run: npm run check:docs
 
       - name: Install frontend deps
-        run: npm ci
+        run: npm ci --strict-peer-deps
         working-directory: frontend
 
       - name: ESLint (frontend)
@@ -70,7 +70,13 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6144
 
       - name: TypeScript typecheck
-        run: npm run typecheck:ts
+        run: |
+          ./node_modules/.bin/tsc --version
+          npm run typecheck:ts
+        working-directory: frontend
+
+      - name: Playwright TypeScript typecheck
+        run: npm run typecheck:e2e
         working-directory: frontend
 
       - name: Check generated API types are in sync

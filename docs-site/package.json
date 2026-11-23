@@ -3,22 +3,25 @@
   "type": "module",
   "packageManager": "npm@10.9.10",
   "scripts": {
+    "postinstall": "node ./scripts/disable-nova-twoslash.mjs",
     "sync:docs": "node ./scripts/sync-docs.mjs",
     "check:openapi-sync": "node ./scripts/check-openapi-sync.mjs",
     "check:sidebar": "node ./scripts/check-sidebar-coverage.mjs",
     "check:demo-routes": "node ./scripts/check-demo-routes.mjs",
+    "typecheck": "tsc -p ./tsconfig.json",
     "build:demo": "node ./scripts/build-demo-runtime.mjs",
     "dev": "npm run sync:docs && npm run build:demo && astro dev",
-    "build": "npm run sync:docs && npm run build:demo && astro build && node ./scripts/materialize-demo-routes.mjs",
+    "build": "npm run sync:docs && npm run build:demo && npm run typecheck && astro build && node ./scripts/materialize-demo-routes.mjs",
     "preview": "astro preview"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.43.1",
+    "@typescript/native-preview": "npm:typescript@7.0.2",
     "astro": "^7.4.13",
     "lucide-static": "1.77.0",
-    "starlight-theme-nova": "^0.12.3",
+    "starlight-theme-nova": "0.12.3",
     "swagger-ui-dist": "^5.35.1",
-    "typescript": "^6.0.3"
+    "typescript": "npm:@typescript/typescript6@6.0.2"
   },
   "overrides": {
     "esbuild": "0.28.2",
