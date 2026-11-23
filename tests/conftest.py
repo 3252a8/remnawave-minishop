@@ -63,6 +63,7 @@ def _isolate_external_plugin_entry_points():
     monkeypatch.undo()
 
 
+@pytest.fixture(scope="session")
 def _provider_env_prefixes() -> tuple[str, ...]:
     """Env prefixes every registered provider reads, derived from the registry.
 
@@ -86,9 +87,8 @@ def _provider_env_prefixes() -> tuple[str, ...]:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_provider_env(monkeypatch):
+def _isolate_provider_env(monkeypatch: pytest.MonkeyPatch, _provider_env_prefixes: tuple[str, ...]):
     monkeypatch.setenv("PROVIDER_ENV_FILE", "")
-    prefixes = _provider_env_prefixes()
-    for key in list(os.environ.keys()):
-        if any(key.startswith(prefix) for prefix in prefixes):
+    for key in list(os.environ):
+        if key.startswith(_provider_env_prefixes):
             monkeypatch.delenv(key, raising=False)

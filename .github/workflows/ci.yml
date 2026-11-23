@@ -99,12 +99,12 @@ jobs:
   # admin dialogs, dialog tabs, disclosure panels, activation handoff, and zero
   # console errors.
   webapp-e2e:
-    name: Webapp e2e smoke (${{ matrix.shard }}/2)
+    name: Webapp e2e smoke (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -125,7 +125,7 @@ jobs:
         working-directory: frontend
 
       - name: Run webapp mock-smoke
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         working-directory: frontend
         env:
           PLAYWRIGHT_WORKERS: "2"
@@ -176,18 +176,18 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U app_user -d vpn_shop_db"
-          --health-interval 10s
+          --health-interval 2s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 25
       redis:
         image: redis:7
         ports:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 10s
+          --health-interval 2s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 25
     env:
       POSTGRES_USER: app_user
       POSTGRES_PASSWORD: app_password
@@ -222,9 +222,10 @@ jobs:
           "aiosqlite>=0.22.1,<1"
           "pytest>=9.1.1,<10"
           "pytest-cov>=7.1.0,<8"
+          "pytest-xdist==3.8.0"
 
       - name: Run full pytest suite
-        run: python -m pytest -q --cov --cov-report=xml --cov-fail-under=53
+        run: python -m pytest -q -n 4 --dist=loadfile --cov --cov-report=xml --cov-fail-under=53
 
   typecheck:
     name: Python typecheck
