@@ -127,6 +127,8 @@ jobs:
       - name: Run webapp mock-smoke
         run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
         working-directory: frontend
+        env:
+          PLAYWRIGHT_WORKERS: "2"
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
