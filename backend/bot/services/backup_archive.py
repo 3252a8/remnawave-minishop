@@ -10,7 +10,7 @@ BACKUP_FILENAME_PREFIX = "minishop-"
 BACKUP_FORMAT_VERSION = 1
 BACKUP_MANIFEST_NAME = "manifest.json"
 BACKUP_TARIFFS_CONFIG_MEMBER = "database/tariffs.json"
-BACKUP_ZIP_COMPRESSION_LEVEL = 9
+BACKUP_ZIP_COMPRESSION_LEVEL = 6
 
 
 def backup_filename_timestamp() -> str:

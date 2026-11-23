@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -188,7 +189,8 @@ class BackupWorker:
             prefix=f"{BACKUP_FILENAME_PREFIX}{stamp}-",
             dir=backup_dir,
         ) as tmp:
-            staging_dir = Path(tmp)
+            staging_dir = Path(tmp) / "contents"
+            staging_dir.mkdir()
             warnings: list[str] = []
             db_dump_included = False
             tariffs_config_included = False
@@ -261,14 +263,17 @@ class BackupWorker:
                 },
                 "warnings": warnings,
             }
-            attach_archive_integrity(
-                manifest,
-                file_records=build_file_records(staging_dir),
-            )
-            write_manifest(staging_dir, manifest)
+            tmp_archive = Path(tmp) / "archive.zip"
 
-            tmp_archive = archive_path.with_name(f"{archive_path.name}.tmp")
-            write_zip_from_directory(staging_dir, tmp_archive)
+            def pack() -> None:
+                attach_archive_integrity(manifest, file_records=build_file_records(staging_dir))
+                write_manifest(staging_dir, manifest)
+                write_zip_from_directory(staging_dir, tmp_archive)
+
+            # Join the writer before releasing its temporary files, also on cancellation.
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                await asyncio.get_running_loop().run_in_executor(executor, pack)
+            archive_path = self._unique_archive_path(archive_path)
             tmp_archive.replace(archive_path)
 
         if self.session_factory is not None:

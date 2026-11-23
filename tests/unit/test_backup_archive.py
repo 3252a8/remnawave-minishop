@@ -5,7 +5,7 @@ from zipfile import ZipFile
 from bot.services import backup_archive
 
 
-def test_backup_zip_uses_maximum_deflate_compression(monkeypatch, tmp_path: Path) -> None:
+def test_backup_zip_uses_standard_deflate_compression(monkeypatch, tmp_path: Path) -> None:
     source_dir = tmp_path / "source"
     source_dir.mkdir()
     (source_dir / "database.sql").write_text("repeated backup data\n" * 100, encoding="utf-8")
@@ -22,6 +22,6 @@ def test_backup_zip_uses_maximum_deflate_compression(monkeypatch, tmp_path: Path
     backup_archive.write_zip_from_directory(source_dir, archive_path)
 
     assert captured["compression"] == zipfile.ZIP_DEFLATED
-    assert captured["compresslevel"] == 9
+    assert captured["compresslevel"] == 6
     with ZipFile(archive_path) as archive:
         assert archive.read("database.sql").decode("utf-8").startswith("repeated backup data")
