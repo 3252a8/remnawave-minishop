@@ -408,7 +408,7 @@ class AdminTranslationGroupOut(HttpResponseModel):
     path: list[str] = Field(default_factory=list)
     path_keys: list[str] = Field(default_factory=list)
     items: list[AdminTranslationItemOut]
-    counts: dict[str, AdminTranslationCountsOut] | None = None
+    counts: dict[str, AdminTranslationCountsOut] | None = Field(default_factory=lambda: None)
 
 
 class AdminTranslationsOut(HttpResponseModel):

@@ -7734,11 +7734,8 @@ export interface components {
       closed: number;
       /** Open */
       open: number;
-      /**
-       * Partner Attention Total
-       * @default null
-       */
-      partner_attention_total: number | null;
+      /** Partner Attention Total */
+      partner_attention_total?: number | null;
       /** Total */
       total: number;
       /** Total Unread Admin */
@@ -8168,11 +8165,8 @@ export interface components {
     AdminTranslationGroupOut: {
       /** Audience */
       audience: string;
-      /**
-       * Counts
-       * @default null
-       */
-      counts: {
+      /** Counts */
+      counts?: {
         [key: string]: components["schemas"]["AdminTranslationCountsOut"];
       } | null;
       /** Description */

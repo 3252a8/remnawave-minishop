@@ -169,6 +169,7 @@ export function createAdminSupportStore({
   let messages = $state.raw<SupportMessage[]>([]);
   const state = $state<ProxiedSupportState>({
     stats: {
+      partner_attention_total: 0,
       active: 0,
       closed: 0,
       open: 0,

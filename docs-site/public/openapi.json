@@ -6354,7 +6354,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Partner Attention Total"
           },
           "total": {
@@ -7410,7 +7409,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Counts"
           },
           "description": {
