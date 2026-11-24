@@ -11,6 +11,7 @@ from aiogram.utils.text_decorations import html_decoration as hd
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.infra.performance import performance_phase
 from bot.middlewares.i18n import JsonI18n
 from bot.services.message_audit import (
     log_user_message_delivery as log_user_message_delivery,
@@ -188,7 +189,8 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
 
         if isinstance(session, AsyncSession):
             await session.commit()
-        panel_users_by_uuid = await self._prefetch_panel_users_by_uuid(subs)
+        with performance_phase("panel_user_snapshot"):
+            panel_users_by_uuid = await self._prefetch_panel_users_by_uuid(subs)
         panel_view = "list" if panel_users_by_uuid is not None else "full_fetch"
         semaphore = asyncio.Semaphore(TARIFF_WORKER_PANEL_CONCURRENCY)
 
@@ -270,7 +272,8 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
                         semaphore=semaphore,
                         confirmed_missing=panel_users_by_uuid is not None,
                     )
-            await prefetch_tariff_read_batch(session, chunk)
+            with performance_phase("entitlement_prefetch"):
+                await prefetch_tariff_read_batch(session, chunk)
             for sub, panel_data in zip(chunk, panel_payloads, strict=True):
                 if sub.subscription_id not in current_ids:
                     continue

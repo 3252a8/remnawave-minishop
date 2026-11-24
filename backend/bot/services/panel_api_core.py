@@ -8,6 +8,7 @@ from typing import Any
 import aiohttp
 from pydantic_core import from_json
 
+from bot.infra.performance import performance_phase
 from bot.services.panel_api_compat import (
     PanelApiCompatibility,
     compatible_panel_user_reference,
@@ -613,7 +614,8 @@ class PanelApiCoreMixin:
                             "details": {"content_type": content_type or None},
                         }
                     try:
-                        data = _decode_panel_json(response_text, operation)
+                        with performance_phase("panel_json_cpu", clock=time.thread_time):
+                            data = _decode_panel_json(response_text, operation)
                         if isinstance(data, dict):
                             return data
                         return {"status": "success", "code": response_status, "data": data}

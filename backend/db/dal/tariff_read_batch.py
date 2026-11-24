@@ -2,12 +2,13 @@
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import cache
 from itertools import chain
 from typing import Any
 
-from sqlalchemy import event, inspect, select
+from sqlalchemy import Integer, Select, bindparam, event, false, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from db.models import (
     FlexibleTrafficLimit,
@@ -115,6 +116,41 @@ def _invalidate_changed_entitlements(session: Session, context: Any, instances: 
     _invalidate_pending_writes(session)
 
 
+@cache
+def _entitlement_rows() -> Select[
+    tuple[FlexibleTrafficLimit, HwidDevicePurchase, TrafficTopup, UserPanelSquadOverride]
+]:
+    ids = bindparam("subscription_ids", type_=Integer, expanding=True)
+    limits = aliased(
+        FlexibleTrafficLimit,
+        select(FlexibleTrafficLimit)
+        .where(FlexibleTrafficLimit.subscription_id.in_(ids))
+        .subquery(),
+    )
+    devices = aliased(
+        HwidDevicePurchase,
+        select(HwidDevicePurchase).where(HwidDevicePurchase.subscription_id.in_(ids)).subquery(),
+    )
+    topups = aliased(
+        TrafficTopup, select(TrafficTopup).where(TrafficTopup.subscription_id.in_(ids)).subquery()
+    )
+    overrides = aliased(
+        UserPanelSquadOverride,
+        select(UserPanelSquadOverride)
+        .where(UserPanelSquadOverride.user_id.in_(bindparam("user_ids", expanding=True)))
+        .subquery(),
+    )
+    # Each source contributes independent ORM rows to the same result. ON FALSE
+    # keeps every row exactly once, even when several purchases share a subscription.
+    return (
+        select(limits, devices, topups, overrides)
+        .select_from(limits)
+        .join_from(limits, devices, false(), full=True)
+        .join_from(limits, topups, false(), full=True)
+        .join_from(limits, overrides, false(), full=True)
+    )
+
+
 async def prefetch_tariff_read_batch(session: AsyncSession, subs: list[Subscription]) -> None:
     if not isinstance(session, AsyncSession) or not subs:
         return
@@ -126,26 +162,18 @@ async def prefetch_tariff_read_batch(session: AsyncSession, subs: list[Subscript
         {int(sub.user_id) for sub in subs},
         {str(sub.panel_user_uuid) for sub in subs},
     )
-    flexible = await session.scalars(
-        select(FlexibleTrafficLimit).where(FlexibleTrafficLimit.subscription_id.in_(ids))
+    rows = await session.execute(
+        _entitlement_rows(), {"subscription_ids": sorted(ids), "user_ids": sorted(batch.user_ids)}
     )
-    for row in flexible:
-        batch.flexible.setdefault(row.subscription_id, []).append(row)
-    hwid = await session.scalars(
-        select(HwidDevicePurchase).where(HwidDevicePurchase.subscription_id.in_(ids))
-    )
-    for purchase in hwid:
-        batch.hwid.setdefault(purchase.subscription_id, []).append(purchase)
-    topups = await session.scalars(
-        select(TrafficTopup).where(TrafficTopup.subscription_id.in_(ids))
-    )
-    for topup in topups:
-        batch.topups.setdefault(topup.subscription_id, []).append(topup)
-    overrides = await session.scalars(
-        select(UserPanelSquadOverride)
-        .where(UserPanelSquadOverride.user_id.in_(batch.user_ids))
-        .order_by(UserPanelSquadOverride.override_id)
-    )
-    batch.overrides = list(overrides)
+    for limit, purchase, topup, override in rows:
+        if limit is not None:
+            batch.flexible.setdefault(limit.subscription_id, []).append(limit)
+        elif purchase is not None:
+            batch.hwid.setdefault(purchase.subscription_id, []).append(purchase)
+        elif topup is not None:
+            batch.topups.setdefault(topup.subscription_id, []).append(topup)
+        elif override is not None:
+            batch.overrides.append(override)
+    batch.overrides.sort(key=lambda row: int(row.override_id))
     batch.transaction = session.get_transaction()
     session.info[_KEY] = batch

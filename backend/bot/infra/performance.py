@@ -2,7 +2,7 @@
 
 import logging
 import time
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -55,14 +55,14 @@ async def performance_operation(name: str) -> AsyncIterator[None]:
 
 
 @contextmanager
-def performance_phase(name: str) -> Iterator[None]:
-    started = time.monotonic()
+def performance_phase(name: str, *, clock: Callable[[], float] = time.monotonic) -> Iterator[None]:
+    started = clock()
     try:
         yield
     finally:
         scope = current_scope.get()
         if scope is not None:
-            scope.phases[name] = scope.phases.get(name, 0.0) + time.monotonic() - started
+            scope.phases[name] = scope.phases.get(name, 0.0) + clock() - started
 
 
 def record_cache_result(result: str) -> None:

@@ -13,7 +13,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import event, func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.handlers.admin.sync_admin_snapshot import capture_subscription_snapshot
@@ -286,7 +286,18 @@ def test_batch_matches_sql_for_overlapping_future_expired_and_empty_entitlements
             assert expected[0][2]["next_valid_from"] == NOW + timedelta(days=1)
             assert expected[0][3] == 300
             assert expected[1][0] == {} and expected[1][3] == 0
-            await prefetch_tariff_read_batch(session, subs)
+            statements: list[str] = []
+            connection = (await session.connection()).sync_connection
+
+            def record_statement(*args: Any) -> None:
+                statements.append(args[2])
+
+            event.listen(connection, "before_cursor_execute", record_statement)
+            try:
+                await prefetch_tariff_read_batch(session, subs)
+            finally:
+                event.remove(connection, "before_cursor_execute", record_statement)
+            assert len(statements) == 1
             assert await read() == expected
             assert (
                 await user_panel_squad_override_dal.deactivate_panel_internal_overrides_for_squads(
