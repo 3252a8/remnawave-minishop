@@ -48,7 +48,7 @@
   } from "$lib/admin/partnerProgramUi.js";
   import { sortAdminRows } from "$lib/admin/tableSort.js";
   import { fmtDateTime } from "$lib/admin/format.js";
-  import { withRoutePrefix } from "$lib/webapp/routes.js";
+  import { stripRoutePrefix, withRoutePrefix } from "$lib/webapp/routes.js";
   import {
     applications as previewApplications,
     partners as previewPartners,
@@ -287,6 +287,10 @@
   let withdrawalRejectionError = $state("");
 
   function syncRouteView(): void {
+    if (
+      !/^\/admin\/partners(?:\/|$)/i.test(stripRoutePrefix(window.location.pathname, routePrefix))
+    )
+      return;
     actionStatus = "";
     actionError = false;
     const route = partnerAdminRouteState(routePrefix);
@@ -369,6 +373,7 @@
         countsCurrency = currency;
         referralProgramEnabled = nextCounts.referralProgramEnabled;
       }
+      view = result.view;
       switch (result.view) {
         case "dashboard":
           dashboard = result.dashboard;
@@ -391,6 +396,7 @@
         case "partner_detail": {
           const detail = result.detail;
           selectedPartner = detail.partner;
+          selectedId = detail.partner.id;
           partnerHasRelationships = detail.hasRelationships;
           partnerLinks = detail.links;
           partnerClients = detail.clients;
@@ -402,9 +408,11 @@
         }
         case "application_detail":
           selectedApplication = result.application;
+          selectedId = result.application.id;
           break;
         case "withdrawal_detail":
           setSelectedWithdrawal(result.withdrawal);
+          selectedId = result.withdrawal.id;
           break;
       }
     } catch {

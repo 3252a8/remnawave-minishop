@@ -267,10 +267,25 @@ export async function loadPartnerView(
     case "withdrawals":
       return { view, withdrawals: await loadPartnerWithdrawals(api, currency) } as const;
     case "partner_detail": {
-      const path = `/admin/partners/${encodedId}?currency=${encodeURIComponent(currency)}`;
-      return { view, detail: await loadPartnerDetail(api, id, currency, path) } as const;
+      let partnerId = id;
+      if (!partnerId) {
+        const page = await loadPartnerPage(api, currency, { ...query, limit: 1 });
+        if (!page.partners.length) return { view: "partners", page } as const;
+        partnerId = page.partners[0].id;
+      }
+      const path = `/admin/partners/${encodeURIComponent(partnerId)}?currency=${encodeURIComponent(currency)}`;
+      return { view, detail: await loadPartnerDetail(api, partnerId, currency, path) } as const;
     }
     case "application_detail": {
+      if (!id) {
+        const payload = requirePartnerAdminResponse(
+          await api("/admin/partner-applications?limit=1")
+        );
+        const first = records(payload.applications)[0];
+        return first
+          ? ({ view, application: mapApplication(first) } as const)
+          : ({ view: "applications", applications: [] as ApplicationRow[] } as const);
+      }
       const payload = requirePartnerAdminResponse(
         await api(
           builtApiPath<"/api/admin/partner-applications/{id}">(
@@ -281,6 +296,15 @@ export async function loadPartnerView(
       return { view, application: mapApplication(record(payload.application)) } as const;
     }
     case "withdrawal_detail": {
+      if (!id) {
+        const payload = requirePartnerAdminResponse(
+          await api(`/admin/partner-withdrawals?currency=${encodeURIComponent(currency)}&limit=1`)
+        );
+        const first = records(payload.withdrawals)[0];
+        return first
+          ? ({ view, withdrawal: mapWithdrawal(first) } as const)
+          : ({ view: "withdrawals", withdrawals: [] as WithdrawalRow[] } as const);
+      }
       const payload = requirePartnerAdminResponse(
         await api(
           builtApiPath<"/api/admin/partner-withdrawals/{id}">(

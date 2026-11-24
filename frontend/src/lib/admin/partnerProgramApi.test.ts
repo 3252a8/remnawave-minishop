@@ -82,6 +82,43 @@ describe("partner program admin API", () => {
     expect(api.mock.calls).toEqual([[path]]);
   });
 
+  it("resolves legacy detail views without an ID using one row of the corresponding list", async () => {
+    const api = vi.fn(async (path: string) => {
+      if (path.startsWith("/admin/partners?")) return { partners: [{ partner_id: 23 }] };
+      if (path.startsWith("/admin/partners/23?")) return { partner: { partner_id: 23 } };
+      if (path.startsWith("/admin/partner-applications?"))
+        return { applications: [{ application_id: 34 }] };
+      return { withdrawals: [{ withdrawal_id: 45 }] };
+    });
+    const load = (view: "partner_detail" | "application_detail" | "withdrawal_detail") =>
+      loadPartnerView(
+        api as unknown as AdminApi,
+        view,
+        "EUR",
+        "",
+        DEFAULT_PARTNER_LIST_QUERY,
+        partnerTopListQuery("earned_desc")
+      );
+    expect(await load("partner_detail")).toMatchObject({
+      view: "partner_detail",
+      detail: { partner: { id: "23" } },
+    });
+    expect(await load("application_detail")).toMatchObject({
+      view: "application_detail",
+      application: { id: "34" },
+    });
+    expect(await load("withdrawal_detail")).toMatchObject({
+      view: "withdrawal_detail",
+      withdrawal: { id: "45" },
+    });
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/admin/partners?currency=EUR&limit=1&offset=0&sort=clients_desc",
+      "/admin/partners/23?currency=EUR",
+      "/admin/partner-applications?limit=1",
+      "/admin/partner-withdrawals?currency=EUR&limit=1",
+    ]);
+  });
+
   it("loads currency-scoped tab badges without fetching lists on a deep link", async () => {
     const api = vi.fn().mockResolvedValue({ pending_applications: 258, open_withdrawals: 301 });
     const counts = await loadPartnerWorkspaceCounts(api as unknown as AdminApi, "EUR");
