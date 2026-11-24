@@ -11,6 +11,7 @@ import pytest
 
 from bot.app.web import admin_api
 from bot.app.web.admin_api_impl import settings as admin_settings_routes
+from bot.payment_providers import registry as provider_registry
 from bot.plugins import Plugin, PluginContext, register, reset_plugins, run_setup
 from bot.services.entitlements import (
     MARKETING_CAMPAIGNS_ENTITLEMENT,
@@ -155,6 +156,9 @@ async def _admin_settings_response(settings: Settings, *, features_only: bool = 
     request.get = lambda key, default=None: getattr(request, key, default)
 
     with (
+        patch.dict(provider_registry._provider_configs, clear=True),
+        patch.dict(provider_registry._provider_presentations, clear=True),
+        patch.dict(provider_registry._reporting_fee_sources, clear=True),
         patch.object(admin_settings_routes, "_require_admin_user_id", return_value=1),
         patch.object(
             admin_settings_routes.app_settings_dal,
@@ -162,4 +166,5 @@ async def _admin_settings_response(settings: Settings, *, features_only: bool = 
             AsyncMock(return_value=[]),
         ),
     ):
+        provider_registry.build_provider_configs()
         return await admin_api.admin_settings_get_route(request)
