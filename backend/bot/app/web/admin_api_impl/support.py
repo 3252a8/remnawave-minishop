@@ -55,7 +55,7 @@ from bot.services.support_message_buttons import (
 )
 from bot.services.support_presence import is_support_typing, set_support_typing
 from bot.services.support_service import TicketNotFound
-from db.dal import support_dal, user_dal
+from db.dal import partner_dal, support_dal, user_dal
 from db.models import SupportTicket, SupportTicketMessage, User
 
 from .auth import (
@@ -197,6 +197,15 @@ register_contract(
     "admin_support_stats_route",
     RouteContract(
         response_schema=ok_envelope_with({"stats": schema_ref(AdminSupportStatsOut)}),
+        query_parameters=(
+            {
+                "name": "include_partner_attention",
+                "in": "query",
+                "required": False,
+                "description": "Include pending partner applications and payouts when set to 1.",
+                "schema": {"type": "string", "enum": ["0", "1"], "default": "0"},
+            },
+        ),
         models=(AdminSupportStatsOut,),
     ),
 )
@@ -500,4 +509,7 @@ async def admin_support_stats_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
         stats = await support_dal.admin_stats(session)
+        if request.query.get("include_partner_attention") == "1":
+            attention = await partner_dal.attention_counts(session)
+            stats = {**stats, "partner_attention_total": attention["total"]}
     return _ok({"stats": stats})

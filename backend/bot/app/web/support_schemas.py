@@ -50,6 +50,7 @@ class SupportCountsOut(HttpResponseModel):
 
 
 class AdminSupportStatsOut(SupportCountsOut):
+    partner_attention_total: int | None = None
     open: int
     awaiting_user: int
     awaiting_admin: int

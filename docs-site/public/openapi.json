@@ -6345,6 +6345,18 @@
             "title": "Open",
             "type": "integer"
           },
+          "partner_attention_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Partner Attention Total"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -26807,6 +26819,17 @@
     "/api/admin/partners/attention": {
       "get": {
         "operationId": "get_admin_partner_attention_route",
+        "parameters": [
+          {
+            "description": "Include workspace counts for this reporting currency.",
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -26846,6 +26869,41 @@
     "/api/admin/partners/overview": {
       "get": {
         "operationId": "get_admin_partner_overview_route",
+        "parameters": [
+          {
+            "description": "Set to 1 to include summary counts and recent activity.",
+            "in": "query",
+            "name": "activity",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "enum": [
+                "0",
+                "1"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "default": "RUB",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Lookback in days or all for the full history.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": "30",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -29473,6 +29531,22 @@
     "/api/admin/support/stats": {
       "get": {
         "operationId": "get_admin_support_stats_route",
+        "parameters": [
+          {
+            "description": "Include pending partner applications and payouts when set to 1.",
+            "in": "query",
+            "name": "include_partner_attention",
+            "required": false,
+            "schema": {
+              "default": "0",
+              "enum": [
+                "0",
+                "1"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {

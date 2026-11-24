@@ -23,8 +23,43 @@ from bot.app.web.route_contracts import (
 )
 
 PARTNER_ADMIN_ROUTE_CONTRACTS: dict[str, RouteContract] = {
-    "admin_partner_attention_route": RouteContract(response_schema=ok_envelope_with()),
-    "admin_partner_overview_route": RouteContract(response_schema=ok_envelope_with()),
+    "admin_partner_attention_route": RouteContract(
+        response_schema=ok_envelope_with(),
+        query_parameters=(
+            {
+                "name": "currency",
+                "in": "query",
+                "required": False,
+                "description": "Include workspace counts for this reporting currency.",
+                "schema": {"type": "string"},
+            },
+        ),
+    ),
+    "admin_partner_overview_route": RouteContract(
+        response_schema=ok_envelope_with(),
+        query_parameters=(
+            {
+                "name": "activity",
+                "in": "query",
+                "required": False,
+                "description": "Set to 1 to include summary counts and recent activity.",
+                "schema": {"type": "string", "enum": ["0", "1"], "default": "0"},
+            },
+            {
+                "name": "currency",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "string", "default": "RUB"},
+            },
+            {
+                "name": "days",
+                "in": "query",
+                "required": False,
+                "description": "Lookback in days or all for the full history.",
+                "schema": {"type": "string", "default": "30"},
+            },
+        ),
+    ),
     "admin_partners_list_route": RouteContract(response_schema=ok_envelope_with()),
     "admin_partner_detail_route": RouteContract(
         response_schema=ok_envelope_with({"has_relationships": BOOLEAN_SCHEMA})

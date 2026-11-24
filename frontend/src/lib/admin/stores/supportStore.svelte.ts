@@ -88,7 +88,7 @@ export type AdminSupportStore = AdminSupportState & {
   loadImage(url: string): Promise<Blob>;
   loadCustomEmojiMedia: CustomEmojiMediaLoader;
   setActive(section: string): void;
-  loadStats(): Promise<void>;
+  loadStats(afterMutation?: boolean): Promise<void>;
   loadList(options?: LoadListOptions): Promise<void>;
   openTicket(ticketId: TicketId, opts?: TicketViewOptions): Promise<void>;
   closeTicketView(opts?: TicketViewOptions): void;
@@ -122,6 +122,9 @@ function asUser(value: unknown): SupportUser | null {
 function asStats(value: unknown, fallback: SupportStats): SupportStats {
   const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {
+    partner_attention_total: Number(
+      record.partner_attention_total ?? fallback.partner_attention_total ?? 0
+    ),
     active: Number(record.active ?? fallback.active ?? 0),
     closed: Number(record.closed ?? fallback.closed ?? 0),
     open: Number(record.open ?? fallback.open ?? 0),
@@ -205,6 +208,7 @@ export function createAdminSupportStore({
   });
 
   let statsPollTimer: number | null = null;
+  let statsInFlight: Promise<void> | null = null;
   let ticketPollTimer: number | null = null;
   let ticketPollInFlight = false;
   let visibilityHandler: (() => void) | null = null;
@@ -282,12 +286,29 @@ export function createAdminSupportStore({
     }
   }
 
-  async function loadStats() {
-    const res = await api(buildAdminSupportStatsPath());
-    if (res?.ok) {
-      const payload = unwrap(res);
-      updateState((s) => ({ ...s, stats: asStats(payload.stats, s.stats) }));
+  function loadStats(afterMutation = false): Promise<void> {
+    if (statsInFlight) {
+      // A read already in flight may have taken its snapshot before the mutation.
+      return afterMutation
+        ? statsInFlight.then(
+            () => loadStats(),
+            () => loadStats()
+          )
+        : statsInFlight;
     }
+    const refresh = async () => {
+      const res = await api(`${buildAdminSupportStatsPath()}?include_partner_attention=1`);
+      if (res?.ok) state.stats = asStats(unwrap(res).stats, state.stats);
+    };
+    statsInFlight = refresh().finally(() => {
+      statsInFlight = null;
+    });
+    return statsInFlight;
+  }
+
+  function pollStats() {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    void loadStats().catch(() => {});
   }
 
   async function loadList(options: LoadListOptions = {}) {
@@ -340,7 +361,7 @@ export function createAdminSupportStore({
     if (currentOpenedTicketId() !== id) return res;
     if (shouldMarkRead) {
       await api(buildAdminSupportTicketReadPath(id), { method: "POST", body: "{}" });
-      await loadStats();
+      await loadStats(true);
       shouldRefreshList = true;
     }
     if (shouldRefreshList) await loadList({ silent: true });
@@ -378,7 +399,7 @@ export function createAdminSupportStore({
         );
         if (currentOpenedTicketId() === id) {
           await api(buildAdminSupportTicketReadPath(id), { method: "POST", body: "{}" });
-          await loadStats();
+          await loadStats(true);
           await loadList({ silent: true });
           scheduleTicketPoll(OPEN_TICKET_POLL_MS);
         }
@@ -437,7 +458,7 @@ export function createAdminSupportStore({
             }
           : s
       );
-      void Promise.allSettled([loadList({ silent: true }), loadStats()]);
+      void Promise.allSettled([loadList({ silent: true }), loadStats(true)]);
       return true;
     } catch (error) {
       onToast(adminErrorMessage(error, at, at("support_send_failed", {}, "Send failed")));
@@ -477,7 +498,7 @@ export function createAdminSupportStore({
           : s.openedTicket,
       }));
       await loadList();
-      await loadStats();
+      await loadStats(true);
     } else onToast(adminErrorMessage(res, at, "update_failed"));
   }
 
@@ -556,7 +577,7 @@ export function createAdminSupportStore({
     if (!visibilityHandler && typeof document !== "undefined") {
       visibilityHandler = () => {
         if (document.visibilityState === "visible") {
-          loadStats();
+          pollStats();
           scheduleTicketPoll(0);
         } else {
           scheduleTicketPoll(HIDDEN_POLL_MS);
@@ -567,7 +588,7 @@ export function createAdminSupportStore({
     if (!resumeHandler) {
       resumeHandler = () => {
         if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-        loadStats();
+        pollStats();
         scheduleTicketPoll(0);
       };
       window.addEventListener("focus", resumeHandler);
@@ -591,10 +612,8 @@ export function createAdminSupportStore({
     if (typeof window === "undefined") return;
     ensureRealtimeListeners();
     if (statsPollTimer) return;
-    loadStats();
-    statsPollTimer = window.setInterval(() => {
-      if (document.visibilityState === "visible") loadStats();
-    }, STATS_POLL_MS);
+    pollStats();
+    statsPollTimer = window.setInterval(pollStats, STATS_POLL_MS);
   }
 
   function stopStatsPolling() {

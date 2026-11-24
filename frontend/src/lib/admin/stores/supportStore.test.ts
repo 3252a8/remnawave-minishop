@@ -22,7 +22,7 @@ async function makeSupportStore() {
       };
     }
     if (path === "/admin/support/tickets/7/typing") return { ok: true };
-    if (path === "/admin/support/stats") return { ok: true, stats: {} };
+    if (path === "/admin/support/stats?include_partner_attention=1") return { ok: true, stats: {} };
     return { ok: true, tickets: [] };
   });
   const apiBlob = vi.fn<ApiClient["apiBlob"]>().mockResolvedValue(new Blob(["image"]));
@@ -37,6 +37,66 @@ async function makeSupportStore() {
 }
 
 describe("admin supportStore", () => {
+  it("shares the badge request and fetches fresh counts after concurrent ticket changes", async () => {
+    let finish!: (value: object) => void;
+    const api = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          })
+      )
+      .mockResolvedValue({
+        ok: true,
+        stats: { total_unread_admin: 4, partner_attention_total: 6 },
+      });
+    const store = createAdminSupportStore({
+      api: api as unknown as ApiClient["api"],
+      apiBlob: vi.fn(),
+      at: (key) => key,
+      onToast: vi.fn(),
+    });
+    const initial = store.loadStats();
+    const duplicate = store.loadStats();
+    const mutation = store.loadStats(true);
+    const secondMutation = store.loadStats(true);
+    expect(api.mock.calls).toEqual([["/admin/support/stats?include_partner_attention=1"]]);
+    finish({ ok: true, stats: { total_unread_admin: 5, partner_attention_total: 2 } });
+    await Promise.all([initial, duplicate, mutation, secondMutation]);
+    expect(api).toHaveBeenCalledTimes(2);
+    expect(store.stats).toMatchObject({ total_unread_admin: 4, partner_attention_total: 6 });
+  });
+
+  it("pauses badge polling while hidden and refreshes once on return", async () => {
+    const fakeDocument = Object.assign(new EventTarget(), { visibilityState: "hidden" });
+    const fakeWindow = Object.assign(new EventTarget(), { setInterval, clearInterval });
+    vi.stubGlobal("document", fakeDocument);
+    vi.stubGlobal("window", fakeWindow);
+    const api = vi.fn().mockResolvedValue({ ok: true, stats: {} });
+    const store = createAdminSupportStore({
+      api: api as unknown as ApiClient["api"],
+      apiBlob: vi.fn(),
+      at: (key) => key,
+      onToast: vi.fn(),
+    });
+    try {
+      store.startStatsPolling();
+      expect(api).not.toHaveBeenCalled();
+      fakeDocument.visibilityState = "visible";
+      fakeDocument.dispatchEvent(new Event("visibilitychange"));
+      fakeWindow.dispatchEvent(new Event("focus"));
+      expect(api).toHaveBeenCalledTimes(1);
+      await store.loadStats();
+      store.stopStatsPolling();
+      fakeWindow.dispatchEvent(new Event("pageshow"));
+      expect(api).toHaveBeenCalledTimes(1);
+    } finally {
+      store.stopStatsPolling();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("loads custom emoji through the authenticated admin media API", async () => {
     const { apiBlob, store } = await makeSupportStore();
     const signal = new AbortController().signal;

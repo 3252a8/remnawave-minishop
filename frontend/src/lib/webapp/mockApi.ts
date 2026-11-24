@@ -70,6 +70,23 @@ export async function mockApi(
   if (giftsResponse !== undefined) return giftsResponse;
   const resolvedContext: MockApiContext = { clone, currentLang, normalizeLangCode };
   const demoResponse = demoApiResponse(path, cleanPath, options, resolvedContext);
+  if (
+    cleanPath === "/admin/support/stats" &&
+    new URLSearchParams(path.split("?")[1]).get("include_partner_attention") === "1"
+  ) {
+    const support = demoResponse as { stats: Record<string, unknown> };
+    const attentionPath = "/admin/partners/attention";
+    const attention = partnerProgramDemoResponse(
+      attentionPath,
+      attentionPath,
+      {},
+      resolvedContext
+    ) as { total: number } | undefined;
+    return {
+      ...support,
+      stats: { ...support.stats, partner_attention_total: attention?.total ?? 0 },
+    };
+  }
   if (demoResponse !== undefined) return demoResponse;
   const partnerResponse = partnerProgramDemoResponse(path, cleanPath, options, resolvedContext);
   if (partnerResponse !== undefined) return partnerResponse;

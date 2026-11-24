@@ -1,6 +1,7 @@
 <script lang="ts">
   import { takeSectionAction } from "$lib/admin/sectionActions.svelte";
   import { onMount } from "svelte";
+  import { getAdminSupportStore } from "$lib/admin/context.js";
   import {
     ArrowRight,
     CheckCircle2,
@@ -104,6 +105,7 @@
     onOpenPaymentCard?: (paymentId: number) => void;
   } = $props();
 
+  const supportStore = getAdminSupportStore();
   const adminScenario = initialScenario();
   const previewMode = Boolean(adminScenario);
   const emptyChartsPreview = adminScenario === "empty_charts";
@@ -412,6 +414,11 @@
     }
   }
 
+  function refreshAfterMutation(): Promise<void> {
+    void supportStore.loadStats(true).catch(() => {});
+    return refreshView(true);
+  }
+
   async function updateDashboardWithdrawalSort(sort: string): Promise<void> {
     dashboardWithdrawalSort = sort;
     if (previewMode || sort === "requested_desc") return;
@@ -589,7 +596,7 @@
       dialog = "";
       dialogReason = "";
       dialogAmount = "";
-      await refreshView(true);
+      await refreshAfterMutation();
       actionStatus = at("partners_action_saved", {}, "Changes saved");
     } catch (error) {
       actionError = true;
@@ -615,7 +622,7 @@
             welcome_message: status === "approved" ? approvalWelcome.trim() || null : null,
           }
         );
-        await refreshView(true);
+        await refreshAfterMutation();
       } catch (error) {
         actionError = true;
         actionStatus =
@@ -676,7 +683,7 @@
         external_reference: withdrawalExternalReference.trim() || null,
         settlement_amount: withdrawalSettlementAmount.trim() || null,
       });
-      await refreshView(true);
+      await refreshAfterMutation();
       actionStatus = partnerWithdrawalTransitionMessage(at, status);
     } catch (error) {
       actionError = true;
@@ -824,7 +831,7 @@
     </AdminEmptyState>
   {:else if view === "dashboard"}
     {#if !referralProgramEnabled}
-      <PartnerReferralImportBanner {at} {api} {previewMode} onImported={() => refreshView(true)} />
+      <PartnerReferralImportBanner {at} {api} {previewMode} onImported={refreshAfterMutation} />
     {/if}
 
     <section

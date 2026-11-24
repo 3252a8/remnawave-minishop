@@ -7734,6 +7734,11 @@ export interface components {
       closed: number;
       /** Open */
       open: number;
+      /**
+       * Partner Attention Total
+       * @default null
+       */
+      partner_attention_total: number | null;
       /** Total */
       total: number;
       /** Total Unread Admin */
@@ -16910,7 +16915,10 @@ export interface operations {
   };
   get_admin_partner_attention_route: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Include workspace counts for this reporting currency. */
+        currency?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -16933,7 +16941,13 @@ export interface operations {
   };
   get_admin_partner_overview_route: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Set to 1 to include summary counts and recent activity. */
+        activity?: "0" | "1";
+        currency?: string;
+        /** @description Lookback in days or all for the full history. */
+        days?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -18234,7 +18248,10 @@ export interface operations {
   };
   get_admin_support_stats_route: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Include pending partner applications and payouts when set to 1. */
+        include_partner_attention?: "0" | "1";
+      };
       header?: never;
       path?: never;
       cookie?: never;

@@ -47,7 +47,9 @@
   type DateFormatter = (value: unknown) => string;
   type MoneyFormatter = (value: unknown, currency?: string | null) => string;
   type BadgeVariant = "success" | "danger" | "warning" | "muted";
-  type SupportStoreBridge = { stats?: { total_unread_admin?: number | null } | null };
+  type SupportStoreBridge = {
+    stats?: { total_unread_admin?: number | null; partner_attention_total?: number | null } | null;
+  };
   type LogsStoreBridge = { logsTotal?: number | null };
   type AdsStoreBridge = { setCreateOpen: (open: boolean) => void };
   type DocumentsStoreBridge = { openCreateDocument: () => void };
@@ -301,38 +303,27 @@
 
   onDestroy(() => {
     clearAdminLanguageClickGuard();
-    if (partnerAttentionTimer !== null) window.clearInterval(partnerAttentionTimer);
   });
 
   const partnerAttentionPreviewMode =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).has("partner_admin_scenario");
-  let partnerAttentionCount = $state(0);
-  let partnerAttentionTimer: number | null = null;
-
-  async function refreshPartnerAttention(): Promise<void> {
-    if (partnerAttentionPreviewMode) return;
-    try {
-      const response = (await api("/admin/partners/attention")) as Record<string, unknown>;
-      partnerAttentionCount =
-        Number(response.pending_applications || 0) + Number(response.open_withdrawals || 0);
-    } catch {
-      // The badge is advisory; the partner section still reports its own load errors.
-    }
-  }
+  let previewAttentionCount = $state(0);
+  const partnerAttentionCount = $derived(
+    partnerAttentionPreviewMode
+      ? previewAttentionCount
+      : supportStore.stats?.partner_attention_total || 0
+  );
 
   onMount(() => {
     if (partnerAttentionPreviewMode) {
-      // Keep the large preview dataset out of the live admin's first download.
+      // Keep scenario fixtures out of the production admin download.
       void import("$lib/admin/previewMock/partnerProgram.js").then(
         ({ pendingApplicationCount, openWithdrawalCount }) => {
-          partnerAttentionCount = pendingApplicationCount + openWithdrawalCount;
+          previewAttentionCount = pendingApplicationCount + openWithdrawalCount;
         }
       );
-      return;
     }
-    void refreshPartnerAttention();
-    partnerAttentionTimer = window.setInterval(() => void refreshPartnerAttention(), 30_000);
   });
   const composition: AdminCompositionContext = {
     get at() {
