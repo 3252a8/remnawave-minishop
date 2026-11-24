@@ -14301,7 +14301,6 @@
         "type": "object"
       },
       "PromoEffects": {
-        "additionalProperties": false,
         "properties": {
           "applies_to": {
             "default": "all",
@@ -29318,6 +29317,17 @@
     "/api/admin/stats": {
       "get": {
         "operationId": "get_admin_stats_route",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_panel",
+            "required": false,
+            "schema": {
+              "default": true,
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -29356,6 +29366,57 @@
           }
         ],
         "summary": "Admin Stats",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/stats/panel": {
+      "get": {
+        "operationId": "get_admin_panel_stats_route",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "panel": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "panel"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin Panel Stats",
         "tags": [
           "admin"
         ]

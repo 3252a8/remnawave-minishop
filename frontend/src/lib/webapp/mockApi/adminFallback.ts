@@ -36,7 +36,8 @@ export function adminFallbackResponse(
     filterSupportTickets,
   } = fixtures;
 
-  if (path === "/admin/stats") {
+  if (cleanPath === "/admin/stats/panel") return { ok: true, panel: null };
+  if (cleanPath === "/admin/stats") {
     return {
       ok: true,
       currency_symbol: "RUB",

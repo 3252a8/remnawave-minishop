@@ -36,9 +36,30 @@ class AdminStatsSerializationTests(unittest.IsolatedAsyncioTestCase):
                 stats_module, "default_payment_currency_code_for_settings", return_value="USD"
             ),
         ):
-            response = await stats_module.admin_stats_route(cast(web.Request, object()))
+            request = cast(web.Request, SimpleNamespace(query={}))
+            response = await stats_module.admin_stats_route(request)
             settings.MAINTENANCE_MODE_ENABLED = False
-            disabled_response = await stats_module.admin_stats_route(cast(web.Request, object()))
+            disabled_response = await stats_module.admin_stats_route(request)
+            panel_disabled = await stats_module.admin_panel_stats_route(request)
+            panel_data = {"system": {"users": {"totalUsers": 3}}}
+            with (
+                patch.object(stats_module, "get_panel_service", return_value=object()) as get_panel,
+                patch.object(
+                    stats_module, "_load_admin_panel_stats", AsyncMock(return_value=panel_data)
+                ),
+            ):
+                local_request = cast(web.Request, SimpleNamespace(query={"include_panel": "false"}))
+                local_response = await stats_module.admin_stats_route(local_request)
+                get_panel.assert_not_called()
+                with patch.object(stats_module, "get_session_factory") as get_db:
+                    panel_response = await stats_module.admin_panel_stats_route(request)
+                    get_db.assert_not_called()
+                combined_response = await stats_module.admin_stats_route(request)
+        local = json.loads(local_response.text or "{}")
+        self.assertNotIn("panel", local)
+        self.assertEqual(json.loads(panel_disabled.text or "{}"), {"ok": True, "panel": None})
+        self.assertEqual(json.loads(panel_response.text or "{}"), {"ok": True, "panel": panel_data})
+        self.assertEqual(json.loads(combined_response.text or "{}"), {**local, "panel": panel_data})
         self.assertEqual(response.status, 200)
         body = json.loads(response.text or "{}")
         self.assertTrue(body["ok"])

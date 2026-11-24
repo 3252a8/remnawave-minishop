@@ -66,8 +66,12 @@ export function demoApiResponse(
   const method = String(options.method || "GET").toUpperCase();
   const params = queryParams(path);
 
+  if (cleanPath === "/admin/stats/panel") {
+    return { ok: true, panel: clone(DATASET.stats?.panel ?? null) };
+  }
   if (cleanPath === "/admin/stats") {
     const stats = clone(DATASET.stats) as DemoRecord;
+    if (params.get("include_panel") === "false") delete stats.panel;
     const users = Object.fromEntries(
       Object.entries({
         total_users: "all",
@@ -830,7 +834,7 @@ export function demoApiResponse(
     return { ok: true, applied: 1, reverted: 0, file_written: false };
   }
   if (cleanPath === "/admin/translations") {
-    return { ok: true, ...demoTranslationsPayload(clone) };
+    return { ok: true, ...demoTranslationsPayload(clone, params) };
   }
 
   if (cleanPath === "/admin/support/stats") return { ok: true, stats: demoSupportCounts() };

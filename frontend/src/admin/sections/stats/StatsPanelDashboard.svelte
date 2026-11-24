@@ -19,6 +19,7 @@
 
   let {
     at,
+    loading,
     panelPayload,
     panelMetrics,
     panelBw,
@@ -26,6 +27,7 @@
     panelNodesListedCount,
   }: {
     at: TranslateFn;
+    loading: boolean;
     panelPayload: PanelStats | null;
     panelMetrics: PanelSystemMetrics | null;
     panelBw: { week: unknown; month: unknown } | null;
@@ -49,7 +51,11 @@
     </Card.Action>
   </Card.Header>
 
-  {#if panelPayload?.error}
+  {#if loading}
+    <Card.Content class="admin-cn-card-content">
+      <p class="admin-muted" role="status">{at("loading")}</p>
+    </Card.Content>
+  {:else if panelPayload?.error}
     <Card.Content class="admin-cn-card-content">
       <p class="admin-muted" style="margin:0;">{at("stats_panel_unavailable_detail", {}, "")}</p>
     </Card.Content>

@@ -88,12 +88,11 @@
   const rawStats: StatsState["stats"] = $derived(statsState.stats);
   const stats: AdminStats | null = $derived(rawStats as AdminStats | null);
   const statsError = $derived(statsState.statsError || "");
-  const statsLoading = $derived(Boolean(statsState.statsLoading));
   const showSkeleton = $derived(!stats && !statsError);
   const currency = $derived(stats?.currency_symbol || "RUB");
   const fin: AdminStats["financial"] = $derived(stats?.financial || {});
   const users: AdminStats["users"] = $derived(stats?.users || {});
-  const panelPayload: PanelStats | null = $derived(stats?.panel ?? null);
+  const panelPayload: PanelStats | null = $derived(statsState.panel);
   const panelMetrics: PanelSystemMetrics | null = $derived(
     panelPayload && !panelPayload.error ? parsePanelSystem(panelPayload) : null
   );
@@ -276,7 +275,7 @@
   }
 
   onMount(() => {
-    void statsStore.loadStats({ refresh: true });
+    void statsStore.loadStats();
   });
 </script>
 
@@ -307,9 +306,23 @@
 
 <MaintenanceStatus {at} enabled={stats?.manual_maintenance_enabled === true} banner />
 
+{#snippet panelDashboard()}
+  <StatsPanelDashboard
+    {at}
+    loading={statsState.panelLoading && !panelPayload}
+    {panelPayload}
+    {panelMetrics}
+    {panelBw}
+    {panelNodeTraffic}
+    {panelNodesListedCount}
+  />
+{/snippet}
+
 {#if statsError}
   <AdminEmptyState>{at("stats_error", { error: statsError }, "")}</AdminEmptyState>
-{:else if showSkeleton}
+  {#if !stats}{@render panelDashboard()}{/if}
+{/if}
+{#if showSkeleton}
   <StatsSkeleton {at} headers={recentPaymentHeaders} />
 {:else if stats}
   <AdminDashboardStack>
@@ -665,14 +678,7 @@
       </Card.Content>
     </Card.Root>
 
-    <StatsPanelDashboard
-      {at}
-      {panelPayload}
-      {panelMetrics}
-      {panelBw}
-      {panelNodeTraffic}
-      {panelNodesListedCount}
-    />
+    {@render panelDashboard()}
 
     <StatsSyncStrip {at} {stats} {fmtDateShort} />
 
@@ -686,9 +692,7 @@
         <PaymentTable
           {at}
           payments={recentPayments}
-          loading={statsLoading}
           sort={recentPaymentsSort}
-          skeletonRows={5}
           emptyLabel={at("no_data", {}, "")}
           {fmtDate}
           {fmtMoney}

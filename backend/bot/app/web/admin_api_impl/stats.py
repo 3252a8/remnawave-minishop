@@ -13,7 +13,12 @@ import json
 
 
 from aiohttp import web
-from bot.app.web.route_contracts import RouteContract, ok_envelope_for, register_contract
+from bot.app.web.route_contracts import (
+    RouteContract,
+    ok_envelope_for,
+    ok_envelope_with,
+    register_contract,
+)
 from bot.utils.message_queue import get_queue_manager
 from config.settings import Settings
 from config.tariffs_config import default_payment_currency_code_for_settings
@@ -52,8 +57,28 @@ register_contract(
 register_contract(
     "admin_stats_route",
     RouteContract(
+        query_parameters=(
+            {
+                "name": "include_panel",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "boolean", "default": True},
+            },
+        ),
         response_schema=ok_envelope_for(AdminStatsOut),
         models=(AdminStatsOut, AdminPanelSyncOut, PaymentOut),
+    ),
+)
+register_contract(
+    "admin_panel_stats_route",
+    RouteContract(
+        response_schema=ok_envelope_with(
+            {
+                "panel": {
+                    "anyOf": [{"type": "object", "additionalProperties": True}, {"type": "null"}]
+                }
+            }
+        ),
     ),
 )
 
@@ -73,12 +98,20 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
 
     currency = default_payment_currency_code_for_settings(settings)
-    payload = dict(await _load_admin_db_stats(settings, async_session_factory, currency))
-    payload["active_tariffs"] = admin_active_tariffs(settings, payload.pop("active_tariff_counts"))
-
-    panel_service = get_panel_service(request)
+    panel_service = (
+        get_panel_service(request)
+        if request.query.get("include_panel", "true").lower() != "false"
+        else None
+    )
+    db_stats = _load_admin_db_stats(settings, async_session_factory, currency)
     if panel_service is not None:
-        payload["panel"] = await _load_admin_panel_stats(request, settings, panel_service)
+        local, panel = await asyncio.gather(
+            db_stats, _load_admin_panel_stats(request, settings, panel_service)
+        )
+        payload = {**local, "panel": panel}
+    else:
+        payload = dict(await db_stats)
+    payload["active_tariffs"] = admin_active_tariffs(settings, payload.pop("active_tariff_counts"))
 
     queue_manager = get_queue_manager()
     if queue_manager:
@@ -93,6 +126,17 @@ async def admin_stats_route(request: web.Request) -> web.Response:
     response = stats.model_dump(mode="json", exclude_none=True)
     response["active_tariffs"] = [row.model_dump(mode="json") for row in stats.active_tariffs]
     return _ok(response)
+
+
+async def admin_panel_stats_route(request: web.Request) -> web.Response:
+    _require_admin_user_id(request)
+    panel_service = get_panel_service(request)
+    panel = (
+        await _load_admin_panel_stats(request, get_settings(request), panel_service)
+        if panel_service is not None
+        else None
+    )
+    return _ok({"panel": panel})
 
 
 async def _load_admin_db_stats(

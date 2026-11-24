@@ -124,6 +124,7 @@ from .settings import (
 )
 from .stats import (
     admin_me_route,
+    admin_panel_stats_route,
     admin_stats_route,
 )
 from .support import (
@@ -240,6 +241,7 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_post("/api/admin/roles", admin_role_grant_route)
     router.add_delete("/api/admin/roles/{user_id:\\d+}/{role}", admin_role_revoke_route)
     router.add_get("/api/admin/stats", admin_stats_route)
+    router.add_get("/api/admin/stats/panel", admin_panel_stats_route)
     router.add_get("/api/admin/health", admin_health_route)
 
     router.add_get("/api/admin/partners/attention", admin_partner_attention_route)

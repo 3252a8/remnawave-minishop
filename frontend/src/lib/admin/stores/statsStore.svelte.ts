@@ -7,7 +7,7 @@ import {
   buildAdminSyncPath,
 } from "../../webapp/publicApi";
 import { defineRawStateProperty } from "./rawStateProperty";
-import { fetchAdminQuery, invalidateAdminQuery, type AdminQueryClient } from "./adminQueryCache";
+import { fetchAdminQuery, type AdminQueryClient } from "./adminQueryCache";
 
 type AdminErrorResponse = { ok?: false; error?: string; message?: string; detail?: string };
 type AdminApi = ApiClient["api"];
@@ -16,7 +16,9 @@ type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: st
 type StatsResponse = GetResponse<"/api/admin/stats">;
 export type StatsState = {
   stats: StatsResponse | null;
+  panel: Record<string, unknown> | null;
   statsLoading: boolean;
+  panelLoading: boolean;
   statsError: string;
   syncBusy: boolean;
 };
@@ -36,6 +38,7 @@ function isOkResponse<T extends { ok: true }>(response: T | AdminErrorResponse):
 }
 
 const STATS_QUERY_KEY = ["admin", "stats"] as const;
+const PANEL_QUERY_KEY = ["admin", "panel-stats"] as const;
 
 class AdminStatsError extends Error {
   payload: unknown;
@@ -53,8 +56,11 @@ export function createStatsStore({
   queryClient = null,
 }: StatsStoreOptions): StatsStore {
   let stats = $state.raw<StatsResponse | null>(null);
-  const state = $state<Omit<StatsState, "stats">>({
+  let panel = $state.raw<StatsState["panel"]>(null);
+  let pending: Promise<[void, void]> | null = null;
+  const state = $state<Omit<StatsState, "stats" | "panel">>({
     statsLoading: false,
+    panelLoading: false,
     statsError: "",
     syncBusy: false,
   });
@@ -65,16 +71,22 @@ export function createStatsStore({
       stats = value;
     },
   });
+  defineRawStateProperty(store, "panel", {
+    get: () => panel,
+    set: (value) => {
+      panel = value;
+    },
+  });
 
   async function requestStats(): Promise<StatsResponse> {
-    const data = await api(buildAdminStatsPath());
+    const data = await api(`${buildAdminStatsPath()}?include_panel=false`);
     if (!isOkResponse(data)) {
       throw new AdminStatsError(adminErrorMessage(data, at, "load_failed"), data);
     }
     return data;
   }
 
-  async function loadStats({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
+  async function loadLocalStats(refresh: boolean): Promise<void> {
     state.statsLoading = true;
     state.statsError = "";
     try {
@@ -96,6 +108,36 @@ export function createStatsStore({
     }
   }
 
+  async function loadPanelStats(refresh: boolean): Promise<void> {
+    state.panelLoading = true;
+    try {
+      panel = await fetchAdminQuery({
+        queryClient,
+        queryKey: PANEL_QUERY_KEY,
+        queryFn: async () => unwrap(await api("/admin/stats/panel")).panel,
+        refresh,
+      });
+    } catch {
+      panel = { error: "unavailable" };
+    } finally {
+      state.panelLoading = false;
+    }
+  }
+
+  async function loadStats({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
+    if (pending) {
+      await pending;
+      if (refresh) await loadStats({ refresh });
+      return;
+    }
+    pending = Promise.all([loadLocalStats(refresh), loadPanelStats(refresh)]);
+    try {
+      await pending;
+    } finally {
+      pending = null;
+    }
+  }
+
   async function triggerSync(): Promise<void> {
     if (state.syncBusy) return;
 
@@ -103,7 +145,6 @@ export function createStatsStore({
     try {
       const res = await api(buildAdminSyncPath(), { method: "POST" });
       if (isOkResponse(res)) {
-        invalidateAdminQuery(queryClient, STATS_QUERY_KEY);
         onToast(at("sync_started", {}, "Synchronization started"));
         await loadStats({ refresh: true });
       } else {
