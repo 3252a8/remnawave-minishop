@@ -1,6 +1,6 @@
 import json
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -8,11 +8,60 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.app.web.admin_api_impl import broadcast as broadcast_routes
-from db.broadcast_models import AdminBroadcastDelivery
+from bot.services.admin_broadcast_worker import AdminBroadcastWorker
+from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
 from db.dal import broadcast_dal
 
 
 class BroadcastFailureQueryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_poll_limits_and_rechecks_running_jobs_after_dispatch(self) -> None:
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        now = datetime.now(UTC)
+        try:
+            async with engine.begin() as connection:
+                await connection.run_sync(AdminBroadcast.__table__.create)
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+            async with factory() as session:
+                assert await broadcast_dal.poll_broadcast_ids(session) == ([], [])
+                for i in range(1, 28):
+                    session.add(
+                        AdminBroadcast(
+                            broadcast_id=i,
+                            status="queued" if i <= 5 else "running",
+                            scheduled_at=now + timedelta(days=1 if i == 5 else -1),
+                            updated_at=now + timedelta(seconds=i),
+                            deleted_at=now if i == 27 else None,
+                        )
+                    )
+                await session.commit()
+                assert await broadcast_dal.poll_broadcast_ids(session) == (
+                    [1, 2, 3],
+                    list(range(6, 26)),
+                )
+
+            async def dispatch(broadcast_id: int) -> None:
+                async with factory() as session:
+                    item = await session.get(AdminBroadcast, broadcast_id)
+                    assert item is not None
+                    item.status = "running"
+                    item.updated_at = now
+                    await session.commit()
+
+            delivery = MagicMock()
+            delivery.dispatch = AsyncMock(side_effect=dispatch)
+            with patch.object(
+                broadcast_dal, "refresh_broadcast_stats", new_callable=AsyncMock
+            ) as refresh:
+                await AdminBroadcastWorker(factory, delivery)._tick()
+                assert [call.args[1] for call in refresh.await_args_list] == [
+                    1,
+                    2,
+                    3,
+                    *range(6, 23),
+                ]
+        finally:
+            await engine.dispose()
+
     async def test_paginates_only_failed_deliveries_for_the_requested_broadcast(self) -> None:
         engine = create_async_engine("sqlite+aiosqlite:///:memory:")
         try:

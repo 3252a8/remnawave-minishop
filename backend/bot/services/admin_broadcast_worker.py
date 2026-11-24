@@ -41,7 +41,7 @@ class AdminBroadcastWorker:
 
     async def _tick(self) -> None:
         async with self.session_factory() as session:
-            due_ids = await broadcast_dal.due_broadcast_ids(session)
+            due_ids, running_ids = await broadcast_dal.poll_broadcast_ids(session)
         for broadcast_id in due_ids:
             try:
                 await self.delivery_service.dispatch(broadcast_id)
@@ -50,8 +50,10 @@ class AdminBroadcastWorker:
 
         # Delivery callbacks normally finalize a broadcast. This pass closes a
         # rare race where the last two callbacks commit at exactly the same time.
-        async with self.session_factory() as session:
-            running_ids = await broadcast_dal.running_broadcast_ids(session)
+        if due_ids:
+            # Dispatch can start or finish jobs since the initial poll.
+            async with self.session_factory() as session:
+                running_ids = await broadcast_dal.running_broadcast_ids(session)
         for broadcast_id in running_ids:
             async with self.session_factory() as session:
                 await broadcast_dal.refresh_broadcast_stats(session, broadcast_id)

@@ -6,9 +6,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from functools import cache
 from typing import Any
 
-from sqlalchemy import case, func, select, update
+from sqlalchemy import Select, bindparam, case, func, literal, select, union_all, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery
@@ -142,31 +143,57 @@ async def list_failed_deliveries(
     return total, list(rows)
 
 
-async def due_broadcast_ids(session: AsyncSession, *, limit: int = 3) -> list[int]:
-    stmt = (
-        select(AdminBroadcast.broadcast_id)
+def _due_broadcasts(limit: int) -> Select:
+    return (
+        select(AdminBroadcast.broadcast_id, AdminBroadcast.scheduled_at.label("sort_at"))
         .where(
             AdminBroadcast.deleted_at.is_(None),
             AdminBroadcast.status.in_(("scheduled", "queued")),
-            AdminBroadcast.scheduled_at <= utc_now(),
+            AdminBroadcast.scheduled_at <= bindparam("due_at"),
         )
         .order_by(AdminBroadcast.scheduled_at.asc(), AdminBroadcast.broadcast_id.asc())
         .limit(max(1, int(limit)))
     )
-    return [int(value) for value in (await session.execute(stmt)).scalars().all()]
 
 
-async def running_broadcast_ids(session: AsyncSession, *, limit: int = 20) -> list[int]:
-    stmt = (
-        select(AdminBroadcast.broadcast_id)
+def _running_broadcasts(limit: int) -> Select:
+    return (
+        select(AdminBroadcast.broadcast_id, AdminBroadcast.updated_at.label("sort_at"))
         .where(
             AdminBroadcast.deleted_at.is_(None),
             AdminBroadcast.status == "running",
         )
-        .order_by(AdminBroadcast.updated_at.asc())
+        .order_by(AdminBroadcast.updated_at.asc(), AdminBroadcast.broadcast_id.asc())
         .limit(max(1, int(limit)))
     )
-    return [int(value) for value in (await session.execute(stmt)).scalars().all()]
+
+
+async def due_broadcast_ids(session: AsyncSession, *, limit: int = 3) -> list[int]:
+    return list(await session.scalars(_due_broadcasts(limit), {"due_at": utc_now()}))
+
+
+async def running_broadcast_ids(session: AsyncSession, *, limit: int = 20) -> list[int]:
+    return list(await session.scalars(_running_broadcasts(limit)))
+
+
+@cache
+def _broadcast_poll() -> Select:
+    due = _due_broadcasts(3).subquery()
+    running = _running_broadcasts(20).subquery()
+    queue = union_all(
+        select(literal(True).label("due"), due),
+        select(literal(False).label("due"), running),
+    ).subquery()
+    return select(queue.c.due, queue.c.broadcast_id).order_by(queue.c.sort_at, queue.c.broadcast_id)
+
+
+async def poll_broadcast_ids(session: AsyncSession) -> tuple[list[int], list[int]]:
+    rows = await session.execute(_broadcast_poll(), {"due_at": utc_now()})
+    due_ids: list[int] = []
+    running_ids: list[int] = []
+    for is_due, broadcast_id in rows:
+        (due_ids if is_due else running_ids).append(broadcast_id)
+    return due_ids, running_ids
 
 
 async def begin_broadcast(session: AsyncSession, broadcast_id: int) -> AdminBroadcast | None:
