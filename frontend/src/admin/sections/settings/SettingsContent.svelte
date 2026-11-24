@@ -12,12 +12,8 @@
     X,
   } from "$components/ui/icons.js";
   import { Switch } from "$components/ui/primitives.js";
-  import {
-    AdminBadge,
-    AdminButton,
-    AdminEmptyState,
-    AdminSelect,
-  } from "$components/patterns/admin/index.js";
+  import { AdminBadge, AdminButton, AdminSelect } from "$components/patterns/admin/index.js";
+  import SettingsLoadStatus from "./SettingsLoadStatus.svelte";
   import SettingsDisclosureTrigger from "./SettingsDisclosureTrigger.svelte";
   import RequiredChannelDiagnostic from "./RequiredChannelDiagnostic.svelte";
   import AdministratorsSubsection from "./AdministratorsSubsection.svelte";
@@ -74,10 +70,6 @@
     at,
     currentLang = "ru",
     appRepositoryUrl = "https://minishop.minidoc.cc/",
-    settingsLoading,
-    settingsLoadError = "",
-    settingsRetryAt = null,
-    retrySettings,
     extraDirtyCount = 0,
     visibleSettingsSections,
     settingsDirty,
@@ -131,10 +123,6 @@
     at: TranslateFn;
     currentLang?: string;
     appRepositoryUrl?: string;
-    settingsLoading: boolean;
-    settingsLoadError?: string;
-    settingsRetryAt?: number | null;
-    retrySettings?: () => Promise<void>;
     extraDirtyCount?: number;
     visibleSettingsSections: AdminSettingsSection[];
     settingsDirty: SettingsDirtyState;
@@ -779,25 +767,8 @@
   {/if}
 {/snippet}
 
-{#if settingsLoadError}
-  <AdminEmptyState>
-    <p role="alert"
-      >{settingsLoadError}
-      {#if settingsRetryAt}
-        {@const time = new Date(settingsRetryAt).toLocaleTimeString(currentLang)}
-        {at("settings_retry_at", { time }, `Try again at ${time}.`)}
-      {/if}
-    </p>
-    <AdminButton variant="ghost" onclick={retrySettings}>{at("retry", {}, "Retry")}</AdminButton>
-  </AdminEmptyState>
-{/if}
-{#if !visibleSettingsSections.length && !settingsLoadError}
-  <AdminEmptyState
-    >{settingsLoading
-      ? at("loading", {}, "Loading…")
-      : at("no_data", {}, "No data")}</AdminEmptyState
-  >
-{:else if visibleSettingsSections.length}
+<SettingsLoadStatus {at} {currentLang} empty={!visibleSettingsSections.length} />
+{#if visibleSettingsSections.length}
   <div class="admin-settings-search" onfocusout={handleSettingsSearchFocusOut}>
     <div class="admin-settings-search-box">
       <Search class="admin-settings-search-icon" size={16} aria-hidden="true" />

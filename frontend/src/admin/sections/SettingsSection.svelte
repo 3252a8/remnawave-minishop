@@ -87,7 +87,6 @@
       )
     )
   );
-  const settingsLoading = $derived(Boolean(settingsStore.settingsLoading));
   const settingsDirty = $derived((settingsStore.settingsDirty || {}) as SettingsDirtyState);
   const settingsSaving = $derived(Boolean(settingsStore.settingsSaving));
   const menuButtonLanguages = $derived(translationsStore.translationLanguages || []);
@@ -861,10 +860,6 @@
   {at}
   {currentLang}
   {appRepositoryUrl}
-  {settingsLoading}
-  settingsLoadError={settingsStore.settingsLoadError}
-  settingsRetryAt={settingsStore.settingsRetryAt}
-  retrySettings={() => settingsStore.loadSettings({ refresh: true })}
   extraDirtyCount={Number(settingsStore.extraDirtyCount || 0)}
   {visibleSettingsSections}
   {settingsDirty}

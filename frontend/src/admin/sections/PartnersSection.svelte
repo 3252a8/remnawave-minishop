@@ -5,18 +5,12 @@
   import {
     ArrowRight,
     CheckCircle2,
-    Coins,
-    CreditCard,
     FileText,
-    History,
     Plus,
     RefreshCw,
     Settings,
-    TrendingUp,
     TriangleAlert,
-    UserPlus,
     UsersRound,
-    WalletCards,
   } from "$components/ui/icons.js";
   import { Tabs } from "$components/ui/primitives.js";
   import {
@@ -24,7 +18,6 @@
     AdminButton,
     AdminEmptyState,
     AdminSelect,
-    AdminKpiTile,
   } from "$components/patterns/admin/index.js";
   import { partnerSortColumns } from "$lib/admin/partnerProgramSort.js";
   import {
@@ -75,6 +68,7 @@
     type PartnerLinkRow,
   } from "$lib/admin/partnerProgramApi.js";
   import PartnerProgramCharts from "./partners/PartnerProgramCharts.svelte";
+  import PartnerDashboardMetrics from "./partners/PartnerDashboardMetrics.svelte";
   import PartnerDashboardTables from "./partners/PartnerDashboardTables.svelte";
   import PartnerProgramSkeleton from "./partners/PartnerProgramSkeleton.svelte";
   import PartnerProgramTables from "./partners/PartnerProgramTables.svelte";
@@ -85,7 +79,6 @@
   import "./partnersSection.css";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type IconComponent = typeof UsersRound;
 
   let {
     api,
@@ -146,66 +139,6 @@
   let loading = $state(!previewMode);
   let loadError = $state(false);
 
-  const dashboardMetrics: Array<{
-    key: string;
-    value: string;
-    icon: IconComponent;
-    tone: string;
-  }> = $derived([
-    {
-      key: "active",
-      value:
-        adminScenario === "empty"
-          ? "0 / 0"
-          : dashboard
-            ? `${dashboard.active} / ${dashboard.paused}`
-            : "18 / 2",
-      icon: UsersRound,
-      tone: "success",
-    },
-    {
-      key: "clients",
-      value: adminScenario === "empty" ? "0" : dashboard ? String(dashboard.clients) : "247",
-      icon: UserPlus,
-      tone: "info",
-    },
-    {
-      key: "gross",
-      value: money(adminScenario === "empty" ? 0 : (dashboard?.gross ?? 482700)),
-      icon: TrendingUp,
-      tone: "success",
-    },
-    {
-      key: "commissions",
-      value: money(adminScenario === "empty" ? 0 : (dashboard?.commissions ?? 144810)),
-      icon: Coins,
-      tone: "warning",
-    },
-    {
-      key: "paid",
-      value: money(adminScenario === "empty" ? 0 : (dashboard?.paid ?? 87300)),
-      icon: WalletCards,
-      tone: "muted",
-    },
-    {
-      key: "available",
-      value: money(adminScenario === "empty" ? 0 : (dashboard?.available ?? 42840)),
-      icon: CreditCard,
-      tone: "info",
-    },
-    {
-      key: "requested",
-      value: money(adminScenario === "empty" ? 0 : (dashboard?.requested ?? 11700)),
-      icon: History,
-      tone: "warning",
-    },
-    {
-      key: "hold",
-      value: money(adminScenario === "empty" ? 0 : (dashboard?.hold ?? 9340)),
-      icon: FileText,
-      tone: "muted",
-    },
-  ]);
   function initialRouteState(): { id: string; view: View } {
     return partnerAdminRouteState(routePrefix);
   }
@@ -770,10 +703,6 @@
       actionStatus = at("partners_link_copy_failed", {}, "Could not copy the partner link");
     }
   }
-
-  function kpiTone(tone: string): "default" | "success" | "warning" | "info" {
-    return tone === "success" || tone === "warning" || tone === "info" ? tone : "default";
-  }
 </script>
 
 <svelte:window onpopstate={syncRouteView} />
@@ -842,21 +771,7 @@
       <PartnerReferralImportBanner {at} {api} {previewMode} onImported={refreshAfterMutation} />
     {/if}
 
-    <section
-      class="partners-kpi-grid"
-      aria-label={at("partners_kpi_title", {}, "Partner program summary")}
-    >
-      {#each dashboardMetrics as metric (metric.key)}
-        {@const MetricIcon = metric.icon}
-        <AdminKpiTile
-          label={at(`partners_kpi_${metric.key}`, {}, metric.key)}
-          value={metric.value}
-          tone={metric.tone === "muted" ? "default" : kpiTone(metric.tone)}
-        >
-          {#snippet icon()}<MetricIcon size={14} />{/snippet}
-        </AdminKpiTile>
-      {/each}
-    </section>
+    <PartnerDashboardMetrics {at} {dashboard} {money} empty={adminScenario === "empty"} />
 
     {#if adminScenario === "empty" || (!previewMode && !topPartners.length && !counts.hasApplications)}
       <AdminEmptyState class="partners-dashboard-state">
