@@ -66,6 +66,17 @@ server {
     }
 
     location / {
+        # Allow a 512 MiB plugin ZIP plus multipart framing.
+        location ~ ^/api/admin/plugins/(preview|stage)$ {
+            client_max_body_size 513m;
+            proxy_request_buffering off;
+            proxy_read_timeout 360s;
+        }
+
+        location ~ ^/api/admin/plugins/(install|repository/(preview|stage))$ {
+            proxy_read_timeout 360s;
+        }
+
         proxy_pass http://remnawave_frontend;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

@@ -7,6 +7,7 @@
   import type { AdminApi } from "../adminStores";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
+  const MAX_PLUGIN_ZIP_BYTES = 512 * 1024 * 1024;
   type Candidate = {
     operation_id?: string;
     digest: string;
@@ -97,7 +98,7 @@
     archive: at("appearance_demo_archive", {}, "ZIP archive"),
     repository: at("appearance_demo_repository", {}, "Git repository"),
     drop: at("plugins_drop", {}, "Drop a plugin ZIP here"),
-    dropHint: at("plugins_drop_hint", {}, "One signed plugin package. ZIP, up to 96 MiB."),
+    dropHint: at("plugins_drop_hint", {}, "One signed plugin package. ZIP, up to 512 MiB."),
     chooseFile: at("plugins_choose_zip", {}, "Choose ZIP"),
     oneFile: at("plugins_one_file", {}, "Choose one archive."),
     repositoryUrl: at("plugins_repository_url", {}, "Repository URL"),
@@ -130,6 +131,12 @@
 
   function explain(code: string): string {
     const messages: Record<string, string> = {
+      archive_too_large: at("plugins_archive_too_large", {}, "The plugin ZIP exceeds 512 MiB."),
+      archive_limits_exceeded: at(
+        "plugins_archive_limits_exceeded",
+        {},
+        "The plugin ZIP exceeds the unpacked size, file count, or compression limits."
+      ),
       publisher_not_trusted: at(
         "plugins_publisher_not_trusted",
         {},
@@ -175,6 +182,8 @@
   async function inspectFile(file: File): Promise<void> {
     await run(async () => {
       candidate = null;
+      selectedFile = null;
+      if (file.size > MAX_PLUGIN_ZIP_BYTES) throw new Error("archive_too_large");
       selectedFile = file;
       const form = new FormData();
       form.append("file", file);

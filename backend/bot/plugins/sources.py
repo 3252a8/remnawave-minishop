@@ -11,13 +11,14 @@ import ipaddress
 import json
 import re
 import socket
-from collections.abc import Mapping
-from pathlib import PurePosixPath
+from collections.abc import AsyncIterator, Mapping
+from pathlib import Path, PurePosixPath
 from urllib.parse import quote, urlsplit
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, DummyCookieJar, TCPConnector
 from aiohttp.abc import ResolveResult
 from aiohttp.resolver import ThreadedResolver
+from anyio import open_file
 
 from .packages import MAX_ARCHIVE_BYTES, PluginPackageError
 
@@ -74,7 +75,7 @@ def _repository(value: str) -> tuple[str, str]:
     return parts.hostname or "", "/".join(segments).removesuffix(".git")
 
 
-async def _download(session: ClientSession, url: str, limit: int) -> bytes:
+async def _download_chunks(session: ClientSession, url: str, limit: int) -> AsyncIterator[bytes]:
     _safe_url(url)
     async with session.get(url, allow_redirects=False) as response:
         if response.status in {301, 302, 303, 307, 308}:
@@ -87,17 +88,18 @@ async def _download(session: ClientSession, url: str, limit: int) -> bytes:
             raise PluginPackageError("repository_unavailable", status=502)
         if response.content_length is not None and response.content_length > limit:
             raise PluginPackageError("archive_too_large", status=413)
-        body = bytearray()
-        async for chunk in response.content.iter_chunked(65536):
-            body.extend(chunk)
-            if len(body) > limit:
+        size = 0
+        async for chunk in response.content.iter_chunked(256 * 1024):
+            size += len(chunk)
+            if size > limit:
                 raise PluginPackageError("archive_too_large", status=413)
-        return bytes(body)
+            yield chunk
 
 
 async def _json(session: ClientSession, url: str) -> dict[str, object]:
     try:
-        value = json.loads(await _download(session, url, 1024 * 1024))
+        body = b"".join([chunk async for chunk in _download_chunks(session, url, 1024 * 1024)])
+        value = json.loads(body)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise PluginPackageError("invalid_repository_metadata", status=502) from exc
     if not isinstance(value, dict):
@@ -106,8 +108,8 @@ async def _json(session: ClientSession, url: str) -> dict[str, object]:
 
 
 async def fetch_ready_package(
-    url: str, ref: str = "", *, commit: str = ""
-) -> tuple[bytes, dict[str, str]]:
+    url: str, destination: Path, ref: str = "", *, commit: str = ""
+) -> dict[str, str]:
     """Resolve a public ref to a commit, then fetch its ready artifact index."""
     host, project = _repository(url)
     if len(ref) > 160 or any(char in ref for char in "\\\r\n?&#"):
@@ -119,7 +121,7 @@ async def fetch_ready_package(
     try:
         async with ClientSession(
             connector=connector,
-            timeout=ClientTimeout(total=120, sock_read=30),
+            timeout=ClientTimeout(total=300, sock_read=30),
             headers={"User-Agent": "Minishop-Plugin-Installer", "Accept-Encoding": "identity"},
             cookie_jar=DummyCookieJar(),
             trust_env=False,
@@ -190,11 +192,17 @@ async def fetch_ready_package(
             if host == "github.com":
                 artifact_url = f"{artifact_url_base}/{quote(artifact, safe='/')}"
             else:
-                artifact_url = f"{artifact_url_base}/{quote(artifact, safe='')}/raw?ref={commit}"
-            body = await _download(session, artifact_url, MAX_ARCHIVE_BYTES)
-            if hashlib.sha256(body).hexdigest() != digest:
+                artifact_url = (
+                    f"{artifact_url_base}/{quote(artifact, safe='')}/raw?ref={commit}&lfs=true"
+                )
+            checksum = hashlib.sha256()
+            async with await open_file(destination, "wb") as stream:
+                async for chunk in _download_chunks(session, artifact_url, MAX_ARCHIVE_BYTES):
+                    await stream.write(chunk)
+                    checksum.update(chunk)
+            if checksum.hexdigest() != digest:
                 raise PluginPackageError("repository_artifact_hash_mismatch")
-            return body, {
+            return {
                 "kind": "github" if host == "github.com" else "gitlab",
                 "url": f"https://{host}/{project}",
                 "ref": ref,

@@ -5,15 +5,17 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiohttp.test_utils import make_mocked_request
+from aiohttp import FormData, web
+from aiohttp.test_utils import TestClient, TestServer, make_mocked_request
 
 from bot.app.web.admin_api_impl import plugin_packages
 from bot.plugins import sources
-from bot.plugins.packages import PluginPackageError
+from bot.plugins.packages import MAX_ARCHIVE_BYTES, PluginPackageError
 from bot.plugins.sources import _repository, _safe_url, release_version, repository_tracking_ref
 
 
@@ -73,7 +75,7 @@ def test_update_badge_requires_a_stable_release_version(
 @pytest.mark.parametrize("ref", ["", "release/stable", "a" * 40])
 @pytest.mark.parametrize("pinned", [False, True])
 def test_package_snapshot_keeps_the_requested_tracking_ref(
-    monkeypatch: pytest.MonkeyPatch, host: str, ref: str, pinned: bool
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, host: str, ref: str, pinned: bool
 ) -> None:
     async def scenario() -> None:
         archive = b"ready archive"
@@ -92,19 +94,25 @@ def test_package_snapshot_keeps_the_requested_tracking_ref(
                 return {"sha": commit, "id": commit}
             return {"default_branch": "main"}
 
-        downloader = AsyncMock(return_value=archive)
+        async def download_chunks(_session: object, url: str, limit: int) -> AsyncIterator[bytes]:
+            assert commit in url
+            assert limit == MAX_ARCHIVE_BYTES
+            if host == "gitlab.com":
+                assert url.endswith(f"/package.zip/raw?ref={commit}&lfs=true")
+            yield archive[:5]
+            yield archive[5:]
+
         monkeypatch.setattr(sources, "TCPConnector", lambda **_kwargs: None)
         monkeypatch.setattr(sources, "ClientSession", lambda **_kwargs: AsyncMock())
         monkeypatch.setattr(sources, "_json", metadata)
-        monkeypatch.setattr(sources, "_download", downloader)
-        body, source = await sources.fetch_ready_package(
-            f"https://{host}/example/plugin", ref, commit="a" * 40 if pinned else ""
+        monkeypatch.setattr(sources, "_download_chunks", download_chunks)
+        destination = tmp_path / "package.zip"
+        source = await sources.fetch_ready_package(
+            f"https://{host}/example/plugin", destination, ref, commit="a" * 40 if pinned else ""
         )
-        assert body == archive
+        assert destination.read_bytes() == archive
         assert source["ref"] == source["requested_ref"] == ref
         assert source["commit"] == commit
-        assert downloader.await_args is not None
-        assert commit in downloader.await_args.args[1]
         lookup = "a" * 40 if pinned else (ref or "main")
         assert any(url.endswith("/commits/" + lookup.replace("/", "%2F")) for url in calls)
         assert repository_tracking_ref(source) == ref
@@ -190,10 +198,12 @@ def test_legacy_inventory_and_update_check_use_the_same_tracking_ref(
 
 
 @pytest.mark.parametrize("commit", ["main", "a" * 39, "a" * 41])
-def test_snapshot_commit_must_be_a_full_sha(commit: str) -> None:
+def test_snapshot_commit_must_be_a_full_sha(commit: str, tmp_path: Path) -> None:
     async def scenario() -> None:
         with pytest.raises(PluginPackageError, match="invalid_repository_commit"):
-            await sources.fetch_ready_package("https://github.com/example/plugin", commit=commit)
+            await sources.fetch_ready_package(
+                "https://github.com/example/plugin", tmp_path / "package.zip", commit=commit
+            )
 
     asyncio.run(scenario())
 
@@ -202,7 +212,7 @@ def test_stage_passes_snapshot_and_tracking_ref_independently(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def scenario() -> None:
-        fetcher = AsyncMock(return_value=(b"archive", {}))
+        fetcher = AsyncMock(return_value={})
         monkeypatch.setattr(
             plugin_packages,
             "_json",
@@ -215,9 +225,66 @@ def test_stage_passes_snapshot_and_tracking_ref_independently(
             ),
         )
         monkeypatch.setattr(plugin_packages, "fetch_ready_package", fetcher)
-        await plugin_packages._repository_candidate(make_mocked_request("POST", "/"), pinned=True)
-        fetcher.assert_awaited_once_with(
-            "https://github.com/example/plugin", "release/stable", commit="a" * 40
-        )
+        async with plugin_packages._repository_candidate(
+            make_mocked_request("POST", "/"), pinned=True
+        ) as (archive, _):
+            assert archive.parent.is_dir()
+            fetcher.assert_awaited_once_with(
+                "https://github.com/example/plugin", archive, "release/stable", commit="a" * 40
+            )
+        assert not archive.parent.exists()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("size", [8, 9])
+def test_plugin_multipart_checks_zip_size_and_cleans_up(
+    monkeypatch: pytest.MonkeyPatch, size: int
+) -> None:
+    monkeypatch.setattr(plugin_packages, "MAX_ARCHIVE_BYTES", 8)
+
+    async def scenario() -> None:
+        archive_path: Path | None = None
+
+        async def upload(request: web.Request) -> web.Response:
+            nonlocal archive_path
+            try:
+                async with plugin_packages._archive(request) as archive:
+                    archive_path = archive
+                    return web.Response(body=await asyncio.to_thread(archive.read_bytes))
+            except PluginPackageError as exc:
+                return web.Response(text=exc.code, status=exc.status)
+
+        app = web.Application(client_max_size=1)
+        app.router.add_post("/", upload)
+        async with TestClient(TestServer(app)) as client:
+            form = FormData()
+            form.add_field("file", b"x" * size, filename="package.zip")
+            response = await client.post("/", data=form)
+            if size == 8:
+                assert response.status == 200 and await response.read() == b"x" * size
+                assert archive_path is not None and not await asyncio.to_thread(archive_path.exists)
+            else:
+                assert response.status == 413 and await response.text() == "archive_too_large"
+
+    asyncio.run(scenario())
+
+
+def test_repository_download_checks_size_without_content_length() -> None:
+    async def iter_chunked(_size: int) -> AsyncIterator[bytes]:
+        yield b"1234"
+        yield b"56789"
+
+    response = MagicMock(status=200, content_length=None)
+    response.content.iter_chunked = iter_chunked
+    session = MagicMock()
+    session.get.return_value.__aenter__.return_value = response
+
+    async def scenario() -> None:
+        chunks = sources._download_chunks(session, "https://raw.githubusercontent.com/file.zip", 8)
+        assert await anext(chunks) == b"1234"
+        with pytest.raises(PluginPackageError, match="archive_too_large") as exc:
+            await anext(chunks)
+        assert exc.value.status == 413
 
     asyncio.run(scenario())

@@ -149,7 +149,11 @@ describe("createApiClient", () => {
     expect((fetchCalls[0][1].headers as Headers).get("Authorization")).toBe("Bearer session-token");
   });
 
-  it("aborts stalled authenticated API requests", async () => {
+  it.each([
+    ["/me", 25],
+    ["/admin/plugins/preview", 660_000],
+    ["/admin/plugins/repository/stage", 370_000],
+  ] as const)("aborts a stalled request to %s after %i ms", async (path, timeout) => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(
       (_url, options) =>
@@ -162,10 +166,12 @@ describe("createApiClient", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const client = createApiClient({ requestTimeoutMs: 25 });
-    const request = client.api("/me");
+    const request = client.api(path);
     const rejection = expect(request).rejects.toMatchObject({ name: "TimeoutError" });
 
-    await vi.advanceTimersByTimeAsync(25);
+    await vi.advanceTimersByTimeAsync(timeout - 1);
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
     await rejection;
   });
 });

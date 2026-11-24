@@ -84,6 +84,13 @@ type ApiClientOptions = {
 };
 
 const DEFAULT_API_REQUEST_TIMEOUT_MS = 15000;
+const PLUGIN_PACKAGE_REQUEST_TIMEOUTS = new Map([
+  ["/admin/plugins/preview", 660_000],
+  ["/admin/plugins/stage", 660_000],
+  ["/admin/plugins/repository/preview", 370_000],
+  ["/admin/plugins/repository/stage", 370_000],
+  ["/admin/plugins/install", 370_000],
+]);
 const WEBAPP_API_BASE = "/api";
 
 export function buildApiUrl(path: string): string {
@@ -919,7 +926,7 @@ export function createApiClient({
       buildApiUrl(path),
       path,
       { ...options, headers },
-      requestTimeoutMs,
+      PLUGIN_PACKAGE_REQUEST_TIMEOUTS.get(path) ?? requestTimeoutMs,
       onUnauthorized,
       onMaintenance
     );

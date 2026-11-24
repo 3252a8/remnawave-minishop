@@ -107,9 +107,17 @@ def test_activation_preserves_tracking_ref_and_snapshot(tmp_path: Path, ref: str
     assert state["installations"]["sample-plugin"]["source"] == source
 
 
-def test_signed_package_requires_trust_then_activates_exact_generation(tmp_path: Path) -> None:
+@pytest.mark.parametrize("use_path", [False, True])
+def test_signed_package_requires_trust_then_activates_exact_generation(
+    tmp_path: Path, use_path: bool
+) -> None:
     private = Ed25519PrivateKey.generate()
-    body = _archive(private)
+    data = _archive(private)
+    body: bytes | Path = data
+    if use_path:
+        archive = tmp_path / "incoming.zip"
+        archive.write_bytes(data)
+        body = archive
     assert inspect_archive(tmp_path, body).reason == "publisher_not_trusted"
     _trust(tmp_path, private)
     assert inspect_archive(tmp_path, body).trusted

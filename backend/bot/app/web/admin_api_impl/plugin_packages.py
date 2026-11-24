@@ -7,10 +7,14 @@ import hashlib
 import json
 import logging
 import mimetypes
+import tempfile
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 from aiohttp import BodyPartReader, web
+from anyio import open_file
 
 from bot.app.web.route_contracts import (
     BINARY_RESPONSE_SCHEMA,
@@ -62,7 +66,8 @@ async def _json(request: web.Request) -> dict[str, Any]:
     return value
 
 
-async def _archive(request: web.Request) -> bytes:
+@asynccontextmanager
+async def _archive(request: web.Request) -> AsyncIterator[Path]:
     if request.content_length and request.content_length > MAX_ARCHIVE_BYTES + 65536:
         raise PluginPackageError("archive_too_large", status=413)
     try:
@@ -72,15 +77,18 @@ async def _archive(request: web.Request) -> bytes:
         raise PluginPackageError("archive_file_required") from exc
     if not isinstance(part, BodyPartReader) or part.name != "file":
         raise PluginPackageError("archive_file_required")
-    body = bytearray()
-    async with asyncio.timeout(120):
-        while chunk := await part.read_chunk(64 * 1024):
-            body.extend(chunk)
-            if len(body) > MAX_ARCHIVE_BYTES:
-                raise PluginPackageError("archive_too_large", status=413)
-        if await reader.next() is not None:
-            raise PluginPackageError("one_archive_required")
-    return bytes(body)
+    with tempfile.TemporaryDirectory(prefix="minishop-plugin-") as directory:
+        archive = Path(directory) / "package.zip"
+        size = 0
+        async with asyncio.timeout(600), await open_file(archive, "wb") as stream:
+            while chunk := await part.read_chunk(256 * 1024):
+                size += len(chunk)
+                if size > MAX_ARCHIVE_BYTES:
+                    raise PluginPackageError("archive_too_large", status=413)
+                await stream.write(chunk)
+            if await reader.next() is not None:
+                raise PluginPackageError("one_archive_required")
+        yield archive
 
 
 def guarded(handler: Any) -> Any:
@@ -204,43 +212,49 @@ async def admin_plugin_updates_route(request: web.Request) -> web.Response:
 
 @guarded
 async def admin_plugin_preview_route(request: web.Request) -> web.Response:
-    body = await _archive(request)
-    result = await asyncio.to_thread(inspect_archive, package_root(), body)
+    async with _archive(request) as archive:
+        result = await asyncio.to_thread(inspect_archive, package_root(), archive)
     return _ok(result.public())
 
 
 @guarded
 async def admin_plugin_stage_route(request: web.Request) -> web.Response:
-    body = await _archive(request)
-    result = await asyncio.to_thread(stage_archive, package_root(), body, request["plugin_actor"])
+    async with _archive(request) as archive:
+        result = await asyncio.to_thread(
+            stage_archive, package_root(), archive, request["plugin_actor"]
+        )
     return _ok(result)
 
 
+@asynccontextmanager
 async def _repository_candidate(
     request: web.Request, *, pinned: bool = False
-) -> tuple[bytes, dict[str, str]]:
+) -> AsyncIterator[tuple[Path, dict[str, str]]]:
     body = await _json(request)
     url = body.get("url")
     ref = body.get("ref", "")
     commit = body.get("commit", "") if pinned else ""
     if not isinstance(url, str) or not isinstance(ref, str) or not isinstance(commit, str):
         raise PluginPackageError("invalid_request")
-    return await fetch_ready_package(url, ref, commit=commit)
+    with tempfile.TemporaryDirectory(prefix="minishop-plugin-") as directory:
+        archive = Path(directory) / "package.zip"
+        source = await fetch_ready_package(url, archive, ref, commit=commit)
+        yield archive, source
 
 
 @guarded
 async def admin_plugin_repository_preview_route(request: web.Request) -> web.Response:
-    archive, source = await _repository_candidate(request)
-    result = await asyncio.to_thread(inspect_archive, package_root(), archive)
+    async with _repository_candidate(request) as (archive, source):
+        result = await asyncio.to_thread(inspect_archive, package_root(), archive)
     return _ok({**result.public(), "source": source})
 
 
 @guarded
 async def admin_plugin_repository_stage_route(request: web.Request) -> web.Response:
-    archive, source = await _repository_candidate(request, pinned=True)
-    result = await asyncio.to_thread(
-        stage_archive, package_root(), archive, request["plugin_actor"], source
-    )
+    async with _repository_candidate(request, pinned=True) as (archive, source):
+        result = await asyncio.to_thread(
+            stage_archive, package_root(), archive, request["plugin_actor"], source
+        )
     return _ok({**result, "source": source})
 
 

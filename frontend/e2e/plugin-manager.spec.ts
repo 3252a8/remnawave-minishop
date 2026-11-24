@@ -148,6 +148,7 @@ test("plugin library and import dialog work at desktop and mobile sizes", async 
   const dialog = page.locator(".plugin-import-dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Перетащите ZIP плагина")).toBeVisible();
+  await expect(dialog.getByText("Один подписанный пакет плагина. ZIP до 512 МиБ.")).toBeVisible();
   await dialog.getByRole("button", { name: "Git-репозиторий" }).click();
   await expect(dialog.getByPlaceholder("https://github.com/author/repository")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Git-репозиторий" })).toHaveAttribute(

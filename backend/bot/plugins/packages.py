@@ -33,8 +33,8 @@ from config.theme_packages.paths import atomic_bytes, registry_lock
 
 from .capabilities import CORE_PLUGIN_CAPABILITIES
 
-MAX_ARCHIVE_BYTES = 96 * 1024 * 1024
-MAX_UNPACKED_BYTES = 384 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
+MAX_UNPACKED_BYTES = 1024 * 1024 * 1024
 MAX_FILES = 4096
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -310,13 +310,19 @@ def _validate_manifest(manifest: dict[str, Any]) -> None:
                     raise PluginPackageError("invalid_frontend_manifest")
 
 
-def inspect_archive(root: Path, body: bytes) -> Candidate:
+def _sha256_file(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def inspect_archive(root: Path, body: bytes | Path) -> Candidate:
     """Check an archive without importing code or running build hooks."""
-    if len(body) > MAX_ARCHIVE_BYTES:
+    size = body.stat().st_size if isinstance(body, Path) else len(body)
+    if size > MAX_ARCHIVE_BYTES:
         raise PluginPackageError("archive_too_large", status=413)
-    digest = hashlib.sha256(body).hexdigest()
+    digest = _sha256_file(body) if isinstance(body, Path) else hashlib.sha256(body).hexdigest()
     try:
-        archive = zipfile.ZipFile(io.BytesIO(body))
+        archive = zipfile.ZipFile(body if isinstance(body, Path) else io.BytesIO(body))
     except zipfile.BadZipFile as exc:
         raise PluginPackageError("invalid_zip") from exc
     with archive:
@@ -353,7 +359,11 @@ def inspect_archive(root: Path, body: bytes) -> Candidate:
         if names != set(expected_files) | {"plugin.json", "signatures/ed25519.sig"}:
             raise PluginPackageError("package_file_set_mismatch")
         for name, expected in expected_files.items():
-            if hashlib.sha256(archive.read(name)).hexdigest() != expected:
+            checksum = hashlib.sha256()
+            with archive.open(name) as stream:
+                while chunk := stream.read(256 * 1024):
+                    checksum.update(chunk)
+            if checksum.hexdigest() != expected:
                 raise PluginPackageError("package_file_hash_mismatch")
         embedded_key = manifest.get("publisher_public_key")
         if embedded_key is not None and not isinstance(embedded_key, str):
@@ -373,6 +383,8 @@ def inspect_archive(root: Path, body: bytes) -> Candidate:
             key_base64 = embedded_key
         if not key_base64:
             return Candidate(digest, manifest, False, "publisher_not_trusted")
+        if archive.getinfo("signatures/ed25519.sig").file_size != 64:
+            raise PluginPackageError("invalid_package_signature")
         try:
             key = Ed25519PublicKey.from_public_bytes(base64.b64decode(key_base64, validate=True))
             key.verify(archive.read("signatures/ed25519.sig"), _canonical_manifest(manifest))
@@ -405,7 +417,7 @@ def _write_state(root: Path, state: dict[str, Any]) -> None:
 
 
 def stage_archive(
-    root: Path, body: bytes, actor: int, source: dict[str, str] | None = None
+    root: Path, body: bytes | Path, actor: int, source: dict[str, str] | None = None
 ) -> dict[str, Any]:
     candidate = inspect_archive(root, body)
     if not candidate.trusted:
@@ -426,13 +438,25 @@ def stage_archive(
                 return {"operation_id": existing_stage.parent.name, **candidate.public()}
         stage = root / "staging" / operation_id
         stage.mkdir(parents=True, exist_ok=False)
-        atomic_bytes(stage / "package.zip", body)
-        atomic_bytes(
-            stage / "operation.json",
-            _canonical_manifest(
-                {"actor": actor, "digest": candidate.digest, "status": "staged", "source": source}
-            ),
-        )
+        try:
+            if isinstance(body, Path):
+                shutil.copyfile(body, stage / "package.zip")
+            else:
+                atomic_bytes(stage / "package.zip", body)
+            atomic_bytes(
+                stage / "operation.json",
+                _canonical_manifest(
+                    {
+                        "actor": actor,
+                        "digest": candidate.digest,
+                        "status": "staged",
+                        "source": source,
+                    }
+                ),
+            )
+        except OSError:
+            shutil.rmtree(stage, ignore_errors=True)
+            raise
     return {"operation_id": operation_id, **candidate.public()}
 
 
@@ -460,8 +484,8 @@ def activate_staged(
         state = read_state(root)
         if state["generation"] != expected_generation:
             raise PluginPackageError("generation_conflict", status=409)
-        body = (stage / "package.zip").read_bytes()
-        candidate = inspect_archive(root, body)
+        archive_path = stage / "package.zip"
+        candidate = inspect_archive(root, archive_path)
         if candidate.digest != digest or not candidate.trusted:
             raise PluginPackageError("candidate_changed", status=409)
         plugin_id = candidate.manifest["id"]
@@ -485,11 +509,12 @@ def activate_staged(
             release.parent.mkdir(parents=True, exist_ok=True)
             temporary = Path(tempfile.mkdtemp(prefix=".release-", dir=release.parent))
             try:
-                with zipfile.ZipFile(io.BytesIO(body)) as archive:
+                with zipfile.ZipFile(archive_path) as archive:
                     for name in candidate.manifest["files"]:
                         destination = temporary.joinpath(*PurePosixPath(name).parts)
                         destination.parent.mkdir(parents=True, exist_ok=True)
-                        destination.write_bytes(archive.read(name))
+                        with archive.open(name) as stream, destination.open("wb") as output:
+                            shutil.copyfileobj(stream, output, length=256 * 1024)
                     signature = archive.read("signatures/ed25519.sig")
                 atomic_bytes(temporary / "plugin.json", _canonical_manifest(candidate.manifest))
                 signature_path = temporary / "signatures" / "ed25519.sig"
@@ -602,7 +627,7 @@ def managed_entry_points(root: Path) -> list[metadata.EntryPoint]:
             raise PluginPackageError("invalid_package_signature") from exc
         for name, digest in manifest["files"].items():
             path = release.joinpath(*PurePosixPath(name).parts)
-            if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            if not path.is_file() or _sha256_file(path) != digest:
                 raise PluginPackageError("package_file_hash_mismatch")
         backend = release / "backend"
         if str(backend) not in sys.path:
@@ -634,10 +659,7 @@ def bootstrap_image_package(root: Path, role: str) -> None:
     if not archive_name or not key_name:
         raise PluginPackageError("incomplete_image_package")
     archive_path = Path(archive_name)
-    if archive_path.stat().st_size > MAX_ARCHIVE_BYTES:
-        raise PluginPackageError("archive_too_large", status=413)
-    body = archive_path.read_bytes()
-    preview = inspect_archive(root, body)
+    preview = inspect_archive(root, archive_path)
     public_key = Path(key_name).read_text(encoding="ascii").strip()
     try:
         raw_key = base64.b64decode(public_key, validate=True)
@@ -653,7 +675,7 @@ def bootstrap_image_package(root: Path, role: str) -> None:
         for _ in range(120):
             installed = read_state(root)["installations"].get(plugin_id)
             if installed and installed["digest"] == preview.digest:
-                if not inspect_archive(root, body).trusted:
+                if not inspect_archive(root, archive_path).trusted:
                     raise PluginPackageError("image_package_not_trusted")
                 return
             time.sleep(0.5)
@@ -661,7 +683,7 @@ def bootstrap_image_package(root: Path, role: str) -> None:
     if role != "backend":
         raise PluginPackageError("invalid_image_package_role")
     trust_publisher(root, preview.manifest["publisher"], public_key, fingerprint)
-    verified = inspect_archive(root, body)
+    verified = inspect_archive(root, archive_path)
     if not verified.trusted:
         raise PluginPackageError("image_package_not_trusted")
     state = read_state(root)
@@ -671,7 +693,7 @@ def bootstrap_image_package(root: Path, role: str) -> None:
     if installed and (installed.get("source") or {}).get("kind") != "image":
         raise PluginPackageError("package_source_conflict", status=409)
     should_enable = installed["enabled"] if installed else True
-    operation = stage_archive(root, body, actor=0, source={"kind": "image"})
+    operation = stage_archive(root, archive_path, actor=0, source={"kind": "image"})
     try:
         state = activate_staged(
             root, operation["operation_id"], verified.digest, 0, state["generation"]
