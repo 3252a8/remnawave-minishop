@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.middlewares.i18n import JsonI18n
 from bot.services import hwid_device_notifications as device_notifications
+from bot.services import message_audit
 from bot.services.hwid_device_notifications import HwidDeviceNotificationService
 from bot.services.panel_api_service import PanelApiService
 from config.settings import Settings
@@ -31,8 +32,9 @@ class _Bot:
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
 
-    async def send_message(self, chat_id: int, text: str, **kwargs: Any) -> None:
+    async def send_message(self, chat_id: int, text: str, **kwargs: Any) -> SimpleNamespace:
         self.messages.append({"chat_id": chat_id, "text": text, **kwargs})
+        return SimpleNamespace(text=text)
 
 
 def _catalog() -> TariffsConfig:
@@ -150,9 +152,6 @@ def notification_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         emails.append(kwargs)
         return True
 
-    async def no_audit(*args, **kwargs):
-        del args, kwargs
-
     monkeypatch.setattr(
         device_notifications.subscription_dal,
         "has_subscription_notification",
@@ -165,8 +164,10 @@ def notification_state(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     )
     monkeypatch.setattr(device_notifications.events, "emit_model", emit_model)
     monkeypatch.setattr(device_notifications, "send_user_notification_email", send_email)
-    monkeypatch.setattr(device_notifications, "log_user_message_delivery", no_audit)
-    return {"recorded": recorded, "emitted": emitted, "emails": emails}
+    audit = AsyncMock()
+    monkeypatch.setattr(message_audit.message_log_dal, "create_message_log_no_commit", audit)
+    monkeypatch.setattr(message_audit, "notify_message_log", AsyncMock())
+    return {"recorded": recorded, "emitted": emitted, "emails": emails, "audit": audit}
 
 
 def test_added_device_combines_limit_message_and_offers_topup(
@@ -197,8 +198,19 @@ def test_added_device_combines_limit_message_and_offers_topup(
     assert result.needs_retry is False
     panel.get_user_devices.assert_awaited_once_with("panel-user", force_refresh=True)
     assert len(bot.messages) == 1
-    assert "device_connected_notification" in bot.messages[0]["text"]
-    assert "device_limit_reached_notification_topup" in bot.messages[0]["text"]
+    sent_text = bot.messages[0]["text"]
+    connected, limit = sent_text.split("\n\n")
+    assert "device_connected_notification" in connected
+    assert "device_limit_reached_notification_topup" in limit
+    audit = notification_state["audit"]
+    audit.assert_awaited_once()
+    _, payload = audit.await_args.args
+    assert payload["event_type"] == "telegram_device_notification_sent"
+    assert payload["target_user_id"] == 42
+    assert payload["content"] == (
+        f"channel=telegram | recipient={bot.messages[0]['chat_id']} | "
+        f"kinds=connected,limit subscription_id=7 event_ref={'a' * 24}\n\n{sent_text}"
+    )
     assert bot.messages[0]["reply_markup"] is not None
     assert len(notification_state["emails"]) == 1
     assert notification_state["emails"][0]["subject_key"] == ("email_device_limit_reached_subject")

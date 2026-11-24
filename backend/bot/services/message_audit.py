@@ -23,6 +23,7 @@ async def log_user_message_delivery(
     content: str,
     recipient: str | None = None,
     timestamp: datetime | None = None,
+    message_text: str | None = None,
 ) -> None:
     """Add a best-effort user log entry for important outbound messages."""
     clean_event = _clean_piece(event_type)
@@ -38,11 +39,15 @@ async def log_user_message_delivery(
     if clean_content:
         parts.append(clean_content)
 
+    audit_content = " | ".join(parts)[:4000]
+    if message_text:
+        audit_content = f"{audit_content}\n\n{message_text}"
+
     try:
         payload = {
             "user_id": None,
             "event_type": clean_event,
-            "content": " | ".join(parts)[:4000],
+            "content": audit_content,
             "is_admin_event": False,
             "target_user_id": int(target_user_id) if target_user_id is not None else None,
             "timestamp": timestamp or datetime.now(UTC),

@@ -373,7 +373,7 @@ class HwidDeviceNotificationService:
             return False, False
         delivery_observed_at = datetime.now(UTC)
         try:
-            await self.bot.send_message(
+            sent_message = await self.bot.send_message(
                 chat_id,
                 "\n\n".join(messages[kind] for kind in kinds),
                 parse_mode="HTML",
@@ -414,6 +414,7 @@ class HwidDeviceNotificationService:
                 f"kinds={','.join(kinds)} subscription_id={subscription.subscription_id} "
                 f"event_ref={fingerprint}"
             ),
+            message_text=sent_message.text,
         )
         if normalize_telegram_notification_status(
             getattr(user, "telegram_notifications_status", None)
