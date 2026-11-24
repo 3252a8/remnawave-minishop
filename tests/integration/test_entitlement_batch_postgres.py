@@ -32,7 +32,13 @@ from bot.services.subscription_days_quotes import (
 from bot.services.subscription_service_impl.core import SubscriptionService
 from bot.services.user_balance_service import UserBalanceService
 from config.settings import Settings
-from db.dal import subscription_dal, tariff_dal, user_balance_dal, user_panel_squad_override_dal
+from db.dal import (
+    partner_dal,
+    subscription_dal,
+    tariff_dal,
+    user_balance_dal,
+    user_panel_squad_override_dal,
+)
 from db.dal.tariff_read_batch import clear_tariff_read_batch, prefetch_tariff_read_batch
 from db.migrator.chain_0098_topup_period_lifetime import CHAIN_0098_TOPUP_PERIOD_LIFETIME
 from db.migrator.chain_0099_regular_topup_accounting import CHAIN_0099_REGULAR_TOPUP_ACCOUNTING
@@ -45,6 +51,7 @@ from db.models import (
     TrafficTopup,
     User,
 )
+from db.partner_models import PartnerClient, PartnerCommission, PartnerProfile
 
 DATABASE_URL = os.environ.get("CORE_PERFORMANCE_TEST_DATABASE_URL", "")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="Disposable PostgreSQL URL is required")
@@ -88,6 +95,80 @@ def run_scenario(scenario: Callable[[Any], Awaitable[None]]) -> None:
             await admin.dispose()
 
     asyncio.run(run())
+
+
+def test_partner_reconciliation_skips_locked_and_already_decided_payments() -> None:
+    async def scenario(factory: Any) -> None:
+        async with factory() as setup:
+            setup.add_all(
+                [
+                    User(user_id=2),
+                    PartnerProfile(
+                        partner_id=11, user_id=1, partner_code="test", display_label_snapshot="test"
+                    ),
+                ]
+            )
+            await setup.flush()
+            setup.add(
+                PartnerClient(
+                    partner_client_id=12,
+                    partner_id=11,
+                    client_user_id=2,
+                    public_client_id="client",
+                    public_label_snapshot="test",
+                    source="partner_web_link",
+                )
+            )
+            for payment_id, user_id, status in (
+                (1, 2, "succeeded"),
+                (2, 2, "succeeded"),
+                (3, 1, "succeeded"),
+                (4, 2, "pending"),
+            ):
+                setup.add(
+                    Payment(
+                        payment_id=payment_id,
+                        user_id=user_id,
+                        status=status,
+                        amount=1,
+                        currency="RUB",
+                    )
+                )
+            await setup.commit()
+
+        async with factory() as first, factory() as second:
+
+            async def ids(session: Any) -> list[int]:
+                return [
+                    int(row.payment_id)
+                    for row in await partner_dal.list_successful_payments_without_decision(
+                        session, limit=1
+                    )
+                ]
+
+            assert await ids(first) == [1]
+            assert await asyncio.wait_for(ids(second), timeout=5) == [2]
+            second.add(
+                PartnerCommission(
+                    partner_id=11,
+                    partner_client_id=12,
+                    payment_id=2,
+                    gross_amount_minor=100,
+                    commission_amount_minor=30,
+                    currency="RUB",
+                    currency_scale=2,
+                    commission_bps_snapshot=3000,
+                    status="pending",
+                    source_paid_at=NOW,
+                    available_at=NOW,
+                )
+            )
+            await second.commit()
+            assert await ids(second) == []
+            await first.rollback()
+            assert await ids(second) == [1]
+
+    run_scenario(scenario)
 
 
 @pytest.mark.parametrize("same_quote", [True, False])

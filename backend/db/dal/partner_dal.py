@@ -6,9 +6,10 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from functools import cache
 from typing import Any
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import Select, and_, bindparam, desc, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -580,20 +581,31 @@ async def list_pending_commissions(
     return list(result.scalars().all())
 
 
+@cache
+def _pending_payment_decisions() -> Select[tuple[Payment]]:
+    return (
+        select(Payment)
+        .where(
+            Payment.status == "succeeded",
+            select(PartnerClient.client_user_id)
+            .where(PartnerClient.client_user_id == Payment.user_id)
+            .exists(),
+            ~select(PartnerCommission.payment_id)
+            .where(PartnerCommission.payment_id == Payment.payment_id)
+            .exists(),
+        )
+        .order_by(Payment.payment_id)
+        .limit(bindparam("batch_limit"))
+        .with_for_update(skip_locked=True, of=Payment)
+    )
+
+
 async def list_successful_payments_without_decision(
     session: AsyncSession,
     *,
     limit: int,
 ) -> list[Payment]:
-    result = await session.execute(
-        select(Payment)
-        .join(PartnerClient, PartnerClient.client_user_id == Payment.user_id)
-        .outerjoin(PartnerCommission, PartnerCommission.payment_id == Payment.payment_id)
-        .where(Payment.status == "succeeded", PartnerCommission.commission_id.is_(None))
-        .order_by(Payment.payment_id)
-        .limit(limit)
-        .with_for_update(skip_locked=True, of=Payment)
-    )
+    result = await session.execute(_pending_payment_decisions(), {"batch_limit": limit})
     return list(result.scalars().all())
 
 
