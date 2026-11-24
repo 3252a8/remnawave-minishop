@@ -725,13 +725,18 @@ def provider_webhook_metadata(spec: PaymentProviderSpec) -> dict[str, Any] | Non
         return None
     if not path:
         return None
-    return {
+    metadata = {
         "provider_id": spec.id,
         "provider_label": spec.label,
         "webhook_provider_id": webhook_spec.id,
         "webhook_path": path,
         "webhook_requires_base_url": bool(webhook_spec.webhook_requires_base_url),
     }
+    if webhook_spec.webhook_hint_i18n_key:
+        metadata["webhook_hint_i18n_key"] = webhook_spec.webhook_hint_i18n_key
+    if webhook_spec.webhook_hint:
+        metadata["webhook_hint"] = webhook_spec.webhook_hint
+    return metadata
 
 
 def provider_admin_metadata(spec: PaymentProviderSpec) -> dict[str, Any]:

@@ -2360,6 +2360,7 @@
   "admin_settings_provider_info_open": "Open provider site",
   "admin_settings_provider_webhook_url": "Webhook URL",
   "admin_settings_provider_webhook_url_hint": "Use this URL in the provider webhook settings.",
+  "admin_settings_heleket_webhook_url_hint": "Minishop sends this URL to Heleket as url_callback when creating an invoice. No dashboard setup is required for this URL.",
   "admin_settings_panel_webhook_url_hint": "Use this URL as WEBHOOK_URL in Remnawave Panel.",
   "admin_settings_provider_webhook_base_missing": "Set WEBHOOK_BASE_URL in .env to show the full URL for {path}.",
   "admin_settings_provider_admin_only_label": "Only for admins",

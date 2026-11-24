@@ -5552,7 +5552,7 @@ remnashop_webhook_checklist() {
         base_url="WEBHOOK_BASE_URL"
     fi
 
-    info "После миграции проверьте эти URL во внешних кабинетах:"
+    info "После миграции проверьте адреса вебхуков:"
     printf '  Remnawave Panel -> WEBHOOK_URL: %s/webhook/panel\n' "$base_url"
     panel_secret=$(env_get PANEL_WEBHOOK_SECRET "")
     if [ -n "$panel_secret" ]; then
@@ -5563,11 +5563,11 @@ remnashop_webhook_checklist() {
     printf '  YooKassa merchant cabinet -> HTTP notifications URL: %s/webhook/yookassa\n' "$base_url"
     printf '  WATA merchant dashboard -> webhook/callback URL: %s/webhook/wata\n' "$base_url"
     printf '  CryptoBot/Crypto Pay app -> webhook URL: %s/webhook/cryptopay\n' "$base_url"
-    printf '  Heleket merchant dashboard -> payment webhook/callback URL: %s/webhook/heleket\n' "$base_url"
     printf '  PayKilla Dashboard -> Settings -> Webhooks URL: %s/webhook/paykilla\n' "$base_url"
     printf '  FreeKassa shop settings -> notification/result URL: %s/webhook/freekassa\n' "$base_url"
     printf '  Platega merchant/project settings -> webhook URL: %s/webhook/platega\n' "$base_url"
     printf '  RollyPay terminal settings -> webhook URL: %s/webhook/rollypay\n' "$base_url"
+    printf '  Heleket webhook: %s/webhook/heleket (Minishop передаёт его при создании инвойса как url_callback)\n' "$base_url"
     printf '  Telegram webhook: %s/tg/webhook (backend ставит его автоматически при старте)\n' "$base_url"
 }
 

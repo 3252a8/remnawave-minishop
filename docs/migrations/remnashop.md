@@ -144,12 +144,14 @@ Remnashop может хранить секреты в формате `enc_...`. 
 - YooKassa HTTP notifications URL: `WEBHOOK_BASE_URL` + `/webhook/yookassa`;
 - WATA webhook/callback URL: `WEBHOOK_BASE_URL` + `/webhook/wata`;
 - CryptoBot/Crypto Pay webhook URL: `WEBHOOK_BASE_URL` + `/webhook/cryptopay`;
-- Heleket payment webhook/callback URL: `WEBHOOK_BASE_URL` + `/webhook/heleket`;
 - PayKilla webhook URL: `WEBHOOK_BASE_URL` + `/webhook/paykilla`;
 - FreeKassa notification/result URL: `WEBHOOK_BASE_URL` + `/webhook/freekassa`;
 - Platega webhook URL: `WEBHOOK_BASE_URL` + `/webhook/platega`;
 - Telegram webhook `WEBHOOK_BASE_URL` + `/tg/webhook` выставляется ботом
   автоматически при старте.
+
+Для Heleket Minishop автоматически передаёт `WEBHOOK_BASE_URL` + `/webhook/heleket`
+в поле `url_callback` при создании нового инвойса.
 
 ## Сценарий wizard
 

@@ -331,6 +331,8 @@ class PaymentProviderSpec:
     # Funding instrument, independent of the currency used to price the order.
     payment_group: PaymentMethodGroup | None = None
     reporting_fee_method: str | None = None
+    webhook_hint_i18n_key: str | None = None
+    webhook_hint: str | None = None
 
     @property
     def provider_id(self) -> str:

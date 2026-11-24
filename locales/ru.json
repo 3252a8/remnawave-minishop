@@ -2360,6 +2360,7 @@
   "admin_settings_provider_info_open": "Открыть сайт провайдера",
   "admin_settings_provider_webhook_url": "Webhook URL",
   "admin_settings_provider_webhook_url_hint": "Укажите этот адрес в настройках вебхуков провайдера.",
+  "admin_settings_heleket_webhook_url_hint": "При создании инвойса Minishop автоматически передаёт этот адрес в поле url_callback. Вручную указывать адрес в кабинете Heleket не нужно.",
   "admin_settings_panel_webhook_url_hint": "Укажите этот адрес как WEBHOOK_URL в Remnawave Panel.",
   "admin_settings_provider_webhook_base_missing": "Укажите WEBHOOK_BASE_URL в .env, чтобы увидеть полный адрес для {path}.",
   "admin_settings_provider_admin_only_label": "Только для админов",

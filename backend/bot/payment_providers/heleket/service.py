@@ -730,6 +730,11 @@ SPEC = PaymentProviderSpec(
     create_service=create_service,
     webhook_path=lambda source: "/webhook/heleket",
     webhook_route=heleket_webhook_route,
+    webhook_hint_i18n_key="admin_settings_heleket_webhook_url_hint",
+    webhook_hint=(
+        "Minishop sends this URL to Heleket as url_callback when creating an invoice. "
+        "No dashboard setup is required for this URL."
+    ),
     create_webapp_payment=create_webapp_payment,
     reuse_webapp_payment=reuse_webapp_payment,
     emoji="🪙",

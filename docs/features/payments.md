@@ -302,7 +302,7 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 `CF-Connecting-IP`, предварительно проверив, что ближайший внешний proxy-hop принадлежит
 официальной сети Cloudflare.
 
-| Провайдер | Что указать в кабинете провайдера | Комментарий |
+| Провайдер | URL вебхука | Как настроить |
 | --- | --- | --- |
 | YooKassa | `WEBHOOK_BASE_URL` + `/webhook/yookassa` | Например `https://bot.example.com/webhook/yookassa`. |
 | FreeKassa | `WEBHOOK_BASE_URL` + `/webhook/freekassa` | Используйте как notification/webhook URL; при IP-фильтрации заполните `FREEKASSA_TRUSTED_IPS`. |
@@ -313,7 +313,7 @@ reverse proxy должен прокидывать `X-Forwarded-For`, а его I
 | PayHot | `WEBHOOK_BASE_URL` + `/webhook/payhot` | Подпишитесь на `payment.succeeded` и задайте отдельный секрет подписи. |
 | Wata | `WEBHOOK_BASE_URL` + `/webhook/wata` | Если включена проверка подписи, настройте `WATA_WEBHOOK_VERIFY_SIGNATURE` и `WATA_PUBLIC_KEY`. |
 | CryptoPay | `WEBHOOK_BASE_URL` + `/webhook/cryptopay` | Указывается в настройках Crypto Bot / CryptoPay webhook. |
-| Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |
+| Heleket | `WEBHOOK_BASE_URL` + `/webhook/heleket` | Minishop автоматически передаёт URL в поле `url_callback` при создании инвойса. При необходимости настройте `HELEKET_VERIFY_WEBHOOK_SIGNATURE` и `HELEKET_TRUSTED_IPS`. |
 | OxaPay | `WEBHOOK_BASE_URL` + `/webhook/oxapay` | Передаётся автоматически как `callback_url` при Generate Invoice. HMAC-SHA512 по raw body проверяется всегда. |
 | PayKilla | `WEBHOOK_BASE_URL` + `/webhook/paykilla` | Указывается в PayKilla Dashboard -> Settings -> Webhooks; включите события оплаты инвойсов. |
 | LAVA | `WEBHOOK_BASE_URL` + `/webhook/lava` | Передается автоматически как `hookUrl` при создании счета; можно также указать в кабинете LAVA Business. |
@@ -784,12 +784,12 @@ Heleket используется для крипто-инвойсов с merchan
 ### Настройка
 
 1. Включите `HELEKET_ENABLED`.
-2. Укажите `HELEKET_MERCHANT_ID` и `HELEKET_API_KEY`. Базовый адрес `HELEKET_BASE_URL` по умолчанию — `https://api.heleket.hk`. Личный кабинет доступен на `https://dash.heleket.hk`. Адрес для входящих уведомлений задаётся отдельно через `WEBHOOK_BASE_URL`.
+2. Укажите `HELEKET_MERCHANT_ID` и `HELEKET_API_KEY`. Базовый адрес `HELEKET_BASE_URL` по умолчанию — `https://api.heleket.hk`. Личный кабинет доступен на `https://dash.heleket.hk`.
 3. Настройте `HELEKET_CURRENCY`.
 4. При необходимости задайте `HELEKET_TO_CURRENCY` и `HELEKET_NETWORK`.
 5. Проверьте `HELEKET_RETURN_URL` и `HELEKET_SUCCESS_URL`.
 6. Настройте `HELEKET_LIFETIME_SECONDS`.
-7. Скопируйте URL вебхука из админ-панели и укажите его в кабинете Heleket.
+7. Задайте `WEBHOOK_BASE_URL`. Minishop добавит путь `/webhook/heleket` и автоматически передаст полный адрес в поле `url_callback` при создании инвойса. В кабинете Heleket вручную указывать адрес не нужно.
 8. При необходимости включите `HELEKET_VERIFY_WEBHOOK_SIGNATURE`.
 9. Для IP-фильтрации заполните `HELEKET_TRUSTED_IPS`.
 
