@@ -114,6 +114,7 @@ export function createAdminStores({
     at,
     queryClient: adminQueryClient,
   });
+  settingsStore.registerSavedListener(statsStore.invalidateLocalStats);
   const supportStore = createAdminSupportStore({
     api: api as never,
     apiBlob,
@@ -123,7 +124,10 @@ export function createAdminStores({
   });
   const tariffsStore = createTariffsStore({
     api: api as never,
-    onTariffsSaved,
+    onTariffsSaved: (catalog) => {
+      statsStore.invalidateLocalStats();
+      return onTariffsSaved(catalog);
+    },
     flash: onToast,
     at,
   });

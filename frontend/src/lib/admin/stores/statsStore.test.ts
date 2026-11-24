@@ -36,6 +36,10 @@ describe("dashboard statistics", () => {
     expect(store.stats).toEqual(local);
     await revisit;
     expect(api).toHaveBeenCalledTimes(2);
+    store.invalidateLocalStats();
+    await store.loadStats();
+    expect(api).toHaveBeenCalledTimes(3);
+    expect(api).toHaveBeenLastCalledWith("/admin/stats?include_panel=false");
     queryClient.clear();
   });
 

@@ -4,6 +4,39 @@ import { QueryClient } from "@tanstack/svelte-query";
 import { createSettingsStore } from "./settingsStore.svelte.js";
 
 describe("settingsStore", () => {
+  it.each([
+    { ok: false, error: "rate_limited", retry_after: 12 },
+    Object.assign(new Error("service_unavailable"), {
+      status: 429,
+      payload: { ok: false, error: "rate_limited", retry_after: 12 },
+    }),
+  ])("can retry a rate-limited settings read and retains existing edits", async (failure) => {
+    const sections = [{ id: "general", fields: [{ key: "EXAMPLE", value: "old" }] }];
+    const api = vi.fn().mockResolvedValueOnce({ ok: true, sections });
+    if (failure instanceof Error) api.mockRejectedValueOnce(failure);
+    else api.mockResolvedValueOnce(failure);
+    api.mockResolvedValueOnce({ ok: true, sections });
+    const client = new QueryClient();
+    const store = createSettingsStore({
+      api: api as never,
+      queryClient: client,
+      at: (_key, _params, fallback) => fallback || "",
+      onToast: vi.fn(),
+    });
+    await store.loadSettings();
+    store.markDirty("EXAMPLE", "new");
+    const start = Date.now();
+    await store.loadSettings({ refresh: true });
+    expect(store.settingsLoadError).toContain("Too many requests");
+    expect(store.settingsRetryAt).toBeGreaterThanOrEqual(start + 12000);
+    expect(store.settingsSections).toEqual(sections);
+    expect(store.settingsDirty.EXAMPLE.value).toBe("new");
+    await store.loadSettings({ refresh: true });
+    expect(store.settingsLoadError).toBe("");
+    expect(store.settingsRetryAt).toBeNull();
+    expect(store.settingsDirty.EXAMPLE.value).toBe("new");
+    client.clear();
+  });
   it("refreshes required channel diagnostics after changing the saved channel", async () => {
     const firstCheck = {
       channel_id: -100123,

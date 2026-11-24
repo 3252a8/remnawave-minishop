@@ -111,6 +111,8 @@ export type SettingsState = {
   partnerEncryptionAvailable: boolean;
   requiredChannelDiagnostics: RequiredChannelDiagnostics | null;
   settingsLoading: boolean;
+  settingsLoadError: string;
+  settingsRetryAt: number | null;
   settingsDirty: SettingsDirtyState;
   settingsSaving: boolean;
   /** Pending changes owned by a section that writes its own contract. */
@@ -173,6 +175,8 @@ export function createSettingsStore({
     partnerEncryptionAvailable: false,
     requiredChannelDiagnostics: null,
     settingsLoading: false,
+    settingsLoadError: "",
+    settingsRetryAt: null,
     settingsDirty: {},
     settingsSaving: false,
     extraDirtyCount: 0,
@@ -241,16 +245,27 @@ export function createSettingsStore({
     }
   }
 
+  let loadGeneration = 0;
   async function loadSettings({ refresh = false }: LoadSettingsOptions = {}): Promise<void> {
-    updateState((s) => ({ ...s, settingsLoading: true, settingsDirty: {} }));
+    const currentGeneration = ++loadGeneration;
+    updateState((s) => ({
+      ...s,
+      settingsLoading: true,
+      settingsLoadError: "",
+      settingsRetryAt: null,
+    }));
     try {
       const data = await fetchAdminQuery({
         queryClient,
         queryKey: SETTINGS_QUERY_KEY,
-        queryFn: () => api(buildAdminSettingsPath()),
+        queryFn: async () => {
+          const response = await api(buildAdminSettingsPath());
+          if (!isOkResponse(response)) throw response;
+          return response;
+        },
         refresh,
       });
-      if (isOkResponse(data)) {
+      if (currentGeneration === loadGeneration) {
         const result = unwrap(data);
         updateState((s) => ({
           ...s,
@@ -261,8 +276,24 @@ export function createSettingsStore({
           partnerEncryptionAvailable: Boolean(result.partner_encryption_available),
         }));
       }
+    } catch (error) {
+      if (currentGeneration !== loadGeneration) return;
+      const response = error as {
+        status?: number;
+        payload?: { retry_after?: number; error?: string };
+        retry_after?: number;
+        error?: string;
+      } | null;
+      const payload = response?.payload ?? response;
+      const seconds = Number(payload?.retry_after);
+      const limited = response?.status === 429 || payload?.error === "rate_limited";
+      state.settingsLoadError = limited
+        ? at("settings_rate_limited", {}, "Too many requests to load settings.")
+        : adminErrorMessage(error, at, at("settings_load_failed", {}, "Could not load settings."));
+      state.settingsRetryAt =
+        limited && Number.isFinite(seconds) && seconds > 0 ? Date.now() + seconds * 1000 : null;
     } finally {
-      updateState((s) => ({ ...s, settingsLoading: false }));
+      if (currentGeneration === loadGeneration) state.settingsLoading = false;
     }
   }
 

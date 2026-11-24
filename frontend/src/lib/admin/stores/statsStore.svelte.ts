@@ -30,6 +30,7 @@ type StatsStoreOptions = {
 };
 export type StatsStore = StatsState & {
   loadStats: (options?: { refresh?: boolean }) => Promise<void>;
+  invalidateLocalStats: () => void;
   triggerSync: () => Promise<void>;
 };
 
@@ -58,6 +59,7 @@ export function createStatsStore({
   let stats = $state.raw<StatsResponse | null>(null);
   let panel = $state.raw<StatsState["panel"]>(null);
   let pending: Promise<[void, void]> | null = null;
+  let localStatsInvalidated = false;
   const state = $state<Omit<StatsState, "stats" | "panel">>({
     statsLoading: false,
     panelLoading: false,
@@ -127,10 +129,12 @@ export function createStatsStore({
   async function loadStats({ refresh = false }: { refresh?: boolean } = {}): Promise<void> {
     if (pending) {
       await pending;
-      if (refresh) await loadStats({ refresh });
+      if (refresh || localStatsInvalidated) await loadStats({ refresh });
       return;
     }
-    pending = Promise.all([loadLocalStats(refresh), loadPanelStats(refresh)]);
+    const refreshLocal = refresh || localStatsInvalidated;
+    localStatsInvalidated = false;
+    pending = Promise.all([loadLocalStats(refreshLocal), loadPanelStats(refresh)]);
     try {
       await pending;
     } finally {
@@ -157,6 +161,9 @@ export function createStatsStore({
 
   return Object.assign(store, {
     loadStats,
+    invalidateLocalStats: () => {
+      localStatsInvalidated = true;
+    },
     triggerSync,
   });
 }

@@ -862,6 +862,9 @@
   {currentLang}
   {appRepositoryUrl}
   {settingsLoading}
+  settingsLoadError={settingsStore.settingsLoadError}
+  settingsRetryAt={settingsStore.settingsRetryAt}
+  retrySettings={() => settingsStore.loadSettings({ refresh: true })}
   extraDirtyCount={Number(settingsStore.extraDirtyCount || 0)}
   {visibleSettingsSections}
   {settingsDirty}
