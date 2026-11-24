@@ -40,6 +40,7 @@ type AdminApi = ApiClient["api"];
 type ToastFn = (message: string) => void;
 type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
 type BroadcastCounts = Record<string, number | null>;
+type CountsOptions = { force?: boolean; forSelection?: boolean };
 export type BroadcastTargetOption = {
   value: string;
   label: string;
@@ -125,7 +126,7 @@ type BroadcastStoreOptions = {
 export type BroadcastStore = BroadcastState & {
   runBroadcast: () => Promise<void>;
   updateField: (fields: Partial<BroadcastState>) => void;
-  loadCounts: (options?: { force?: boolean }) => Promise<void>;
+  loadCounts: (options?: CountsOptions) => Promise<void>;
   addButton: () => void;
   removeButton: (index: number) => void;
   updateButton: (index: number, fields: Partial<BroadcastButtonDraft>) => void;
@@ -187,6 +188,8 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
   const COUNTS_DISPLAY_CACHE_TTL_MS = 5 * 60_000;
   const COUNTS_STORAGE_KEY = "remnawave-admin:broadcast-audience-counts";
   let countsPromise: Promise<void> | null = null;
+  let loadingLocalCounts = false;
+  let localCountsLoadedAt = 0;
   let promoOptionsPromise: Promise<void> | null = null;
   let promoOptionsRequestId = 0;
   let promoOptionsQuery = "";
@@ -331,13 +334,27 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     Object.assign(state, next);
   }
 
-  function countsAreFresh(stateSnapshot: BroadcastState): boolean {
-    return Boolean(
-      stateSnapshot.broadcastCounts &&
-      stateSnapshot.broadcastAudiencesLoaded &&
-      stateSnapshot.broadcastEmailAvailabilityKnown &&
-      Date.now() - Number(stateSnapshot.broadcastCountsLoadedAt || 0) < COUNTS_CACHE_TTL_MS
+  function countsAreFresh(local: boolean): boolean {
+    const fullLoadedAt = state.broadcastAudiencesLoaded ? state.broadcastCountsLoadedAt : 0;
+    const loadedAt = local ? Math.max(localCountsLoadedAt, fullLoadedAt) : fullLoadedAt;
+    return (
+      loadedAt > 0 &&
+      state.broadcastEmailAvailabilityKnown &&
+      Date.now() - loadedAt < COUNTS_CACHE_TTL_MS
     );
+  }
+
+  function validateSelectedTargets(): void {
+    const unavailable = state.broadcastTarget
+      .split(",")
+      .filter(Boolean)
+      .some(
+        (target) =>
+          !state.BROADCAST_TARGET_OPTIONS.some(
+            (option) => option.value === target && !option.disabled
+          )
+      );
+    state.broadcastTargetError = unavailable ? "broadcast_target_unavailable" : null;
   }
 
   function readStoredCounts(): StoredCounts | null {
@@ -377,50 +394,70 @@ export function createBroadcastStore({ api, onToast, at }: BroadcastStoreOptions
     }
   }
 
-  async function loadCounts({ force = false }: { force?: boolean } = {}): Promise<void> {
-    let shouldLoad = false;
-    updateState((s) => {
-      if (!force && countsAreFresh(s)) return s;
-      if (countsPromise || s.broadcastCountsLoading) return s;
-      shouldLoad = true;
-      return { ...s, broadcastCountsLoading: true };
-    });
-
-    if (!shouldLoad) return countsPromise || Promise.resolve();
-
+  async function loadCounts({
+    force = false,
+    forSelection = false,
+  }: CountsOptions = {}): Promise<void> {
+    const local =
+      forSelection &&
+      state.broadcastTarget
+        .split(",")
+        .filter(Boolean)
+        .every(
+          (target) =>
+            target !== "active_never_connected" &&
+            CORE_BROADCAST_TARGET_OPTIONS.some((option) => option.value === target)
+        );
+    if (!force && countsAreFresh(local)) {
+      if (!local) validateSelectedTargets();
+      return;
+    }
+    if (countsPromise) {
+      const needsFullCatalog = !local && loadingLocalCounts;
+      await countsPromise;
+      if (needsFullCatalog) await loadCounts({ force });
+      return;
+    }
+    loadingLocalCounts = local;
+    state.broadcastCountsLoading = true;
     countsPromise = (async () => {
       try {
-        const res = await api(buildAdminBroadcastAudienceCountsPath());
+        const path = buildAdminBroadcastAudienceCountsPath();
+        const res = await api(local ? `${path}?scope=local` : path);
         if (res?.ok) {
           const payload = unwrap(res);
           const emailAvailable = Boolean(payload.email_enabled);
           const counts = asBroadcastCounts(payload.counts);
           const audiences = asBroadcastAudiences(payload.audiences);
-          const options = targetOptions(audiences);
           const loadedAt = Date.now();
-          updateState((s) => ({
-            ...s,
-            ...(counts ? { broadcastCounts: counts, broadcastCountsLoadedAt: loadedAt } : {}),
-            broadcastAudiencesLoaded: true,
-            broadcastEmailAvailable: emailAvailable,
-            broadcastEmailAvailabilityKnown: true,
-            broadcastEmailEnabled: s.broadcastEmailEnabled && emailAvailable,
-            BROADCAST_TARGET_OPTIONS: options,
-            broadcastTargetError: s.broadcastTarget
-              .split(",")
-              .filter(Boolean)
-              .some(
-                (target) => !options.some((option) => option.value === target && !option.disabled)
-              )
-              ? "broadcast_target_unavailable"
-              : null,
-          }));
-          if (counts) writeStoredCounts(counts, loadedAt, emailAvailable, audiences);
+          state.broadcastEmailAvailable = emailAvailable;
+          state.broadcastEmailAvailabilityKnown = true;
+          state.broadcastEmailEnabled &&= emailAvailable;
+          if (local) {
+            if (!state.broadcastAudiencesLoaded)
+              state.BROADCAST_TARGET_OPTIONS = targetOptions(audiences);
+            if (counts) {
+              const knownCounts = Object.fromEntries(
+                Object.entries(counts).filter(([, count]) => count !== null)
+              );
+              state.broadcastCounts = { ...counts, ...state.broadcastCounts, ...knownCounts };
+              localCountsLoadedAt = loadedAt;
+            }
+          } else {
+            state.BROADCAST_TARGET_OPTIONS = targetOptions(audiences);
+            state.broadcastAudiencesLoaded = true;
+            validateSelectedTargets();
+            if (counts) {
+              state.broadcastCounts = counts;
+              state.broadcastCountsLoadedAt = loadedAt;
+              writeStoredCounts(counts, loadedAt, emailAvailable, audiences);
+            }
+          }
         }
       } catch {
         // Counts are advisory; ignore failures and keep existing/plain labels.
       } finally {
-        updateState((s) => ({ ...s, broadcastCountsLoading: false }));
+        state.broadcastCountsLoading = false;
         countsPromise = null;
       }
     })();

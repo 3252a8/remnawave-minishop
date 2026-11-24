@@ -15618,7 +15618,9 @@ export interface operations {
   };
   get_admin_broadcast_audience_counts_route: {
     parameters: {
-      query?: never;
+      query?: {
+        scope?: "local" | "full";
+      };
       header?: never;
       path?: never;
       cookie?: never;

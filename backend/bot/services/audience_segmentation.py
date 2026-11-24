@@ -396,23 +396,13 @@ class AudienceSegmentationService:
             return [int(uid) for uid in await loaders[normalized](session, **filters)]
 
     async def counts(
-        self, platforms: dict[str, PlatformGroup] | None = None
+        self, platforms: dict[str, PlatformGroup] | None = None, *, local_only: bool = False
     ) -> dict[str, int | None]:
         async with self.session_factory() as session:
             excluded = await broadcast_audience_dal.excluded_ids_by_target(session)
             admin_ids = await active_admin_user_ids(session)
             counts: dict[str, int | None] = {
-                "all": await user_dal.count_all_active_users_for_broadcast(session),
-                "active": await user_dal.count_users_with_active_subscription_for_broadcast(
-                    session
-                ),
-                "inactive": await user_dal.count_users_without_active_subscription_for_broadcast(
-                    session
-                ),
-                "expired": await user_dal.count_users_with_expired_subscription_for_broadcast(
-                    session
-                ),
-                "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
+                **await user_dal.count_base_broadcast_audiences(session),
                 AUDIENCE_ACTIVE_NEVER_CONNECTED: None,
                 AUDIENCE_ADMINS: len(set(admin_ids) - excluded.pop(AUDIENCE_ADMINS, set())),
             }
@@ -430,7 +420,7 @@ class AudienceSegmentationService:
                     await session.scalar(select(func.count()).select_from(channel_users.subquery()))
                     or 0
                 )
-            if self.panel_service is not None:
+            if not local_only and self.panel_service is not None:
                 ids = await self._user_ids_with_active_subscription_never_connected(session)
                 counts[AUDIENCE_ACTIVE_NEVER_CONNECTED] = len(
                     set(ids) - excluded.pop(AUDIENCE_ACTIVE_NEVER_CONNECTED, set())
@@ -441,6 +431,8 @@ class AudienceSegmentationService:
                 counts[target] = len(set(matching) - ids)
         for target, group in (platforms or {}).items():
             counts[target] = len(group.user_ids - excluded.get(target, set()))
+        if local_only:
+            return counts
         for provider in self._providers.values():
             if not self._provider_is_available(provider):
                 continue

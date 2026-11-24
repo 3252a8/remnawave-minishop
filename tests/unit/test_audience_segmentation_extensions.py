@@ -177,24 +177,10 @@ class AudienceSegmentationExtensionsTest(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=[]),
             ),
             patch(
-                "bot.services.audience_segmentation.user_dal.count_all_active_users_for_broadcast",
-                AsyncMock(return_value=10),
-            ),
-            patch(
-                "bot.services.audience_segmentation.user_dal.count_users_with_active_subscription_for_broadcast",
-                AsyncMock(return_value=8),
-            ),
-            patch(
-                "bot.services.audience_segmentation.user_dal.count_users_without_active_subscription_for_broadcast",
-                AsyncMock(return_value=2),
-            ),
-            patch(
-                "bot.services.audience_segmentation.user_dal.count_users_with_expired_subscription_for_broadcast",
-                AsyncMock(return_value=1),
-            ),
-            patch(
-                "bot.services.audience_segmentation.user_dal.count_users_without_any_subscription_for_broadcast",
-                AsyncMock(return_value=1),
+                "bot.services.audience_segmentation.user_dal.count_base_broadcast_audiences",
+                AsyncMock(
+                    return_value={"all": 10, "active": 8, "inactive": 2, "expired": 1, "never": 1}
+                ),
             ),
         ):
             counts = await service.counts()

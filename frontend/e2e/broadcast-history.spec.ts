@@ -42,7 +42,12 @@ for (const width of [1440, 768, 390]) {
     await page.goto("/demo/runtime/admin/broadcast?theme_preview=dark");
     const audience = page.locator(".broadcast-audience-control .admin-select-trigger");
     await expect(audience).not.toContainText("...");
-    await audience.click();
+    if (width === 1440) {
+      await audience.focus();
+      await audience.press("ArrowDown");
+    } else {
+      await audience.click();
+    }
     await expect(page.getByText("Конкретный тариф", { exact: true })).toBeVisible();
     const hiddenPlan = page.getByRole("option", { name: "Archived plan (7)" });
     await expect(hiddenPlan).toBeVisible();

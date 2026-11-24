@@ -373,6 +373,78 @@ describe("broadcastStore", () => {
     });
   });
 
+  it("keeps a full catalog request on dropdown open while local counts are pending", async () => {
+    const storage = makeSessionStorage();
+    vi.stubGlobal("window", { sessionStorage: storage });
+    let finishLocal!: (result: unknown) => void;
+    const api = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise((resolve) => (finishLocal = resolve)))
+      .mockResolvedValueOnce({
+        ok: true,
+        counts: { all: 4, "platform:ios": 2 },
+        email_enabled: true,
+        audiences: [{ target: "platform:ios", label_key: "ios", fallback_label: "iOS" }],
+      });
+    const store = makeStore(api);
+    const entering = store.loadCounts({ forSelection: true });
+    expect(api).toHaveBeenCalledWith("/admin/broadcast/audience-counts?scope=local");
+    const opening = store.loadCounts();
+    store.updateField({ broadcastTarget: "platform:ios", broadcastText: "Draft" });
+    finishLocal({ ok: true, counts: { all: 4 }, email_enabled: true, audiences: [] });
+    await Promise.all([entering, opening]);
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/admin/broadcast/audience-counts?scope=local",
+      "/admin/broadcast/audience-counts",
+    ]);
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+    expect(store.broadcastTargetError).toBeNull();
+    expect(store.broadcastTarget).toBe("platform:ios");
+    expect(store.broadcastText).toBe("Draft");
+    expect(store.broadcastCounts).toEqual({ all: 4, "platform:ios": 2 });
+  });
+
+  it.each(["active,platform:ios", "active_never_connected"])(
+    "loads the full catalog for restored target %s and preserves it when discovery fails",
+    async (target) => {
+      const api = vi.fn().mockRejectedValue(new Error("Service unavailable"));
+      const store = makeStore(api);
+      store.updateField({ broadcastTarget: target });
+      await store.loadCounts({ forSelection: true });
+      expect(api).toHaveBeenCalledWith("/admin/broadcast/audience-counts");
+      expect(store.broadcastTarget).toBe(target);
+      expect(store.broadcastTargetError).toBeNull();
+    }
+  );
+
+  it("reuses local counts without replacing cached platform groups or marking them fresh", async () => {
+    const key = "remnawave-admin:broadcast-audience-counts";
+    const storage = makeSessionStorage({
+      [key]: JSON.stringify({
+        loadedAt: Date.now() - 60_000,
+        counts: { all: 2, active_never_connected: 1, "platform:ios": 2 },
+        emailAvailable: false,
+        audiences: [{ target: "platform:ios", labelKey: "ios", fallbackLabel: "iOS" }],
+      }),
+    });
+    vi.stubGlobal("window", { sessionStorage: storage });
+    const api = vi.fn().mockResolvedValue({
+      ok: true,
+      counts: { all: 3, active_never_connected: null },
+      email_enabled: true,
+      audiences: [],
+    });
+    const store = makeStore(api);
+    await store.loadCounts({ forSelection: true });
+    await store.loadCounts({ forSelection: true });
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(store.broadcastCounts).toEqual({ all: 3, active_never_connected: 1, "platform:ios": 2 });
+    expect(store.BROADCAST_TARGET_OPTIONS).toContainEqual({ value: "platform:ios", label: "iOS" });
+    expect(storage.setItem).not.toHaveBeenCalled();
+    await store.loadCounts();
+    expect(api).toHaveBeenLastCalledWith("/admin/broadcast/audience-counts");
+  });
+
   it("sends broadcast buttons with Telegram preview requests", async () => {
     const api = vi.fn().mockResolvedValue({
       ok: true,

@@ -195,18 +195,10 @@
       // the counts response supplies the dynamic target catalog.
       broadcastStore.updateField({ broadcastTarget: requestedTarget, broadcastTargetError: null });
     }
-    void broadcastStore.loadCounts().then(() => {
+    void broadcastStore.loadCounts({ forSelection: true }).then(() => {
       if (!requestedTarget) return;
       if (broadcastStore.broadcastTarget !== requestedTarget) return;
-      const unavailable = requestedTarget
-        .split(",")
-        .some(
-          (target) =>
-            !broadcastStore.BROADCAST_TARGET_OPTIONS.some(
-              (option) => option.value === target && !option.disabled
-            )
-        );
-      if (!unavailable) return;
+      if (!broadcastStore.broadcastTargetError) return;
       broadcastStore.updateField({
         broadcastTarget: "",
         broadcastTargetError: "broadcast_target_unavailable",
@@ -235,6 +227,7 @@
             items={targetOptions}
             ariaLabel={at("broadcast_label_audience", {}, "Audience")}
             placeholder={at("broadcast_select_audiences", {}, "Select audiences")}
+            onOpen={() => void broadcastStore.loadCounts()}
             onMultipleValuesChange={handleTargetChange}
           />
           {#if broadcastTargetError}

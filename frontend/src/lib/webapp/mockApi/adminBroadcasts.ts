@@ -130,7 +130,7 @@ export function adminBroadcastDemoResponse({
   clone,
 }: AdminBroadcastRequest): unknown | undefined {
   if (cleanPath === "/admin/broadcast/audience-counts") {
-    const platforms = [...demoPlatformGroups()];
+    const platforms = params.get("scope") === "local" ? [] : [...demoPlatformGroups()];
     return {
       ok: true,
       counts: {

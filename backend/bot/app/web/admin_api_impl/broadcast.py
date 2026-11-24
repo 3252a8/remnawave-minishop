@@ -140,6 +140,14 @@ register_contract(
     RouteContract(
         response_schema=ok_envelope_for(AdminBroadcastAudienceCountsOut),
         models=(AdminBroadcastAudienceCountsOut, AdminBroadcastAudienceOut),
+        query_parameters=(
+            {
+                "name": "scope",
+                "in": "query",
+                "required": False,
+                "schema": {"type": "string", "enum": ["local", "full"], "default": "full"},
+            },
+        ),
     ),
 )
 
@@ -230,13 +238,7 @@ async def _load_broadcast_audience_counts_uncached(
         from bot.services.account_roles import active_admin_user_ids
 
         counts: dict[str, int | None] = {
-            "all": await user_dal.count_all_active_users_for_broadcast(session),
-            "active": await user_dal.count_users_with_active_subscription_for_broadcast(session),
-            "inactive": await user_dal.count_users_without_active_subscription_for_broadcast(
-                session
-            ),
-            "expired": await user_dal.count_users_with_expired_subscription_for_broadcast(session),
-            "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
+            **await user_dal.count_base_broadcast_audiences(session),
             BROADCAST_TARGET_ACTIVE_NEVER_CONNECTED: None,
             AUDIENCE_ADMINS: len(await active_admin_user_ids(session)),
         }
@@ -788,19 +790,23 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
 
     settings: Settings = get_settings(request)
     service = request.app.get("audience_segmentation_service")
+    local_only = request.query.get("scope") == "local"
     platforms_unavailable = True
+    platforms = {}
     if isinstance(service, AudienceSegmentationService):
-        try:
-            platforms = await service.platform_groups()
-            platforms_unavailable = service.panel_service is None
-        except AudienceUnavailableError:
-            logger.warning("Device platform audiences unavailable while loading broadcast counts")
-            platforms = {}
+        if not local_only:
+            try:
+                platforms = await service.platform_groups()
+                platforms_unavailable = service.panel_service is None
+            except AudienceUnavailableError:
+                logger.warning(
+                    "Device platform audiences unavailable while loading broadcast counts"
+                )
         audiences = service.audiences(platforms)
-        counts = await service.counts(platforms)
+        counts = await service.counts(platforms, local_only=local_only)
     else:
         async_session_factory: sessionmaker = get_session_factory(request)
-        panel_service = _resolve_panel_service(request)
+        panel_service = None if local_only else _resolve_panel_service(request)
         counts = await _load_broadcast_audience_counts(
             settings,
             async_session_factory,
@@ -809,7 +815,7 @@ async def admin_broadcast_audience_counts_route(request: web.Request) -> web.Res
         audiences = []
         platforms = {}
 
-    if not platforms:
+    if not platforms and not local_only:
         audiences.append(
             AudienceDefinition(
                 target="device-platforms-unavailable"

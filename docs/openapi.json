@@ -24016,6 +24016,21 @@
     "/api/admin/broadcast/audience-counts": {
       "get": {
         "operationId": "get_admin_broadcast_audience_counts_route",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "enum": [
+                "local",
+                "full"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {

@@ -25,6 +25,7 @@ from ._sqlalchemy import rowcount
 from .user_broadcast_dal import (  # noqa: F401
     count_active_subscriptions_per_tariff,
     count_all_active_users_for_broadcast,
+    count_base_broadcast_audiences,
     count_users_with_active_subscription_for_broadcast,
     count_users_with_expired_subscription,
     count_users_with_expired_subscription_for_broadcast,

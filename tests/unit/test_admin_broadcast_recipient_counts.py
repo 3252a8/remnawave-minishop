@@ -24,7 +24,7 @@ from bot.services.audience_segmentation import (
 )
 from db.base import Base
 from db.broadcast_models import AdminBroadcast, AdminBroadcastDelivery, BroadcastAudienceExclusion
-from db.dal import broadcast_dal, telegram_state_dal
+from db.dal import broadcast_dal, telegram_state_dal, user_dal
 from db.models import AccountRole, Subscription, User
 from tests.support.settings_stub import settings_stub
 
@@ -70,6 +70,47 @@ class BroadcastRecipientCountTests(unittest.IsolatedAsyncioTestCase):
                 ]
             )
             await session.commit()
+
+    async def test_base_audience_counts_match_individual_recipient_rules(self) -> None:
+        now = datetime.now(UTC)
+        async with self.factory.begin() as session:
+            for uid, active, days, status in (
+                (1, True, 2, "ACTIVE"),
+                (1, False, -1, "EXPIRED"),
+                (2, False, 2, None),
+                (3, False, 2, "DISABLED"),
+                (4, True, -2, "ACTIVE"),
+                (5, True, 1, None),
+                (6, False, 1, "eXpIrEd"),
+            ):
+                session.add(
+                    Subscription(
+                        user_id=uid,
+                        panel_user_uuid=str(uid),
+                        is_active=active,
+                        end_date=now + timedelta(days=days),
+                        status_from_panel=status,
+                    )
+                )
+            await session.flush()
+            observed = await user_dal.count_base_broadcast_audiences(session)
+            legacy = {
+                "all": await user_dal.count_all_active_users_for_broadcast(session),
+                "active": await user_dal.count_users_with_active_subscription_for_broadcast(
+                    session
+                ),
+                "inactive": await user_dal.count_users_without_active_subscription_for_broadcast(
+                    session
+                ),
+                "expired": await user_dal.count_users_with_expired_subscription_for_broadcast(
+                    session
+                ),
+                "never": await user_dal.count_users_without_any_subscription_for_broadcast(session),
+            }
+            self.assertEqual(observed, legacy)
+            self.assertEqual(
+                observed, {"all": 6, "active": 1, "inactive": 5, "expired": 3, "never": 1}
+            )
 
     async def test_registered_platforms_count_and_send_unique_eligible_users(self) -> None:
         panel = SimpleNamespace(get_user_devices=AsyncMock(), get_user_by_uuid_lookup=AsyncMock())
@@ -137,6 +178,16 @@ class BroadcastRecipientCountTests(unittest.IsolatedAsyncioTestCase):
         )
         request = make_mocked_request("GET", "/api/admin/broadcast/audience-counts", app=app)
         with patch.object(broadcast_routes, "_require_admin_user_id", return_value=99):
+            local = make_mocked_request(
+                "GET", "/api/admin/broadcast/audience-counts?scope=local", app=app
+            )
+            local_response = await broadcast_routes.admin_broadcast_audience_counts_route(local)
+            data = json.loads(local_response.text or "")
+            self.assertEqual(data["counts"]["all"], 6)
+            self.assertFalse(
+                any("device-platforms-" in item["target"] for item in data["audiences"])
+            )
+            panel.get_user_devices.assert_not_awaited()
             for devices, target, available, count in (
                 ([{"hwid": "phone", "platform": "iOS"}], "platform:ios", True, 1),
                 ([{"hwid": "phone", "platform": None}], "device-platforms-empty", False, None),

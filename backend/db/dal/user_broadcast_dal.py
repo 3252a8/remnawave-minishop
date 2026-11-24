@@ -14,6 +14,7 @@ from ..models import Payment, Subscription, User
 from .user_subscription_segments import (
     active_subscription_exists_for_user,
     active_subscription_segment_flags_sq,
+    expired_subscription_condition,
     expired_subscription_exists_for_user,
     subscription_segment_condition,
 )
@@ -33,6 +34,43 @@ async def count_all_active_users_for_broadcast(session: AsyncSession) -> int:
     stmt = select(func.count(User.user_id)).where(User.is_banned == False)
     result = await session.execute(stmt)
     return int(result.scalar_one() or 0)
+
+
+async def count_base_broadcast_audiences(session: AsyncSession) -> dict[str, int]:
+    """Count eligible users once, with one row per user's subscription history."""
+    now = datetime.now(UTC)
+    active = and_(Subscription.is_active.is_(True), Subscription.end_date > now)
+    flags = (
+        select(
+            Subscription.user_id,
+            func.max(case((active, 1), else_=0)).label("active"),
+            func.max(case((expired_subscription_condition(Subscription, now), 1), else_=0)).label(
+                "expired"
+            ),
+        )
+        .group_by(Subscription.user_id)
+        .subquery()
+    )
+    total, active_count, expired, never = (
+        await session.execute(
+            select(
+                func.count(User.user_id),
+                func.count().filter(flags.c.active == 1),
+                func.count().filter(and_(flags.c.active == 0, flags.c.expired == 1)),
+                func.count().filter(flags.c.user_id.is_(None)),
+            )
+            .select_from(User)
+            .outerjoin(flags, flags.c.user_id == User.user_id)
+            .where(User.is_banned.is_(False))
+        )
+    ).one()
+    return {
+        "all": total,
+        "active": active_count,
+        "inactive": total - active_count,
+        "expired": expired,
+        "never": never,
+    }
 
 
 async def get_email_recipients_for_broadcast(

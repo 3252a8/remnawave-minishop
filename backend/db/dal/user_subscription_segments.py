@@ -23,24 +23,30 @@ def active_subscription_exists_for_user(now: datetime) -> ColumnElement[bool]:
     )
 
 
+def expired_subscription_condition(
+    subscription: type[Subscription], now: datetime
+) -> ColumnElement[bool]:
+    normalized_status = func.lower(func.coalesce(subscription.status_from_panel, ""))
+    blank_status = or_(
+        subscription.status_from_panel.is_(None),
+        subscription.status_from_panel == "",
+    )
+    return or_(
+        normalized_status == "expired",
+        blank_status & subscription.is_active.is_(False),
+        subscription.end_date <= now,
+    )
+
+
 def expired_subscription_exists_for_user(now: datetime) -> ColumnElement[bool]:
     """Match a user's expired subscription history using dashboard semantics."""
 
     expired_subs = aliased(Subscription)
-    normalized_status = func.lower(func.coalesce(expired_subs.status_from_panel, ""))
-    blank_status = or_(
-        expired_subs.status_from_panel.is_(None),
-        expired_subs.status_from_panel == "",
-    )
-    expired_condition = or_(
-        normalized_status == "expired",
-        blank_status & expired_subs.is_active.is_(False),
-        expired_subs.end_date <= now,
-    )
-
     return (
         select(expired_subs.subscription_id)
-        .where(expired_subs.user_id == User.user_id, expired_condition)
+        .where(
+            expired_subs.user_id == User.user_id, expired_subscription_condition(expired_subs, now)
+        )
         .exists()
     )
 

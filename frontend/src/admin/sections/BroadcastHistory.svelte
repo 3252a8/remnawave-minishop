@@ -122,7 +122,6 @@
   });
 
   onMount(() => {
-    void broadcastStore.loadCounts();
     void broadcastStore.loadHistory();
     const timer = window.setInterval(() => {
       scheduleNow = Date.now();

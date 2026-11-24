@@ -28,6 +28,7 @@
     sideOffset?: number;
     collisionPadding?: number;
     onValueChange?: (value: string) => void;
+    onOpen?: () => void;
     class?: string;
     contentClass?: string;
     controlSize?: ControlSize;
@@ -46,6 +47,7 @@
     sideOffset = 6,
     collisionPadding = 12,
     onValueChange = () => {},
+    onOpen,
     class: className = "",
     contentClass = "",
     controlSize,
@@ -84,6 +86,7 @@
 
   function updateCollisionPadding(open: boolean) {
     if (!open) return;
+    onOpen?.();
     const screen = document.querySelector<HTMLElement>(".admin-screen-wrap");
     if (!screen) return;
     const style = getComputedStyle(screen);
