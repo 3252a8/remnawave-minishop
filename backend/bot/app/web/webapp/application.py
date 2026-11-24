@@ -150,6 +150,7 @@ def create_subscription_webapp_application(
             "notification_service",
             "email_auth_service",
             "panel_service",
+            "audience_segmentation_service",
             *iter_service_keys(),
         ),
     ):

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
-from aiohttp import web
+from aiogram import Dispatcher
 from aiohttp.test_utils import make_mocked_request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.admin_api_impl import broadcast as broadcast_routes
 from bot.app.web.admin_api_impl import user_broadcast_audiences as user_audience_routes
-from bot.app.web.context import set_service_context
+from bot.app.web.webapp.application import create_subscription_webapp_application
 from bot.services.admin_broadcast_delivery import AdminBroadcastDeliveryService
 from bot.services.audience_segmentation import (
     AUDIENCE_WITHOUT_REQUIRED_CHANNEL,
@@ -120,28 +120,29 @@ class BroadcastRecipientCountTests(unittest.IsolatedAsyncioTestCase):
         panel.get_hwid_devices_page.assert_awaited_with(start=1, size=500)
         panel.get_user_devices.assert_not_awaited()
 
-    async def test_audience_discovery_distinguishes_empty_and_unavailable_platforms(self) -> None:
+    async def test_webapp_discovery_returns_platforms_and_distinguishes_unavailable(self) -> None:
         panel = SimpleNamespace(
-            get_user_devices=AsyncMock(return_value=[{"hwid": "phone", "platform": None}]),
+            get_user_devices=AsyncMock(),
             get_user_by_uuid_lookup=AsyncMock(return_value={"not_found": False}),
         )
         async with self.factory.begin() as session:
             user = await session.get(User, 1)
             assert user
             user.panel_user_uuid = "11"
-        service = AudienceSegmentationService(cast(sessionmaker, self.factory), panel_service=panel)
-        app = web.Application()
-        set_service_context(app, "audience_segmentation_service", service)
-        request = make_mocked_request("GET", "/api/admin/broadcasts/audience-counts", app=app)
-        with (
-            patch.object(broadcast_routes, "_require_admin_user_id", return_value=99),
-            patch.object(broadcast_routes, "get_settings", return_value=settings_stub()),
-        ):
-            for devices, state in (
-                (panel.get_user_devices.return_value, "empty"),
-                (None, "unavailable"),
+        settings = settings_stub()
+        factory = cast(sessionmaker, self.factory)
+        service = AudienceSegmentationService(factory, panel_service=panel, settings=settings)
+        app = create_subscription_webapp_application(
+            Dispatcher(audience_segmentation_service=service), None, settings, factory
+        )
+        request = make_mocked_request("GET", "/api/admin/broadcast/audience-counts", app=app)
+        with patch.object(broadcast_routes, "_require_admin_user_id", return_value=99):
+            for devices, target, available, count in (
+                ([{"hwid": "phone", "platform": "iOS"}], "platform:ios", True, 1),
+                ([{"hwid": "phone", "platform": None}], "device-platforms-empty", False, None),
+                (None, "device-platforms-unavailable", False, None),
             ):
-                with self.subTest(state=state):
+                with self.subTest(target=target):
                     panel.get_user_devices.return_value = devices
                     response = await broadcast_routes.admin_broadcast_audience_counts_route(request)
                     data = json.loads(response.text or "")
@@ -150,10 +151,11 @@ class BroadcastRecipientCountTests(unittest.IsolatedAsyncioTestCase):
                         for item in data["audiences"]
                         if item["group_label_key"] == "broadcast_audience_group_platforms"
                     ]
-                    self.assertEqual(len(options), 1)
-                    self.assertEqual(options[0]["label_key"], f"broadcast_platforms_{state}")
-                    self.assertFalse(options[0]["available"])
-                    self.assertNotIn(options[0]["target"], data["counts"])
+                    self.assertEqual(
+                        [(item["target"], item["available"]) for item in options],
+                        [(target, available)],
+                    )
+                    self.assertEqual(data["counts"].get(target), count)
 
     async def test_required_channel_audience_and_user_settings(self) -> None:
         channel_id = -1001234567890
