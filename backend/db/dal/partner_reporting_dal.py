@@ -45,6 +45,35 @@ async def attention_counts(session: AsyncSession) -> dict[str, int]:
     }
 
 
+async def workspace_counts(session: AsyncSession, *, currency: str) -> dict[str, int | bool]:
+    open_withdrawals = (
+        select(func.count())
+        .select_from(PartnerWithdrawal)
+        .where(
+            func.upper(PartnerWithdrawal.debit_currency) == currency.upper(),
+            PartnerWithdrawal.status.in_(("requested", "processing")),
+        )
+        .scalar_subquery()
+    )
+    pending, has_applications, withdrawals = (
+        await session.execute(
+            select(
+                select(func.count())
+                .select_from(PartnerApplication)
+                .where(PartnerApplication.status == "pending")
+                .scalar_subquery(),
+                select(PartnerApplication.application_id).exists(),
+                open_withdrawals,
+            )
+        )
+    ).one()
+    return {
+        "pending_applications": pending,
+        "has_applications": has_applications,
+        "open_withdrawals": withdrawals,
+    }
+
+
 async def list_profiles(
     session: AsyncSession,
     *,
@@ -220,29 +249,15 @@ async def all_referral_import_candidates(
 
 
 async def overview_metrics(session: AsyncSession, *, currency: str) -> dict[str, int]:
-    active = int(
-        (
-            await session.execute(
-                select(func.count())
-                .select_from(PartnerProfile)
-                .where(PartnerProfile.status == "active")
+    active, paused, clients = (
+        await session.execute(
+            select(
+                func.count().filter(PartnerProfile.status == "active"),
+                func.count().filter(PartnerProfile.status == "paused"),
+                select(func.count()).select_from(PartnerClient).scalar_subquery(),
             )
-        ).scalar_one()
-        or 0
-    )
-    paused = int(
-        (
-            await session.execute(
-                select(func.count())
-                .select_from(PartnerProfile)
-                .where(PartnerProfile.status == "paused")
-            )
-        ).scalar_one()
-        or 0
-    )
-    clients = int(
-        (await session.execute(select(func.count()).select_from(PartnerClient))).scalar_one() or 0
-    )
+        )
+    ).one()
     commission_row = (
         await session.execute(
             select(

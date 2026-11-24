@@ -48,7 +48,6 @@
   import { sortAdminRows } from "$lib/admin/tableSort.js";
   import { fmtDateTime } from "$lib/admin/format.js";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
-  import { getSettingsStore } from "$lib/admin/context.js";
   import {
     applications as previewApplications,
     partners as previewPartners,
@@ -65,9 +64,9 @@
   import type { AdminApi } from "../adminStores.js";
   import {
     DEFAULT_PARTNER_LIST_QUERY,
-    loadPartnerDashboard,
-    loadPartnerDetail,
-    loadPartnerLists,
+    loadPartnerView,
+    loadPartnerWithdrawals,
+    loadPartnerWorkspaceCounts,
     loadPartnerPage,
     requirePartnerAdminResponse,
     type AdminPartnerListQuery,
@@ -109,13 +108,9 @@
   const previewMode = Boolean(adminScenario);
   const emptyChartsPreview = adminScenario === "empty_charts";
   const emptyListsPreview = adminScenario === "empty_lists";
-  const settingsStore = getSettingsStore();
-  const referralProgramEnabled = $derived.by(() => {
-    const field = settingsStore.settingsSections
-      .flatMap((section) => section.fields || [])
-      .find((item) => item.key === "REFERRAL_PROGRAM_ENABLED");
-    return field ? Boolean(field.value) : true;
-  });
+  let referralProgramEnabled = $state(true);
+  let counts = $state({ pendingApplications: 0, openWithdrawals: 0, hasApplications: false });
+  let countsCurrency = "";
   let currency = $state("RUB");
   const previewState = createPartnerAdminPreviewState(
     previewMode,
@@ -128,6 +123,13 @@
   let topPartnerSort = $state("earned_desc");
   let topPartners = $state<PartnerRow[]>(previewState.topPartners);
   let partnerListRequestId = 0;
+  let viewRequestId = 0;
+  let topSortRequestId = 0;
+  let fullDashboardWithdrawals: Promise<WithdrawalRow[]> | undefined;
+  let dashboardWithdrawals = $state<WithdrawalRow[]>(previewState.withdrawals);
+  let dashboardApplications = $state<ApplicationRow[]>(previewState.applications);
+  let detailWithdrawals = $state<WithdrawalRow[]>(previewState.withdrawals);
+  let dashboardWithdrawalSort = $state("requested_desc");
   let applications = $state<ApplicationRow[]>(previewState.applications);
   let withdrawals = $state<WithdrawalRow[]>(previewState.withdrawals);
   let partnerLinks = $state<PartnerLinkRow[]>(previewState.partnerLinks);
@@ -207,6 +209,7 @@
   }
   const initialRoute = initialRouteState();
   let view = $state<View>(initialRoute.view);
+  let selectedId = initialRoute.id;
   let selectedPartner = $state<PartnerRow>(
     (previewMode
       ? previewPartners.find(
@@ -236,13 +239,17 @@
       : at("partners_action_pause", {}, "Pause partnership")
   );
   const pendingApplications = $derived(
-    applications.filter((application) => application.status === "pending")
+    dashboardApplications.filter((application) => application.status === "pending")
   );
-  const pendingApplicationCount = $derived(pendingApplications.length);
+  const pendingApplicationCount = $derived(
+    previewMode ? pendingApplications.length : counts.pendingApplications
+  );
   const openWithdrawalCount = $derived(
-    withdrawals.filter(
-      (withdrawal) => withdrawal.status === "requested" || withdrawal.status === "processing"
-    ).length
+    previewMode
+      ? withdrawals.filter(
+          (withdrawal) => withdrawal.status === "requested" || withdrawal.status === "processing"
+        ).length
+      : counts.openWithdrawals
   );
   let dialog = $state<DialogKind>("");
   $effect(() => {
@@ -282,25 +289,20 @@
     actionError = false;
     const route = partnerAdminRouteState(routePrefix);
     const routeId = route.id.toLowerCase();
-    if (route.view === "partner_detail") {
-      selectedPartner =
-        partners.find((partner) => partner.id.toLowerCase() === routeId) || selectedPartner;
-    } else if (route.view === "application_detail") {
+    if (previewMode && route.view === "partner_detail") {
+      selectedPartner = partners.find((item) => item.id.toLowerCase() === routeId) || emptyPartner;
+    } else if (previewMode && route.view === "application_detail") {
       selectedApplication =
-        applications.find((application) => application.id.toLowerCase() === routeId) ||
-        selectedApplication;
-    } else if (route.view === "withdrawal_detail") {
-      selectedWithdrawal =
-        withdrawals.find((withdrawal) => withdrawal.id.toLowerCase() === routeId) ||
-        selectedWithdrawal;
-      withdrawalExternalReference = selectedWithdrawal.externalReference || "";
-      withdrawalSettlementAmount = selectedWithdrawal.settlementAmount || "";
-      withdrawalSettlementError = "";
+        applications.find((item) => item.id.toLowerCase() === routeId) || emptyApplication;
+    } else if (previewMode && route.view === "withdrawal_detail") {
+      setSelectedWithdrawal(
+        withdrawals.find((item) => item.id.toLowerCase() === routeId) || emptyWithdrawal
+      );
     }
+    selectedId = route.id;
+    revealedRequisites = "";
     view = route.view;
-    if (!previewMode && route.view === "partner_detail" && route.id) {
-      void loadSelectedPartnerDetail(route.id);
-    }
+    void refreshView();
   }
 
   function money(value: number): string {
@@ -335,59 +337,91 @@
     });
   }
 
-  async function loadSelectedPartnerDetail(partnerId = selectedPartner.id): Promise<void> {
-    if (previewMode || !partnerId) return;
-    const path = `/admin/partners/${encodeURIComponent(partnerId)}?currency=${encodeURIComponent(currency)}`;
-    const detail = await loadPartnerDetail(api, partnerId, currency, path);
-    selectedPartner = detail.partner;
-    partnerHasRelationships = detail.hasRelationships;
-    partnerLinks = detail.links;
-    partnerClients = detail.clients;
-    partnerCommissions = detail.commissions;
-    partnerLedger = detail.ledger;
-    partnerAudit = detail.audit;
-    const otherWithdrawals = withdrawals.filter((item) => item.partnerId !== partnerId);
-    withdrawals = [...detail.withdrawals, ...otherWithdrawals];
-  }
-
-  async function refreshAll(): Promise<void> {
+  async function refreshView(invalidateCounts = false): Promise<void> {
     if (previewMode) return;
-    const partnerRequestId = ++partnerListRequestId;
+    if (invalidateCounts) countsCurrency = "";
+    const requestId = ++viewRequestId;
+    ++partnerListRequestId;
+    fullDashboardWithdrawals = undefined;
+    dashboardWithdrawalSort = "requested_desc";
     loading = true;
     loadError = false;
     try {
-      const [nextDashboard, lists, topPartnerPage] = await Promise.all([
-        loadPartnerDashboard(api, currency),
-        loadPartnerLists(api, currency, partnerQuery),
-        loadPartnerPage(api, currency, partnerTopListQuery(topPartnerSort)),
+      const [result, viewCounts] = await Promise.all([
+        loadPartnerView(
+          api,
+          view,
+          currency,
+          selectedId,
+          partnerQuery,
+          partnerTopListQuery(topPartnerSort)
+        ),
+        view !== "dashboard" && currency !== countsCurrency
+          ? loadPartnerWorkspaceCounts(api, currency)
+          : undefined,
       ]);
-      dashboard = nextDashboard;
-      partnerRevenueDaily = nextDashboard.revenue;
-      partnerPayoutsDaily = nextDashboard.payouts;
-      topPartners = topPartnerPage.partners;
-      if (partnerRequestId === partnerListRequestId) {
-        partners = lists.partners;
-        partnerTotal = lists.partnerTotal;
-        selectedPartner =
-          partners.find((item) => item.id === selectedPartner.id) || partners[0] || emptyPartner;
+      if (requestId !== viewRequestId) return;
+      const nextCounts = result.view === "dashboard" ? result.dashboard.counts : viewCounts;
+      if (nextCounts) {
+        counts = nextCounts;
+        countsCurrency = currency;
+        referralProgramEnabled = nextCounts.referralProgramEnabled;
       }
-      applications = lists.applications;
-      withdrawals = lists.withdrawals;
-      selectedApplication =
-        applications.find((item) => item.id === selectedApplication.id) ||
-        applications[0] ||
-        emptyApplication;
-      selectedWithdrawal =
-        withdrawals.find((item) => item.id === selectedWithdrawal.id) ||
-        withdrawals[0] ||
-        emptyWithdrawal;
-      if (view === "partner_detail" && selectedPartner.id) {
-        await loadSelectedPartnerDetail(selectedPartner.id);
+      switch (result.view) {
+        case "dashboard":
+          dashboard = result.dashboard;
+          partnerRevenueDaily = dashboard.revenue;
+          partnerPayoutsDaily = dashboard.payouts;
+          dashboardApplications = dashboard.pendingApplications;
+          dashboardWithdrawals = dashboard.recentWithdrawals;
+          topPartners = result.top.partners;
+          break;
+        case "partners":
+          partners = result.page.partners;
+          partnerTotal = result.page.total;
+          break;
+        case "applications":
+          applications = result.applications;
+          break;
+        case "withdrawals":
+          withdrawals = result.withdrawals;
+          break;
+        case "partner_detail": {
+          const detail = result.detail;
+          selectedPartner = detail.partner;
+          partnerHasRelationships = detail.hasRelationships;
+          partnerLinks = detail.links;
+          partnerClients = detail.clients;
+          partnerCommissions = detail.commissions;
+          partnerLedger = detail.ledger;
+          partnerAudit = detail.audit;
+          detailWithdrawals = detail.withdrawals;
+          break;
+        }
+        case "application_detail":
+          selectedApplication = result.application;
+          break;
+        case "withdrawal_detail":
+          setSelectedWithdrawal(result.withdrawal);
+          break;
       }
     } catch {
-      loadError = true;
+      if (requestId === viewRequestId) loadError = true;
     } finally {
-      loading = false;
+      if (requestId === viewRequestId) loading = false;
+    }
+  }
+
+  async function updateDashboardWithdrawalSort(sort: string): Promise<void> {
+    dashboardWithdrawalSort = sort;
+    if (previewMode || sort === "requested_desc") return;
+    const requestId = viewRequestId;
+    try {
+      fullDashboardWithdrawals ??= loadPartnerWithdrawals(api, currency);
+      const rows = await fullDashboardWithdrawals;
+      if (viewRequestId === requestId) dashboardWithdrawals = rows;
+    } catch {
+      if (viewRequestId === requestId) loadError = true;
     }
   }
 
@@ -401,14 +435,14 @@
       if (requestId !== partnerListRequestId) return;
       partners = page.partners;
       partnerTotal = page.total;
-      selectedPartner =
-        partners.find((item) => item.id === selectedPartner.id) || partners[0] || emptyPartner;
     } catch {
-      loadError = true;
+      if (requestId === partnerListRequestId) loadError = true;
     }
   }
 
   async function updateTopPartnerSort(sort: string): Promise<void> {
+    const requestId = ++topSortRequestId;
+    const viewId = viewRequestId;
     topPartnerSort = sort;
     if (previewMode) {
       topPartners = emptyListsPreview
@@ -418,16 +452,16 @@
     }
     try {
       const page = await loadPartnerPage(api, currency, partnerTopListQuery(topPartnerSort));
-      if (sort !== topPartnerSort) return;
+      if (viewId !== viewRequestId || requestId !== topSortRequestId) return;
       topPartners = page.partners;
     } catch {
-      loadError = true;
+      if (viewId === viewRequestId && requestId === topSortRequestId) loadError = true;
     }
   }
 
   async function changeCurrency(value: string): Promise<void> {
     currency = value;
-    if (!previewMode) await refreshAll();
+    if (!previewMode) await refreshView();
   }
 
   const statusLabel = (status: string): string => partnerStatusLabel(at, status);
@@ -435,8 +469,10 @@
   function navigate(next: View, id = ""): void {
     actionStatus = "";
     actionError = false;
-    if (next !== "withdrawal_detail") revealedRequisites = "";
+    revealedRequisites = "";
+    selectedId = id;
     view = next;
+    void refreshView();
     if (typeof window === "undefined" || window.location.protocol === "file:") return;
     let suffix = "";
     if (next === "partner_detail")
@@ -457,12 +493,12 @@
   function openPartnerById(partnerId: string): void {
     const target = partners.find((partner) => partner.id === partnerId);
     if (target) openPartner(target);
+    else if (!previewMode && partnerId) navigate("partner_detail", partnerId);
   }
 
   function openPartner(partner: (typeof partners)[number]): void {
     selectedPartner = partner;
     navigate("partner_detail", partner.id);
-    if (!previewMode) void loadSelectedPartnerDetail(partner.id);
   }
 
   function openApplication(application: (typeof applications)[number]): void {
@@ -470,7 +506,7 @@
     navigate("application_detail", application.id);
   }
 
-  function openWithdrawal(withdrawal: (typeof withdrawals)[number]): void {
+  function setSelectedWithdrawal(withdrawal: WithdrawalRow): void {
     revealedRequisites = "";
     selectedWithdrawal = withdrawal;
     withdrawalExternalReference = withdrawal.externalReference || "";
@@ -478,6 +514,10 @@
     withdrawalSettlementError = "";
     withdrawalRejectionReason = "";
     withdrawalRejectionError = "";
+  }
+
+  function openWithdrawal(withdrawal: WithdrawalRow): void {
+    setSelectedWithdrawal(withdrawal);
     navigate("withdrawal_detail", withdrawal.id);
   }
 
@@ -549,7 +589,7 @@
       dialog = "";
       dialogReason = "";
       dialogAmount = "";
-      await refreshAll();
+      await refreshView(true);
       actionStatus = at("partners_action_saved", {}, "Changes saved");
     } catch (error) {
       actionError = true;
@@ -575,7 +615,7 @@
             welcome_message: status === "approved" ? approvalWelcome.trim() || null : null,
           }
         );
-        await refreshAll();
+        await refreshView(true);
       } catch (error) {
         actionError = true;
         actionStatus =
@@ -636,9 +676,7 @@
         external_reference: withdrawalExternalReference.trim() || null,
         settlement_amount: withdrawalSettlementAmount.trim() || null,
       });
-      await refreshAll();
-      selectedWithdrawal =
-        withdrawals.find((item) => item.id === selectedWithdrawal.id) || selectedWithdrawal;
+      await refreshView(true);
       actionStatus = partnerWithdrawalTransitionMessage(at, status);
     } catch (error) {
       actionError = true;
@@ -659,8 +697,10 @@
       revealedRequisites = selectedWithdrawal.masked;
       return;
     }
+    const requestId = viewRequestId;
     try {
       const response = await post(`/admin/partner-withdrawals/${selectedWithdrawal.id}/reveal`);
+      if (requestId !== viewRequestId) return;
       revealedRequisites = JSON.stringify(response.requisites || {}, null, 2);
     } catch (error) {
       actionError = true;
@@ -693,8 +733,18 @@
   });
 
   onMount(() => {
-    if (!previewMode) void refreshAll();
-    void settingsStore.loadSettings();
+    if (!previewMode) void refreshView();
+    else {
+      void loadPartnerWorkspaceCounts(api, currency)
+        .then((result) => {
+          referralProgramEnabled = result.referralProgramEnabled;
+        })
+        .catch(() => {});
+    }
+    return () => {
+      ++viewRequestId;
+      ++partnerListRequestId;
+    };
   });
 
   async function copyLink(url: string): Promise<void> {
@@ -768,13 +818,13 @@
       <TriangleAlert size={26} />
       <h2>{at("partners_load_error_title", {}, "Could not load partner dashboard")}</h2>
       <p>{at("partners_load_error_hint", {}, "Check the connection and try again.")}</p>
-      <AdminButton onclick={() => void refreshAll()}>
+      <AdminButton onclick={() => void refreshView(true)}>
         <RefreshCw size={15} />{at("partners_retry", {}, "Try again")}
       </AdminButton>
     </AdminEmptyState>
   {:else if view === "dashboard"}
     {#if !referralProgramEnabled}
-      <PartnerReferralImportBanner {at} {api} {previewMode} onImported={refreshAll} />
+      <PartnerReferralImportBanner {at} {api} {previewMode} onImported={() => refreshView(true)} />
     {/if}
 
     <section
@@ -793,7 +843,7 @@
       {/each}
     </section>
 
-    {#if adminScenario === "empty" || (!previewMode && !partners.length && !applications.length)}
+    {#if adminScenario === "empty" || (!previewMode && !topPartners.length && !counts.hasApplications)}
       <AdminEmptyState class="partners-dashboard-state">
         <UsersRound size={27} />
         <h2>{at("partners_empty_title", {}, "No partner activity yet")}</h2>
@@ -822,7 +872,9 @@
         <PartnerDashboardTables
           {at}
           partners={topPartners}
-          {withdrawals}
+          withdrawals={dashboardWithdrawals}
+          withdrawalSort={dashboardWithdrawalSort}
+          onWithdrawalSort={updateDashboardWithdrawalSort}
           partnerSort={topPartnerSort}
           {money}
           {statusLabel}
@@ -893,7 +945,7 @@
       {partnerCommissions}
       {partnerLedger}
       {partnerAudit}
-      {withdrawals}
+      withdrawals={detailWithdrawals}
       {money}
       {statusLabel}
       {partnerStatusActionLabel}

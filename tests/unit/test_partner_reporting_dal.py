@@ -6,10 +6,14 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
+from db.base import Base
 from db.dal import partner_reporting_dal
+from db.partner_models import PartnerApplication, PartnerWithdrawal
 
 
 @pytest.mark.parametrize(
@@ -91,3 +95,55 @@ def test_partner_overview_all_time_has_no_date_cutoff() -> None:
     )
     assert "partner_commissions.created_at >=" not in commission_sql
     assert "partner_withdrawals.paid_at >=" not in payout_sql
+
+
+def test_workspace_counts_include_all_applications_and_only_open_withdrawals_in_currency() -> (
+    None
+):
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(
+        engine, tables=[PartnerApplication.__table__, PartnerWithdrawal.__table__]
+    )
+    with Session(engine) as db:
+        session = AsyncMock(spec=AsyncSession)
+        session.execute.side_effect = db.execute
+        db.add(PartnerApplication(display_label_snapshot="Reviewed", message="", status="approved"))
+        db.flush()
+        assert asyncio.run(partner_reporting_dal.workspace_counts(session, currency="USD")) == {
+            "pending_applications": 0,
+            "has_applications": True,
+            "open_withdrawals": 0,
+        }
+        db.add_all(
+            PartnerApplication(display_label_snapshot="Applicant", message="", status="pending")
+            for _ in range(7)
+        )
+        for index, (status, currency) in enumerate(
+            [
+                ("processing", "RUB"),
+                ("requested", "RUB"),
+                ("paid", "RUB"),
+                ("requested", "USD"),
+            ]
+        ):
+            db.add(
+                PartnerWithdrawal(
+                    partner_id=1,
+                    method_id_snapshot="test",
+                    method_type_snapshot="manual",
+                    method_snapshot_json="{}",
+                    debit_amount_minor=1,
+                    debit_currency=currency,
+                    currency_scale=2,
+                    requisites_key_id="test",
+                    masked_requisites="",
+                    client_idempotency_key=str(index),
+                    status=status,
+                )
+            )
+        db.flush()
+        assert asyncio.run(partner_reporting_dal.workspace_counts(session, currency="rub")) == {
+            "pending_applications": 7,
+            "has_applications": True,
+            "open_withdrawals": 2,
+        }

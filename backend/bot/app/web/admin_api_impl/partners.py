@@ -192,10 +192,53 @@ async def _withdrawal_payload(
     )
 
 
+async def _application_rows(session: Any, rows: list[Any]) -> list[dict[str, Any]]:
+    user_ids = [int(item.user_id) for item in rows if item.user_id is not None]
+    user_labels = await user_reads_dal.get_user_labels(session, user_ids)
+    avatar_keys = await _bulk_user_avatar_keys(session, user_ids)
+    return [
+        await _application_payload(
+            session,
+            item,
+            user_labels=user_labels,
+            avatar_keys=avatar_keys,
+        )
+        for item in rows
+    ]
+
+
+async def _withdrawal_rows(session: Any, rows: list[Any]) -> list[dict[str, Any]]:
+    partner_ids = [int(item.partner_id) for item in rows]
+    profiles_by_id = await partner_dal.get_profiles_by_ids(session, partner_ids)
+    user_ids = [
+        int(profile.user_id) for profile in profiles_by_id.values() if profile.user_id is not None
+    ]
+    user_labels = await user_reads_dal.get_user_labels(session, user_ids)
+    avatar_keys = await _bulk_user_avatar_keys(session, user_ids)
+    return [
+        await _withdrawal_payload(
+            session,
+            item,
+            profiles_by_id=profiles_by_id,
+            user_labels=user_labels,
+            avatar_keys=avatar_keys,
+        )
+        for item in rows
+    ]
+
+
 async def admin_partner_attention_route(request: web.Request) -> web.Response:
     _require_admin_user_id(request)
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
+        currency = str(request.query.get("currency") or "").strip().upper()
+        if currency:
+            return _ok(
+                {
+                    **await partner_dal.workspace_counts(session, currency=currency),
+                    "referral_program_enabled": get_settings(request).REFERRAL_PROGRAM_ENABLED,
+                }
+            )
         counts = await partner_dal.attention_counts(session)
     return _ok(counts)
 
@@ -221,12 +264,36 @@ async def admin_partner_overview_route(request: web.Request) -> web.Response:
             currency=currency,
             since=since,
         )
+        activity: dict[str, Any] = {}
+        if request.query.get("activity") == "1":
+            settings = get_settings(request)
+            page_limit = settings.partner_settings.list_page_limit
+            applications, _ = await partner_dal.list_applications(
+                session, status="pending", search=None, limit=min(3, page_limit), offset=0
+            )
+            withdrawals, _ = await partner_dal.list_withdrawals(
+                session,
+                status=None,
+                currency=currency,
+                search=None,
+                limit=min(6, page_limit),
+                offset=0,
+            )
+            activity = {
+                "counts": {
+                    **await partner_dal.workspace_counts(session, currency=currency),
+                    "referral_program_enabled": settings.REFERRAL_PROGRAM_ENABLED,
+                },
+                "applications": await _application_rows(session, applications),
+                "withdrawals": await _withdrawal_rows(session, withdrawals),
+            }
     return _ok(
         {
             "currency": currency,
             "currency_scale": currency_scale(currency),
             "metrics": metrics,
             "series": series,
+            **activity,
         }
     )
 
@@ -593,18 +660,7 @@ async def admin_partner_applications_route(request: web.Request) -> web.Response
             limit=limit,
             offset=offset,
         )
-        user_ids = [int(item.user_id) for item in rows if item.user_id is not None]
-        user_labels = await user_reads_dal.get_user_labels(session, user_ids)
-        avatar_keys = await _bulk_user_avatar_keys(session, user_ids)
-        applications = [
-            await _application_payload(
-                session,
-                item,
-                user_labels=user_labels,
-                avatar_keys=avatar_keys,
-            )
-            for item in rows
-        ]
+        applications = await _application_rows(session, rows)
     return _ok(
         {
             "applications": applications,
@@ -708,25 +764,7 @@ async def admin_partner_withdrawals_route(request: web.Request) -> web.Response:
             limit=limit,
             offset=offset,
         )
-        partner_ids = [int(item.partner_id) for item in rows]
-        profiles_by_id = await partner_dal.get_profiles_by_ids(session, partner_ids)
-        user_ids = [
-            int(profile.user_id)
-            for profile in profiles_by_id.values()
-            if profile.user_id is not None
-        ]
-        user_labels = await user_reads_dal.get_user_labels(session, user_ids)
-        avatar_keys = await _bulk_user_avatar_keys(session, user_ids)
-        withdrawals = [
-            await _withdrawal_payload(
-                session,
-                item,
-                profiles_by_id=profiles_by_id,
-                user_labels=user_labels,
-                avatar_keys=avatar_keys,
-            )
-            for item in rows
-        ]
+        withdrawals = await _withdrawal_rows(session, rows)
     return _ok(
         {
             "withdrawals": withdrawals,

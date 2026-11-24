@@ -40,6 +40,9 @@ from .partner_reporting_dal import (
 from .partner_reporting_dal import (
     referral_import_candidates as referral_import_candidates,
 )
+from .partner_reporting_dal import (
+    workspace_counts as workspace_counts,
+)
 from .partner_withdrawal_dal import (
     active_withdrawal_count as active_withdrawal_count,
 )

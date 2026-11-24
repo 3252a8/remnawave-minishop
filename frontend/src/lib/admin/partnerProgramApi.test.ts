@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { partnerTopListQuery } from "./partnerProgramUi.js";
 import type { AdminApi } from "../../admin/adminStores.js";
 import {
   DEFAULT_PARTNER_LIST_QUERY,
   loadPartnerDashboard,
   loadPartnerDetail,
-  loadPartnerLists,
+  loadPartnerView,
+  loadPartnerWorkspaceCounts,
   loadPartnerPage,
   mapApplication,
   mapPartner,
@@ -15,26 +17,76 @@ import {
 } from "./partnerProgramApi.js";
 
 describe("partner program admin API", () => {
-  it("starts withdrawals without waiting for partner rows and preserves the identity fallback", async () => {
-    let releasePartners!: (value: object) => void;
-    const partners = new Promise((resolve) => {
-      releasePartners = resolve;
+  it("opens the dashboard with bounded activity and top partners only", async () => {
+    const api = vi.fn(async (path: string) =>
+      path.includes("/overview?")
+        ? {
+            counts: {
+              pending_applications: 257,
+              open_withdrawals: 8,
+              has_applications: true,
+              referral_program_enabled: false,
+            },
+            applications: [{ application_id: 42, user_id: 21, status: "pending" }],
+            withdrawals: [
+              { withdrawal_id: 7, user_id: 34, partner_id: 12, display_label: "Alice" },
+            ],
+          }
+        : { partners: [{ partner_id: 12 }], total: 25 }
+    );
+    const result = await loadPartnerView(
+      api as unknown as AdminApi,
+      "dashboard",
+      "RUB",
+      "",
+      DEFAULT_PARTNER_LIST_QUERY,
+      partnerTopListQuery("earned_desc")
+    );
+    expect(api.mock.calls.map(([path]) => path)).toEqual([
+      "/admin/partners/overview?currency=RUB&days=all&activity=1",
+      "/admin/partners?currency=RUB&limit=6&offset=0&sort=earned_desc",
+    ]);
+    expect(result).toMatchObject({
+      view: "dashboard",
+      dashboard: {
+        counts: {
+          pendingApplications: 257,
+          openWithdrawals: 8,
+          hasApplications: true,
+          referralProgramEnabled: false,
+        },
+        pendingApplications: [{ id: "42" }],
+        recentWithdrawals: [{ id: "7", partner: "Alice", handle: "#34" }],
+      },
+      top: { partners: [{ id: "12" }], total: 25 },
     });
-    const api = vi.fn((path: string) => {
-      if (path.startsWith("/admin/partners?")) return partners;
-      if (path.startsWith("/admin/partner-withdrawals?"))
-        return Promise.resolve({ withdrawals: [{ partner_id: 12, withdrawal_id: 7 }] });
-      return Promise.resolve({ applications: [] });
-    });
-    const loading = loadPartnerLists(api as unknown as AdminApi, "RUB");
-    expect(api).toHaveBeenCalledTimes(3);
-    releasePartners({
-      partners: [{ partner_id: 12, user_id: 34, display_label: "Alice", balances: [] }],
-      total: 1,
-    });
-    const result = await loading;
-    expect(result.withdrawals[0].partner).toBe("Alice");
-    expect(result.withdrawals[0].handle).toBe("#34");
+  });
+
+  it.each([
+    ["partners", "/admin/partners?currency=USD&limit=25&offset=0&sort=clients_desc"],
+    ["applications", "/admin/partner-applications?limit=200"],
+    ["withdrawals", "/admin/partner-withdrawals?currency=USD&limit=200"],
+    ["partner_detail", "/admin/partners/453?currency=USD"],
+    ["application_detail", "/admin/partner-applications/453"],
+    ["withdrawal_detail", "/admin/partner-withdrawals/453"],
+  ] as const)("requests only the selected %s view", async (view, path) => {
+    const api = vi.fn().mockResolvedValue({});
+    await loadPartnerView(
+      api as unknown as AdminApi,
+      view,
+      "USD",
+      "453",
+      DEFAULT_PARTNER_LIST_QUERY,
+      partnerTopListQuery("earned_desc")
+    );
+    expect(api.mock.calls).toEqual([[path]]);
+  });
+
+  it("loads currency-scoped tab badges without fetching lists on a deep link", async () => {
+    const api = vi.fn().mockResolvedValue({ pending_applications: 258, open_withdrawals: 301 });
+    const counts = await loadPartnerWorkspaceCounts(api as unknown as AdminApi, "EUR");
+    expect(counts).toMatchObject({ pendingApplications: 258, openWithdrawals: 301 });
+    expect(api.mock.calls).toEqual([["/admin/partners/attention?currency=EUR"]]);
   });
 
   it("requests the selected server-side page and sort order", async () => {

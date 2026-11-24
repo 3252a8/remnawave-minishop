@@ -1,4 +1,5 @@
-import { jsonBody } from "../demoMockRuntime.js";
+import { DEV_MOCK } from "../previewMock.js";
+import { jsonBody, queryParams } from "../demoMockRuntime.js";
 import { defaultClone, type DemoRecord, type MockApiContext } from "./dataset.js";
 import { partnerProgramFixtureRuntime as fixture } from "./partnerProgram.js";
 
@@ -86,17 +87,45 @@ export function partnerProgramDemoResponse(
     });
   }
 
-  if (cleanPath === "/admin/partners/attention") {
-    return {
-      ok: true,
-      pending_applications: fixture.applicationFixtures.filter((item) => item.status === "pending")
-        .length,
-      open_withdrawals: fixture.withdrawalFixtures.filter(
+  if (cleanPath === "/admin/partners/attention" || cleanPath === "/admin/partners/overview") {
+    const params = queryParams(path);
+    const currency = params.get("currency") || "RUB";
+    const pending = fixture.applicationFixtures.filter((item) => item.status === "pending");
+    const withdrawals = currency === "RUB" ? fixture.withdrawalFixtures : [];
+    const counts = {
+      pending_applications: pending.length,
+      open_withdrawals: withdrawals.filter(
         (item) => item.status === "requested" || item.status === "processing"
       ).length,
+      has_applications: fixture.applicationFixtures.length > 0,
+      referral_program_enabled:
+        DEV_MOCK.config.referralProgramEnabled ??
+        DEV_MOCK.data.settings?.referral_program_enabled ??
+        true,
     };
+    if (cleanPath === "/admin/partners/attention") {
+      const requested = withdrawals.filter((item) => item.status === "requested").length;
+      return {
+        ok: true,
+        ...counts,
+        requested_withdrawals: requested,
+        total: pending.length + requested,
+      };
+    }
+    const overview = fixture.adminOverview();
+    return clone(
+      params.get("activity") === "1"
+        ? {
+            ...overview,
+            counts,
+            applications: pending.slice(0, 3).map(fixture.applicationPayload),
+            withdrawals: withdrawals
+              .slice(0, 6)
+              .map((item) => fixture.withdrawalPayload(item, true)),
+          }
+        : overview
+    );
   }
-  if (cleanPath === "/admin/partners/overview") return clone(fixture.adminOverview());
   if (cleanPath === "/admin/partners" && method === "GET") {
     return clone(fixture.partnerList(path));
   }

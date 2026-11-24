@@ -1,3 +1,5 @@
+import type { PartnerAdminView } from "./partnerAdminState.js";
+import { builtApiPath } from "../webapp/publicApi.js";
 import type { AdminApi } from "../../admin/adminStores.js";
 import type {
   ApplicationRow,
@@ -30,7 +32,17 @@ export const DEFAULT_PARTNER_LIST_QUERY: AdminPartnerListQuery = {
   sort: "clients_desc",
 };
 
+type WorkspaceCounts = {
+  pendingApplications: number;
+  openWithdrawals: number;
+  hasApplications: boolean;
+  referralProgramEnabled: boolean;
+};
+
 export type AdminPartnerDashboard = {
+  counts: WorkspaceCounts;
+  pendingApplications: ApplicationRow[];
+  recentWithdrawals: WithdrawalRow[];
   active: number;
   paused: number;
   clients: number;
@@ -140,10 +152,10 @@ export function mapApplication(item: JsonRecord): ApplicationRow {
 
 export function mapWithdrawal(
   item: JsonRecord,
-  partnerById: Map<string, PartnerRow>
+  partnerById?: Map<string, PartnerRow>
 ): WithdrawalRow {
   const partnerId = String(item.partner_id || "");
-  const partner = partnerById.get(partnerId);
+  const partner = partnerById?.get(partnerId);
   const userId = number(item.user_id) || partner?.userId || 0;
   return {
     id: String(item.withdrawal_id || ""),
@@ -170,13 +182,18 @@ export async function loadPartnerDashboard(
   api: AdminApi,
   currency: string
 ): Promise<AdminPartnerDashboard> {
-  const payload = record(
-    await api(`/admin/partners/overview?currency=${encodeURIComponent(currency)}&days=all`)
+  const payload = requirePartnerAdminResponse(
+    await api(
+      `/admin/partners/overview?currency=${encodeURIComponent(currency)}&days=all&activity=1`
+    )
   );
   const metrics = record(payload.metrics);
   const scale = number(payload.currency_scale || 2);
   const series = records(payload.series);
   return {
+    counts: mapWorkspaceCounts(payload.counts),
+    pendingApplications: records(payload.applications).map(mapApplication),
+    recentWithdrawals: records(payload.withdrawals).map((item) => mapWithdrawal(item)),
     active: number(metrics.active_partners),
     paused: number(metrics.paused_partners),
     clients: number(metrics.clients),
@@ -197,30 +214,83 @@ export async function loadPartnerDashboard(
   };
 }
 
-export async function loadPartnerLists(
-  api: AdminApi,
-  currency: string,
-  query: AdminPartnerListQuery = DEFAULT_PARTNER_LIST_QUERY
-): Promise<{
-  partners: PartnerRow[];
-  partnerTotal: number;
-  applications: ApplicationRow[];
-  withdrawals: WithdrawalRow[];
-}> {
-  const [partnerPage, applicationsPayload, withdrawalPayload] = await Promise.all([
-    loadPartnerPage(api, currency, query),
-    api("/admin/partner-applications?limit=200"),
-    api(`/admin/partner-withdrawals?currency=${encodeURIComponent(currency)}&limit=200`),
-  ]);
-  const partnerMap = new Map(partnerPage.partners.map((partner) => [partner.id, partner]));
+function mapWorkspaceCounts(payload: unknown): WorkspaceCounts {
+  const values = record(payload);
   return {
-    partners: partnerPage.partners,
-    partnerTotal: partnerPage.total,
-    applications: records(record(applicationsPayload).applications).map(mapApplication),
-    withdrawals: records(record(withdrawalPayload).withdrawals).map((item) =>
-      mapWithdrawal(item, partnerMap)
-    ),
+    pendingApplications: number(values.pending_applications),
+    openWithdrawals: number(values.open_withdrawals),
+    hasApplications: Boolean(values.has_applications),
+    referralProgramEnabled: values.referral_program_enabled !== false,
   };
+}
+
+export async function loadPartnerWorkspaceCounts(api: AdminApi, currency: string) {
+  return mapWorkspaceCounts(
+    requirePartnerAdminResponse(
+      await api(`/admin/partners/attention?currency=${encodeURIComponent(currency)}`)
+    )
+  );
+}
+
+export async function loadPartnerWithdrawals(api: AdminApi, currency: string) {
+  const payload = requirePartnerAdminResponse(
+    await api(`/admin/partner-withdrawals?currency=${encodeURIComponent(currency)}&limit=200`)
+  );
+  return records(payload.withdrawals).map((item) => mapWithdrawal(item));
+}
+
+export async function loadPartnerView(
+  api: AdminApi,
+  view: PartnerAdminView,
+  currency: string,
+  id: string,
+  query: AdminPartnerListQuery,
+  topQuery: AdminPartnerListQuery
+) {
+  const encodedId = encodeURIComponent(id);
+  switch (view) {
+    case "dashboard": {
+      const [dashboard, top] = await Promise.all([
+        loadPartnerDashboard(api, currency),
+        loadPartnerPage(api, currency, topQuery),
+      ]);
+      return { view, dashboard, top } as const;
+    }
+    case "partners":
+      return { view, page: await loadPartnerPage(api, currency, query) } as const;
+    case "applications": {
+      const payload = requirePartnerAdminResponse(
+        await api("/admin/partner-applications?limit=200")
+      );
+      return { view, applications: records(payload.applications).map(mapApplication) } as const;
+    }
+    case "withdrawals":
+      return { view, withdrawals: await loadPartnerWithdrawals(api, currency) } as const;
+    case "partner_detail": {
+      const path = `/admin/partners/${encodedId}?currency=${encodeURIComponent(currency)}`;
+      return { view, detail: await loadPartnerDetail(api, id, currency, path) } as const;
+    }
+    case "application_detail": {
+      const payload = requirePartnerAdminResponse(
+        await api(
+          builtApiPath<"/api/admin/partner-applications/{id}">(
+            `/admin/partner-applications/${encodedId}`
+          )
+        )
+      );
+      return { view, application: mapApplication(record(payload.application)) } as const;
+    }
+    case "withdrawal_detail": {
+      const payload = requirePartnerAdminResponse(
+        await api(
+          builtApiPath<"/api/admin/partner-withdrawals/{id}">(
+            `/admin/partner-withdrawals/${encodedId}`
+          )
+        )
+      );
+      return { view, withdrawal: mapWithdrawal(record(payload.withdrawal)) } as const;
+    }
+  }
 }
 
 export async function loadPartnerPage(
@@ -241,7 +311,7 @@ export async function loadPartnerPage(
   if (query.search.trim()) partnerQuery.set("search", query.search.trim());
   if (query.status && query.status !== "all") partnerQuery.set("status", query.status);
   const partnersPayload = await api(`/admin/partners?${partnerQuery.toString()}`);
-  const partnerPayload = record(partnersPayload);
+  const partnerPayload = requirePartnerAdminResponse(partnersPayload);
   const partners = records(partnerPayload.partners).map((item) => mapPartner(item, currency));
   return {
     partners,
@@ -255,7 +325,7 @@ export async function loadPartnerDetail(
   currency: string,
   path: string
 ): Promise<AdminPartnerDetail> {
-  const payload = record(await api(path as never));
+  const payload = requirePartnerAdminResponse(await api(path as never));
   const profile = record(payload.partner);
   const partner = mapPartner(profile, currency);
   const partnerMap = new Map([[partner.id, partner]]);

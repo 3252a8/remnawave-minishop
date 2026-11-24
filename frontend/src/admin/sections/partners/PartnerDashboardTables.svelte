@@ -19,6 +19,8 @@
     partners,
     withdrawals,
     partnerSort,
+    withdrawalSort,
+    onWithdrawalSort,
     money,
     statusLabel,
     onPartnerSort,
@@ -31,6 +33,8 @@
     partners: PartnerRow[];
     withdrawals: WithdrawalRow[];
     partnerSort: string;
+    withdrawalSort: string;
+    onWithdrawalSort: (sort: string) => void;
     money: (value: number) => string;
     statusLabel: (status: string) => string;
     onPartnerSort: (sort: string) => void;
@@ -41,7 +45,6 @@
   } = $props();
 
   const rowLimit = 6;
-  let withdrawalSort = $state("requested_desc");
   const visibleWithdrawals = $derived(
     sortAdminRows(withdrawals, withdrawalSort, withdrawalSortColumns).slice(0, rowLimit)
   );
@@ -71,28 +74,28 @@
             column={withdrawalSortColumns[1]}
             currentSort={withdrawalSort}
             {at}
-            onSort={(sort) => (withdrawalSort = sort)}
+            onSort={onWithdrawalSort}
           />
           <AdminSortableHeader
             label={at("partners_col_method", {}, "Method")}
             column={withdrawalSortColumns[2]}
             currentSort={withdrawalSort}
             {at}
-            onSort={(sort) => (withdrawalSort = sort)}
+            onSort={onWithdrawalSort}
           />
           <AdminSortableHeader
             label={at("partners_col_amount", {}, "Amount")}
             column={withdrawalSortColumns[3]}
             currentSort={withdrawalSort}
             {at}
-            onSort={(sort) => (withdrawalSort = sort)}
+            onSort={onWithdrawalSort}
           />
           <AdminSortableHeader
             label={at("partners_col_status", {}, "Status")}
             column={withdrawalSortColumns[4]}
             currentSort={withdrawalSort}
             {at}
-            onSort={(sort) => (withdrawalSort = sort)}
+            onSort={onWithdrawalSort}
           />
         </tr>
       </thead>
