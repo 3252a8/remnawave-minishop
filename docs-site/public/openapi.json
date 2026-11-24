@@ -14344,6 +14344,7 @@
         "type": "object"
       },
       "PromoEffects": {
+        "additionalProperties": false,
         "properties": {
           "applies_to": {
             "default": "all",

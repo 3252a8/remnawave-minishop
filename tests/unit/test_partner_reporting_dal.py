@@ -97,9 +97,7 @@ def test_partner_overview_all_time_has_no_date_cutoff() -> None:
     assert "partner_withdrawals.paid_at >=" not in payout_sql
 
 
-def test_workspace_counts_include_all_applications_and_only_open_withdrawals_in_currency() -> (
-    None
-):
+def test_workspace_counts_filter_open_withdrawals_by_currency() -> None:
     engine = create_engine("sqlite://")
     Base.metadata.create_all(
         engine, tables=[PartnerApplication.__table__, PartnerWithdrawal.__table__]

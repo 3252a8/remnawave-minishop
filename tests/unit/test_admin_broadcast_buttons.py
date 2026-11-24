@@ -47,6 +47,7 @@ class _FakeBroadcastRequest:
     ) -> None:
         self._payload = payload
         self.app = app
+        self.query: dict[str, str] = {}
         self.match_info = match_info or {}
 
     async def json(self) -> dict[str, object]:
