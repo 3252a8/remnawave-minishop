@@ -16,7 +16,11 @@
   } from "../../lib/admin/stores/translationsStore";
 
   type TranslateFn = (key: string, params?: Record<string, unknown>, fallback?: string) => string;
-  type TranslationGroupWithItems = TranslationGroup & { items: TranslationItem[] };
+  type TranslationGroupWithItems = TranslationGroup & {
+    items: TranslationItem[];
+    keyCount?: number;
+    storedOverrides?: number;
+  };
   type AudienceSection = {
     id: string;
     title: string;
@@ -84,6 +88,26 @@
   $effect(() => {
     const groups = openGroups;
     untrack(() => scheduleReadyGroups(groups));
+  });
+
+  $effect(() => {
+    if (translationsLoading) return;
+    const opened = openGroupSet;
+    const sections = audienceSections;
+    const searching = Boolean(search.trim());
+    untrack(() => {
+      if (searching) {
+        void translationsStore.loadTranslationItems();
+      } else {
+        for (const section of sections) {
+          for (const group of section.groups) {
+            if (group.counts && opened.has(groupPanelId(section.id, group.id))) {
+              void translationsStore.loadTranslationItems(group.id);
+            }
+          }
+        }
+      }
+    });
   });
 
   onMount(() => {
@@ -310,6 +334,24 @@
     });
   }
 
+  function selectAudience(
+    group: TranslationGroupWithItems,
+    audience: string
+  ): TranslationGroupWithItems {
+    const items =
+      audience === "all"
+        ? group.items
+        : group.items.filter((item) => itemAudience(item, group) === audience);
+    if (!group.counts) return { ...group, items };
+    const counts = audience === "all" ? Object.values(group.counts) : [group.counts[audience]];
+    return {
+      ...group,
+      items,
+      keyCount: counts.reduce((total, count) => total + (count?.keys || 0), 0),
+      storedOverrides: counts.reduce((total, count) => total + (count?.overrides || 0), 0),
+    };
+  }
+
   function buildAudienceSections(
     groups: TranslationGroupWithItems[],
     filter: string
@@ -321,11 +363,10 @@
       groups: (groups || [])
         .filter((group) => !group.plugin)
         .map((group) => ({
-          ...group,
+          ...selectAudience(group, audience),
           audience,
-          items: (group.items || []).filter((item) => itemAudience(item, group) === audience),
         }))
-        .filter((group) => group.items.length),
+        .filter((group) => group.keyCount ?? group.items.length),
     })).filter((section) => (filter === "all" || section.id === filter) && section.groups.length);
   }
 
@@ -336,12 +377,10 @@
     const plugins = new Map<string, TranslationGroupWithItems[]>();
     for (const group of groups) {
       if (!group.plugin) continue;
-      const items = group.items.filter(
-        (item) => filter === "all" || itemAudience(item, group) === filter
-      );
-      if (!items.length) continue;
+      const selected = selectAudience(group, filter);
+      if (!(selected.keyCount ?? selected.items.length)) continue;
       const pluginGroups = plugins.get(group.plugin) || [];
-      pluginGroups.push({ ...group, items });
+      pluginGroups.push(selected);
       plugins.set(group.plugin, pluginGroups);
     }
     return [...plugins.entries()]
@@ -366,6 +405,7 @@
       openPlugins = [];
       return;
     }
+    void translationsStore.loadTranslationItems();
     openGroups = visibleGroupKeys;
     openPlugins = audienceSections.filter((section) => section.plugin).map((section) => section.id);
   }
@@ -584,6 +624,17 @@
   </div>
 {/snippet}
 
+{#if translationsStore.translationsLoadError}
+  <p role="alert">{translationsStore.translationsLoadError}</p>
+  <AdminButton
+    variant="ghost"
+    onclick={() =>
+      translationGroups.length
+        ? translationsStore.loadTranslationItems()
+        : translationsStore.loadTranslations({ refresh: true })}
+    >{at("retry", {}, "Retry")}</AdminButton
+  >
+{/if}
 {#if translationsLoading || !translationGroups.length}
   {@render renderTranslationsSkeleton()}
 {:else}
@@ -707,7 +758,9 @@
     )}
   </p>
 
-  {#if audienceSections.length}
+  {#if search.trim() && translationGroups.some((group) => group.counts)}
+    {@render renderTranslationsSkeleton()}
+  {:else if audienceSections.length}
     <div class="admin-translations-accordion-root">
       {#each audienceSections as section (section.id)}
         <section class="admin-translations-audience-section">
@@ -728,7 +781,10 @@
                 <small>{section.hint}</small>
               </span>
               <AdminBadge variant="success">
-                {section.groups.reduce((count, group) => count + group.items.length, 0)}
+                {section.groups.reduce(
+                  (count, group) => count + (group.keyCount ?? group.items.length),
+                  0
+                )}
               </AdminBadge>
               <ChevronRight size={16} class="admin-accordion-chev" />
             </button>
@@ -739,7 +795,10 @@
                 <small>{section.hint}</small>
               </span>
               <AdminBadge variant={section.id === "internal" ? "warning" : "success"}>
-                {section.groups.reduce((count, group) => count + group.items.length, 0)}
+                {section.groups.reduce(
+                  (count, group) => count + (group.keyCount ?? group.items.length),
+                  0
+                )}
               </AdminBadge>
             </div>
           {/if}
@@ -751,15 +810,13 @@
                   translationsDirty,
                   translationLanguages
                 )}
-                {@const overrideCount = groupOverrideCount(
-                  group,
-                  translationsDirty,
-                  translationLanguages
-                )}
+                {@const overrideCount =
+                  group.storedOverrides ??
+                  groupOverrideCount(group, translationsDirty, translationLanguages)}
                 {@const panelId = groupPanelId(section.id, group.id)}
                 {@const visibleCount = renderedItemCounts[panelId] || PAGE_SIZE}
                 {@const groupOpen = openGroupSet.has(panelId)}
-                {@const groupReady = readyGroupSet.has(panelId)}
+                {@const groupReady = !group.counts && readyGroupSet.has(panelId)}
                 <div
                   class="admin-accordion-item admin-card"
                   data-state={groupOpen ? "open" : "closed"}
@@ -784,8 +841,8 @@
                       <span class="admin-accordion-meta">
                         {at(
                           "translations_keys_count",
-                          { count: group.items.length },
-                          `${group.items.length} keys`
+                          { count: group.keyCount ?? group.items.length },
+                          `${group.keyCount ?? group.items.length} keys`
                         )}{#if overrideCount}
                           / {at(
                             "settings_overridden_count",

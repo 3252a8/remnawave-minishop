@@ -18,7 +18,7 @@ def _write_locale(path: Path, language: str, messages: dict[str, str]) -> None:
     )
 
 
-def test_admin_translations_payload_cache_tracks_override_snapshot(
+def test_build_catalog_cache_tracks_override_snapshot(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -36,23 +36,26 @@ def test_admin_translations_payload_cache_tracks_override_snapshot(
             "updated_by": 7,
         }
     ]
-    original_builder = translations._admin_translations_payload
+    original_builder = translations._build_catalog
     calls = 0
 
-    def counted_builder(current_i18n, overrides):
+    def counted_builder(current_i18n, overrides, signature):
         nonlocal calls
         calls += 1
-        return original_builder(current_i18n, overrides)
+        return original_builder(current_i18n, overrides, signature)
 
-    monkeypatch.setattr(translations, "_admin_translations_payload", counted_builder)
+    monkeypatch.setattr(translations, "_build_catalog", counted_builder)
 
-    first = translations._cached_admin_translations_payload(i18n, first_overrides)
-    repeated = translations._cached_admin_translations_payload(i18n, first_overrides)
-    changed = translations._cached_admin_translations_payload(
+    first = translations._cached_translation_bytes(i18n, first_overrides)
+    repeated = translations._cached_translation_bytes(i18n, first_overrides)
+    changed = translations._cached_translation_bytes(
         i18n,
         [{**first_overrides[0], "value": "Hello again"}],
     )
 
+    assert isinstance(first, bytes) and isinstance(changed, bytes)
+    assert json.loads(first)["groups"][0]["items"][0]["values"]["en"]["override"] == "Welcome"
+    assert json.loads(changed)["groups"][0]["items"][0]["values"]["en"]["override"] == "Hello again"
     assert repeated is first
     assert changed is not first
     assert calls == 2
@@ -111,7 +114,20 @@ def test_plugin_keys_have_separate_nested_editor_groups(tmp_path: Path) -> None:
         },
         source="sample",
     )
-    payload = translations._cached_admin_translations_payload(i18n, [])
+    full = translations._cached_translation_bytes(i18n, [])
+    assert full is not None
+    payload = json.loads(full)
+    index = json.loads(translations._cached_translation_bytes(i18n, [], index=True))
+    assert index["languages"] == payload["languages"]
+    for summary, group in zip(index["groups"], payload["groups"], strict=True):
+        assert summary["id"] == group["id"]
+        assert summary["items"] == []
+        assert sum(count["keys"] for count in summary["counts"].values()) == len(group["items"])
+        assert "counts" not in group
+        single = translations._cached_translation_bytes(i18n, [], group_id=group["id"])
+        assert json.loads(single)["groups"] == [group]
+        assert single is translations._cached_translation_bytes(i18n, [], group_id=group["id"])
+    assert translations._cached_translation_bytes(i18n, [], group_id="missing") is None
     plugin_groups = [group for group in payload["groups"] if group["plugin"] == "sample"]
     assert {
         (tuple(group["path"]), tuple(item["key"] for item in group["items"]))
@@ -134,8 +150,10 @@ def test_plugin_keys_have_separate_nested_editor_groups(tmp_path: Path) -> None:
         source="another",
     )
     assert i18n.plugin_locale_sources["sample_misc"] == "sample"
-    regrouped = translations._cached_admin_translations_payload(i18n, [])
+    regrouped_bytes = translations._cached_translation_bytes(i18n, [])
+    assert regrouped_bytes is not None
+    regrouped = json.loads(regrouped_bytes)
     assert any(group["plugin"] == "another" for group in regrouped["groups"])
 
     i18n.merge_base_locales({"en": {"sample_extra": "New"}}, source="sample")
-    assert translations._cached_admin_translations_payload(i18n, []) is not regrouped
+    assert translations._cached_translation_bytes(i18n, []) is not regrouped_bytes

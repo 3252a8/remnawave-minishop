@@ -7362,11 +7362,44 @@
         "title": "AdminTicketReplyPayload",
         "type": "object"
       },
+      "AdminTranslationCountsOut": {
+        "properties": {
+          "keys": {
+            "title": "Keys",
+            "type": "integer"
+          },
+          "overrides": {
+            "title": "Overrides",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "keys",
+          "overrides"
+        ],
+        "title": "AdminTranslationCountsOut",
+        "type": "object"
+      },
       "AdminTranslationGroupOut": {
         "properties": {
           "audience": {
             "title": "Audience",
             "type": "string"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/AdminTranslationCountsOut"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Counts"
           },
           "description": {
             "title": "Description",
@@ -31606,6 +31639,31 @@
     "/api/admin/translations": {
       "get": {
         "operationId": "get_admin_translations_get_route",
+        "parameters": [
+          {
+            "description": "Use index for group counts without translation values.",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "enum": [
+                "full",
+                "index"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return the items of this catalog group only.",
+            "in": "query",
+            "name": "group_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {

@@ -392,6 +392,11 @@ class AdminTranslationItemOut(HttpResponseModel):
     values: dict[str, AdminTranslationValueOut]
 
 
+class AdminTranslationCountsOut(HttpResponseModel):
+    keys: int
+    overrides: int
+
+
 class AdminTranslationGroupOut(HttpResponseModel):
     id: str
     title: str
@@ -403,6 +408,7 @@ class AdminTranslationGroupOut(HttpResponseModel):
     path: list[str] = Field(default_factory=list)
     path_keys: list[str] = Field(default_factory=list)
     items: list[AdminTranslationItemOut]
+    counts: dict[str, AdminTranslationCountsOut] | None = None
 
 
 class AdminTranslationsOut(HttpResponseModel):

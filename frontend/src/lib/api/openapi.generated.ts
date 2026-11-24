@@ -8152,10 +8152,24 @@ export interface components {
        */
       is_internal_note: boolean;
     };
+    /** AdminTranslationCountsOut */
+    AdminTranslationCountsOut: {
+      /** Keys */
+      keys: number;
+      /** Overrides */
+      overrides: number;
+    };
     /** AdminTranslationGroupOut */
     AdminTranslationGroupOut: {
       /** Audience */
       audience: string;
+      /**
+       * Counts
+       * @default null
+       */
+      counts: {
+        [key: string]: components["schemas"]["AdminTranslationCountsOut"];
+      } | null;
       /** Description */
       description: string;
       /** Description Key */
@@ -19257,7 +19271,12 @@ export interface operations {
   };
   get_admin_translations_get_route: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Use index for group counts without translation values. */
+        view?: "full" | "index";
+        /** @description Return the items of this catalog group only. */
+        group_id?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;

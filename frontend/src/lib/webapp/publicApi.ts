@@ -649,9 +649,14 @@ export function buildAdminAppearanceFaviconPath(): AdminAppearanceFaviconPath {
   return "/admin/appearance/favicon";
 }
 
-export type AdminTranslationsPath = "/admin/translations";
-export function buildAdminTranslationsPath(): AdminTranslationsPath {
-  return "/admin/translations";
+export type AdminTranslationsPath = BuiltApiPath<"/api/admin/translations">;
+export function buildAdminTranslationsPath(
+  options?: { index: true } | { groupId: string }
+): AdminTranslationsPath {
+  if (!options) return builtApiPath<"/api/admin/translations">("/admin/translations");
+  const query =
+    "index" in options ? "view=index" : `group_id=${encodeURIComponent(options.groupId)}`;
+  return builtApiPath<"/api/admin/translations">(`/admin/translations?${query}`);
 }
 
 export type AdminBackupsPath = "/admin/backups";

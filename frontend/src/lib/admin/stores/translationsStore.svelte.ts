@@ -56,6 +56,7 @@ export type TranslationGroup = {
   path?: string[];
   path_keys?: string[];
   items?: TranslationItem[];
+  counts?: Record<string, { keys: number; overrides: number }> | null;
 };
 export type TranslationDirtyEntry = {
   lang: string;
@@ -74,6 +75,7 @@ export type TranslationsState = {
   translationGroups: TranslationGroup[];
   translationLanguages: TranslationLanguage[];
   translationsLoading: boolean;
+  translationsLoadError: string;
   translationsDirty: TranslationDirtyState;
   translationsSaving: boolean;
   translationsPath: string;
@@ -90,6 +92,7 @@ type TranslationsStoreOptions = {
 type LoadTranslationsOptions = { refresh?: boolean };
 export type TranslationsStore = TranslationsState & {
   loadTranslations: (options?: LoadTranslationsOptions) => Promise<void>;
+  loadTranslationItems: (groupId?: string) => Promise<void>;
   markDirty: (lang: string, key: string, value: string, deleted?: boolean) => void;
   clearDirty: (lang: string, key: string) => void;
   resetField: (lang: string, key: string, overridden: boolean) => void;
@@ -150,13 +153,17 @@ export function createTranslationsStore({
 }: TranslationsStoreOptions): TranslationsStore {
   let translationGroups = $state.raw<TranslationGroup[]>([]);
   let translationLanguages = $state.raw<TranslationLanguage[]>([]);
+  let generation = 0;
+  const pending = new Map<string | undefined, Promise<void>>();
   const state = $state<ProxiedTranslationsStore>({
     translationsLoading: false,
+    translationsLoadError: "",
     translationsDirty: {},
     translationsSaving: false,
     translationsPath: "",
     translationsOverrideCount: 0,
     loadTranslations,
+    loadTranslationItems,
     markDirty,
     clearDirty,
     resetField,
@@ -194,15 +201,23 @@ export function createTranslationsStore({
   async function loadTranslations({
     refresh = false,
   }: LoadTranslationsOptions = {}): Promise<void> {
-    updateState((s) => ({ ...s, translationsLoading: true, translationsDirty: {} }));
+    const currentGeneration = ++generation;
+    pending.clear();
+    updateState((s) => ({
+      ...s,
+      translationsLoading: true,
+      translationsLoadError: "",
+      translationsDirty: {},
+    }));
     try {
       const data = await fetchAdminQuery({
         queryClient,
         queryKey: TRANSLATIONS_QUERY_KEY,
-        queryFn: () => api(buildAdminTranslationsPath()),
+        queryFn: () => api(buildAdminTranslationsPath({ index: true })),
         refresh,
         staleTime: TRANSLATIONS_STALE_MS,
       });
+      if (currentGeneration !== generation) return;
       if (isOkResponse(data)) {
         const result = unwrap(data);
         updateState((s) => ({
@@ -212,9 +227,61 @@ export function createTranslationsStore({
           translationsPath: result.path || "",
           translationsOverrideCount: result.override_count || 0,
         }));
+      } else {
+        state.translationsLoadError = adminErrorMessage(data, at);
       }
+    } catch (error) {
+      if (currentGeneration === generation)
+        state.translationsLoadError = adminErrorMessage(error, at);
     } finally {
-      updateState((s) => ({ ...s, translationsLoading: false }));
+      if (currentGeneration === generation) state.translationsLoading = false;
+    }
+  }
+
+  async function loadTranslationItems(groupId?: string): Promise<void> {
+    if (
+      !translationGroups.some(
+        (group) => group.counts && (groupId === undefined || group.id === groupId)
+      )
+    )
+      return;
+    const existing = pending.get(undefined) ?? pending.get(groupId);
+    if (existing) return existing;
+    const currentGeneration = generation;
+    state.translationsLoadError = "";
+    async function fetchItems(): Promise<void> {
+      try {
+        const path =
+          groupId === undefined
+            ? buildAdminTranslationsPath()
+            : buildAdminTranslationsPath({ groupId });
+        const data = await api(path);
+        if (generation !== currentGeneration) return;
+        if (!isOkResponse(data)) {
+          state.translationsLoadError = adminErrorMessage(data, at);
+          return;
+        }
+        const groups = normalizeGroups(unwrap(data).groups);
+        if (groupId === undefined) {
+          translationGroups = groups;
+        } else {
+          const loaded = groups.find((group) => group.id === groupId);
+          if (loaded)
+            translationGroups = translationGroups.map((group) =>
+              group.id === groupId && group.counts ? loaded : group
+            );
+        }
+      } catch (error) {
+        if (currentGeneration === generation)
+          state.translationsLoadError = adminErrorMessage(error, at);
+      }
+    }
+    const request = fetchItems();
+    pending.set(groupId, request);
+    try {
+      await request;
+    } finally {
+      if (pending.get(groupId) === request) pending.delete(groupId);
     }
   }
 
@@ -325,6 +392,7 @@ export function createTranslationsStore({
 
   return Object.assign(store, {
     loadTranslations,
+    loadTranslationItems,
     markDirty,
     clearDirty,
     resetField,

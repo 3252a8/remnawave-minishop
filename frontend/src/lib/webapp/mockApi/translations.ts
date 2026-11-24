@@ -165,6 +165,30 @@ export function withCurrentLocaleTranslations<T extends TranslationsPayload>(pay
   return payload;
 }
 
-export function demoTranslationsPayload(clone: CloneFn = defaultClone): TranslationsPayload {
-  return withCurrentLocaleTranslations(clone(DATASET.translations || {}) as TranslationsPayload);
+export function demoTranslationsPayload(
+  clone: CloneFn = defaultClone,
+  query?: URLSearchParams
+): TranslationsPayload {
+  const payload = withCurrentLocaleTranslations(
+    clone(DATASET.translations || {}) as TranslationsPayload
+  );
+  const groups = payload.groups || [];
+  const groupId = query?.get("group_id");
+  if (groupId) return { ...payload, groups: groups.filter((group) => group.id === groupId) };
+  if (query?.get("view") !== "index") return payload;
+  return {
+    ...payload,
+    groups: groups.map((group) => {
+      const counts: Record<string, { keys: number; overrides: number }> = {};
+      for (const item of group.items || []) {
+        const audience = item.audience || String(group.audience || "user");
+        const summary = (counts[audience] ??= { keys: 0, overrides: 0 });
+        summary.keys++;
+        summary.overrides += Object.values(item.values || {}).filter(
+          (value) => value.overridden
+        ).length;
+      }
+      return { ...group, items: [], counts };
+    }),
+  };
 }

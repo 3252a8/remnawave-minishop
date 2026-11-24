@@ -1,9 +1,12 @@
 import json
 import time
+from collections import Counter
+from dataclasses import dataclass, field
 from typing import Any, cast
 from weakref import WeakKeyDictionary
 
 from aiohttp import web
+from pydantic_core import to_json
 from sqlalchemy.orm import sessionmaker
 
 from bot.app.web.context import (
@@ -43,11 +46,19 @@ from .response_schemas import AdminTranslationsOut
 from .schemas import AdminTranslationsPatchBody
 
 TranslationCacheSignature = tuple[int, tuple[tuple[str, str, str, str, str], ...]]
-TranslationCacheEntry = tuple[TranslationCacheSignature, dict[str, Any]]
 
-_TRANSLATIONS_PAYLOAD_CACHE: WeakKeyDictionary[JsonI18n, TranslationCacheEntry] = (
-    WeakKeyDictionary()
-)
+
+@dataclass
+class TranslationCatalog:
+    signature: TranslationCacheSignature
+    languages: list[dict[str, Any]]
+    groups: dict[str, dict[str, Any]]
+    overrides: dict[tuple[str, str], dict]
+    override_count: int
+    encoded: dict[tuple[bool, str | None], bytes] = field(default_factory=dict)
+
+
+_TRANSLATIONS_PAYLOAD_CACHE: WeakKeyDictionary[JsonI18n, TranslationCatalog] = WeakKeyDictionary()
 _TRANSLATIONS_FILE_SYNC_CACHE: WeakKeyDictionary[JsonI18n, tuple[int, int, float]] = (
     WeakKeyDictionary()
 )
@@ -58,6 +69,22 @@ register_contract(
     RouteContract(
         response_schema=ok_envelope_for(AdminTranslationsOut),
         models=(AdminTranslationsOut,),
+        query_parameters=(
+            {
+                "name": "view",
+                "in": "query",
+                "required": False,
+                "description": "Use index for group counts without translation values.",
+                "schema": {"type": "string", "enum": ["full", "index"], "default": "full"},
+            },
+            {
+                "name": "group_id",
+                "in": "query",
+                "required": False,
+                "description": "Return the items of this catalog group only.",
+                "schema": {"type": "string"},
+            },
+        ),
     ),
 )
 register_contract(
@@ -115,15 +142,16 @@ def _plugin_group_for_key(i18n: JsonI18n, plugin: str, key: str) -> PluginLocale
     return max(matches, key=lambda match: match[0], default=(0, None))[1]
 
 
-def _admin_translations_payload(
+def _build_catalog(
     i18n: JsonI18n,
     overrides: list[dict[str, Any]],
-) -> dict[str, Any]:
+    signature: TranslationCacheSignature,
+) -> TranslationCatalog:
     base_data = i18n.base_locales_data or i18n.locales_data or {}
-    effective_data = i18n.locales_data or {}
     override_meta = _locale_override_meta_map(overrides)
     language_items = _locale_languages(i18n, overrides)
-    languages = [item["code"] for item in language_items]
+    language_codes = {lang["code"] for lang in language_items}
+    overridden_keys = Counter(key for lang, key in override_meta if lang in language_codes)
     all_keys = sorted(
         {key for messages in base_data.values() for key in messages}
         | {key for _, key in override_meta}
@@ -133,29 +161,17 @@ def _admin_translations_payload(
         group["id"]: {
             **group,
             "items": [],
+            "counts": {},
         }
         for group in locale_group_catalog()
     }
 
     for key in all_keys:
-        values: dict[str, dict[str, Any]] = {}
-        for lang in languages:
-            meta = override_meta.get((lang, key))
-            fallback_base = base_data.get(i18n.default_lang, {}).get(key, "")
-            values[lang] = {
-                "base": base_data.get(lang, {}).get(key, ""),
-                "fallback": fallback_base,
-                "effective": effective_data.get(lang, {}).get(key, ""),
-                "override": meta.get("value") if meta else "",
-                "overridden": bool(meta),
-                "updated_at": meta.get("updated_at") if meta else None,
-                "updated_by": meta.get("updated_by") if meta else None,
-            }
         plugin = i18n.plugin_locale_sources.get(key)
         plugin_group = _plugin_group_for_key(i18n, plugin, key) if plugin else None
         path = plugin_group.path if plugin_group else ()
         group_id = f"plugin:{plugin}:{path!r}" if plugin else group_id_for_locale_key(key)
-        groups_by_id.setdefault(
+        group = groups_by_id.setdefault(
             group_id,
             {
                 "id": group_id,
@@ -168,23 +184,44 @@ def _admin_translations_payload(
                 "path": list(path),
                 "path_keys": list(plugin_group.path_keys) if plugin_group else [],
                 "items": [],
+                "counts": {},
             },
         )
-        groups_by_id[group_id]["items"].append(
-            {
-                "key": key,
-                "audience": audience_for_locale_key(key),
-                "values": values,
-            }
-        )
+        audience = audience_for_locale_key(key)
+        group["items"].append((key, audience))
+        counts = group["counts"].setdefault(audience, {"keys": 0, "overrides": 0})
+        counts["keys"] += 1
+        counts["overrides"] += overridden_keys[key]
 
-    groups = [group for group in groups_by_id.values() if group["items"]]
-    return {
-        "languages": language_items,
-        "groups": groups,
-        "path": str(LOCALE_OVERRIDES_PATH),
-        "override_count": len(overrides),
-    }
+    return TranslationCatalog(
+        signature=signature,
+        languages=language_items,
+        groups={key: group for key, group in groups_by_id.items() if group["items"]},
+        overrides=override_meta,
+        override_count=len(overrides),
+    )
+
+
+def _translation_item(
+    i18n: JsonI18n, catalog: TranslationCatalog, key: str, audience: str
+) -> dict[str, Any]:
+    base = i18n.base_locales_data or i18n.locales_data or {}
+    effective = i18n.locales_data or {}
+    fallback = base.get(i18n.default_lang, {}).get(key, "")
+    values = {}
+    for language in catalog.languages:
+        code = language["code"]
+        entry = catalog.overrides.get((code, key))
+        values[code] = {
+            "base": base.get(code, {}).get(key, ""),
+            "fallback": fallback,
+            "effective": effective.get(code, {}).get(key, ""),
+            "override": entry.get("value", "") if entry else "",
+            "overridden": bool(entry),
+            "updated_at": entry.get("updated_at") if entry else None,
+            "updated_by": entry.get("updated_by") if entry else None,
+        }
+    return {"key": key, "audience": audience, "values": values}
 
 
 def _translations_cache_signature(
@@ -202,25 +239,50 @@ def _translations_cache_signature(
     )
 
 
-def _cached_admin_translations_payload(
+def _cached_translation_bytes(
     i18n: JsonI18n,
     overrides: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Reuse the validated multi-megabyte editor payload until overrides change."""
-
+    *,
+    index: bool = False,
+    group_id: str | None = None,
+) -> bytes | None:
     signature = _translations_cache_signature(i18n, overrides)
-    cached = _TRANSLATIONS_PAYLOAD_CACHE.get(i18n)
-    if cached is not None and cached[0] == signature:
-        return cached[1]
+    catalog = _TRANSLATIONS_PAYLOAD_CACHE.get(i18n)
+    if catalog is None or catalog.signature != signature:
+        catalog = _build_catalog(i18n, overrides, signature)
+        _TRANSLATIONS_PAYLOAD_CACHE[i18n] = catalog
+    if group_id is not None and group_id not in catalog.groups:
+        return None
 
-    payload = cast(
-        dict[str, Any],
-        AdminTranslationsOut.model_validate(
-            _admin_translations_payload(i18n, overrides)
-        ).model_dump(mode="json"),
-    )
-    _TRANSLATIONS_PAYLOAD_CACHE[i18n] = (signature, payload)
-    return payload
+    cache_key = (index, group_id)
+    if cache_key in catalog.encoded:
+        return catalog.encoded[cache_key]
+
+    selected = [catalog.groups[group_id]] if group_id is not None else catalog.groups.values()
+    groups = []
+    for group in selected:
+        items = (
+            []
+            if index
+            else [
+                _translation_item(i18n, catalog, key, audience) for key, audience in group["items"]
+            ]
+        )
+        groups.append({**group, "items": items})
+    payload = AdminTranslationsOut.model_validate(
+        {
+            "languages": catalog.languages,
+            "groups": groups,
+            "path": str(LOCALE_OVERRIDES_PATH),
+            "override_count": catalog.override_count,
+        }
+    ).model_dump(mode="json")
+    if not index:
+        for group in payload["groups"]:
+            group.pop("counts")
+    body = to_json({"ok": True, **payload})
+    catalog.encoded[cache_key] = body
+    return body
 
 
 def _overrides_file_fingerprint() -> tuple[int, int] | None:
@@ -270,7 +332,14 @@ async def admin_translations_get_route(request: web.Request) -> web.Response:
     async with async_session_factory() as session:
         overrides = await locale_overrides_dal.get_overrides_with_meta(session)
 
-    return _ok(_cached_admin_translations_payload(i18n, overrides))
+    view = request.query.get("view", "full")
+    group_id = request.query.get("group_id")
+    if view not in ("index", "full") or (view == "index" and group_id is not None):
+        return _error(400, "invalid_translation_view")
+    body = _cached_translation_bytes(i18n, overrides, index=view == "index", group_id=group_id)
+    if body is None:
+        return _error(404, "translation_group_not_found")
+    return web.Response(body=body, content_type="application/json", charset="utf-8")
 
 
 async def admin_translations_patch_route(request: web.Request) -> web.Response:
