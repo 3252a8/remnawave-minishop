@@ -27,6 +27,14 @@ export async function mockApi(
   } = context;
   await new Promise((resolve) => window.setTimeout(resolve, 120));
   const cleanPath = String(path || "").split("?")[0];
+  const supportImage =
+    /^\/api\/(?:support\/images|admin\/message-images)\/demo-ticket-(mobile|desktop)$/.exec(
+      cleanPath
+    );
+  if (supportImage) {
+    const file = supportImage[1] === "mobile" ? "preview-mobile.webp" : "preview.webp";
+    return (await fetch(`/demo/runtime/themes/dark/${file}`)).blob();
+  }
   if (cleanPath === "/support/payment-options") {
     const scenario = new URLSearchParams(window.location.search).get("mock");
     if (scenario === "support-payments-error") return { ok: false, error: "unavailable" };

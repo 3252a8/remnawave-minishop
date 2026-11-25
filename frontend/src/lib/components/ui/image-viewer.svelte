@@ -1,9 +1,6 @@
 <script lang="ts">
   import { Minus, Plus, RotateCcw, X } from "$components/ui/icons.js";
-  import {
-    focusFirstDialogControl,
-    handleDialogFocusTrap,
-  } from "$lib/components/dialogFocusTrap.js";
+  import { handleDialogFocusTrap } from "$lib/components/dialogFocusTrap.js";
   import { lockPageScroll } from "$lib/webapp/scrollLock.js";
   import Button from "./button.svelte";
 
@@ -32,74 +29,108 @@
   }: Props = $props();
 
   const MIN_SCALE = 1;
-  const MAX_SCALE = 5;
+  const STANDARD_MAX_SCALE = 5;
   const ZOOM_STEP = 0.25;
   const KEYBOARD_PAN_STEP = 36;
 
-  let dialog = $state<HTMLElement | null>(null);
+  let stageWidth = $state(0);
+  let stageHeight = $state(0);
+  let imageWidth = $state(0);
+  let imageHeight = $state(0);
+  let naturalWidth = $state(0);
+  let naturalHeight = $state(0);
   let scale = $state(MIN_SCALE);
   let panX = $state(0);
   let panY = $state(0);
+  type Point = { x: number; y: number };
+  let pointers: { id: number; point: Point }[] = [];
   let dragging = $state(false);
-  let dragPointerId = $state<number | null>(null);
-  let dragStartX = $state(0);
-  let dragStartY = $state(0);
-  let dragOriginX = $state(0);
-  let dragOriginY = $state(0);
+
+  function boundedPan(value: number, imageSize: number, stageSize: number): number {
+    const limit = Math.max(0, (imageSize * scale - stageSize) / 2);
+    return Math.max(-limit, Math.min(limit, value));
+  }
 
   const zoomPercent = $derived(Math.round(scale * 100));
+  // Use the longer fitted edge for accuracy with very tall or narrow screenshots.
+  const nativeScale = $derived(
+    Math.max(naturalWidth, naturalHeight) / (Math.max(imageWidth, imageHeight) || 1)
+  );
+  const maxScale = $derived(Math.max(STANDARD_MAX_SCALE, nativeScale));
+  const offsetX = $derived(boundedPan(panX, imageWidth, stageWidth));
+  const offsetY = $derived(boundedPan(panY, imageHeight, stageHeight));
 
   function resetView(): void {
     scale = MIN_SCALE;
     panX = 0;
     panY = 0;
     dragging = false;
-    dragPointerId = null;
+    pointers = [];
   }
 
-  function setScale(nextScale: number): void {
-    scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, nextScale));
-    if (scale === MIN_SCALE) {
-      panX = 0;
-      panY = 0;
-    }
+  function setScale(nextScale: number, from: Point = { x: 0, y: 0 }, to = from): void {
+    const previousScale = scale;
+    const x = offsetX;
+    const y = offsetY;
+    scale = Math.min(maxScale, Math.max(MIN_SCALE, nextScale));
+    // Keep the content under the cursor or the midpoint of a pinch in place.
+    panX = boundedPan(to.x + (x - from.x) * (scale / previousScale), imageWidth, stageWidth);
+    panY = boundedPan(to.y + (y - from.y) * (scale / previousScale), imageHeight, stageHeight);
+  }
+
+  function stagePoint(event: MouseEvent): Point {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    return {
+      x: event.clientX - rect.x - rect.width / 2,
+      y: event.clientY - rect.y - rect.height / 2,
+    };
   }
 
   function handleWheel(event: WheelEvent): void {
     event.preventDefault();
     event.stopPropagation();
-    setScale(scale + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+    if (event.deltaY)
+      setScale(scale + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), stagePoint(event));
   }
 
-  function handleDoubleClick(): void {
+  function handleDoubleClick(event: MouseEvent): void {
     if (scale > MIN_SCALE) resetView();
-    else setScale(2);
+    else setScale(nativeScale > STANDARD_MAX_SCALE ? nativeScale : 2, stagePoint(event));
   }
 
   function handlePointerDown(event: PointerEvent): void {
-    if (scale <= MIN_SCALE || event.button !== 0) return;
+    if (event.button !== 0 || pointers.length >= 2) return;
     const element = event.currentTarget as HTMLElement;
     element.setPointerCapture(event.pointerId);
-    dragging = true;
-    dragPointerId = event.pointerId;
-    dragStartX = event.clientX;
-    dragStartY = event.clientY;
-    dragOriginX = panX;
-    dragOriginY = panY;
+    pointers.push({ id: event.pointerId, point: stagePoint(event) });
+    dragging = scale > MIN_SCALE || pointers.length === 2;
   }
 
   function handlePointerMove(event: PointerEvent): void {
-    if (!dragging || dragPointerId !== event.pointerId) return;
-    panX = dragOriginX + event.clientX - dragStartX;
-    panY = dragOriginY + event.clientY - dragStartY;
+    const pointer = pointers.find((item) => item.id === event.pointerId);
+    if (!pointer) return;
+    const previous = pointer.point;
+    const next = stagePoint(event);
+    pointer.point = next;
+    const other = pointers.find((item) => item !== pointer)?.point;
+    if (other) {
+      const distance = Math.hypot(previous.x - other.x, previous.y - other.y);
+      if (distance > 0) {
+        setScale(
+          (scale * Math.hypot(next.x - other.x, next.y - other.y)) / distance,
+          { x: (previous.x + other.x) / 2, y: (previous.y + other.y) / 2 },
+          { x: (next.x + other.x) / 2, y: (next.y + other.y) / 2 }
+        );
+      }
+    } else {
+      panX = boundedPan(offsetX + next.x - previous.x, imageWidth, stageWidth);
+      panY = boundedPan(offsetY + next.y - previous.y, imageHeight, stageHeight);
+    }
   }
 
   function handlePointerEnd(event: PointerEvent): void {
-    if (dragPointerId !== event.pointerId) return;
-    const element = event.currentTarget as HTMLElement;
-    if (element.hasPointerCapture(event.pointerId)) element.releasePointerCapture(event.pointerId);
-    dragging = false;
-    dragPointerId = null;
+    pointers = pointers.filter((item) => item.id !== event.pointerId);
+    dragging = pointers.length > 0 && scale > MIN_SCALE;
   }
 
   function handleKeydown(event: KeyboardEvent): void {
@@ -121,37 +152,49 @@
     }
     if (scale > MIN_SCALE && event.key.startsWith("Arrow")) {
       event.preventDefault();
-      if (event.key === "ArrowLeft") panX -= KEYBOARD_PAN_STEP;
-      if (event.key === "ArrowRight") panX += KEYBOARD_PAN_STEP;
-      if (event.key === "ArrowUp") panY -= KEYBOARD_PAN_STEP;
-      if (event.key === "ArrowDown") panY += KEYBOARD_PAN_STEP;
+      if (event.key === "ArrowLeft") panX = offsetX + KEYBOARD_PAN_STEP;
+      if (event.key === "ArrowRight") panX = offsetX - KEYBOARD_PAN_STEP;
+      if (event.key === "ArrowUp") panY = offsetY + KEYBOARD_PAN_STEP;
+      if (event.key === "ArrowDown") panY = offsetY - KEYBOARD_PAN_STEP;
       return;
     }
-    handleDialogFocusTrap(event, dialog, onclose);
+    const viewer = event.currentTarget as HTMLDialogElement;
+    handleDialogFocusTrap(event, viewer.querySelector("section"), onclose);
   }
 
-  $effect(() => {
-    if (!open || !src) return;
+  function showViewer(element: HTMLDialogElement): () => void {
+    const opener = document.activeElement;
     resetView();
-    focusFirstDialogControl(() => dialog);
-    return lockPageScroll();
-  });
+    const unlock = lockPageScroll();
+    // The top layer escapes transformed messages and keeps the originating theme.
+    element.showModal();
+    element
+      .querySelector<HTMLElement>('[data-image-viewer-action="zoom-in"]')
+      ?.focus({ preventScroll: true });
+    return () => {
+      element.close();
+      unlock();
+      if (opener instanceof HTMLElement && opener.isConnected)
+        opener.focus({ preventScroll: true });
+    };
+  }
 </script>
 
 {#if open && src}
-  <div
+  <dialog
+    {@attach showViewer}
     class="image-viewer"
-    role="dialog"
-    aria-modal="true"
     aria-label={title || alt}
-    tabindex="-1"
     data-image-viewer
     onkeydown={handleKeydown}
-    onwheel={handleWheel}
+    oncancel={(event) => {
+      event.preventDefault();
+      onclose();
+    }}
   >
     <button class="image-viewer-backdrop" type="button" aria-label={closeLabel} onclick={onclose}
     ></button>
-    <section bind:this={dialog} class="image-viewer-panel">
+    <section class="image-viewer-panel">
       <header class="image-viewer-toolbar">
         <strong {title}>{title}</strong>
         <div class="image-viewer-controls">
@@ -172,7 +215,7 @@
             size="icon"
             data-image-viewer-action="zoom-in"
             onclick={() => setScale(scale + ZOOM_STEP)}
-            disabled={scale >= MAX_SCALE}
+            disabled={scale >= maxScale}
             aria-label={zoomInLabel}
             title={zoomInLabel}
           >
@@ -205,11 +248,14 @@
         class="image-viewer-stage"
         class:is-zoomed={scale > MIN_SCALE}
         class:is-dragging={dragging}
+        bind:clientWidth={stageWidth}
+        bind:clientHeight={stageHeight}
         role="presentation"
+        onwheel={handleWheel}
         onpointerdown={handlePointerDown}
         onpointermove={handlePointerMove}
         onpointerup={handlePointerEnd}
-        onpointercancel={handlePointerEnd}
+        onlostpointercapture={handlePointerEnd}
         ondblclick={handleDoubleClick}
       >
         <img
@@ -217,11 +263,15 @@
           {alt}
           draggable="false"
           decoding="async"
-          style:transform={`translate3d(${panX}px, ${panY}px, 0) scale(${scale})`}
+          bind:clientWidth={imageWidth}
+          bind:clientHeight={imageHeight}
+          bind:naturalWidth
+          bind:naturalHeight
+          style:transform={`translate3d(${offsetX}px, ${offsetY}px, 0) scale(${scale})`}
         />
       </div>
     </section>
-  </div>
+  </dialog>
 {/if}
 
 <style>
@@ -229,11 +279,28 @@
     box-sizing: border-box;
     position: fixed;
     inset: 0;
-    z-index: 1600;
-    display: grid;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     place-items: center;
     padding: max(12px, var(--content-safe-area-top)) max(12px, var(--content-safe-area-right))
       max(12px, var(--content-safe-area-bottom)) max(12px, var(--content-safe-area-left));
+  }
+
+  .image-viewer[open] {
+    display: grid;
+  }
+
+  .image-viewer::backdrop {
+    background: transparent;
   }
 
   .image-viewer-backdrop {
@@ -297,6 +364,7 @@
 
   .image-viewer-stage {
     display: grid;
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
     place-items: center;
     min-width: 0;
     min-height: 0;

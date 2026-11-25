@@ -104,6 +104,10 @@ export function demoSupportTickets(): DemoTicket[] {
 export function demoSupportMessages(): Record<string, DemoRecord[]> {
   if (!demoSupportMessagesState) {
     demoSupportMessagesState = defaultClone(DATASET.supportMessages || {});
+    const message = demoSupportMessagesState["4101"]?.find((item) => item.author_role === "user");
+    if (message && new URLSearchParams(window.location.search).get("mock") === "support-images") {
+      message.image_ids = ["demo-ticket-mobile", "demo-ticket-desktop"];
+    }
   }
   return demoSupportMessagesState;
 }

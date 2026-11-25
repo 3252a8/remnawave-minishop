@@ -13,6 +13,127 @@ const devices = [
 ] as const;
 
 for (const [device, viewport] of devices) {
+  test(`ticket attachments fit the screen and can be explored on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    for (const section of ["support", "admin/support"]) {
+      await page.goto(`/demo/runtime/${section}/4101?mock=support-images&theme_preview=dark`);
+      const thumbs = page.locator(
+        ".ticket-message-images.is-gallery .ticket-message-image-trigger"
+      );
+      await expect(thumbs).toHaveCount(2);
+      const thumb = thumbs.first();
+      await thumb.scrollIntoViewIfNeeded();
+      const scrollTop = () =>
+        thumb.evaluate((button) => button.closest(".scroll-area__viewport")?.scrollTop);
+      const chatPosition = await scrollTop();
+      await thumb.click();
+      const viewer = page.locator("[data-image-viewer]");
+      await expect(viewer).toBeVisible();
+      const overlayBox = await viewer.boundingBox();
+      expect(overlayBox).toEqual({ x: 0, y: 0, ...viewport });
+      const stage = viewer.locator(".image-viewer-stage");
+      const image = stage.locator("img");
+      const stageBox = (await stage.boundingBox())!;
+      const fitBox = (await image.boundingBox())!;
+      expect(stageBox.height).toBeGreaterThan(viewport.height * 0.75);
+      expect(fitBox.height).toBeLessThanOrEqual(stageBox.height + 1);
+      expect(fitBox.y).toBeGreaterThanOrEqual(stageBox.y - 1);
+      await snapshot(page, `ticket-image-${section.replace("/", "-")}-${device}`);
+      const x = Math.round(stageBox.x + stageBox.width / 2);
+      const y = Math.round(stageBox.y + stageBox.height / 2);
+      if (device === "mobile") {
+        const touch = await page.context().newCDPSession(page);
+        try {
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchStart",
+            touchPoints: [
+              { x: x - 30, y },
+              { x: x + 30, y },
+            ],
+          });
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [
+              { x: x - 60, y },
+              { x: x + 60, y },
+            ],
+          });
+          await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect(viewer.locator(".image-viewer-scale")).toHaveText("200%");
+          const before = (await image.boundingBox())!;
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchStart",
+            touchPoints: [{ x, y }],
+          });
+          await touch.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [{ x, y: y - 150 }],
+          });
+          await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect
+            .poll(async () => (await image.boundingBox())!.y)
+            .toBeLessThan(before.y - 100);
+        } finally {
+          await touch.detach();
+        }
+      } else {
+        await page.mouse.click(x, y, { clickCount: 2 });
+        await expect(viewer.locator(".image-viewer-scale")).toHaveText("200%");
+        const before = (await image.boundingBox())!;
+        await page.mouse.down();
+        await page.mouse.move(x, y - 150, { steps: 4 });
+        await page.mouse.up();
+        await expect.poll(async () => (await image.boundingBox())!.y).toBeLessThan(before.y - 100);
+      }
+      await viewer.locator('[data-image-viewer-action="reset"]').click();
+      await expect(viewer.locator(".image-viewer-scale")).toHaveText("100%");
+      await page.keyboard.press("Escape");
+      await expect(viewer).toHaveCount(0);
+      await expect(thumb).toBeFocused();
+      expect(await scrollTop()).toBe(chatPosition);
+      await thumbs.last().click();
+      await expect(viewer).toBeVisible();
+      expect(
+        await viewer.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)
+      ).toBe(1280);
+      await viewer.locator('[data-image-viewer-action="close"]').click();
+      await expect(thumbs.last()).toBeFocused();
+    }
+  });
+}
+
+test("a double tap reveals the original detail of a long ticket screenshot", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const screenshot = await sharp({
+    create: { width: 1080, height: 12000, channels: 3, background: "#eef8f3" },
+  })
+    .png()
+    .toBuffer();
+  await page.route("**/themes/dark/preview-mobile.webp", (route) =>
+    route.fulfill({ contentType: "image/png", body: screenshot })
+  );
+  await page.goto("/demo/runtime/admin/support/4101?mock=support-images&theme_preview=light");
+  await page.locator(".ticket-message-image-trigger").first().click();
+  const viewer = page.locator("[data-image-viewer]");
+  const image = viewer.locator("img");
+  await expect(image).toHaveJSProperty("naturalHeight", 12000);
+  const box = (await image.boundingBox())!;
+  expect(box.height).toBeLessThan(844);
+  const point = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+  const touch = await page.context().newCDPSession(page);
+  try {
+    for (let tap = 0; tap < 2; tap++) {
+      await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+      await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    }
+    await expect.poll(async () => (await image.boundingBox())!.height).toBeCloseTo(12000, -1);
+    await expect(viewer.locator('[data-image-viewer-action="zoom-in"]')).toBeDisabled();
+  } finally {
+    await touch.detach();
+  }
+});
+
+for (const [device, viewport] of devices) {
   test(`referral deep links reach the referral block on ${device}`, async ({ page }) => {
     await page.setViewportSize({ ...viewport, height: 500 });
     for (const destination of [
