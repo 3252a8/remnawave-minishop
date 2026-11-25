@@ -61,9 +61,11 @@ async def subscription_quote_route(request: web.Request) -> web.Response:
     async_session_factory: sessionmaker = get_session_factory(request)
 
     async with async_session_factory() as session:
-        db_user = await user_dal.get_user_by_id(session, user_id)
+        db_user = await user_dal.get_user_by_id(session, user_id, with_suspension=True)
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
+        if not payload.gift and getattr(db_user, "suspended_subscription_id", None):
+            return _json_error(409, "subscription_suspended", "Subscription suspended")
         quote, quote_error = await _resolve_base_payment_quote(
             request=request,
             session=session,

@@ -387,7 +387,6 @@ async def handle_toggle_ban(
 
     try:
         new_ban_status = not user.is_banned
-
         if new_ban_status and (
             not callback.from_user
             or not await can_ban_account(
@@ -399,12 +398,19 @@ async def handle_toggle_ban(
             await session.rollback()
             await callback.answer(_("wa_auth_access_denied"), show_alert=True)
             return
+        locked_user = await user_dal.lock_user_by_id(session, user.user_id, with_suspension=True)
+        if locked_user is None:
+            await callback.answer(_("admin_user_ban_toggle_error"), show_alert=True)
+            return
+        user = locked_user
 
-        # Update in database
+        update_panel = bool(
+            user.panel_user_uuid and (new_ban_status or not user.suspended_subscription_id)
+        )
         await user_dal.update_user(session, user.user_id, {"is_banned": new_ban_status})
 
         # Update on panel if user has panel UUID
-        if user.panel_user_uuid:
+        if update_panel:
             await panel_service.update_user_status_on_panel(
                 user.panel_user_uuid, not new_ban_status
             )

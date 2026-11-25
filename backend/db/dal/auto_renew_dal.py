@@ -602,6 +602,7 @@ async def list_funded_grants(
         .join(User, User.user_id == Subscription.user_id)
         .where(
             Subscription.is_active.is_(True),
+            Subscription.suspended_at.is_(None),
             Subscription.end_date > datetime.now(UTC),
             User.is_banned.is_(False),
             provider.in_(GRANT_PROVIDERS),
@@ -639,6 +640,7 @@ async def list_due_subscriptions(
     cutoff = now + timedelta(hours=max(1, int(hours_ahead)))
     query = select(Subscription.subscription_id, Subscription.user_id).where(
         Subscription.is_active.is_(True),
+        Subscription.suspended_at.is_(None),
         Subscription.auto_renew_enabled.is_(True),
         renewal_provider_column().in_(provider_keys),
         Subscription.end_date > now,

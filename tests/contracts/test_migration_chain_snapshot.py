@@ -133,6 +133,7 @@ EXPECTED_CORE_MIGRATION_IDS = [
     "0114_support_message_images",
     "0115_broadcast_audiences",
     "0116_grant_balance_renewal",
+    "0117_subscription_suspension",
 ]
 
 

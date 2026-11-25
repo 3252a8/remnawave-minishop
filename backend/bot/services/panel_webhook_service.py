@@ -260,6 +260,10 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
         async with self.async_session_factory() as session:
             db_user = await self._user_for_payload(session, user_payload)
             sub = await self._subscription_for_payload(session, user_payload, db_user)
+            if getattr(db_user, "suspended_subscription_id", None) or getattr(
+                sub, "suspended_at", None
+            ):
+                return
             telegram_id = self._payload_telegram_id(user_payload)
             internal_user_id = (
                 int(db_user.user_id) if db_user else int(getattr(sub, "user_id", 0) or 0)
@@ -714,13 +718,15 @@ class PanelWebhookService(PanelWebhookPayloadMixin):
     ) -> User | None:
         telegram_id = self._payload_telegram_id(user_payload)
         if telegram_id:
-            user = await user_dal.get_user_by_telegram_id(session, telegram_id)
+            user = await user_dal.get_user_by_telegram_id(
+                session, telegram_id, with_suspension=True
+            )
             if user:
                 return user
 
         panel_uuid = self._payload_panel_uuid(user_payload)
         if panel_uuid:
-            user = await user_dal.get_user_by_panel_uuid(session, panel_uuid)
+            user = await user_dal.get_user_by_panel_uuid(session, panel_uuid, with_suspension=True)
             if user:
                 return user
 

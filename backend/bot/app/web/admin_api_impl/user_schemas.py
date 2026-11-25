@@ -129,6 +129,7 @@ class AdminSubscriptionOut(HttpResponseModel):
     period_semantics: str | None = None
     is_active: bool
     status_from_panel: str | None = None
+    suspended_at: str | None = None
     traffic_limit_bytes: int | None = None
     traffic_used_bytes: int | None = None
     tier_baseline_bytes: int | None = None
@@ -183,6 +184,9 @@ class AdminSubscriptionOut(HttpResponseModel):
             duration_months=sub.duration_months,
             is_active=bool(sub.is_active),
             status_from_panel=sub.status_from_panel,
+            suspended_at=sub.suspended_at.isoformat()
+            if getattr(sub, "suspended_at", None)
+            else None,
             traffic_limit_bytes=sub.traffic_limit_bytes,
             traffic_used_bytes=sub.traffic_used_bytes,
             tier_baseline_bytes=sub.tier_baseline_bytes,

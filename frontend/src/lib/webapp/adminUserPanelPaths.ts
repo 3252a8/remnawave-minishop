@@ -1,5 +1,11 @@
 import { builtApiPath } from "./publicApi";
 
+export function buildAdminUserSubscriptionSuspensionPath(userId: number | string) {
+  return builtApiPath<"/api/admin/users/{user_id}/subscription-suspension">(
+    `/admin/users/${encodeURIComponent(String(userId))}/subscription-suspension`
+  );
+}
+
 export function buildAdminUserDevicesPath(userId: number | string) {
   return builtApiPath<"/api/admin/users/{user_id}/hwid-devices">(
     `/admin/users/${encodeURIComponent(String(userId))}/hwid-devices`

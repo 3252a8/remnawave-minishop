@@ -45,6 +45,7 @@ from .chain_0113_promo_subscription_restrictions import CHAIN_0113_PROMO_SUBSCRI
 from .chain_0114_support_message_images import CHAIN_0114_SUPPORT_MESSAGE_IMAGES
 from .chain_0115_broadcast_audiences import CHAIN_0115_BROADCAST_AUDIENCES
 from .chain_0116_grant_balance_renewal import CHAIN_0116_GRANT_BALANCE_RENEWAL
+from .chain_0117_subscription_suspension import CHAIN_0117_SUBSCRIPTION_SUSPENSION
 from .engine import Migration
 
 MIGRATIONS: list[Migration] = [
@@ -91,4 +92,5 @@ MIGRATIONS: list[Migration] = [
     *CHAIN_0114_SUPPORT_MESSAGE_IMAGES,
     *CHAIN_0115_BROADCAST_AUDIENCES,
     *CHAIN_0116_GRANT_BALANCE_RENEWAL,
+    *CHAIN_0117_SUBSCRIPTION_SUSPENSION,
 ]

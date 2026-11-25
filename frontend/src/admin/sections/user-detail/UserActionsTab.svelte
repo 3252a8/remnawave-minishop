@@ -224,14 +224,16 @@
     />
   </AdminExtensionPoint>
 
-  <UserDangerActionsCard
-    {at}
-    {fmtDate}
-    {openedUser}
-    {openedUserDetail}
-    {openedUserIsBanned}
-    {userActionBusy}
-  />
+  {#key openedUser?.user_id}
+    <UserDangerActionsCard
+      {at}
+      {fmtDate}
+      {openedUser}
+      {openedUserDetail}
+      {openedUserIsBanned}
+      {userActionBusy}
+    />
+  {/key}
   <AdminExtensionPoint
     target="admin.users.detail.actions"
     context={{ user: openedUser, userDetail: openedUserDetail }}

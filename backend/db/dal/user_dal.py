@@ -12,6 +12,7 @@ from sqlalchemy import text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import undefer
 
 from bot.infra import events
 from bot.infra.event_payloads import UserRegisteredPayload
@@ -132,7 +133,9 @@ async def ensure_referral_code(session: AsyncSession, user: User) -> str:
     return referral_code
 
 
-async def lock_user_by_id(session: AsyncSession, user_id: int) -> User | None:
+async def lock_user_by_id(
+    session: AsyncSession, user_id: int, *, with_suspension: bool = False
+) -> User | None:
     """Serialize entitlement changes for one user inside the current transaction.
 
     ``populate_existing`` matters when the caller loaded the user before waiting
@@ -145,6 +148,8 @@ async def lock_user_by_id(session: AsyncSession, user_id: int) -> User | None:
         .execution_options(populate_existing=True)
         .with_for_update()
     )
+    if with_suspension:
+        stmt = stmt.options(undefer(User.suspended_subscription_id))
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

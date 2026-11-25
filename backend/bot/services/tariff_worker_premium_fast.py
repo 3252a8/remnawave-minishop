@@ -165,6 +165,7 @@ class TariffWorkerPremiumFastMixin:
             select(Subscription)
             .where(
                 Subscription.is_active.is_(True),
+                Subscription.suspended_at.is_(None),
                 Subscription.end_date > now,
                 Subscription.premium_unlimited_override.is_(False),
                 tracked_subscriptions_filter,

@@ -61,6 +61,7 @@ def test_serialize_subscription_matches_legacy_contract():
         "period_semantics": None,
         "is_active": True,
         "status_from_panel": "ACTIVE",
+        "suspended_at": None,
         "traffic_limit_bytes": 5000,
         "traffic_used_bytes": 1234,
         "tier_baseline_bytes": 4000,

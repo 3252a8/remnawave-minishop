@@ -628,12 +628,13 @@ async def _perform_sync_impl(
                         e_desc,
                     )
 
-                # Sync subscription data
+                owner = users_by_user_id.get(int(actual_user_id))
+                paused = getattr(owner, "suspended_subscription_id", None)
                 panel_expire_at_iso = panel_user_dict.get("expireAt")
                 panel_status = panel_user_dict.get("status", "UNKNOWN")
                 panel_last_connected_at = panel_user_last_connected_datetime(panel_user_dict)
 
-                if panel_expire_at_iso:
+                if panel_expire_at_iso and not paused:
                     try:
                         panel_expire_at = datetime.fromisoformat(
                             panel_expire_at_iso.replace("Z", "+00:00")

@@ -5968,6 +5968,18 @@
             "title": "Subscription Id",
             "type": "integer"
           },
+          "suspended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Suspended At"
+          },
           "tariff_binding_note": {
             "anyOf": [
               {
@@ -15831,6 +15843,25 @@
           "enabled"
         ],
         "title": "SubscriptionGuidesOut",
+        "type": "object"
+      },
+      "SubscriptionSuspensionBody": {
+        "properties": {
+          "subscription_id": {
+            "exclusiveMinimum": 0,
+            "title": "Subscription Id",
+            "type": "integer"
+          },
+          "suspended": {
+            "title": "Suspended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "subscription_id",
+          "suspended"
+        ],
+        "title": "SubscriptionSuspensionBody",
         "type": "object"
       },
       "SupportCountsOut": {
@@ -32418,6 +32449,16 @@
                       },
                       "type": "array"
                     },
+                    "suspended_subscription": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AdminSubscriptionOut"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "telegram_notifications": {
                       "$ref": "#/components/schemas/AdminTelegramNotificationsOut"
                     },
@@ -32439,6 +32480,7 @@
                     "user",
                     "has_relationships",
                     "active_subscription",
+                    "suspended_subscription",
                     "subscriptions",
                     "trial",
                     "total_paid",
@@ -34218,6 +34260,69 @@
           }
         ],
         "summary": "Admin User Subscription Reissue",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/users/{user_id}/subscription-suspension": {
+      "post": {
+        "operationId": "post_admin_user_subscription_suspension_route",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionSuspensionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "const": true,
+                      "type": "boolean"
+                    },
+                    "subscription": {
+                      "$ref": "#/components/schemas/AdminSubscriptionOut"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "subscription"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "JSON response"
+          }
+        },
+        "security": [
+          {
+            "AdminSession": []
+          },
+          {
+            "AdminBearer": []
+          }
+        ],
+        "summary": "Admin User Subscription Suspension",
         "tags": [
           "admin"
         ]

@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { getRoleApi, getUsersStore } from "$lib/admin/context";
+  import { adminErrorMessage } from "$lib/admin/errors";
   import { AdminButton } from "$components/patterns/admin/index.js";
-  import { Key, Merge, Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
+  import Dialog from "$components/ui/dialog.svelte";
+  import { Clock, Key, Merge, Trash2, UserMinus, UserPlus } from "$components/ui/icons.js";
   import type { AdminUser } from "$lib/admin/stores/usersStore";
   import type { AdminUserDetail } from "$lib/admin/stores/usersStoreState";
   import type { TranslateFn, DateFormatter } from "./userDetailTypes";
@@ -32,11 +34,54 @@
   let roleError = $state("");
   let mergeOpen = $state(false);
   let mergeTrigger: HTMLButtonElement | null = null;
+  const subscription = $derived(
+    openedUserDetail?.suspended_subscription ?? openedUserDetail?.active_subscription
+  );
+  const pendingSuspension = $derived(Boolean(subscription?.suspended_at && subscription.is_active));
+  const canResume = $derived(Boolean(subscription?.suspended_at && !subscription.is_active));
+  const suspensionLabel = $derived(
+    canResume
+      ? "user_resume_subscription"
+      : pendingSuspension
+        ? "user_retry_subscription_suspension"
+        : "user_suspend_subscription"
+  );
+  let confirmation = $state<{ userId: number | string; id: number; suspended: boolean } | null>(
+    null
+  );
+  let suspensionError = $state("");
+  let suspensionTrigger: HTMLButtonElement | null = null;
   const targetId = $derived(Number(openedUser?.user_id || 0));
-  $effect(() => {
-    void targetId;
-    mergeOpen = false;
-  });
+
+  function requestSuspension(event: MouseEvent) {
+    if (!openedUser || !subscription || openedUserIsBanned || userActionBusy) return;
+    suspensionTrigger =
+      event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
+    suspensionError = "";
+    confirmation = {
+      userId: openedUser.user_id,
+      id: subscription.subscription_id,
+      suspended: !canResume,
+    };
+  }
+
+  async function closeSuspension() {
+    confirmation = null;
+    await tick();
+    suspensionTrigger?.focus();
+  }
+
+  async function confirmSuspension() {
+    if (!confirmation || userActionBusy) return;
+    suspensionError = "";
+    const { userId, id, suspended } = confirmation;
+    try {
+      if (await usersStore.setSubscriptionSuspension(userId, id, suspended))
+        await closeSuspension();
+    } catch (cause) {
+      suspensionError = adminErrorMessage(cause, at, at("user_subscription_suspension_failed"));
+    }
+  }
 
   function closeMerge() {
     mergeOpen = false;
@@ -88,6 +133,16 @@
   <header class="admin-danger-zone-head">
     <strong>{at("user_danger_zone_title", {}, "Danger Zone")}</strong>
     <small>{at("user_danger_zone_subtitle", {}, "Confirm first. Deletion is permanent.")}</small>
+    {#if subscription?.suspended_at}
+      <small role="status"
+        >{at(
+          pendingSuspension
+            ? "user_subscription_suspension_pending_since"
+            : "user_subscription_suspended_since",
+          { date: fmtDate(subscription.suspended_at) }
+        )}</small
+      >
+    {/if}
   </header>
   <div class="admin-action-grid">
     <AdminButton
@@ -110,6 +165,18 @@
         {targetIsAdmin
           ? at("roles_demote", {}, "Demote administrator")
           : at("roles_promote", {}, "Make administrator")}
+      </AdminButton>
+    {/if}
+    {#if subscription?.subscription_id}
+      <AdminButton
+        variant="dangerSoft"
+        data-admin-action="request-user-subscription-suspension"
+        onclick={requestSuspension}
+        disabled={userActionBusy || roleBusy || openedUserIsBanned}
+        title={openedUserIsBanned ? at("error_suspension_account_banned") : undefined}
+      >
+        <Clock size={14} />
+        {at(suspensionLabel)}
       </AdminButton>
     {/if}
     {#if openedUserIsBanned}
@@ -154,6 +221,41 @@
   </div>
   {#if roleError}<p class="admin-error" role="alert">{roleError.replaceAll("_", " ")}</p>{/if}
 </section>
+
+{#if confirmation}
+  {@const request = confirmation}
+  <Dialog
+    open
+    portal
+    title={at(request.suspended ? "user_suspend_subscription" : "user_resume_subscription")}
+    description={at(
+      request.suspended ? "user_suspend_subscription_details" : "user_resume_subscription_details",
+      { id: request.id }
+    )}
+    closeLabel={at("close", {}, "Close")}
+    onclose={() => !userActionBusy && closeSuspension()}
+    class="admin-dialog"
+  >
+    {#if suspensionError}<p class="admin-error" role="alert">{suspensionError}</p>{/if}
+    {#snippet footer()}
+      <div class="admin-dialog-actions">
+        <AdminButton disabled={userActionBusy} onclick={closeSuspension}
+          >{at("btn_cancel", {}, "Cancel")}</AdminButton
+        >
+        <AdminButton
+          variant={request.suspended ? "danger" : "primary"}
+          disabled={userActionBusy ||
+            openedUserIsBanned ||
+            request.id !== subscription?.subscription_id ||
+            request.suspended === canResume}
+          onclick={confirmSuspension}
+        >
+          {at(request.suspended ? "user_suspend_subscription" : "user_resume_subscription")}
+        </AdminButton>
+      </div>
+    {/snippet}
+  </Dialog>
+{/if}
 
 {#if openedUserDetail && mergeOpen}
   <UserMergeDialog

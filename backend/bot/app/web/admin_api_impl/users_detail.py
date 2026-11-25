@@ -6,7 +6,7 @@ from aiohttp import web
 from sqlalchemy import func as sa_func
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased, sessionmaker
+from sqlalchemy.orm import aliased, sessionmaker, undefer
 
 from bot.app.web.context import (
     get_bot_username,
@@ -199,9 +199,13 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
 
     async with async_session_factory() as session:
         user = (
-            await session.scalar(select(User).where(User.minishop_id == identifier.lower()))
+            await session.scalar(
+                select(User)
+                .where(User.minishop_id == identifier.lower())
+                .options(undefer(User.suspended_subscription_id))
+            )
             if identifier.startswith("ms_")
-            else await user_dal.get_user_by_id(session, int(identifier))
+            else await user_dal.get_user_by_id(session, int(identifier), with_suspension=True)
         )
         if not user:
             return _error(404, "not_found", "User not found")
@@ -210,6 +214,11 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
 
         active_sub = await subscription_dal.get_active_subscription_by_user_id(
             session, target_id, user.panel_user_uuid
+        )
+        suspended_sub = (
+            await session.get(Subscription, user.suspended_subscription_id)
+            if getattr(user, "suspended_subscription_id", None)
+            else None
         )
         latest_subs_stmt = (
             select(Subscription)
@@ -444,6 +453,9 @@ async def admin_user_detail_route(request: web.Request) -> web.Response:
         {
             "user": serialized_user,
             "active_subscription": active_subscription_payload,
+            "suspended_subscription": _serialize_subscription(suspended_sub)
+            if suspended_sub
+            else None,
             "subscriptions": [_serialize_subscription(s) for s in (latest_subs or [])],
             "trial": trial_payload,
             "total_paid": float(total_paid),

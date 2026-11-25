@@ -123,9 +123,12 @@ class TrafficMixin(SubscriptionServiceMixinContract):
             tariff_key=tariff.key if tariff else tariff_key,
             purchased_gb=float(granted_gb),
         )
-        db_user = await user_dal.get_user_by_id(session, user_id)
+        db_user = await user_dal.get_user_by_id(session, user_id, with_suspension=True)
         if not db_user:
             logger.error("User %s not found for traffic package activation", user_id)
+            return None
+
+        if getattr(db_user, "suspended_subscription_id", None):
             return None
 
         previous_panel_user_uuid = getattr(db_user, "panel_user_uuid", None)

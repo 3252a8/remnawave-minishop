@@ -189,7 +189,15 @@
               >{at("user_history_until", { date: fmtDate(sub.end_date) }, "until {date}")}</small
             >
           </div>
-          {#if sub.is_active}
+          {#if sub.suspended_at}
+            <AdminBadge variant="warning"
+              >{at(
+                sub.is_active
+                  ? "user_subscription_suspension_pending"
+                  : "user_subscription_suspended"
+              )}</AdminBadge
+            >
+          {:else if sub.is_active}
             <AdminBadge variant="success">{at("user_history_active", {}, "Active")}</AdminBadge>
           {:else}
             <AdminBadge variant="muted"

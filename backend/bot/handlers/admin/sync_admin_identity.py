@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import undefer
 
 from bot.services.panel_api_compat import numeric_panel_user_id
 from db.dal import user_dal
@@ -144,7 +145,10 @@ async def _prefetch_sync_indexes(
         )
     if user_filters:
         result = await session.execute(
-            select(User).where(or_(*user_filters)).execution_options(populate_existing=True)
+            select(User)
+            .where(or_(*user_filters))
+            .options(undefer(User.suspended_subscription_id))
+            .execution_options(populate_existing=True)
         )
         for user in result.scalars().unique().all():
             if user.telegram_id is not None:

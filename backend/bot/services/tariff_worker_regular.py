@@ -174,6 +174,7 @@ class TariffWorkerRegularMixin(TariffWorkerRegularTagMixin):
         result = await session.execute(
             selection.where(
                 Subscription.is_active == True,
+                Subscription.suspended_at.is_(None),
                 Subscription.end_date > now,
                 tracked_subscriptions_filter,
             ).order_by(Subscription.subscription_id.asc())

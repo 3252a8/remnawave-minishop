@@ -50,6 +50,7 @@ export function billingErrorMessage(
   fallbackKey = "wa_payment_create_failed"
 ): string {
   const failure = error && typeof error === "object" ? (error as WebappRecord) : {};
+  if (failure.error === "subscription_suspended") return t("wa_subscription_suspended");
   if (failure.error === "tariff_switch_required") return t("wa_tariff_switch_required");
   if (failure.error === "balance_renewal_cycle_started")
     return t("wa_balance_renewal_cycle_started");

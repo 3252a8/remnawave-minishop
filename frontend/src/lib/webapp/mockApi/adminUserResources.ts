@@ -13,6 +13,36 @@ export function adminUserResourceDemoResponse(
   clone: CloneFn
 ) {
   const method = (options.method || "GET").toUpperCase();
+  if (resource === "subscription-suspension" && method === "POST") {
+    const body = jsonBody(options);
+    const sub = detail.suspended_subscription ?? detail.active_subscription;
+    if (user?.is_banned) return { ok: false, error: "account_banned" };
+    if (!sub || body.subscription_id !== sub.subscription_id) {
+      return { ok: false, error: "subscription_not_current" };
+    }
+    if (body.suspended && !sub.suspended_at) {
+      sub.suspended_at = new Date().toISOString();
+      sub.is_active = false;
+      sub.status_from_panel = "DISABLED";
+      detail.suspended_subscription = sub;
+      delete detail.active_subscription;
+    } else if (!body.suspended && typeof sub.suspended_at === "string") {
+      const duration = Date.now() - Date.parse(sub.suspended_at);
+      if (typeof sub.end_date === "string")
+        sub.end_date = new Date(Date.parse(sub.end_date) + duration).toISOString();
+      sub.is_active = true;
+      sub.status_from_panel = "ACTIVE";
+      sub.suspended_at = null;
+      detail.suspended_subscription = null;
+      detail.active_subscription = sub;
+    }
+    if (Array.isArray(detail.subscriptions)) {
+      detail.subscriptions = detail.subscriptions.map((row) =>
+        row.subscription_id === sub.subscription_id ? { ...row, ...sub } : row
+      );
+    }
+    return { ok: true, subscription: clone(sub) };
+  }
   if (resource === "note") {
     if (!user?.panel_user_uuid) return { ok: false, error: "panel_user_not_found" };
     const note = String(detail.panel_note || "");

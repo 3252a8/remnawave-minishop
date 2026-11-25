@@ -190,6 +190,9 @@ register_contract(
                 "active_subscription": {
                     "anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]
                 },
+                "suspended_subscription": {
+                    "anyOf": [schema_ref(AdminSubscriptionOut), {"type": "null"}]
+                },
                 "subscriptions": {"type": "array", "items": schema_ref(AdminSubscriptionOut)},
                 "trial": schema_ref(AdminUserTrialOut),
                 "total_paid": NUMBER_SCHEMA,

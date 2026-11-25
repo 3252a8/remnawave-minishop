@@ -30,11 +30,14 @@ class SubscriptionLifecycleDetailsMixin(SubscriptionServiceMixinContract):
     async def get_active_subscription_details(
         self, session: AsyncSession, user_id: int, *, prefer_local: bool = False
     ) -> dict[str, Any] | None:
-        db_user = await user_dal.get_user_by_id(session, user_id)
+        db_user = await user_dal.get_user_by_id(session, user_id, with_suspension=True)
         if not db_user or not db_user.panel_user_uuid:
             logger.info(
                 "User %s not found in DB or no panel_user_uuid for 'my_subscription'.", user_id
             )
+            return None
+
+        if getattr(db_user, "suspended_subscription_id", None):
             return None
 
         panel_user_uuid = db_user.panel_user_uuid

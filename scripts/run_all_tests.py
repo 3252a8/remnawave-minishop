@@ -304,7 +304,11 @@ class FullTestRun:
                 ),
                 log="start.log",
             )
-            self.pytest("source-panel", "tests/qa/test_remnawave_panel_contract.py")
+            self.pytest(
+                "source-panel",
+                "tests/qa/test_remnawave_panel_contract.py",
+                "tests/qa/test_fullstack_stand.py::test_admin_subscription_suspension_round_trip",
+            )
             print(
                 f"Upgrading Panel {SOURCE_VERSION} -> {TARGET_VERSION} on the same database",
                 flush=True,

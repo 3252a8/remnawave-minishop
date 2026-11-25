@@ -125,6 +125,7 @@ class TariffWorkerRegularTagMixin(TariffWorkerRegularWarningMixin):
                     Subscription.user_id == User.user_id,
                     Subscription.panel_user_uuid == User.panel_user_uuid,
                     Subscription.is_active == True,
+                    Subscription.suspended_at.is_(None),
                     Subscription.end_date > now,
                 ),
             )

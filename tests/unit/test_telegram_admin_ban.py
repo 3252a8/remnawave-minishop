@@ -130,7 +130,12 @@ class TelegramAdminBanTests(unittest.IsolatedAsyncioTestCase):
     async def test_checks_account_identity_before_mutating_database_or_panel(self):
         for banned, allowed in ((False, False), (False, True), (True, False)):
             with self.subTest(banned=banned, allowed=allowed):
-                user = SimpleNamespace(user_id=42, is_banned=banned, panel_user_uuid="panel")
+                user = SimpleNamespace(
+                    user_id=42,
+                    is_banned=banned,
+                    panel_user_uuid="panel",
+                    suspended_subscription_id=None,
+                )
                 callback = SimpleNamespace(from_user=SimpleNamespace(id=1001), answer=AsyncMock())
                 session = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
                 panel = SimpleNamespace(update_user_status_on_panel=AsyncMock())
@@ -142,6 +147,7 @@ class TelegramAdminBanTests(unittest.IsolatedAsyncioTestCase):
                     patch.object(
                         bans, "require_telegram_account_id", AsyncMock(return_value=71)
                     ) as identity,
+                    patch.object(bans.user_dal, "lock_user_by_id", AsyncMock(return_value=user)),
                     patch.object(bans.user_dal, "update_user", AsyncMock()) as update,
                     patch.object(bans, "handle_refresh_user_card", AsyncMock()),
                 ):

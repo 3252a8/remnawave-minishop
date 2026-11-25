@@ -21,7 +21,10 @@ def _local_subscription_is_publicly_active(subscription: Any) -> bool:
     if end_date and end_date.tzinfo is None:
         end_date = end_date.replace(tzinfo=UTC)
     return bool(
-        getattr(subscription, "is_active", False) and end_date and end_date > datetime.now(UTC)
+        not getattr(subscription, "suspended_at", None)
+        and getattr(subscription, "is_active", False)
+        and end_date
+        and end_date > datetime.now(UTC)
     )
 
 

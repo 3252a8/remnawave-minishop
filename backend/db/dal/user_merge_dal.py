@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import undefer
 
 from bot.infra.event_payloads import AccountMergedPayload
 from db.transaction_events import defer_event_until_commit
@@ -141,6 +142,7 @@ async def _lock_users_for_merge(
     stmt = (
         select(User)
         .where(User.user_id.in_(user_ids))
+        .options(undefer(User.suspended_subscription_id))
         .order_by(User.user_id)
         .execution_options(populate_existing=True)
         .with_for_update()
@@ -171,7 +173,10 @@ async def merge_users(
     if not source or not target:
         raise ValueError("Both source and target users are required for merge.")
     source_minishop_id = getattr(source, "minishop_id", None)
-    if bool(getattr(source, "is_banned", False)) or bool(getattr(target, "is_banned", False)):
+    if any(
+        getattr(user, "is_banned", False) or getattr(user, "suspended_subscription_id", None)
+        for user in (source, target)
+    ):
         raise UserMergeConflictError(
             "Access denied",
             message_key="wa_auth_access_denied",

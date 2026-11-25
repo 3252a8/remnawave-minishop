@@ -9,6 +9,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -264,6 +265,91 @@ def test_trial_activation_creates_missing_panel_user(client: httpx.Client) -> No
     assert subscription["panel_user_uuid"] == user["panel_user_uuid"]
     assert subscription["provider"] == "trial"
     assert subscription["is_active"] is True
+
+
+async def _move_paused_subscription_back(subscription_id: int, elapsed: timedelta) -> None:
+    # Advance only this disposable account past its original paid deadline.
+    connection = await asyncpg.connect(DB_DSN)
+    try:
+        assert (
+            await connection.execute(
+                "UPDATE subscriptions SET suspended_at = suspended_at - $2::interval, "
+                "suspension_end_date = suspension_end_date - $2::interval, "
+                "end_date = end_date - $2::interval "
+                "WHERE subscription_id = $1 AND suspended_at IS NOT NULL",
+                subscription_id,
+                elapsed,
+            )
+            == "UPDATE 1"
+        )
+    finally:
+        await connection.close()
+
+
+def test_admin_subscription_suspension_round_trip(client: httpx.Client) -> None:
+    from tests.qa.test_remnawave_panel_contract import _panel_service
+
+    member = login_email(client, f"qa-suspension-{uuid.uuid4().hex}@example.com")
+    assert _ok(client.post("/api/trial/activate", headers=member.headers()))["activated"]
+    admin = login_email(client, "runes.admin@example.com")
+    detail = f"/api/admin/users/{member.user_id}"
+    url = f"{detail}/subscription-suspension"
+    active = _ok(client.get(detail, headers=admin.headers()))["active_subscription"]
+    request = {"subscription_id": active["subscription_id"], "suspended": True}
+
+    async def read_panel() -> dict[str, Any]:
+        panel = _panel_service()
+        try:
+            snapshot = await panel.get_user_by_uuid(active["panel_user_uuid"], use_cache=False)
+            assert isinstance(snapshot, dict)
+            return snapshot
+        finally:
+            await panel.close_session()
+
+    before = asyncio.run(read_panel())
+    assert before["status"] == "ACTIVE"
+    assert client.post(url, json=request, headers=member.headers()).status_code == 403
+    paused = _ok(client.post(url, json=request, headers=admin.headers()))["subscription"]
+    assert paused["suspended_at"] and not paused["is_active"]
+    assert asyncio.run(read_panel())["status"] == "DISABLED"
+    assert _ok(client.post(url, json=request, headers=admin.headers()))["subscription"] == paused
+    card = _ok(client.get(detail, headers=admin.headers()))
+    assert not card["user"]["is_banned"] and card["suspended_subscription"] == paused
+    assert _ok(client.get("/api/me", headers=member.headers()))["user"]["id"] == member.user_id
+    _ok(
+        client.post(
+            "/api/support/tickets",
+            headers=member.headers(),
+            json={"subject": "Access paused", "body": "Please review my subscription."},
+        )
+    )
+    for banned in (True, False):
+        _ok(client.post(f"{detail}/ban", json={"banned": banned}, headers=admin.headers()))
+        if banned:
+            assert (
+                client.post(
+                    url, json={**request, "suspended": False}, headers=admin.headers()
+                ).status_code
+                == 409
+            )
+    assert asyncio.run(read_panel())["status"] == "DISABLED"
+    elapsed = timedelta(days=365)
+    asyncio.run(_move_paused_subscription_back(active["subscription_id"], elapsed))
+    # The card must still offer recovery after the original subscription expires.
+    expired_pause = _ok(client.get(detail, headers=admin.headers()))["suspended_subscription"]
+    assert datetime.fromisoformat(expired_pause["end_date"]) < datetime.now(UTC)
+    request["suspended"] = False
+    start = datetime.fromisoformat(expired_pause["suspended_at"])
+    original_end = datetime.fromisoformat(before["expireAt"]) - elapsed
+    earliest = original_end + (datetime.now(UTC) - start) - timedelta(seconds=1)
+    restored = _ok(client.post(url, json=request, headers=admin.headers()))["subscription"]
+    latest = original_end + (datetime.now(UTC) - start) + timedelta(seconds=1)
+    after = asyncio.run(read_panel())
+    assert after["status"] == "ACTIVE"
+    assert earliest <= datetime.fromisoformat(after["expireAt"]) <= latest
+    assert restored["suspended_at"] is None and restored["is_active"]
+    assert datetime.fromisoformat(restored["end_date"]) == datetime.fromisoformat(after["expireAt"])
+    assert _ok(client.post(url, json=request, headers=admin.headers()))["subscription"] == restored
 
 
 def test_qa_payment_webhook_activates_subscription(client: httpx.Client) -> None:

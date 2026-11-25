@@ -44,6 +44,14 @@ describe("billing error translation", () => {
       "translated:wa_checkout_quote_failed"
     );
   });
+
+  it("explains a suspended subscription for both quotes and payment creation", () => {
+    const failure = { error: "subscription_suspended", message: "Subscription suspended" };
+    const t = (key: string) => `translated:${key}`;
+    for (const key of ["wa_checkout_quote_failed", "wa_payment_create_failed"]) {
+      expect(billingErrorMessage(failure, t, key)).toBe("translated:wa_subscription_suspended");
+    }
+  });
 });
 
 describe("billingActions partner balance funding", () => {

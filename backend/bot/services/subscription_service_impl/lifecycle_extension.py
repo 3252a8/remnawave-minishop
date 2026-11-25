@@ -35,9 +35,12 @@ class SubscriptionLifecycleExtensionMixin(SubscriptionServiceMixinContract):
         )
 
         await user_dal.lock_user_entitlement(session, user_id)
-        user = await user_dal.get_user_by_id(session, user_id)
+        user = await user_dal.get_user_by_id(session, user_id, with_suspension=True)
         if not user:
             logger.warning("Cannot extend subscription for user %s: user not found.", user_id)
+            return None
+
+        if getattr(user, "suspended_subscription_id", None):
             return None
 
         previous_panel_user_uuid = getattr(user, "panel_user_uuid", None)

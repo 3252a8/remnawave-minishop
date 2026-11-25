@@ -49,7 +49,7 @@ class AdminUserBanRouteTests(unittest.IsolatedAsyncioTestCase):
                 AsyncMock(return_value=AdminUserBanBody(banned=banned)),
             ),
             "user": patch.object(
-                users_ban.user_dal, "get_user_by_id", AsyncMock(return_value=user)
+                users_ban.user_dal, "lock_user_by_id", AsyncMock(return_value=user)
             ),
             "uuids": patch.object(
                 users_ban.user_dal,

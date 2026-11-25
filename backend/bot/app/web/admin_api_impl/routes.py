@@ -209,6 +209,7 @@ from .users import (
 from .users_devices import admin_user_device_disconnect_route, admin_user_devices_route
 from .users_merge import admin_user_merge_route
 from .users_merge_context import admin_user_merge_context_route
+from .users_suspension import admin_user_subscription_suspension_route
 from .users_traffic_reset import admin_user_traffic_reset_route
 
 
@@ -329,6 +330,10 @@ def setup_admin_routes(app: web.Application) -> None:
     router.add_get("/api/admin/users/{user_id:-?\\d+}/referrals", admin_user_referrals_route)
     router.add_get("/api/admin/users/{user_id:-?\\d+}/avatar", admin_user_avatar_route)
     router.add_post("/api/admin/users/{user_id:-?\\d+}/ban", admin_user_ban_route)
+    router.add_post(
+        "/api/admin/users/{user_id:-?\\d+}/subscription-suspension",
+        admin_user_subscription_suspension_route,
+    )
     router.add_post("/api/admin/users/{user_id:-?\\d+}/merge", admin_user_merge_route)
     router.add_get(
         "/api/admin/users/{user_id:-?\\d+}/merge-context", admin_user_merge_context_route

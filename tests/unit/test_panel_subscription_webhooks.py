@@ -196,10 +196,10 @@ def assert_signed_webhook_delivery(
     assert email_service.send_rendered_email.await_args.kwargs["email"] == "user@example.test"
     assert recorded == {f"{stage_key}:telegram", f"{stage_key}:email"}
     if telegram_id is None:
-        panel_lookup.assert_awaited_with(session, expected_reference)
+        panel_lookup.assert_awaited_with(session, expected_reference, with_suspension=True)
         telegram_lookup.assert_not_awaited()
     else:
-        telegram_lookup.assert_awaited_with(session, 555)
+        telegram_lookup.assert_awaited_with(session, 555, with_suspension=True)
 
 
 @pytest.mark.parametrize(("event_name", "meta", "stage_key"), EXPIRATION_CASES)

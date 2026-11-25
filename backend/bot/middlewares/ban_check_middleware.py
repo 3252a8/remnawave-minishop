@@ -12,6 +12,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message, Telegram
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.inline.user_keyboards import get_user_banned_keyboard
+from bot.keyboards.inline.user_keyboards_context import sale_mode_has_token
 from config.settings import Settings
 from db.dal import user_dal
 
@@ -42,7 +43,9 @@ class BanCheckMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         try:
-            db_user_model = await user_dal.get_user_by_telegram_id(session, event_user.id)
+            db_user_model = await user_dal.get_user_by_telegram_id(
+                session, event_user.id, with_suspension=True
+            )
         except Exception as e_db:
             logger.exception(
                 "BanCheckMiddleware: DB error fetching user %s: %s", event_user.id, e_db
@@ -123,4 +126,20 @@ class BanCheckMiddleware(BaseMiddleware):
                 )
 
             return
+        # Provider buttons in old Telegram messages can still open checkout.
+        # Keep menu, support and payment-result handlers available during a pause.
+        if db_user_model and getattr(db_user_model, "suspended_subscription_id", None):
+            callback = update.callback_query
+            pre_checkout = update.pre_checkout_query
+            invoice_mode = pre_checkout.invoice_payload.split(":", 2)[-1] if pre_checkout else None
+            if (callback and (callback.data or "").startswith("pay_")) or (
+                pre_checkout and not sale_mode_has_token(invoice_mode, "gift")
+            ):
+                lang = db_user_model.language_code or self.settings.DEFAULT_LANGUAGE
+                notice = self.i18n_main_instance.gettext(lang, "wa_subscription_suspended")
+                if update.pre_checkout_query:
+                    await update.pre_checkout_query.answer(ok=False, error_message=notice)
+                elif callback:
+                    await callback.answer(notice, show_alert=True)
+                return
         return await handler(event, data)

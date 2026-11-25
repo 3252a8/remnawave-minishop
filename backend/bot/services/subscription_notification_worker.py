@@ -127,6 +127,7 @@ class SubscriptionNotificationWorker:
             select(Subscription)
             .where(
                 Subscription.skip_notifications == False,
+                Subscription.suspended_at.is_(None),
                 Subscription.end_date >= lower,
                 Subscription.end_date <= upper,
             )
@@ -353,6 +354,7 @@ class SubscriptionNotificationWorker:
             .where(
                 Subscription.skip_notifications == False,
                 Subscription.is_active == True,
+                Subscription.suspended_at.is_(None),
                 Subscription.end_date > now,
                 Subscription.traffic_limit_bytes.is_not(None),
                 Subscription.traffic_limit_bytes > 0,

@@ -50,6 +50,7 @@ export type DemoUserDetail = DemoRecord & {
   hwid_devices?: components["schemas"]["AdminUserHwidDevicesOut"];
   user?: DemoAdminUser;
   active_subscription?: DemoRecord;
+  suspended_subscription?: DemoRecord | null;
   referral?: DemoRecord & { inviter?: DemoAdminUser | null };
 };
 

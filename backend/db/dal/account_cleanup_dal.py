@@ -75,6 +75,7 @@ def _candidate_statement(settings: Settings, now: datetime):
                 Subscription.start_date
                 > now - timedelta(days=settings.UNUSED_ACCOUNTS_UNUSED_TRIAL_DAYS),
                 Subscription.end_date > now,
+                Subscription.suspended_at.is_not(None),
                 Subscription.last_connected_at.is_not(None),
                 Subscription.traffic_used_bytes > 0,
                 Subscription.premium_used_bytes > 0,

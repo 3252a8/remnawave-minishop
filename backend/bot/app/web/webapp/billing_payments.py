@@ -387,9 +387,11 @@ async def create_payment_route(request: web.Request) -> web.Response:
         sale_mode += "|gift"
     async_session_factory: sessionmaker = get_session_factory(request)
     async with async_session_factory() as session:
-        db_user = await user_dal.get_user_by_id(session, user_id)
+        db_user = await user_dal.get_user_by_id(session, user_id, with_suspension=True)
         if not db_user or db_user.is_banned:
             return _json_error(403, "access_denied", "Access denied")
+        if not payment_payload.gift and getattr(db_user, "suspended_subscription_id", None):
+            return _json_error(409, "subscription_suspended", "Subscription suspended")
         lang = db_user.language_code or settings.DEFAULT_LANGUAGE
         if _sale_mode_base(sale_mode) == "trial":
             oauth_required_reason = await _trial_oauth_required_reason_for_user(

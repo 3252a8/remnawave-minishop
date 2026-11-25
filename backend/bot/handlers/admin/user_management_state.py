@@ -530,17 +530,20 @@ async def process_unban_user_handler(
         return
 
     try:
+        user_model = await user_dal.lock_user_by_id(
+            session, user_model.user_id, with_suspension=True
+        )
         # Check if user is not banned
-        if not user_model.is_banned:
+        if not user_model or not user_model.is_banned:
             await message.answer(_("admin_user_not_banned"))
             await state.clear()
             return
 
-        # Unban the user
+        enable_panel = bool(user_model.panel_user_uuid and not user_model.suspended_subscription_id)
         await user_dal.update_user(session, user_model.user_id, {"is_banned": False})
 
         # Update on panel if user has panel UUID
-        if user_model.panel_user_uuid:
+        if enable_panel:
             await panel_service.update_user_status_on_panel(user_model.panel_user_uuid, True)
 
         await session.commit()

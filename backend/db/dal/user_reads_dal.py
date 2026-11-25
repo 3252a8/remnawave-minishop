@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import func, literal, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import undefer
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..models import (
@@ -20,8 +21,12 @@ from ..models import (
 )
 
 
-async def get_user_by_id(session: AsyncSession, user_id: int) -> User | None:
+async def get_user_by_id(
+    session: AsyncSession, user_id: int, *, with_suspension: bool = False
+) -> User | None:
     stmt = select(User).where(User.user_id == user_id)
+    if with_suspension:
+        stmt = stmt.options(undefer(User.suspended_subscription_id))
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -112,8 +117,12 @@ async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
+async def get_user_by_telegram_id(
+    session: AsyncSession, telegram_id: int, *, with_suspension: bool = False
+) -> User | None:
     stmt = select(User).where(User.telegram_id == telegram_id)
+    if with_suspension:
+        stmt = stmt.options(undefer(User.suspended_subscription_id))
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -127,8 +136,12 @@ async def get_user_telegram_avatar(
     return result.scalar_one_or_none()
 
 
-async def get_user_by_panel_uuid(session: AsyncSession, panel_uuid: str) -> User | None:
+async def get_user_by_panel_uuid(
+    session: AsyncSession, panel_uuid: str, *, with_suspension: bool = False
+) -> User | None:
     stmt = select(User).where(User.panel_user_uuid == panel_uuid)
+    if with_suspension:
+        stmt = stmt.options(undefer(User.suspended_subscription_id))
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

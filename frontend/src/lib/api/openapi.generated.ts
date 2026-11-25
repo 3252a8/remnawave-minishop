@@ -3365,6 +3365,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{user_id}/subscription-suspension": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin User Subscription Suspension */
+    post: operations["post_admin_user_subscription_suspension_route"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/users/{user_id}/tariff": {
     parameters: {
       query?: never;
@@ -7584,6 +7601,11 @@ export interface components {
       status_from_panel: string | null;
       /** Subscription Id */
       subscription_id: number;
+      /**
+       * Suspended At
+       * @default null
+       */
+      suspended_at: string | null;
       /**
        * Tariff Binding Note
        * @default null
@@ -11855,6 +11877,13 @@ export interface components {
        * @default null
        */
       source: string | null;
+    };
+    /** SubscriptionSuspensionBody */
+    SubscriptionSuspensionBody: {
+      /** Subscription Id */
+      subscription_id: number;
+      /** Suspended */
+      suspended: boolean;
     };
     /**
      * SupportCountsOut
@@ -19494,6 +19523,7 @@ export interface operations {
             };
             subscription_url: string | null;
             subscriptions: components["schemas"]["AdminSubscriptionOut"][];
+            suspended_subscription: components["schemas"]["AdminSubscriptionOut"] | null;
             telegram_notifications: components["schemas"]["AdminTelegramNotificationsOut"];
             total_paid: number;
             trial: components["schemas"]["AdminUserTrialOut"];
@@ -20291,6 +20321,36 @@ export interface operations {
             email_sent: boolean;
             /** @constant */
             ok: true;
+          };
+        };
+      };
+    };
+  };
+  post_admin_user_subscription_suspension_route: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubscriptionSuspensionBody"];
+      };
+    };
+    responses: {
+      /** @description JSON response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @constant */
+            ok: true;
+            subscription: components["schemas"]["AdminSubscriptionOut"];
           };
         };
       };

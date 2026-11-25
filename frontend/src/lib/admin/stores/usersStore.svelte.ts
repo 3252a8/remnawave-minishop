@@ -15,7 +15,7 @@ import { defineRawStateProperty } from "./rawStateProperty";
 import { AdminUsersError, createUsersStoreQueries } from "./usersStoreQueries";
 import { createUsersStoreSquadOverrideActions } from "./usersStoreSquadOverrides";
 import { createUsersStoreHwidResetAction } from "./usersStoreHwidReset";
-import { createUsersStoreSubscriptionReissueAction } from "./usersStoreSubscriptionReissue";
+import { createUsersStoreSubscriptionActions } from "./usersStoreSubscriptionActions";
 import { createUsersStoreNotificationPreferenceActions } from "./usersStoreNotificationPreferences";
 import { createUsersStoreBalanceActions } from "./usersStoreBalanceActions";
 import { createUsersStoreBulkActions } from "./usersStoreBulkActions";
@@ -937,8 +937,10 @@ export function createUsersStore({
   };
   const squadOverrideActions = createUsersStoreSquadOverrideActions(userActionDependencies);
   const hwidResetActions = createUsersStoreHwidResetAction(userActionDependencies);
-  const subscriptionReissueActions =
-    createUsersStoreSubscriptionReissueAction(userActionDependencies);
+  const subscriptionActions = createUsersStoreSubscriptionActions({
+    ...userActionDependencies,
+    refreshUsersList: () => (_activeRef === "users" ? loadUsers({ refresh: true }) : undefined),
+  });
   const notificationPreferenceActions =
     createUsersStoreNotificationPreferenceActions(userActionDependencies);
   const balanceActions = createUsersStoreBalanceActions({
@@ -969,7 +971,7 @@ export function createUsersStore({
     ...createUsersStoreBulkActions(api, invalidateUsersQueries, () => loadUsers({ refresh: true })),
     ...balanceActions,
     ...squadOverrideActions,
-    ...subscriptionReissueActions,
+    ...subscriptionActions,
     ...hwidResetActions,
     ...notificationPreferenceActions,
     loadUserLogs,

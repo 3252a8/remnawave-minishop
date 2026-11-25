@@ -38,6 +38,7 @@ class TariffWorkerLegacyMixin:
             select(Subscription)
             .where(
                 Subscription.is_active == True,
+                Subscription.suspended_at.is_(None),
                 Subscription.is_throttled == True,
             )
             .order_by(Subscription.subscription_id.asc())

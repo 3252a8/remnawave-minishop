@@ -10,7 +10,7 @@ from bot.app.web.context import (
 )
 from bot.app.web.request_parsing import parse_body_or_400
 from bot.services.account_roles import can_ban_account
-from db.dal import user_dal
+from db.dal import subscription_dal, user_dal
 
 from .auth import _require_admin_user_id
 from .common import _error, _ok, _serialize_user
@@ -33,13 +33,13 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
         panel_service = getattr(subscription_service, "panel_service", None)
     async_session_factory = get_session_factory(request)
     async with async_session_factory() as session:
-        user = await user_dal.get_user_by_id(session, target_id)
-        if not user:
-            return _error(404, "not_found")
-
         if desired and not await can_ban_account(session, actor_id, target_id):
             await session.rollback()
             return _error(403, "forbidden")
+
+        user = await user_dal.lock_user_by_id(session, target_id, with_suspension=True)
+        if not user:
+            return _error(404, "not_found")
 
         panel_user_uuids = await user_dal.get_panel_user_uuids_for_user(
             session, target_id, user=user
@@ -48,8 +48,21 @@ async def admin_user_ban_route(request: web.Request) -> web.Response:
             await session.rollback()
             return _error(503, "panel_service_unavailable")
 
+        paused_reference = None
+        if user.suspended_subscription_id:
+            paused = await subscription_dal.get_subscription_by_id_for_update(
+                session, user.suspended_subscription_id
+            )
+            paused_reference = paused.panel_user_uuid if paused else None
         for panel_uuid in panel_user_uuids:
             try:
+                if panel_uuid == paused_reference:
+                    if not desired:
+                        continue
+                    # Remnawave rejects a second disable on an already disabled user.
+                    snapshot = await panel_service.get_user_by_uuid(panel_uuid, use_cache=False)
+                    if snapshot and snapshot.get("status") == "DISABLED":
+                        continue
                 panel_updated = await panel_service.update_user_status_on_panel(
                     panel_uuid, not desired
                 )
