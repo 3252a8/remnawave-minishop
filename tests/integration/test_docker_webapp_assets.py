@@ -105,21 +105,38 @@ class DockerWebappAssetTests(unittest.TestCase):
             deploy / "examples/nginx/nginx.conf.template",
             deploy / "examples/angie/angie.conf.template",
         ):
-            match = re.search(
-                r"location ~ \^/api/admin/plugins/\(preview\|stage\)\$ \{\s*"
-                r"client_max_body_size\s+(\d+)m;",
-                path.read_text(encoding="utf-8"),
+            config = path.read_text(encoding="utf-8")
+            upstream = (
+                "${WEBAPP_BACKEND_UPSTREAM}"
+                if path == NGINX_CONF_PATH
+                else "http://remnawave_frontend"
             )
-            self.assertIsNotNone(match, str(path))
-            assert match is not None
-            self.assertGreaterEqual(int(match[1]) * 1024 * 1024, MAX_ARCHIVE_BYTES + 65536)
+            for routes in ("(preview|stage)", "(install|repository/(preview|stage))"):
+                with self.subTest(path=path, routes=routes):
+                    location = f"location ~ ^/api/admin/plugins/{routes}$ {{"
+                    self.assertIn(location, config)
+                    block = re.split(r"\n\s*}", config.split(location, 1)[1], maxsplit=1)[0]
+                    self.assertIn(f"proxy_pass {upstream};", block)
+                    self.assertIn("proxy_read_timeout 360s;", block)
+                    if routes == "(preview|stage)":
+                        self.assertIn("proxy_request_buffering off;", block)
+                        limit = re.search(r"client_max_body_size\s+(\d+)m;", block)
+                        assert limit is not None
+                        self.assertGreaterEqual(
+                            int(limit[1]) * 1024 * 1024, MAX_ARCHIVE_BYTES + 65536
+                        )
 
     def test_theme_upload_limit_fits_frontend_and_example_ingress(self) -> None:
         from config.theme_packages.models import MAX_ARCHIVE
 
-        ingress_path = NGINX_CONF_PATH.parent.parent / "nginx/remnawave-minishop.conf"
-        ingress = ingress_path.read_text(encoding="utf-8").split("# SUBSCRIPTION_MINI_APP_URL.")[1]
-        for config in (NGINX_CONF_PATH.read_text(encoding="utf-8"), ingress):
+        deploy = NGINX_CONF_PATH.parents[2]
+        for path in (
+            NGINX_CONF_PATH,
+            deploy / "docker/nginx/remnawave-minishop.conf",
+            deploy / "examples/nginx/nginx.conf.template",
+            deploy / "examples/angie/angie.conf.template",
+        ):
+            config = path.read_text(encoding="utf-8").split("# SUBSCRIPTION_MINI_APP_URL")[-1]
             match = re.search(r"client_max_body_size\s+(\d+)m;", config)
             self.assertIsNotNone(match)
             assert match is not None

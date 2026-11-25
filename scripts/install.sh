@@ -4079,6 +4079,22 @@ resolve_egames_certificate_pair() {
     ok "Сертификат $EGAMES_CERT_PATH покрывает $host."
 }
 
+render_nginx_plugin_locations() {
+    cat <<EOF
+        location ~ ^/api/admin/plugins/(preview|stage)$ {
+            client_max_body_size 513m;
+            proxy_request_buffering off;
+            proxy_read_timeout 360s;
+            proxy_pass $1;
+        }
+
+        location ~ ^/api/admin/plugins/(install|repository/(preview|stage))$ {
+            proxy_read_timeout 360s;
+            proxy_pass $1;
+        }
+EOF
+}
+
 render_egames_server_block() {
     server_host="$1"
     upstream_port="$2"
@@ -4088,6 +4104,12 @@ render_egames_server_block() {
     trusted_certificate="$6"
     real_ip_source="$7"
     forwarded_for_source="$8"
+    body_limit=20m
+    plugin_locations=""
+    if [ "$9" = "miniapp" ]; then
+        body_limit=21m
+        plugin_locations=$(render_nginx_plugin_locations "http://127.0.0.1:$upstream_port")
+    fi
     cat <<EOF
 server {
     server_name $server_host;
@@ -4098,9 +4120,10 @@ $listen_directives
     ssl_certificate_key "$certificate_key";
     ssl_trusted_certificate "$trusted_certificate";
 
-    client_max_body_size 20m;
+    client_max_body_size $body_limit;
 
     location / {
+$plugin_locations
         proxy_http_version 1.1;
         proxy_pass http://127.0.0.1:$upstream_port;
         proxy_set_header Host \$host;
@@ -4221,11 +4244,11 @@ configure_egames_reverse_proxy() {
         printf '\n# BEGIN remnawave-minishop managed by install.sh\n'
         render_egames_server_block "$webhook_host" "$backend_port" "$listen_directives" \
             "$webhook_cert_path" "$webhook_key_path" "$webhook_trusted_path" \
-            "$real_ip_source" "$forwarded_for_source"
+            "$real_ip_source" "$forwarded_for_source" webhook
         printf '\n'
         render_egames_server_block "$miniapp_host" "$frontend_port" "$listen_directives" \
             "$miniapp_cert_path" "$miniapp_key_path" "$miniapp_trusted_path" \
-            "$real_ip_source" "$forwarded_for_source"
+            "$real_ip_source" "$forwarded_for_source" miniapp
         printf '# END remnawave-minishop managed by install.sh\n'
     } >> "$tmp" || {
         rm -f "$tmp"
@@ -4408,22 +4431,30 @@ render_generic_nginx_server_block() {
     ssl_lines="$4"
     use_resolver="$5"
     upstream_var="$6"
+    resolver_lines=""
+    proxy_target="$server_upstream"
     if [ "$use_resolver" = "1" ]; then
-        proxy_lines="        resolver 127.0.0.11 valid=30s ipv6=off;
-        set \$$upstream_var $server_upstream;
-        proxy_pass \$$upstream_var;"
-    else
-        proxy_lines="        proxy_pass $server_upstream;"
+        resolver_lines="    resolver 127.0.0.11 valid=30s ipv6=off;
+    set \$$upstream_var $server_upstream;"
+        proxy_target="\$$upstream_var"
+    fi
+    body_limit=20m
+    plugin_locations=""
+    if [ "$upstream_var" = "minishop_frontend" ]; then
+        body_limit=21m
+        plugin_locations=$(render_nginx_plugin_locations "$proxy_target")
     fi
     cat <<EOF
 server {
     server_name $server_host;
     $listen_directive
 $ssl_lines
-    client_max_body_size 20m;
+    client_max_body_size $body_limit;
+$resolver_lines
 
     location / {
-$proxy_lines
+$plugin_locations
+        proxy_pass $proxy_target;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;

@@ -92,7 +92,8 @@ http {
         ssl_certificate $acme_cert_miniapp;
         ssl_certificate_key $acme_cert_key_miniapp;
 
-        client_max_body_size 20m;
+        # Leave room for multipart framing around a 20 MiB theme ZIP.
+        client_max_body_size 21m;
 
         location ^~ /s/ {
             access_log off;
@@ -111,10 +112,12 @@ http {
                 client_max_body_size 513m;
                 proxy_request_buffering off;
                 proxy_read_timeout 360s;
+                proxy_pass http://remnawave_frontend;
             }
 
             location ~ ^/api/admin/plugins/(install|repository/(preview|stage))$ {
                 proxy_read_timeout 360s;
+                proxy_pass http://remnawave_frontend;
             }
 
             proxy_pass http://remnawave_frontend;

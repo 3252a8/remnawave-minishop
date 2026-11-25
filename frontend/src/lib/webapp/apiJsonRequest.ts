@@ -2,6 +2,14 @@ import { currentBootSignal, recordClientTiming } from "./bootBudget";
 import { requestSignal } from "./requestSignal";
 import { isMaintenanceResponse, maintenanceFailure } from "./maintenance";
 
+const PLUGIN_PACKAGE_REQUEST_TIMEOUTS = new Map([
+  ["/admin/plugins/preview", 660_000],
+  ["/admin/plugins/stage", 660_000],
+  ["/admin/plugins/repository/preview", 370_000],
+  ["/admin/plugins/repository/stage", 370_000],
+  ["/admin/plugins/install", 370_000],
+]);
+
 export async function fetchApiJson(
   url: string,
   path: string,
@@ -12,7 +20,7 @@ export async function fetchApiJson(
 ): Promise<Record<string, unknown>> {
   const { signal, cleanup } = requestSignal(
     options.signal || currentBootSignal(),
-    requestTimeoutMs
+    PLUGIN_PACKAGE_REQUEST_TIMEOUTS.get(path) ?? requestTimeoutMs
   );
   const started = performance.now();
   let outcome = "failed";

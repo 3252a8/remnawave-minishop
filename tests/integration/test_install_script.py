@@ -1024,6 +1024,40 @@ configure_egames_reverse_proxy
     assert f"proxy_set_header X-Real-IP {expected_real_ip};" in rendered
     assert f"proxy_set_header X-Forwarded-For {expected_forwarded_for};" in rendered
     assert f"proxy_set_header X-Real-IP {unexpected_ip};" not in rendered
+    _assert_plugin_proxy_routes(rendered, "http://127.0.0.1:8082")
+
+
+def _assert_plugin_proxy_routes(rendered: str, target: str) -> None:
+    webhook, miniapp = rendered.split("server_name workspace.example.test;")
+    assert "client_max_body_size 20m;" in webhook
+    assert "/api/admin/plugins/" not in webhook
+    assert "client_max_body_size 21m;" in miniapp
+    for routes in ("(preview|stage)", "(install|repository/(preview|stage))"):
+        block = miniapp.split(f"location ~ ^/api/admin/plugins/{routes}$ {{")[1].split("}")[0]
+        assert f"proxy_pass {target};" in block
+        assert "proxy_read_timeout 360s;" in block
+        if routes == "(preview|stage)":
+            assert "client_max_body_size 513m;" in block
+            assert "proxy_request_buffering off;" in block
+
+
+@pytest.mark.parametrize("resolver", [0, 1])
+def test_generic_nginx_routes_plugin_requests_to_frontend(tmp_path: Path, resolver: int) -> None:
+    if not shutil.which("sh"):
+        pytest.skip("sh is not available on this platform")
+    target = tmp_path / "minishop.conf"
+    result = _run_installer_function(
+        tmp_path,
+        f"render_generic_nginx_servers {shlex.quote(target.as_posix())} events.example.test "
+        f"workspace.example.test http://backend:8080 http://frontend:80 '' '' {resolver}",
+    )
+    assert result.returncode == 0, result.stderr
+    rendered = target.read_text(encoding="utf-8")
+    if resolver:
+        assert "set $minishop_frontend http://frontend:80;" in rendered
+    _assert_plugin_proxy_routes(
+        rendered, "$minishop_frontend" if resolver else "http://frontend:80"
+    )
 
 
 def test_shell_installer_keeps_egames_config_when_certificate_is_unverified(tmp_path: Path):
