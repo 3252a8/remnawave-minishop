@@ -37,6 +37,7 @@ def test_metadata_selects_user_identity_contract() -> None:
         "3.4.8",
         "3.4.9",
         "3.4.10",
+        "3.4.11",
     ):
         current = PanelApiCompatibility.from_metadata({"response": {"version": version}})
 
@@ -47,6 +48,7 @@ def test_metadata_selects_user_identity_contract() -> None:
         assert current.supports(PanelApiCapability.USER_STREAM_FILTERS) is True
 
     assert current.certified_versions == (
+        "3.4.11",
         "3.4.10",
         "3.4.9",
         "3.4.8",
@@ -71,7 +73,7 @@ def test_metadata_selects_user_identity_contract() -> None:
 
 
 def test_uncertified_patch_in_known_generation_remains_unverified() -> None:
-    compatibility = PanelApiCompatibility.from_metadata({"response": {"version": "3.4.11"}})
+    compatibility = PanelApiCompatibility.from_metadata({"response": {"version": "3.4.999"}})
 
     assert compatibility.generation is PanelApiGeneration.RW3_NUMERIC
     assert compatibility.support_status == "unverified"
