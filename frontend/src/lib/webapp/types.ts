@@ -123,6 +123,7 @@ export const FALLBACK_WEBAPP_CONFIG: WebappConfig = {
   telegramOAuthRequestAccess: "",
   themePreviewKey: "",
   userThemeModeEnabled: true,
+  userThemeEffectsToggleEnabled: false,
   themesCatalog: { default_theme: "dark", themes: [] },
   themesDir: "",
   title: "Subscription",

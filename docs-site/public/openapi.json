@@ -20056,6 +20056,11 @@
             "title": "Useragreementurl",
             "type": "string"
           },
+          "userThemeEffectsToggleEnabled": {
+            "default": false,
+            "title": "Userthemeeffectstoggleenabled",
+            "type": "boolean"
+          },
           "userThemeModeEnabled": {
             "title": "Userthememodeenabled",
             "type": "boolean"

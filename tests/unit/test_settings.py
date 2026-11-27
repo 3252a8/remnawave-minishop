@@ -46,6 +46,14 @@ class SettingsTests(unittest.TestCase):
             ).webapp_settings.admin_theme_effects_enabled
         )
 
+    def test_user_theme_effects_toggle_defaults_off_and_can_be_enabled(self):
+        self.assertFalse(self._settings().webapp_settings.user_theme_effects_toggle_enabled)
+        self.assertTrue(
+            self._settings(
+                WEBAPP_USER_THEME_EFFECTS_TOGGLE_ENABLED=True
+            ).webapp_settings.user_theme_effects_toggle_enabled
+        )
+
     def test_compact_login_defaults_on_and_wide_buttons_only_include_available_providers(self):
         self.assertTrue(self._settings().webapp_settings.compact_login_enabled)
         self.assertFalse(

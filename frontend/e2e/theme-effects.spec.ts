@@ -3,6 +3,7 @@ import { build } from "esbuild";
 import { readFileSync } from "node:fs";
 import ru from "../../locales/ru.json";
 import en from "../../locales/en.json";
+import { DEFAULT_DARK_THEME } from "../src/lib/webapp/previewMock/themes";
 import type { createThemeEffectsRuntime } from "../src/lib/webapp/themeEffectsRuntime";
 import type { createThemeEffectHost, ThemeEffectModule } from "../src/lib/webapp/themeEffectsSdk";
 
@@ -27,11 +28,19 @@ async function bundle(file: string, globalName: string) {
 
 async function installViewerFixture(
   page: Page,
-  viewer: { isAdmin: boolean; enabled: boolean; language?: "ru" | "en" }
+  viewer: {
+    isAdmin: boolean;
+    enabled: boolean;
+    language?: "ru" | "en";
+    userToggleEnabled?: boolean;
+  }
 ) {
-  const digest = "b".repeat(64);
   const state = {
     requests: 0,
+    themeKey: "dark",
+    digest: "b".repeat(64),
+    failMount: false,
+    hasEffect: true,
     mergeError: "",
     emailError: "",
     mergeProvider: "telegram",
@@ -44,6 +53,7 @@ async function installViewerFixture(
     const config = {
       title: "Theme effects fixture",
       adminThemeEffectsEnabled: viewer.enabled,
+      userThemeEffectsToggleEnabled: viewer.userToggleEnabled,
       authProviders: ["telegram", "email", "google", "yandex", "passkey"],
     };
     const body = (await response.text()).replace(
@@ -64,8 +74,10 @@ async function installViewerFixture(
         contentType: "text/javascript",
         body: `import { mount as mountTilt } from './tilt.js';
           export async function mount(host, context) {
+            if (${state.failMount}) throw new Error('Fixture mount failed');
             const instance = await mountTilt(host, context);
             document.documentElement.dataset.themeViewerEffect = 'mounted';
+            document.documentElement.dataset.themeViewerDigest = ${JSON.stringify(state.digest)};
             return instance;
           }`,
       });
@@ -83,6 +95,10 @@ async function installViewerFixture(
           email_auth_enabled: true,
         },
         subscription: { active: false },
+        themes_catalog: {
+          default_theme: state.themeKey,
+          themes: [DEFAULT_DARK_THEME, { ...DEFAULT_DARK_THEME, key: "other" }],
+        },
         plans: [],
         payment_methods: [],
         referral: {},
@@ -117,22 +133,24 @@ async function installViewerFixture(
       state.requests++;
       response = {
         ok: true,
-        effect: {
-          key: "dark",
-          digest,
-          effects_digest: digest,
-          lease_seconds: 60,
-          entry: `/api/theme-effects/assets/dark/${digest}/main.js`,
-          styles: [],
-          assets: {},
-          manifest: {
-            api_version: 1,
-            runtime: "trusted-dom",
-            entry: "main.js",
-            description: {},
-            targets: ["home.header.surface"],
-          },
-        },
+        effect: state.hasEffect
+          ? {
+              key: state.themeKey,
+              digest: state.digest,
+              effects_digest: state.digest,
+              lease_seconds: 60,
+              entry: `/api/theme-effects/assets/${state.themeKey}/${state.digest}/main.js`,
+              styles: [],
+              assets: {},
+              manifest: {
+                api_version: 1,
+                runtime: "trusted-dom",
+                entry: "main.js",
+                description: {},
+                targets: ["home.header.surface"],
+              },
+            }
+          : null,
       };
     }
     await route.fulfill({ json: response });
@@ -164,9 +182,138 @@ for (const viewer of [
   });
 }
 
+test("effects stay on by default even with a saved user preference", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installViewerFixture(page, { isAdmin: false, enabled: false });
+  await page.addInitScript(() => localStorage.setItem("minishop-theme-effects-disabled:dark", "1"));
+  await page.goto("/demo/runtime/settings?theme_effects_disabled=dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-viewer-effect", "mounted");
+  await expect(page.locator(".settings-list")).toBeVisible();
+  await expect(page.locator(".settings-row-effects")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("theme-effects-default-390.png"),
+    animations: "disabled",
+  });
+});
+
+for (const [width, colorScheme, language] of [
+  [1280, "dark", "en"],
+  [1280, "light", "en"],
+  [390, "dark", "ru"],
+  [390, "light", "ru"],
+] as const) {
+  test(`theme effects settings at ${width}px in ${colorScheme} mode`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.emulateMedia({ colorScheme });
+    await page.addInitScript(() => localStorage.setItem("minishop-theme-effects-disabled", "1"));
+    const state = await installViewerFixture(page, {
+      isAdmin: false,
+      enabled: false,
+      language,
+      userToggleEnabled: true,
+    });
+    const copy = language === "ru" ? ru : en;
+    const html = page.locator("html");
+    const row = page.locator(".settings-row-effects");
+    const toggle = page.getByRole("switch", { name: copy.wa_theme_effects_title });
+    await page.goto("/demo/runtime/home");
+    await expect(html).toHaveAttribute("data-theme-viewer-effect", "mounted");
+    await expect(row).toHaveCount(0);
+    await expect(page.locator(".theme-effects-control")).toHaveCount(0);
+    await page.goto("/demo/runtime/settings");
+    await expect(toggle).toBeChecked();
+    const themeMenu = page.getByRole("combobox", { name: copy.wa_settings_theme });
+    await themeMenu.click();
+    await page
+      .getByRole("option", {
+        name: colorScheme === "light" ? copy.wa_settings_theme_light : copy.wa_settings_theme_dark,
+        exact: true,
+      })
+      .click();
+    await expect(page.locator(`.app-shell.theme-${colorScheme}`)).toBeVisible();
+    await expect(page.locator(".theme-select-content")).toBeHidden();
+    await row.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath(`theme-effects-settings-${colorScheme}-${width}.png`),
+    });
+
+    await toggle.press("Space");
+    await expect(toggle).not.toBeChecked();
+    await page.reload();
+    await expect(toggle).not.toBeChecked();
+    await expect(html).not.toHaveAttribute("data-theme-viewer-effect", "mounted");
+    expect(
+      await page.evaluate(() => localStorage.getItem("minishop-theme-effects-disabled:dark"))
+    ).toBe("1");
+    await expect(page).not.toHaveURL(/theme_effects=off/);
+    state.themeKey = "other";
+    await page.reload();
+    await expect(toggle).toBeChecked();
+    await expect(html).toHaveAttribute("data-theme-viewer-effect", "mounted");
+  });
+}
+
+test("an updated effect replaces the running version and revocation stops it", async ({ page }) => {
+  const state = await installViewerFixture(page, { isAdmin: false, enabled: false });
+  const html = page.locator("html");
+  await page.goto("/demo/runtime/home");
+  await expect(html).toHaveAttribute("data-theme-viewer-digest", state.digest);
+  state.digest = "c".repeat(64);
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(html).toHaveAttribute("data-theme-viewer-digest", state.digest);
+  await expect(page).not.toHaveURL(/theme_effects=off/);
+  state.hasEffect = false;
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(html).not.toHaveAttribute("data-theme-viewer-effect", "mounted");
+  await page.goto("/demo/runtime/settings");
+  await expect(page.locator(".settings-row-effects")).toHaveCount(0);
+});
+
+test("a failed effect can be retried and respects reduced motion and safe mode", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = await installViewerFixture(page, {
+    isAdmin: false,
+    enabled: false,
+    userToggleEnabled: true,
+  });
+  state.failMount = true;
+  const toggle = page.getByRole("switch", { name: ru.wa_theme_effects_title });
+  const row = page.locator(".settings-row-effects");
+  const html = page.locator("html");
+  await page.goto("/demo/runtime/settings");
+  await expect(row).toContainText(ru.wa_theme_effects_failed);
+  await expect(toggle).not.toBeChecked();
+  await expect(page).not.toHaveURL(/theme_effects=off/);
+  expect(
+    await page.evaluate(() => localStorage.getItem("minishop-theme-effects-disabled:dark"))
+  ).toBeNull();
+  await row.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("theme-effects-failed-390.png") });
+  state.failMount = false;
+  await toggle.click();
+  await expect(html).toHaveAttribute("data-theme-viewer-effect", "mounted");
+  await expect(toggle).toBeChecked();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(row).toContainText(ru.wa_theme_effects_reduced_motion);
+  await expect(toggle).toBeDisabled();
+  await expect(html).not.toHaveAttribute("data-theme-viewer-effect", "mounted");
+  await page.goto("/demo/runtime/settings?theme_effects=off");
+  await expect(row).toContainText(ru.wa_theme_effects_safe_mode);
+  await expect(toggle).not.toBeChecked();
+  await expect(html).not.toHaveAttribute("data-theme-viewer-effect", "mounted");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await toggle.click();
+  await expect(page).not.toHaveURL(/theme_effects=off/);
+  await expect(html).toHaveAttribute("data-theme-viewer-effect", "mounted");
+});
+
 for (const width of [1280, 390]) {
   for (const language of ["ru", "en"] as const) {
-    test(`theme effect control yields to account merge at ${width} in ${language}`, async ({
+    test(`theme effects leave account merge unobstructed at ${width} in ${language}`, async ({
       page,
     }, testInfo) => {
       await page.setViewportSize({ width, height: 844 });
@@ -203,7 +350,7 @@ for (const width of [1280, 390]) {
       });
       await dialog.locator(".dialog-close-button").click();
       await expect(dialog).toBeHidden();
-      await expect(control).toBeVisible();
+      await expect(control).toBeHidden();
       expect(state.cancelRequests).toBe(1);
       await expect(page.locator("html")).toHaveAttribute("data-theme-viewer-effect", "mounted");
 
@@ -216,7 +363,7 @@ for (const width of [1280, 390]) {
       await expect(control).toBeHidden();
       await dialog.getByRole("button", { name: copy.wa_done, exact: true }).click();
       await expect(dialog).toBeHidden();
-      await expect(control).toBeVisible();
+      await expect(control).toBeHidden();
       expect(state.confirmRequests).toBe(2);
       expect(state.cancelRequests).toBe(1);
       expect(errors).toEqual([]);
@@ -271,7 +418,7 @@ for (const width of [1280, 390]) {
     await expect(page.locator(".theme-effects-control")).toBeHidden();
     await merge.locator(".dialog-close-button").click();
     await expect(merge).toBeHidden();
-    await expect(page.locator(".theme-effects-control")).toBeVisible();
+    await expect(page.locator(".theme-effects-control")).toBeHidden();
   });
 }
 

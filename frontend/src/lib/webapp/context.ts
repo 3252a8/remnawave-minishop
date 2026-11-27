@@ -8,6 +8,7 @@ import type { DevicesStore } from "./stores/devicesStore";
 import type { InstallGuidesStore } from "./stores/installGuidesStore";
 import type { PublicDocumentsStore } from "./stores/publicDocumentsStore.svelte";
 import type { SupportStore } from "./stores/supportStore";
+import type { ThemeEffectsSettings } from "./themeEffectsPreference";
 
 export const [getAuthStore, setAuthStore] = createContext<AuthStore>();
 export const [getBillingStore, setBillingStore] = createContext<BillingStore>();
@@ -18,3 +19,5 @@ export const [getPublicDocumentsStore, setPublicDocumentsStore] =
   createContext<PublicDocumentsStore>();
 export const [getActionsStore, setActionsStore] = createContext<ActionsStore>();
 export const [getAccountStore, setAccountStore] = createContext<AccountStore>();
+export const [getThemeEffectsSettings, setThemeEffectsSettings] =
+  createContext<() => ThemeEffectsSettings | null>();

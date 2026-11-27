@@ -25,6 +25,8 @@
   import { isExternalAppLaunchPath, readExternalAppLaunchTarget } from "./lib/webapp/appLinks.js";
   import { canUseSubscriptionInstallGuides } from "./lib/webapp/connectLinks.js";
   import { themeEffectsEnabled, themeEffectsIdentity } from "./lib/webapp/themeEffectsViewer";
+  import type { ThemeEffectsSettings } from "./lib/webapp/themeEffectsPreference";
+  import { setThemeEffectsSettings } from "./lib/webapp/context.js";
   import { createI18n } from "./lib/webapp/i18n.js";
   import {
     currentSearchParams,
@@ -451,6 +453,8 @@
   const effectiveThemeEntry = $derived(shellView.themeView.effectiveThemeEntry);
   const resolvedThemeKey = $derived(shellView.themeView.resolvedThemeKey);
   const previewThemeKey = $derived(shellView.themeView.previewThemeKey);
+  let themeEffectsSettings = $state<ThemeEffectsSettings | null>(null);
+  setThemeEffectsSettings(() => themeEffectsSettings);
   const shellStyle = $derived(shellView.themeView.shellStyle);
   const shellThemeClass = $derived(shellView.themeView.shellThemeClass);
   const shellThemeCssHref = $derived(shellView.themeView.shellThemeCssHref);
@@ -838,6 +842,7 @@
 
 <ThemeEffectsHost
   client={dataClient.apiClient}
+  userToggleEnabled={CFG.userThemeEffectsToggleEnabled === true}
   enabled={themeEffectsEnabled({
     mode,
     screen,
@@ -848,7 +853,7 @@
   identity={themeEffectsIdentity(user)}
   themeKey={resolvedThemeKey}
   previewKey={previewThemeKey}
-  {t}
+  onSettingsChange={(settings) => (themeEffectsSettings = settings)}
   context={{
     variant: effectiveThemeEntry?.active_variant === "light" ? "light" : "dark",
     colors: Object.fromEntries(

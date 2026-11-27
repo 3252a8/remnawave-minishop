@@ -11,6 +11,7 @@
     Send,
     Server,
     Shield,
+    Sparkles,
     UserRound,
     WalletCards,
   } from "$components/ui/icons.js";
@@ -19,6 +20,7 @@
   import Spinner from "$components/ui/spinner.svelte";
   import { AttentionDot } from "$components/ui/index.js";
   import { LanguageSelect, ThemeSelect } from "$components/patterns/webapp/index.js";
+  import NotificationPreferenceSwitch from "$components/patterns/NotificationPreferenceSwitch.svelte";
   import AvatarImage from "$components/patterns/webapp/AvatarImage.svelte";
   import PromoActivationCard from "../PromoActivationCard.svelte";
   import TelegramNotificationsBanner from "../TelegramNotificationsBanner.svelte";
@@ -31,7 +33,7 @@
     hasInformationDocumentRole,
     settingsInformationDocuments,
   } from "$lib/webapp/informationPages.js";
-  import { getPublicDocumentsStore } from "$lib/webapp/context.js";
+  import { getPublicDocumentsStore, getThemeEffectsSettings } from "$lib/webapp/context.js";
   import type { ApiClient } from "$lib/webapp/publicApi.js";
   import { withRoutePrefix } from "$lib/webapp/routes.js";
   import { THEME_PREFERENCE_DEFAULT, type ThemeOption } from "$lib/webapp/themePreference.js";
@@ -175,6 +177,8 @@
   let themeMenuOpen = $state(false);
   let qrApprover = $state<ReturnType<typeof QrLoginApprover>>();
   const publicDocumentsStore = getPublicDocumentsStore();
+  const readThemeEffectsSettings = getThemeEffectsSettings();
+  const themeEffects = $derived(readThemeEffectsSettings());
   const publicDocuments = $derived(publicDocumentsStore.documents);
   const settingsDocuments = $derived(settingsInformationDocuments(publicDocuments ?? []));
   const hasNativePrivacyPolicy = $derived(
@@ -389,6 +393,27 @@
         onValueChange={setThemePreference}
       />
     {/if}
+    {#if themeEffects}
+      <div class="settings-row settings-row-effects">
+        <Sparkles size={21} aria-hidden="true" />
+        <span>
+          <strong>{t("wa_theme_effects_title")}</strong>
+          {#if themeEffects.status === "failed"}
+            <small>{t("wa_theme_effects_failed")}</small>
+          {:else if themeEffects.status === "reduced-motion"}
+            <small>{t("wa_theme_effects_reduced_motion")}</small>
+          {:else if themeEffects.status === "safe-mode"}
+            <small>{t("wa_theme_effects_safe_mode")}</small>
+          {/if}
+        </span>
+        <NotificationPreferenceSwitch
+          checked={themeEffects.status === "enabled"}
+          disabled={themeEffects.status === "reduced-motion"}
+          ariaLabel={t("wa_theme_effects_title")}
+          onCheckedChange={themeEffects.setEnabled}
+        />
+      </div>
+    {/if}
     {#if publicDocuments === null}
       <div class="settings-row settings-documents-loading" role="status" aria-busy="true">
         <Spinner />
@@ -481,6 +506,12 @@
 </main>
 
 <style>
+  .settings-row-effects {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+  .settings-row-effects small {
+    white-space: normal;
+  }
   .settings-profile-balance {
     margin-left: auto;
     display: flex;

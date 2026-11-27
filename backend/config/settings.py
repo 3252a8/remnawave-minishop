@@ -629,6 +629,10 @@ class Settings(
         default=False,
         description="Run consented theme JavaScript for administrators in the Mini App.",
     )
+    WEBAPP_USER_THEME_EFFECTS_TOGGLE_ENABLED: bool = Field(
+        default=False,
+        description="Show the Mini App theme effects switch and honor per-theme user preferences.",
+    )
     WEBAPP_CHECKOUT_ADDON_VALUE_ANIMATION_ENABLED: bool = Field(default=True)
     WEBAPP_CHECKOUT_ADDON_EDITOR_EXPANDED_BY_DEFAULT: bool = Field(default=False)
     WEBAPP_THEMES_DIR: str = Field(

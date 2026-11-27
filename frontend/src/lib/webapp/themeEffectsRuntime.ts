@@ -7,16 +7,8 @@ import {
 } from "./themeEffectsSdk";
 
 export type ThemeEffectDescriptor = components["schemas"]["ThemeEffectsDescriptor"];
-export const THEME_EFFECTS_STORAGE = "minishop-theme-effects-disabled";
-
-export function themeEffectsDisabled(): boolean {
-  if (new URLSearchParams(location.search).get("theme_effects") === "off") return true;
-  try {
-    return localStorage.getItem(THEME_EFFECTS_STORAGE) === "1";
-  } catch {
-    return false;
-  }
-}
+const MODULE_LOAD_TIMEOUT_MS = 15_000;
+const LIFECYCLE_TIMEOUT_MS = 3_000;
 
 export function validEffectDescriptor(effect: ThemeEffectDescriptor): boolean {
   if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(effect.key) || !/^[a-f0-9]{64}$/.test(effect.digest))
@@ -96,7 +88,7 @@ export function createThemeEffectsRuntime(
       }
       executed = true;
       try {
-        const loaded = await deadline(loadModule(effect.entry), 3000);
+        const loaded = await deadline(loadModule(effect.entry), MODULE_LOAD_TIMEOUT_MS);
         if (run !== generation) return;
         if (
           !loaded ||
@@ -111,7 +103,7 @@ export function createThemeEffectsRuntime(
             if (run !== generation) await late?.dispose?.();
           })
           .catch(() => {});
-        const mounted = await deadline(mounting, 3000);
+        const mounted = await deadline(mounting, LIFECYCLE_TIMEOUT_MS);
         if (run !== generation) return;
         if (
           !mounted ||
@@ -126,7 +118,13 @@ export function createThemeEffectsRuntime(
       }
     },
     async update(context: ThemeEffectContext) {
-      if (instance) await deadline(Promise.resolve(instance.update(context)), 3000);
+      if (!instance) return;
+      const run = generation;
+      try {
+        await deadline(Promise.resolve(instance.update(context)), LIFECYCLE_TIMEOUT_MS);
+      } catch (error) {
+        if (run === generation) throw error;
+      }
     },
   };
 }

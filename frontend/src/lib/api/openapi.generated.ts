@@ -13780,6 +13780,11 @@ export interface components {
       title: string;
       /** Useragreementurl */
       userAgreementUrl: string;
+      /**
+       * Userthemeeffectstoggleenabled
+       * @default false
+       */
+      userThemeEffectsToggleEnabled: boolean;
       /** Userthememodeenabled */
       userThemeModeEnabled: boolean;
       /** Wideauthproviders */
