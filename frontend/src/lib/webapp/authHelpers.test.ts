@@ -15,6 +15,7 @@ import {
   shouldShowInviteOnlyHint,
 } from "./authHelpers.js";
 import { GIFT_STORAGE_KEY, REFERRAL_STORAGE_KEY } from "./session.js";
+import { readCheckoutPromoDeeplink, stripCheckoutPromoQueryFromUrl } from "./deeplinks.js";
 import ru from "../../../../locales/ru.json";
 import en from "../../../../locales/en.json";
 
@@ -84,6 +85,26 @@ function installBrowser(search = "", pathname = "/") {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+it.each(["startapp", "start_param", "tgWebAppStartParam"])(
+  "keeps a URL-only checkout code through auth cleanup and consumes it once: %s",
+  (key) => {
+    installBrowser(`?${key}=promo_SAVE20&id=42&auth_date=1&hash=secret&start=ref_FRIEND&lang=ru`);
+    vi.stubGlobal("document", { title: "Shop" });
+    vi.mocked(window.history.replaceState).mockImplementation((_state, _title, path) => {
+      const url = new URL(String(path), window.location.origin);
+      window.location.href = url.href;
+      window.location.search = url.search;
+    });
+
+    clearAuthQuery();
+    expect(window.location.search).toBe(`?${key}=promo_SAVE20&lang=ru`);
+    expect(readCheckoutPromoDeeplink()).toBe("SAVE20");
+    stripCheckoutPromoQueryFromUrl();
+    expect(window.location.search).toBe("?lang=ru");
+    expect(readCheckoutPromoDeeplink()).toBe("");
+  }
+);
 
 describe("auth referral helpers", () => {
   it.each([

@@ -313,7 +313,7 @@ function normalizeCheckoutPromoParam(value: string | null): string {
  * and treating one of those as a code made the app open checkout and complain
  * about an invalid promo instead of going where the link pointed.
  */
-function startParamPromoCode(value: string | null): string {
+export function checkoutPromoCodeFromStartParam(value: string | null): string {
   const raw = String(value || "").trim();
   return raw.toLowerCase().startsWith("promo_") ? raw.slice("promo_".length).trim() : "";
 }
@@ -323,10 +323,10 @@ export function readCheckoutPromoDeeplink(): string {
   return (
     normalizeCheckoutPromoParam(params.get("promo_code")) ||
     normalizeCheckoutPromoParam(params.get("promo")) ||
-    startParamPromoCode(params.get("startapp")) ||
-    startParamPromoCode(params.get("start_param")) ||
-    startParamPromoCode(params.get("tgWebAppStartParam")) ||
-    startParamPromoCode(telegramStartParam())
+    checkoutPromoCodeFromStartParam(params.get("startapp")) ||
+    checkoutPromoCodeFromStartParam(params.get("start_param")) ||
+    checkoutPromoCodeFromStartParam(params.get("tgWebAppStartParam")) ||
+    checkoutPromoCodeFromStartParam(telegramStartParam())
   );
 }
 
@@ -337,7 +337,11 @@ export function stripCheckoutPromoQueryFromUrl() {
   const changed = keys.some((key) => url.searchParams.has(key));
   if (!changed) return;
   for (const key of keys) {
-    if (key === "promo" || key === "promo_code" || startParamPromoCode(url.searchParams.get(key))) {
+    if (
+      key === "promo" ||
+      key === "promo_code" ||
+      checkoutPromoCodeFromStartParam(url.searchParams.get(key))
+    ) {
       url.searchParams.delete(key);
     }
   }

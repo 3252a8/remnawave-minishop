@@ -2,6 +2,7 @@ import { GIFT_STORAGE_KEY, rememberReferral, readReferral } from "./session.js";
 import { referralStartParam } from "./launchParams.js";
 import { invitationQueryKeys } from "./inviteLinks.js";
 import { rememberInstallAuthDestination } from "./installAuthDestination.js";
+import { checkoutPromoCodeFromStartParam } from "./deeplinks.js";
 
 type TelegramWebAppLike = {
   initDataUnsafe?: { start_param?: string | null } | null;
@@ -175,10 +176,11 @@ export function clearAuthQuery(): void {
     "ref",
     ...invitationQueryKeys(),
     "start",
-    "start_param",
-    "startapp",
-    "tgWebAppStartParam",
   ].forEach((key) => url.searchParams.delete(key));
+  // Checkout consumes these launch values after the authenticated data is loaded.
+  for (const key of ["start_param", "startapp", "tgWebAppStartParam"]) {
+    if (!checkoutPromoCodeFromStartParam(url.searchParams.get(key))) url.searchParams.delete(key);
+  }
   window.history?.replaceState?.({}, document.title, url.pathname + url.search + url.hash);
 }
 

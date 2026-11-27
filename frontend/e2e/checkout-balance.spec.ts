@@ -1,6 +1,23 @@
 import { expect, test } from "@playwright/test";
 
 for (const width of [390, 1280]) {
+  test(`activation link opens checkout with the adjusted price at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/demo/runtime/home?mock=checkout-balance-partial&startapp=promo_DEMO20");
+    const dialog = page.locator(".dialog-card.webapp-payment-dialog");
+    await expect(dialog).toBeVisible();
+    const code = dialog.locator(".checkout-promo-input");
+    await expect(code).toHaveValue("DEMO20");
+    await expect(code).toHaveAttribute("readonly", "");
+    await expect(dialog.locator(".payment-submit-button .promo-price-pair")).toBeVisible();
+    await expect(page).not.toHaveURL(/startapp=/);
+    await page.screenshot({ path: testInfo.outputPath(`activation-link-${width}.png`) });
+    await dialog.locator(".dialog-close-button").click();
+    await expect(dialog).toBeHidden();
+  });
+
   test(`code entry selects the first compatible method at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const errors: string[] = [];
