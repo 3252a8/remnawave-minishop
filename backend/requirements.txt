@@ -6,7 +6,7 @@
 #
 aiofiles==25.1.0
     # via aiogram
-aiogram==3.33.0
+aiogram==3.34.0
     # via -r backend/requirements.in
 aiohappyeyeballs==2.7.1
     # via aiohttp
@@ -38,7 +38,7 @@ certifi==2026.11.20
     #   requests
 cffi==2.1.1
     # via cryptography
-charset-normalizer==3.5.2
+charset-normalizer==3.5.3
     # via requests
 cryptography==50.0.2
     # via
@@ -66,7 +66,7 @@ h11==0.16.0
     # via httpcore
 httpcore==1.0.9
     # via httpx
-httpx==0.28.1
+httpx==0.29.0
     # via -r backend/requirements.in
 idna==3.20
     # via
@@ -87,7 +87,7 @@ pillow==13.0.0
     # via
     #   -r backend/requirements.in
     #   pillow-heif
-pillow-heif==1.8.1
+pillow-heif==1.9.0
     # via -r backend/requirements.in
 propcache==0.5.4
     # via
@@ -123,7 +123,7 @@ python-dotenv==1.2.4
     #   pydantic-settings
 python-socks[asyncio]==3.2.2
     # via aiohttp-socks
-redis==8.1.0
+redis==8.2.0
     # via -r backend/requirements.in
 requests==2.34.2
     # via yookassa

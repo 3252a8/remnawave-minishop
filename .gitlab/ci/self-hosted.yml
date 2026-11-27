@@ -26,7 +26,7 @@ variables:
 
 build-docs:
   stage: verify
-  image: node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
+  image: node:26.13.1-trixie-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5
   variables:
     CF_PAGES_COMMIT_SHA: $CI_COMMIT_SHA
     CF_PAGES_BRANCH: $CI_COMMIT_BRANCH
@@ -50,7 +50,7 @@ build-docs:
 
 publish-docs:
   stage: publish
-  image: node:26.13.1-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
+  image: node:26.13.1-trixie-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5
   needs: [build-docs]
   resource_group: documentation-$CI_COMMIT_BRANCH
   interruptible: false
@@ -92,25 +92,25 @@ publish-docs:
       aud: sigstore
   before_script:
     - apk add --no-cache bash coreutils curl git jq
-    # Cosign 3.1.4 fixes GHSA-fx35-mq7g-6g98 and preserves the existing v3 bundle format.
+    # Cosign 3.1.5 includes the fix for GHSA-fx35-mq7g-6g98 and preserves the existing v3 bundle format.
     - |
       case "$(uname -m)" in
         x86_64)
           cosign_arch=amd64
-          cosign_sha256=424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa
+          cosign_sha256=912502def4baf810eaf36b210a4f51e1da214f9f6d664e2a9a2154cfc67ee0d6
           ;;
         aarch64)
           cosign_arch=arm64
-          cosign_sha256=ade83b7aac62e131cacfe96d958948b2150cc9efec46a570a2649b8e27dedad2
+          cosign_sha256=516893301e9ec0f2594edfcf8f943ec3b3ba96f3aad2b507eff2b71e644e5fca
           ;;
         *) echo "Unsupported Cosign architecture: $(uname -m)" >&2; exit 1 ;;
       esac
       curl --fail --location --silent --show-error --retry 5 \
         --output /usr/local/bin/cosign \
-        "https://github.com/sigstore/cosign/releases/download/v3.1.4/cosign-linux-${cosign_arch}"
+        "https://github.com/sigstore/cosign/releases/download/v3.1.5/cosign-linux-${cosign_arch}"
       printf '%s  /usr/local/bin/cosign\n' "$cosign_sha256" | sha256sum --check -
       chmod 0755 /usr/local/bin/cosign
-      cosign version --json | jq -e '.gitVersion == "v3.1.4"' > /dev/null
+      cosign version --json | jq -e '.gitVersion == "v3.1.5"' > /dev/null
     - test -n "$DOCKERHUB_USERNAME" || (echo "DOCKERHUB_USERNAME is required" >&2; exit 1)
     - test -n "$DOCKERHUB_TOKEN" || (echo "DOCKERHUB_TOKEN is required" >&2; exit 1)
     - printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin

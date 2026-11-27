@@ -15,12 +15,12 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.43.1",
+    "@astrojs/starlight": "^0.43.2",
     "@typescript/native-preview": "npm:typescript@7.0.2",
     "astro": "^7.4.13",
-    "lucide-static": "1.77.0",
+    "lucide-static": "1.82.0",
     "starlight-theme-nova": "0.12.3",
-    "swagger-ui-dist": "^5.35.1",
+    "swagger-ui-dist": "^5.36.0",
     "typescript": "npm:@typescript/typescript6@6.0.2"
   },
   "overrides": {
@@ -28,7 +28,7 @@
     "js-yaml": "4.3.2",
     "smol-toml": "1.9.1",
     "svgo": "4.1.0",
-    "vite": "8.3.8"
+    "vite": "8.4.0"
   },
   "engines": {
     "node": ">=26"
