@@ -20,6 +20,7 @@ from bot.plugins.extensions.jobs import utc
 from bot.plugins.extensions.presentation import preferences
 from bot.plugins.extensions.registry import get_registry, identifier
 from bot.plugins.packages import generation_is_current, package_root, read_state
+from bot.plugins.shipped import release_directory
 from bot.services.partner_common import currency_scale
 from db.extension_models import ExtensionOperation, ExtensionOrder, ExtensionPresentation
 from db.models import User
@@ -144,7 +145,7 @@ async def admin_extensions_route(request: web.Request) -> web.Response:
             )
         installation = read_state(package_root())["installations"].get(owner)
         if installation:
-            path = package_root() / "releases" / owner / installation["digest"] / "plugin.json"
+            path = release_directory(package_root(), owner, installation["digest"]) / "plugin.json"
             frontend = (
                 json.loads(path.read_text(encoding="utf-8")).get("frontend", {}).get("user", {})
             )

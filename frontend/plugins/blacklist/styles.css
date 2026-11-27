@@ -1,0 +1,201 @@
+.minishop-blacklist {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  color: var(--text, #20242a);
+  overflow-wrap: anywhere;
+}
+
+.minishop-blacklist:empty {
+  display: none;
+}
+
+.minishop-blacklist :is(p, h3) {
+  margin: 0;
+}
+
+.minishop-blacklist h3 {
+  font-size: 1rem;
+}
+
+.minishop-blacklist :is(.blacklist-config, .blacklist-group) {
+  display: grid;
+  gap: 10px;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.minishop-blacklist .blacklist-config {
+  gap: 18px;
+}
+
+.minishop-blacklist .blacklist-group legend {
+  padding: 0 0 8px;
+  font-weight: 600;
+}
+
+.minishop-blacklist .blacklist-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.minishop-blacklist :is(.blacklist-field, .blacklist-check) {
+  display: grid;
+  align-items: center;
+  gap: 6px;
+}
+
+.minishop-blacklist .blacklist-field > span {
+  font-weight: 600;
+}
+
+.minishop-blacklist :is(.blacklist-muted, .blacklist-field small) {
+  color: var(--muted, #56616c);
+}
+
+.minishop-blacklist :is(input, textarea):not([type="checkbox"]) {
+  box-sizing: border-box;
+  min-height: 38px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-strong, #aeb8c4);
+  border-radius: var(--radius-control, 8px);
+  padding: 8px 10px;
+  background: var(--panel-2, #f5f7fa);
+  color: inherit;
+  font: inherit;
+}
+
+.minishop-blacklist input[type="number"] {
+  max-width: 12rem;
+}
+
+.minishop-blacklist textarea {
+  resize: vertical;
+}
+
+.minishop-blacklist .blacklist-check {
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  min-height: 26px;
+  cursor: pointer;
+}
+
+.minishop-blacklist input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--accent, #087247);
+}
+
+.minishop-blacklist :is(button, a, input, textarea):focus-visible {
+  outline: 2px solid var(--accent, #087247);
+  outline-offset: 2px;
+}
+
+.minishop-blacklist .blacklist-button {
+  justify-self: start;
+  min-height: 36px;
+  border: 1px solid var(--border-strong, #aeb8c4);
+  border-radius: var(--radius-control, 8px);
+  padding: 6px 13px;
+  color: inherit;
+  background: var(--panel-2, #f5f7fa);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.minishop-blacklist .blacklist-button:hover:not(:disabled) {
+  border-color: var(--accent, #087247);
+}
+
+.minishop-blacklist .blacklist-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.minishop-blacklist .blacklist-primary {
+  border-color: var(--accent, #087247);
+  background: var(--accent, #087247);
+  color: var(--accent-contrast, #fff);
+}
+
+.minishop-blacklist :is(.blacklist-message, .blacklist-sources) {
+  display: grid;
+  gap: 8px;
+}
+
+.minishop-blacklist .blacklist-error {
+  color: var(--danger-text, #aa2727);
+}
+
+.minishop-blacklist .blacklist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.minishop-blacklist :is(.blacklist-source-statuses, .blacklist-reasons) {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.minishop-blacklist .blacklist-source-statuses > li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #ccd3da);
+  border-radius: var(--radius-inner, 6px);
+  background: var(--surface-muted, #f8fafb);
+}
+
+.minishop-blacklist.blacklist-status {
+  gap: 8px;
+}
+
+.minishop-blacklist .blacklist-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid var(--danger-border, #f0bebe);
+  border-radius: var(--radius-inner, 6px);
+  background: var(--danger-soft, #fff4f4);
+  color: var(--danger-text, #aa2727);
+}
+
+.minishop-blacklist .blacklist-cross {
+  color: var(--danger, #bb2424);
+  font-size: 1.3rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.minishop-blacklist .blacklist-source-link {
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+  min-width: 32px;
+  min-height: 32px;
+  margin-inline-start: 5px;
+  border: 1px solid var(--border, #ccd3da);
+  border-radius: var(--radius-inner, 6px);
+  color: inherit;
+  text-decoration: none;
+}
+
+.minishop-blacklist .blacklist-source-link:hover {
+  border-color: var(--accent, #087247);
+}

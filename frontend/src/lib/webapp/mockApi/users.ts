@@ -191,8 +191,19 @@ export function filterDemoUsers(params: URLSearchParams): DemoAdminUser[] {
   }
 
   const filter = params.get("filter") || "all";
-  if (filter === "active") out = out.filter((user) => !user.is_banned);
-  else if (filter === "banned") out = out.filter((user) => user.is_banned);
+  const audienceFilter = [
+    "active",
+    "active_today",
+    "referred",
+    "active_subscription",
+    "inactive_subscription",
+    "expired_subscription",
+    "paid",
+    "trial",
+    "free",
+  ].includes(filter);
+  if (audienceFilter) out = out.filter((user) => !user.is_banned);
+  if (filter === "banned") out = out.filter((user) => user.is_banned);
   else if (filter === "active_today") {
     const now = new Date();
     const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());

@@ -22,6 +22,7 @@ from bot.plugins.packages import (
     _validate_manifest,
     read_state,
 )
+from bot.plugins.shipped import is_bundled
 from config.theme_packages.paths import registry_lock
 
 BACKUP_PREFIX = "config/plugin-store/"
@@ -38,6 +39,8 @@ def _selected_releases(root: Path) -> list[Path]:
         digest = entry["digest"]
         if not SHA256.fullmatch(digest):
             raise PluginPackageError("invalid_plugin_state")
+        if is_bundled(plugin_id, entry):
+            continue
         releases.append(root / "releases" / plugin_id / digest)
     return releases
 
@@ -66,10 +69,12 @@ def snapshot_packages(source: Path, target: Path) -> bool:
         return False
     with registry_lock(source):
         releases = _selected_releases(source)
-        if not releases:
+        if not releases and not read_state(source)["installations"]:
             return False
         for name in ("state.json", "trusted-publishers.json"):
             path = source / name
+            if name == "trusted-publishers.json" and not releases and not path.exists():
+                continue
             if not path.is_file() or path.is_symlink():
                 raise PluginPackageError("invalid_plugin_backup")
             target.mkdir(parents=True, exist_ok=True)

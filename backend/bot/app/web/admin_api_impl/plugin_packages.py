@@ -41,6 +41,7 @@ from bot.plugins.packages import (
     stage_archive,
     trust_publisher,
 )
+from bot.plugins.shipped import release_directory
 from bot.plugins.sources import (
     check_ready_package_release,
     fetch_ready_package,
@@ -118,7 +119,7 @@ async def admin_plugin_packages_route(request: web.Request) -> web.Response:
         if isinstance(source, dict) and source.get("kind") in {"github", "gitlab"}:
             summary["source"] = {**source, "ref": repository_tracking_ref(source)}
         try:
-            release = root / "releases" / plugin_id / installation["digest"]
+            release = release_directory(root, plugin_id, installation["digest"])
             manifest = json.loads((release / "plugin.json").read_text(encoding="utf-8"))
             name = manifest.get("name")
             description = manifest.get("description")
@@ -336,7 +337,7 @@ def _active_frontends(root: Path) -> tuple[int, list[dict[str, Any]]]:
     for plugin_id, installation in state["installations"].items():
         if not installation["enabled"]:
             continue
-        release = root / "releases" / plugin_id / installation["digest"]
+        release = release_directory(root, plugin_id, installation["digest"])
         manifest = json.loads((release / "plugin.json").read_text(encoding="utf-8"))
         frontend = manifest.get("frontend")
         if not isinstance(frontend, dict):
@@ -387,8 +388,8 @@ async def admin_plugin_asset_route(request: web.Request) -> web.Response:
         or "\\" in relative
     ):
         raise PluginPackageError("plugin_asset_unavailable", status=404)
-    target = package_root() / "releases" / plugin_id / digest / "frontend" / relative
-    manifest_path = package_root() / "releases" / plugin_id / digest / "plugin.json"
+    target = release_directory(package_root(), plugin_id, digest) / "frontend" / relative
+    manifest_path = release_directory(package_root(), plugin_id, digest) / "plugin.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if f"frontend/{relative}" not in manifest["files"] or not target.is_file():
         raise PluginPackageError("plugin_asset_unavailable", status=404)

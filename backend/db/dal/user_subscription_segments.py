@@ -85,6 +85,7 @@ def active_subscription_segment_flags_sq(now: datetime) -> Subquery:
         )
         .join(User, Subscription.user_id == User.user_id)
         .where(
+            User.is_banned.is_not(True),
             Subscription.is_active.is_(True),
             Subscription.end_date > now,
         )

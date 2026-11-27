@@ -122,6 +122,32 @@ for (const width of [1440, 390]) {
 }
 
 for (const width of [1440, 390]) {
+  test(`audience and banned counters open separate user lists at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    for (const filter of ["active", "banned"]) {
+      await page.goto("/demo/runtime/admin/stats");
+      const counter = page.locator(`[data-admin-user-filter="${filter}"]`);
+      const card = page.locator(".admin-stats-audience-card").filter({ has: counter });
+      await expect(card).toBeVisible();
+      await expect(card).toContainText(
+        filter === "active" ? "Пользователи без блокировки" : "Заблокированные"
+      );
+      if (filter === "banned") {
+        const audienceGrid = card.locator("..");
+        const bounds = await audienceGrid.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+        await audienceGrid.screenshot({ path: testInfo.outputPath(`audience-${width}.png`) });
+      }
+      const count = await counter.innerText();
+      await counter.click();
+      await expect(page).toHaveURL(new RegExp(`users_filter=${filter}`));
+      await expect(page.locator(".admin-list-toolbar-summary strong")).toHaveText(count);
+    }
+  });
+
   test(`tariff dashboard drilldown and trial filter persist at ${width}px`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));

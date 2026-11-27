@@ -1,0 +1,60 @@
+{
+  "id": "minishop-blacklist",
+  "name": "Чёрный список",
+  "description": "Пометки в админке Minishop и уведомления о совпадениях с внешними чёрными списками. Автор исходного плагина — deadcxap.",
+  "frontend": {
+    "entry": "admin/index.js",
+    "styles": [
+      "admin/index.css"
+    ],
+    "sections": [
+      {
+        "id": "minishop-blacklist",
+        "view": "matched-users",
+        "group": "operations",
+        "order": 100,
+        "i18nKey": "minishop_blacklist_nav",
+        "label": "Blacklisted users",
+        "titleI18nKey": "minishop_blacklist_title",
+        "title": "Blacklisted users",
+        "subtitleI18nKey": "minishop_blacklist_subtitle",
+        "subtitle": "Minishop users found in the configured blacklists."
+      }
+    ],
+    "settings_tabs": [
+      {
+        "id": "settings",
+        "view": "settings",
+        "label": "Settings",
+        "i18nKey": "minishop_blacklist_settings"
+      }
+    ],
+    "user_panels": [
+      {
+        "id": "status",
+        "view": "user-status",
+        "label": "Blacklist",
+        "i18nKey": "minishop_blacklist_status"
+      }
+    ],
+    "slots": [
+      {
+        "id": "minishop-blacklist-ticket-status",
+        "view": "ticket-status",
+        "target": "admin.support.ticket.content",
+        "placement": "before",
+        "label": "Blacklist",
+        "i18nKey": "minishop_blacklist_status"
+      }
+    ]
+  },
+  "version": "1.2.0",
+  "publisher": "3252a8",
+  "author": "deadcxap",
+  "upstream": {
+    "repository": "https://github.com/deadcxap/minishop-blacklist",
+    "revision": "4596f4db9ab503e9b44d1fe59663110565fbe296",
+    "license": "Unlicense",
+    "contribution": "https://github.com/deadcxap/minishop-blacklist/pull/1"
+  }
+}

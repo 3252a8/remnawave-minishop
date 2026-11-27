@@ -116,6 +116,7 @@ async def _filter_and_sort_users(
     sort_value: str,
     page: int,
     page_size: int,
+    offset: int | None = None,
     valid_tariff_keys: set[str] | None = None,
     tariff_filter: str = "all",
     now: datetime | None = None,
@@ -227,15 +228,16 @@ async def _filter_and_sort_users(
         cond = subscription_segment_condition(f, segment_flags_sq)
     elif f == "active_today":
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        cond = User.registration_date >= today_start
+        cond = and_(User.is_banned.is_not(True), User.registration_date >= today_start)
     elif f == "referred":
-        cond = User.referred_by_id.is_not(None)
+        cond = and_(User.is_banned.is_not(True), User.referred_by_id.is_not(None))
     elif f == "active_subscription":
-        cond = active_subscription_exists_for_user(now)
+        cond = and_(User.is_banned.is_not(True), active_subscription_exists_for_user(now))
     elif f == "inactive_subscription":
-        cond = ~active_subscription_exists_for_user(now)
+        cond = and_(User.is_banned.is_not(True), ~active_subscription_exists_for_user(now))
     elif f == "expired_subscription":
         cond = and_(
+            User.is_banned.is_not(True),
             expired_subscription_exists_for_user(now),
             ~active_subscription_exists_for_user(now),
         )
@@ -262,7 +264,7 @@ async def _filter_and_sort_users(
     elif f == "banned":
         cond = User.is_banned.is_(True)
     elif f == "active":
-        cond = User.is_banned.is_(False)
+        cond = User.is_banned.is_not(True)
     elif f == "tg_linked":
         cond = User.telegram_id.is_not(None)
     elif f == "no_tg":
@@ -399,7 +401,9 @@ async def _filter_and_sort_users(
         order = sort_map.get(sort_key, sort_map["registered_desc"])
         stmt = stmt.order_by(*order) if isinstance(order, tuple) else stmt.order_by(order)
 
-    stmt = stmt.offset(max(page, 0) * max(page_size, 1)).limit(max(page_size, 1))
+    stmt = stmt.offset(
+        max(page, 0) * max(page_size, 1) if offset is None else max(offset, 0)
+    ).limit(max(page_size, 1))
 
     users = (await session.execute(stmt)).scalars().all()
     total = (await session.execute(count_stmt)).scalar_one()

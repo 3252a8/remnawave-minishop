@@ -13,7 +13,12 @@
 </script>
 
 <div
-  class={cn("admin-cn-dashboard-grid", columns === 3 && "admin-cn-dashboard-grid--3", className)}
+  class={cn(
+    "admin-cn-dashboard-grid",
+    columns === 3 && "admin-cn-dashboard-grid--3",
+    columns === 4 && "admin-cn-dashboard-grid--4",
+    className
+  )}
   {...restProps}
 >
   {@render children?.()}

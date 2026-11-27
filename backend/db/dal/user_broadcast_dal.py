@@ -192,11 +192,12 @@ async def get_enhanced_user_statistics(
     now = now or datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
+    audience = User.is_banned.is_not(True)
     user_counts_stmt = select(
-        func.count(User.user_id),
-        func.coalesce(func.sum(case((User.is_banned == True, 1), else_=0)), 0),
-        func.coalesce(func.sum(case((User.registration_date >= today_start, 1), else_=0)), 0),
-        func.coalesce(func.sum(case((User.referred_by_id.is_not(None), 1), else_=0)), 0),
+        func.count(User.user_id).filter(audience),
+        func.count(User.user_id).filter(User.is_banned.is_(True)),
+        func.count(User.user_id).filter(audience, User.registration_date >= today_start),
+        func.count(User.user_id).filter(audience, User.referred_by_id.is_not(None)),
     )
     user_counts = (await session.execute(user_counts_stmt)).one()
     total_users = int(user_counts[0] or 0)
@@ -222,7 +223,7 @@ async def get_enhanced_user_statistics(
     free_subscription_users = int(subscription_counts[3] or 0)
 
     inactive_users = total_users - active_subscription_users
-    expired_subscription_users = await count_users_with_expired_subscription(session)
+    expired_subscription_users = await count_users_with_expired_subscription(session, now=now)
 
     return {
         "total_users": total_users,
@@ -376,12 +377,13 @@ async def count_users_without_any_subscription_for_broadcast(session: AsyncSessi
     return int(result.scalar_one() or 0)
 
 
-async def count_users_with_expired_subscription(session: AsyncSession) -> int:
-    """Count users who have an expired subscription and no currently active subscription."""
-    from datetime import datetime
-
-    now = datetime.now(UTC)
+async def count_users_with_expired_subscription(
+    session: AsyncSession, *, now: datetime | None = None
+) -> int:
+    """Count unblocked users with expired history and no currently active subscription."""
+    now = now or datetime.now(UTC)
     stmt = select(func.count(User.user_id)).where(
+        User.is_banned.is_not(True),
         expired_subscription_exists_for_user(now),
         ~active_subscription_exists_for_user(now),
     )

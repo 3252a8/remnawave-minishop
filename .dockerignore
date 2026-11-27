@@ -188,3 +188,5 @@ venv/
 !**/.env*.example
 **/.venv/
 **/node_modules/
+
+backend/bot/plugins/builtin/blacklist/dist/

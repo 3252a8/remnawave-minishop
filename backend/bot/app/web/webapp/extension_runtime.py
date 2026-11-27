@@ -15,6 +15,7 @@ from bot.plugins.extensions import ExtensionError, UserContext
 from bot.plugins.extensions.presentation import preferences
 from bot.plugins.extensions.registry import get_registry, split_key
 from bot.plugins.packages import generation_is_current, package_root, read_state
+from bot.plugins.shipped import release_directory
 from db.dal import user_dal
 
 from .common import _require_user_id
@@ -50,7 +51,7 @@ async def extension_runtime_route(request: web.Request) -> web.Response:
                 continue
             try:
                 async with asyncio.timeout(5):
-                    release = package_root() / "releases" / owner / installation["digest"]
+                    release = release_directory(package_root(), owner, installation["digest"])
                     manifest = json.loads(
                         await asyncio.to_thread(
                             (release / "plugin.json").read_text, encoding="utf-8"
@@ -116,7 +117,7 @@ async def extension_asset_route(request: web.Request) -> web.Response:
             or any(part in {"", ".", ".."} or ":" in part for part in relative.split("/"))
         ):
             raise web.HTTPNotFound()
-        release = package_root() / "releases" / owner / digest
+        release = release_directory(package_root(), owner, digest)
         manifest = json.loads(
             await asyncio.to_thread((release / "plugin.json").read_text, encoding="utf-8")
         )

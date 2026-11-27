@@ -32,6 +32,7 @@ from bot.utils.app_version import resolve_app_version_tag
 from config.theme_packages.paths import atomic_bytes, registry_lock
 
 from .capabilities import CORE_PLUGIN_CAPABILITIES
+from .shipped import BLACKLIST_ENTRY, BLACKLIST_ID, blacklist_installation, is_bundled
 
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_UNPACKED_BYTES = 1024 * 1024 * 1024
@@ -490,6 +491,8 @@ def activate_staged(
             raise PluginPackageError("candidate_changed", status=409)
         plugin_id = candidate.manifest["id"]
         installed = state["installations"].get(plugin_id)
+        if installed and is_bundled(plugin_id, installed):
+            raise PluginPackageError("plugin_managed_by_image", status=409)
         if (
             installed
             and installed["publisher"] != candidate.manifest["publisher"]
@@ -590,6 +593,10 @@ def remove_plugin(root: Path, plugin_id: str, actor: int, generation: int) -> di
         if (entry.get("source") or {}).get("kind") == "image":
             raise PluginPackageError("image_plugin_cannot_remove", status=409)
         del state["installations"][plugin_id]
+        # Removing a legacy standalone copy reveals the disabled image version.
+        shipped = blacklist_installation() if plugin_id == BLACKLIST_ID else None
+        if shipped:
+            state["installations"][plugin_id] = dict(shipped)
         state["generation"] += 1
         state.setdefault("operations", []).append(
             {
@@ -611,6 +618,16 @@ def managed_entry_points(root: Path) -> list[metadata.EntryPoint]:
     entry_points: list[metadata.EntryPoint] = []
     for plugin_id, entry in sorted(read_state(root)["installations"].items()):
         if not entry["enabled"]:
+            continue
+        if is_bundled(plugin_id, entry):
+            shipped = blacklist_installation()
+            if not shipped or entry["digest"] != shipped["digest"]:
+                raise PluginPackageError("image_package_backend_not_ready")
+            entry_points.append(
+                metadata.EntryPoint(
+                    name=BLACKLIST_ID, value=BLACKLIST_ENTRY, group="minishop.plugins"
+                )
+            )
             continue
         release = root / "releases" / plugin_id / entry["digest"]
         manifest = _json_object((release / "plugin.json").read_bytes(), "invalid_plugin_manifest")
@@ -646,12 +663,36 @@ def package_root() -> Path:
     return Path(os.environ.get("MINISHOP_PLUGIN_STORE", "data/plugin-store")).expanduser()
 
 
+def _select_bundled_blacklist(root: Path) -> None:
+    shipped = blacklist_installation()
+    if not shipped or metadata.entry_points(group="minishop.plugins", name=BLACKLIST_ID):
+        return
+    with registry_lock(root):
+        state = read_state(root)
+        previous = state["installations"].get(BLACKLIST_ID)
+        if previous and (
+            not is_bundled(BLACKLIST_ID, previous) or previous["digest"] == shipped["digest"]
+        ):
+            return
+        enabled = bool(previous and previous["enabled"])
+        state["installations"][BLACKLIST_ID] = {
+            **shipped,
+            "enabled": enabled,
+            "status": "pending_restart" if enabled else "installed",
+        }
+        if enabled:
+            state["generation"] += 1
+        _write_state(root, state)
+
+
 def bootstrap_image_package(root: Path, role: str) -> None:
     """Seed a signed package shipped inside a derivative image into the shared store.
 
     Only the backend image selects a generation. The worker verifies that its
     image carries the same archive before it can start work for that generation.
     """
+    if role == "backend":
+        _select_bundled_blacklist(root)
     archive_name = os.environ.get("MINISHOP_BUNDLED_PLUGIN_ARCHIVE")
     key_name = os.environ.get("MINISHOP_BUNDLED_PLUGIN_PUBLIC_KEY")
     if not archive_name and not key_name:

@@ -293,7 +293,7 @@ class UserDalMergeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("EXPIRED", sql)
         self.assertIn("END_DATE <=", sql)
         self.assertIn("NOT (EXISTS", sql)
-        self.assertNotIn("USERS.IS_BANNED", sql)
+        self.assertIn("USERS.IS_BANNED IS NOT TRUE", sql)
 
     async def test_get_user_ids_with_expired_subscription_excludes_banned_users(self):
         session = SimpleNamespace(execute=AsyncMock(return_value=FakeResult([2, 3])))

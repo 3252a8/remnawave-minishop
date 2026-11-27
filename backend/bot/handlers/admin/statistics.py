@@ -73,7 +73,7 @@ async def show_statistics_handler(
 
     stats_text_parts.append(f"\n<b>👥 {_('admin_enhanced_users_stats_header')}</b>")
     stats_text_parts.append(
-        f"📊 {_('admin_user_stats_total_label')}: <b>{user_stats['total_users']}</b>"
+        f"📊 {_('admin_stats_label_users')}: <b>{user_stats['total_users']}</b>"
     )
     # Removed: Active today moved to panel stats
     stats_text_parts.append(

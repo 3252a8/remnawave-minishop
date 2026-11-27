@@ -9,5 +9,5 @@
       "$components/*": ["./src/lib/components/*"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "plugins/blacklist/**/*.ts"]
 }

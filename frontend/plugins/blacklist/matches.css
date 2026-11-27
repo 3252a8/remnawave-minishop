@@ -1,0 +1,435 @@
+.blacklist-native-users :is(.admin-list-toolbar, .blacklist-native-empty) {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-card-bg);
+  box-shadow: var(--admin-card-shadow);
+}
+
+.blacklist-native-users
+  :is(.admin-list-toolbar-search, .admin-list-toolbar-controls, .admin-list-toolbar-summary) {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.blacklist-native-users .admin-list-toolbar-search .input {
+  flex: 1;
+  width: auto;
+}
+
+.blacklist-native-users .admin-list-toolbar-search :is(.input, .admin-btn) {
+  min-height: 36px;
+  height: 36px;
+}
+
+.blacklist-native-users .admin-list-toolbar-controls {
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.blacklist-native-users .admin-list-toolbar-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  flex: 1 1 min(100%, 680px);
+  gap: 12px;
+  min-width: 0;
+}
+
+.blacklist-native-users .admin-list-toolbar-summary {
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.blacklist-native-users .admin-list-toolbar-summary > span {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.blacklist-native-users .admin-toolbar-select {
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 8px;
+  background: var(--admin-surface-2);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 0 8px;
+}
+
+.blacklist-native-users .blacklist-native-filter-toggle,
+.blacklist-native-users .admin-users-mobile-list {
+  display: none;
+}
+
+.blacklist-native-users .admin-users-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.blacklist-native-users .admin-users-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 3px 5px 3px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--admin-muted) 8%, transparent);
+  color: var(--admin-text);
+  font-size: 12px;
+}
+
+.blacklist-native-users .admin-users-filter-chip strong {
+  font-size: 11px;
+  color: var(--admin-muted);
+}
+
+.blacklist-native-users .admin-users-filter-chip button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+}
+
+.blacklist-native-users .admin-users-tariff-hint {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.blacklist-native-users .admin-users-table-wrap {
+  min-width: 0;
+}
+
+.blacklist-native-users .admin-users-table-wrap > .admin-table-wrap {
+  overflow-x: auto;
+}
+
+.blacklist-native-users .admin-users-table {
+  min-width: 1290px;
+}
+
+.blacklist-native-users .has-user-balance .admin-users-table,
+.blacklist-native-users .has-partner-balance .admin-users-table {
+  min-width: 1420px;
+}
+
+.blacklist-native-users .has-user-balance.has-partner-balance .admin-users-table {
+  min-width: 1550px;
+}
+
+.blacklist-native-users :is(.blacklist-native-user, .blacklist-native-tariff) {
+  min-width: 150px;
+  max-width: 220px;
+}
+
+.blacklist-native-users
+  :is(
+    .blacklist-native-balance,
+    .blacklist-native-partner-balance,
+    .blacklist-native-premium,
+    .blacklist-native-paid,
+    .blacklist-native-payments,
+    .blacklist-native-invited,
+    .blacklist-native-expiry,
+    .blacklist-native-registration
+  ) {
+  white-space: nowrap;
+}
+
+.blacklist-native-users :is(.blacklist-native-expiry, .blacklist-native-registration) {
+  color: var(--admin-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.blacklist-native-users :is(.admin-user-balance-value, .admin-user-counter) {
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.blacklist-native-users .admin-user-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.blacklist-native-users .admin-user-premium-placeholder {
+  font-size: 12px;
+  color: var(--admin-dim);
+}
+
+.blacklist-native-users :is(.admin-user-cell, .admin-user-mobile-head) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.blacklist-native-users
+  :is(.admin-user-cell-text, .admin-subscription-plan, .blacklist-native-reasons) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.blacklist-native-users .admin-user-cell-text {
+  flex: 1;
+}
+
+.blacklist-native-users .admin-user-cell-name {
+  color: var(--admin-text);
+  font-weight: 650;
+  font-size: 13px;
+  line-height: 1.25;
+  text-decoration: none;
+}
+
+.blacklist-native-users .blacklist-native-user-headline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.blacklist-native-users .blacklist-native-user-headline .blacklist-cross {
+  flex: none;
+  font-size: 15px;
+}
+
+.blacklist-native-users .admin-user-cell-secondary {
+  color: var(--admin-dim);
+  font-size: 11px;
+}
+
+.blacklist-native-users
+  :is(.admin-user-cell-name, .admin-user-cell-secondary, .admin-user-cell-id) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blacklist-native-users .admin-user-cell-id {
+  color: var(--admin-muted);
+  font: 11px var(--font-mono);
+}
+
+.blacklist-native-users .admin-subscription-plan {
+  gap: 4px;
+}
+
+.blacklist-native-users .admin-subscription-plan-name {
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.blacklist-native-users .is-empty .admin-subscription-plan-name {
+  color: var(--admin-muted);
+  font-weight: 450;
+}
+
+.blacklist-native-users .admin-subscription-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.blacklist-native-users td.blacklist-native-reasons {
+  display: table-cell;
+  min-width: 180px;
+  max-width: 270px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.blacklist-native-users .blacklist-native-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 11px var(--font-mono);
+  color: var(--admin-muted);
+}
+
+.blacklist-native-users .admin-sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: -4px -6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.blacklist-native-users .admin-sort-header:is(:hover, :focus-visible) {
+  color: var(--admin-text);
+  background: color-mix(in srgb, var(--admin-muted) 10%, transparent);
+}
+
+.blacklist-native-users .admin-sort-state {
+  display: inline-flex;
+  color: var(--admin-dim);
+}
+
+.blacklist-native-users .admin-sort-state[data-state]:not([data-state="none"]) {
+  color: color-mix(in srgb, var(--accent) 72%, var(--admin-muted));
+}
+
+.blacklist-native-users .admin-pagination input.admin-pagination-jump-input {
+  width: 64px;
+  min-height: 32px;
+  height: 32px;
+  padding: 0 8px;
+}
+
+.blacklist-native-users .blacklist-native-skeleton {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.blacklist-native-users .blacklist-native-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.blacklist-native-users .blacklist-native-filters-dialog {
+  margin: 0 auto;
+  max-width: 100%;
+  inset: auto 0 0;
+  width: min(100%, 420px);
+  max-height: 82dvh;
+  overflow: auto;
+  padding: 16px;
+  color: var(--admin-text);
+  border: 1px solid var(--admin-border);
+  border-radius: 18px 18px 0 0;
+  background: var(--admin-card-bg);
+}
+
+.blacklist-native-users .blacklist-native-filters-dialog[open],
+.blacklist-native-users .blacklist-native-dialog-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.blacklist-native-users .blacklist-native-filters-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.blacklist-native-users .blacklist-native-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.blacklist-native-users .blacklist-native-dialog-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .blacklist-native-users
+    :is(.admin-users-table-wrap > .admin-table-wrap, .admin-list-toolbar-filters) {
+    display: none;
+  }
+
+  .blacklist-native-users .blacklist-native-filter-toggle {
+    display: inline-flex;
+  }
+
+  .blacklist-native-users .admin-users-mobile-list {
+    display: grid;
+    gap: 10px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .blacklist-native-users .admin-user-mobile-card {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    background: var(--admin-surface-2);
+    cursor: pointer;
+  }
+
+  .blacklist-native-users .admin-user-mobile-head {
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .blacklist-native-users .admin-user-mobile-metrics,
+  .blacklist-native-users .admin-user-mobile-dates {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 12px;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .blacklist-native-users .admin-user-mobile-dates {
+    grid-template-columns: 1fr 1fr;
+    padding-top: 8px;
+    border-top: 1px solid var(--admin-border);
+  }
+
+  .blacklist-native-users .admin-user-mobile-dates > div:last-child {
+    text-align: right;
+  }
+
+  .blacklist-native-users .admin-user-mobile-metrics > div,
+  .blacklist-native-users .admin-user-mobile-dates > div {
+    min-width: 0;
+  }
+
+  .blacklist-native-users .admin-user-mobile-metrics > .blacklist-native-tariff {
+    grid-column: 1 / -1;
+  }
+
+  .blacklist-native-users .admin-user-mobile-card :is(dt, dd) {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .blacklist-native-users .admin-user-mobile-card dt {
+    color: var(--admin-muted);
+    font-size: 11px;
+  }
+
+  .blacklist-native-users .admin-user-mobile-card dd > .admin-badge {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

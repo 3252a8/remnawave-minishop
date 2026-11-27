@@ -74,7 +74,7 @@ export function demoApiResponse(
     if (params.get("include_panel") === "false") delete stats.panel;
     const users = Object.fromEntries(
       Object.entries({
-        total_users: "all",
+        total_users: "active",
         active_today: "active_today",
         banned_users: "banned",
         referral_users: "referred",

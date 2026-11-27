@@ -10,7 +10,9 @@ from sqlalchemy.sql.selectable import Subquery
 from ..models import Subscription, User
 
 
-def user_subscription_plans_sq(now: datetime, *, active_only: bool = False) -> Subquery:
+def user_subscription_plans_sq(
+    now: datetime, *, active_only: bool = False, exclude_banned: bool = False
+) -> Subquery:
     """Prefer live paid → trial → free plans, then the latest inactive history.
 
     A single row per user keeps list filters, pagination and dashboard totals
@@ -47,6 +49,8 @@ def user_subscription_plans_sq(now: datetime, *, active_only: bool = False) -> S
     ).join(User, Subscription.user_id == User.user_id)
     if active_only:
         ranked = ranked.where(live)
+    if exclude_banned:
+        ranked = ranked.where(User.is_banned.is_not(True))
     ranked_sq = ranked.subquery(name="ranked_user_subscription_plans")
     return select(ranked_sq).where(ranked_sq.c.rn == 1).subquery(name="user_subscription_plans")
 
@@ -75,7 +79,7 @@ async def get_subscription_plan_tariff_keys(session: AsyncSession, *, now: datet
 async def get_active_subscription_plan_counts(
     session: AsyncSession, *, now: datetime
 ) -> list[dict[str, Any]]:
-    plans = user_subscription_plans_sq(now, active_only=True)
+    plans = user_subscription_plans_sq(now, active_only=True, exclude_banned=True)
     # A trial's bound tariff must not split the separate trial segment.
     key = case((plans.c.is_trial.is_(True), None), else_=plans.c.tariff_key)
     result = await session.execute(

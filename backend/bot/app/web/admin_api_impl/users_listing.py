@@ -300,7 +300,7 @@ def _admin_users_list_cache(settings: Settings) -> AsyncTTLCache | None:
 
 def _admin_users_list_cache_key(**params: Any) -> str:
     raw = json.dumps(params, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return "v2:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 async def _invalidate_admin_users_list_cache(settings: Settings) -> None:

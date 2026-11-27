@@ -21,8 +21,8 @@
 </script>
 
 <AdminDashboardStack>
-  <AdminDashboardGrid columns={3}>
-    {#each Array(3) as _, i (i)}
+  <AdminDashboardGrid columns={4}>
+    {#each Array(4) as _, i (i)}
       <Card.Root class="admin-cn-card-skeleton admin-stats-audience-card">
         <Card.Header>
           <span class="admin-skeleton admin-skeleton-line admin-skeleton-line-short"></span>

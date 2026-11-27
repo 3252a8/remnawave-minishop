@@ -128,6 +128,7 @@ export function demoActiveTariffs(): ActiveTariff[] {
       active_users: 0,
     });
   for (const user of DATASET.adminUsers || []) {
+    if (user.is_banned) continue;
     const plan = demoSubscriptionPlan(user);
     if (!plan?.is_active) continue;
     const row = rows.find((item) => subscriptionPlanFilter(item) === subscriptionPlanFilter(plan));

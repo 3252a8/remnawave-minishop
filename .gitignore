@@ -126,3 +126,5 @@ data/docs/*
 .minishop-restore.lock
 .venv/
 .tmp
+
+backend/bot/plugins/builtin/blacklist/dist/

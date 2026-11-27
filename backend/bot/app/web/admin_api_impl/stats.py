@@ -152,7 +152,7 @@ async def _load_admin_db_stats(
     return cast(
         dict[str, Any],
         await cache.get_or_load(
-            f"db:subscription-mrr-v4:{currency}:{json.dumps(rates, sort_keys=True)}",
+            f"db:audience-v5:{currency}:{json.dumps(rates, sort_keys=True)}",
             lambda: _load_admin_db_stats_uncached(async_session_factory, currency, rates),
         ),
     )

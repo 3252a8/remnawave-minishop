@@ -8,6 +8,7 @@ from pathlib import Path
 
 from bot.plugins.extensions.registry import get_registry
 from bot.plugins.packages import generation_is_current, package_root, read_state
+from bot.plugins.shipped import release_directory
 from config.extension_targets import extension_page_parts
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def _package_pages(
     for owner, digest in installations:
         try:
             manifest = json.loads(
-                (root / "releases" / owner / digest / "plugin.json").read_text(encoding="utf-8")
+                (release_directory(root, owner, digest) / "plugin.json").read_text(encoding="utf-8")
             )
             frontend = manifest.get("frontend", {}).get("user", {})
             for page in frontend.get("pages", []):

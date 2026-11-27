@@ -7,6 +7,7 @@ from typing import Any, cast
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bot.app.web.admin_api_impl import users_listing
@@ -169,8 +170,10 @@ class AdminSubscriptionPlansTests(IsolatedAsyncioTestCase):
             statistics = await get_enhanced_user_statistics(session, now=self.now)
             counts = await get_active_subscription_plan_counts(session, now=self.now)
         distribution = admin_active_tariffs(self.settings, counts)
-        self.assertEqual(sum(row["active_users"] for row in distribution), 10)
-        self.assertEqual(statistics["active_subscriptions"], 10)
+        self.assertEqual(statistics["total_users"], 14)
+        self.assertEqual(statistics["banned_users"], 1)
+        self.assertEqual(sum(row["active_users"] for row in distribution), 9)
+        self.assertEqual(statistics["active_subscriptions"], 9)
         self.assertEqual(
             {
                 row["tariff_key"]: row["active_users"]
@@ -183,7 +186,6 @@ class AdminSubscriptionPlansTests(IsolatedAsyncioTestCase):
                 "retired": 1,
                 "unused": 0,
                 "removed|plan:ß": 1,
-                "旧:plan|": 1,
             },
         )
         for row in distribution:
@@ -198,6 +200,51 @@ class AdminSubscriptionPlansTests(IsolatedAsyncioTestCase):
                 users, total = await self._users(tariff_filter, active_only=True)
                 self.assertEqual(total, row["active_users"])
                 self.assertEqual(len(users), total)
+
+    async def test_audience_counters_and_drilldowns_exclude_local_bans(self) -> None:
+        async with self.factory() as session:
+            # Include an expired user, a registered referral and a legacy NULL ban flag.
+            await session.execute(
+                update(User).values(registration_date=self.now - timedelta(days=1))
+            )
+            await session.execute(update(User).where(User.user_id == 5).values(is_banned=True))
+            await session.execute(
+                update(User)
+                .where(User.user_id.in_([5, 6, 7]))
+                .values(registration_date=self.now, referred_by_id=1)
+            )
+            await session.execute(update(User).where(User.user_id == 6).values(is_banned=None))
+            stats = await get_enhanced_user_statistics(session, now=self.now)
+            self.assertEqual(stats["total_users"], 13)
+            self.assertEqual(stats["active_today"], 1)
+            self.assertEqual(stats["referral_users"], 1)
+            for key, filter_value in {
+                "total_users": "active",
+                "active_today": "active_today",
+                "banned_users": "banned",
+                "referral_users": "referred",
+                "active_subscriptions": "active_subscription",
+                "paid_subscriptions": "paid",
+                "trial_users": "trial",
+                "free_subscription_users": "free",
+                "inactive_users": "inactive_subscription",
+                "expired_subscription_users": "expired_subscription",
+            }.items():
+                with self.subTest(filter_value=filter_value):
+                    users, count = await _filter_and_sort_users(
+                        session,
+                        filter_value=filter_value,
+                        sort_value="registered_asc",
+                        page=0,
+                        page_size=100,
+                        now=self.now,
+                    )
+                    self.assertEqual(count, stats[key])
+                    ids = {user.user_id for user in users}
+                    if filter_value == "banned":
+                        self.assertEqual(ids, {5, 7})
+                    else:
+                        self.assertTrue(ids.isdisjoint({5, 7}))
 
     async def test_options_keep_disabled_zero_and_observed_historical_tariffs(self) -> None:
         async with self.factory() as session:

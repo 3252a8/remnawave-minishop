@@ -326,7 +326,7 @@
   <StatsSkeleton {at} headers={recentPaymentHeaders} />
 {:else if stats}
   <AdminDashboardStack>
-    <AdminDashboardGrid columns={3}>
+    <AdminDashboardGrid columns={4}>
       <Card.Root class="admin-stats-audience-card">
         <Card.Header>
           <Card.Description>{at("stats_label_users", {}, "")}</Card.Description>
@@ -334,9 +334,9 @@
             <button
               type="button"
               class="admin-stats-user-filter admin-stats-user-filter--count"
-              data-admin-user-filter="all"
-              aria-label={userFilterActionLabel(at("filter_all", {}, "All"))}
-              onclick={() => onOpenUsersFilter("all")}>{users.total_users ?? 0}</button
+              data-admin-user-filter="active"
+              aria-label={userFilterActionLabel(at("filter_not_banned", {}, "Not banned"))}
+              onclick={() => onOpenUsersFilter("active")}>{users.total_users ?? 0}</button
             >
           </Card.Title>
           <Card.Action>
@@ -352,16 +352,6 @@
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
           <div class="admin-cn-card-footer-primary">
-            <button
-              type="button"
-              class="admin-stats-user-filter"
-              data-admin-user-filter="banned"
-              aria-label={userFilterActionLabel(at("filter_banned", {}, "Banned"))}
-              onclick={() => onOpenUsersFilter("banned")}
-              >{at("stats_trend_banned", { count: users.banned_users ?? 0 }, "")}</button
-            >
-          </div>
-          <div class="admin-cn-card-footer-muted">
             <button
               type="button"
               class="admin-stats-user-filter"
@@ -398,7 +388,7 @@
           </Card.Action>
         </Card.Header>
         <Card.Footer class="admin-cn-card-footer--stack">
-          <div class="admin-cn-card-footer-primary">
+          <div class="admin-cn-card-footer-primary admin-stats-segments">
             <button
               type="button"
               class="admin-stats-user-filter"
@@ -407,7 +397,6 @@
               onclick={() => onOpenUsersFilter("paid")}
               >{at("stats_trend_paid", { count: users.paid_subscriptions ?? 0 }, "")}</button
             >
-            <span aria-hidden="true">·</span>
             <button
               type="button"
               class="admin-stats-user-filter"
@@ -416,7 +405,6 @@
               onclick={() => onOpenUsersFilter("free")}
               >{at("stats_trend_free", { count: users.free_subscription_users ?? 0 }, "")}</button
             >
-            <span aria-hidden="true">·</span>
             <button
               type="button"
               class="admin-stats-user-filter"
@@ -474,6 +462,24 @@
           </div>
           <div class="admin-cn-card-footer-muted">{at("stats_card_inactive_caption", {}, "")}</div>
         </Card.Footer>
+      </Card.Root>
+
+      <Card.Root class="admin-stats-audience-card">
+        <Card.Header>
+          <Card.Description>{at("stats_label_banned", {}, "")}</Card.Description>
+          <Card.Title>
+            <button
+              type="button"
+              class="admin-stats-user-filter admin-stats-user-filter--count"
+              data-admin-user-filter="banned"
+              aria-label={userFilterActionLabel(at("filter_banned", {}, "Banned"))}
+              onclick={() => onOpenUsersFilter("banned")}>{users.banned_users ?? 0}</button
+            >
+          </Card.Title>
+        </Card.Header>
+        <Card.Footer class="admin-cn-card-footer-muted"
+          >{at("stats_banned_caption", {}, "")}</Card.Footer
+        >
       </Card.Root>
     </AdminDashboardGrid>
 
@@ -727,6 +733,11 @@
     transition:
       color 140ms ease,
       text-decoration-color 140ms ease;
+  }
+
+  .admin-stats-segments {
+    flex-wrap: wrap;
+    gap: 4px 12px;
   }
 
   .admin-stats-user-filter:hover {

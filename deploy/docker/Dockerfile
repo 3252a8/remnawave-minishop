@@ -153,7 +153,7 @@ USER appuser
 
 FROM node:26.13.1-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS node-runtime
 
-FROM node-runtime AS frontend-builder
+FROM node-runtime AS blacklist-builder
 
 WORKDIR /app/frontend
 
@@ -161,6 +161,12 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
+COPY frontend/plugins/blacklist ./plugins/blacklist
+COPY frontend/scripts/build-blacklist.mjs ./scripts/build-blacklist.mjs
+COPY backend/bot/plugins/builtin/blacklist ../backend/bot/plugins/builtin/blacklist
+RUN npm run build:blacklist
+
+FROM blacklist-builder AS frontend-builder
 COPY frontend ./
 COPY backend/config/defaults/svg_policy.json ../backend/config/defaults/svg_policy.json
 RUN npm run build:webapp
@@ -169,6 +175,8 @@ RUN node ./scripts/prepare_nginx_assets.mjs --out ../frontend-nginx-dist
 
 
 FROM python-base AS backend
+
+COPY --link --from=blacklist-builder /app/backend/bot/plugins/builtin/blacklist/dist/ ./backend/bot/plugins/builtin/blacklist/dist/
 
 USER root
 
@@ -231,6 +239,8 @@ CMD ["python", "-m", "pytest"]
 
 
 FROM python-base AS worker
+
+COPY --link --from=blacklist-builder /app/backend/bot/plugins/builtin/blacklist/dist/ ./backend/bot/plugins/builtin/blacklist/dist/
 
 # GitHub source URL (disabled): https://github.com/3252a8/remnawave-minishop
 LABEL org.opencontainers.image.source="https://gitlab.com/3252a8/remnawave-minishop" \
