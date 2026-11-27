@@ -32,7 +32,7 @@ def test_source_leases_and_snapshots() -> None:
 
 
 async def _source_leases_and_snapshots() -> None:
-    database = os.environ.get("CORE_PERFORMANCE_TEST_DATABASE_URL")
+    database = os.environ.get("CORE_PERFORMANCE_TEST_DATABASE_URL", "")
     if not database:
         pytest.skip("CORE_PERFORMANCE_TEST_DATABASE_URL is not set")
 
