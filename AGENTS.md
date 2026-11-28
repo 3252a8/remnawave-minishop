@@ -34,8 +34,8 @@ Non-negotiables (details in CONTRIBUTING.md §2):
   monkeypatch/re-export trap (CONTRIBUTING.md §5).
 - "Compatibility with other bots" is a feature (keep), not legacy.
 - Keep core and separately shipped PRO functionality isolated. Public core documentation and
-  navigation may mention minishop PRO, summarize its public capabilities, and link to the official
-  PRO site; this exception does not allow copying PRO code, private contracts, assets, or runtime
+  navigation may name Minishop PRO, document public operator workflows and release history,
+  and link to the official PRO site; this exception does not allow copying PRO code, private contracts, assets, or runtime
   dependencies into core.
 - Balance work must include gift-deletion refunds. The temporary user flow that discards an unused
   paid gift without a refund may exist only until balance refund integration is implemented. When
@@ -55,3 +55,17 @@ describe the resulting behavior, merge related work into existing entries, and r
 or duplicate entries. Do not append one bullet per commit or repeat already released behavior.
 Use neutral wording such as «коды активации» / "activation codes" in changelogs and commit messages.
 See CONTRIBUTING.md §8 for release rollover and history provenance.
+
+## Keeping public documentation current
+
+When a change affects what a customer or operator can do, update the corresponding source under
+`docs/` in the same change. Cover changed defaults, navigation, prerequisites, limits and upgrade
+steps. For renamed or removed behavior, fix incoming links and outdated instructions. Keep new
+pages reachable from the hub and sidebar. Run the docs gates in CONTRIBUTING.md §1 and check the
+rendered route as a signed-out reader. Explain an unchanged guide when the diff has no reader impact.
+
+`docs/features/minishop-pro/changelog.md` is the public history of Minishop PRO, with its own
+`В разработке · dev` section and dated releases. Keep that history separate from the root Minishop
+changelog. Maintain it alongside the affected PRO guide. At release, use the published plugin
+version, original publication date in UTC and verified compatible Minishop version. Preserve
+unreleased changes at the top and keep private sources and release evidence out of public files.

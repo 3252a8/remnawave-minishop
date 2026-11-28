@@ -87,7 +87,6 @@ export default defineConfig({
           items: [
             { label: 'Главная', link: '/' },
             { label: 'Обзор', slug: 'getting-started/overview' },
-            { label: 'minishop PRO', slug: 'features/minishop-pro' },
             { label: 'Системные требования', slug: 'getting-started/system-requirements' },
             { label: 'Быстрый запуск', slug: 'getting-started/setup' },
             { label: 'Production-развертывание', slug: 'getting-started/deployment' },
@@ -107,6 +106,24 @@ export default defineConfig({
         {
           label: 'Возможности',
           items: [
+            {
+              label: 'Minishop PRO',
+              collapsed: true,
+              items: [
+                { label: 'Обзор Minishop PRO', slug: 'features/minishop-pro' },
+                { label: 'Установка и лицензия', slug: 'features/minishop-pro/setup' },
+                { label: 'Бизнес-аналитика и экспорт', slug: 'features/minishop-pro/analytics' },
+                { label: 'Воронка продаж', slug: 'features/minishop-pro/funnel' },
+                { label: 'Клиенты и лиды', slug: 'features/minishop-pro/customers' },
+                { label: 'Аудитории и реклама', slug: 'features/minishop-pro/audiences' },
+                { label: 'Создание автоматизации', slug: 'features/minishop-pro/automations' },
+                { label: 'Шаги, доставка и контроль', slug: 'features/minishop-pro/delivery' },
+                { label: 'Персональные предложения', slug: 'features/minishop-pro/offers' },
+                { label: 'Подключение AI и база знаний', slug: 'features/minishop-pro/ai-setup' },
+                { label: 'Работа AI в тикетах', slug: 'features/minishop-pro/ai-tickets' },
+                { label: 'История изменений PRO', slug: 'features/minishop-pro/changelog' },
+              ],
+            },
             {
               label: 'Продажи и подписки',
               collapsed: false,

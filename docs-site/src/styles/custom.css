@@ -227,23 +227,40 @@
     font-weight: 600;
   }
 
-  .sidebar-content :is(a[href='/features/minishop-pro/'], a[href='/features/minishop-pro']) {
-    color: var(--minishop-pro-accent-strong);
-    font-weight: 600;
-  }
+  .sidebar-content details:has(> ul > li > a[href='/features/minishop-pro/']) {
+    margin-block: 0.25rem;
+    padding: 0.375rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--minishop-pro-accent) 12%, transparent);
 
-  .sidebar-content
-    :is(a[href='/features/minishop-pro/'], a[href='/features/minishop-pro'])[aria-current='page'] {
-    color: var(--minishop-pro-accent-strong);
-    background: color-mix(in srgb, var(--minishop-pro-accent) 14%, transparent);
-  }
+    > summary,
+    > summary .large,
+    a {
+      color: var(--minishop-pro-accent-strong);
+    }
 
-  .sidebar-content
-    :is(a[href='/features/minishop-pro/'], a[href='/features/minishop-pro'])::before {
-    margin-right: 0.45rem;
-    color: var(--minishop-pro-accent);
-    content: '◆';
-    font-size: 0.62rem;
+    > summary .group-label::before {
+      content: '◆';
+      margin-inline-end: 0.4em;
+      font-size: 0.65em;
+      color: var(--minishop-pro-accent);
+    }
+
+    > ul > li {
+      margin-inline-start: 0;
+      padding-inline-start: 0;
+      border-inline-start: 0;
+    }
+
+    a:is(:hover, :focus-visible) {
+      background: color-mix(in srgb, var(--minishop-pro-accent) 10%, transparent);
+    }
+
+    a[aria-current='page'] {
+      color: var(--minishop-pro-accent-strong);
+      background: color-mix(in srgb, var(--minishop-pro-accent) 20%, transparent);
+      font-weight: 600;
+    }
   }
 
   /* ---------- Hero ---------- */

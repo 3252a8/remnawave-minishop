@@ -166,7 +166,7 @@
     <p>PRO добавляет разделы в ту же админку и подключается к работающей установке. Бесплатный Minishop остаётся самостоятельным продуктом и не зависит от PRO.</p>
     <span class="minishop-pro-home-actions">
       <a class="minishop-pro-cta" href="https://cloud.minidoc.cc">Купить PRO <span class="minishop-icon" data-icon="external-link" aria-hidden="true"></span></a>
-      <a class="minishop-pro-more" href="/features/minishop-pro/">Что входит в PRO</a>
+      <a class="minishop-pro-more" href="/features/minishop-pro/">Документация Minishop PRO</a>
     </span>
   </div>
   <ul class="minishop-pro-home-list">
