@@ -18,7 +18,18 @@ const descriptions = {
   'getting-started/deployment.md': 'Production-развертывание: Docker Compose, reverse proxy, TLS, образы, обновления и резервные копии.',
   'configuration/security.md': 'Секреты, публичные URL, доступ администраторов и базовые меры защиты Minishop.',
   'configuration/env-vars.md': 'Полный справочник переменных окружения Remnawave Minishop.',
-  'features/minishop-pro.md': 'Бизнес-аналитика, клиентские сегменты, автоматизация продаж и подключение AI-модели к поддержке в minishop PRO.',
+  'features/minishop-pro.md': 'Руководство по Minishop PRO для владельца магазина, маркетолога и оператора поддержки.',
+  'features/minishop-pro/setup.md': 'Переход на PRO, активация установки, обновление доступа и возврат к Minishop.',
+  'features/minishop-pro/analytics.md': 'Расчёт выручки, MRR, оттока, удержания по когортам и выгрузка отчёта.',
+  'features/minishop-pro/funnel.md': 'Как сравнивать регистрации, триалы, счета и оплаты по периодам и аудиториям.',
+  'features/minishop-pro/customers.md': 'Доска клиентов, группы, фильтры, профиль и история событий.',
+  'features/minishop-pro/audiences.md': 'Сегменты рассылок, рекламные источники и фильтры кампаний, ссылок и UTM.',
+  'features/minishop-pro/automations.md': 'Шаблоны, триггеры, аудитории, контрольная группа, запуск и перенос цепочек.',
+  'features/minishop-pro/delivery.md': 'Расписание, каналы, персонализация, паузы и статусы участников автоматизаций.',
+  'features/minishop-pro/offers.md': 'Выдача и применение персональных промокодов, архив, конверсии и выручка.',
+  'features/minishop-pro/ai-setup.md': 'Подключение модели, проверка доступа, публикация знаний и настройка правил ответов.',
+  'features/minishop-pro/ai-tickets.md': 'Совет оператору, черновики, автономные ответы, передача обращения и диагностика.',
+  'features/minishop-pro/changelog.md': 'Что изменилось в Minishop PRO, даты выпусков и совместимые версии Minishop.',
   'features/payments.md': 'Общая настройка способов оплаты, кнопок, валют, чеков и webhook-обработки.',
   'features/gifts.md': 'Покупка, передача и активация подарочных подписок, сохранение условий, доставка и администрирование.',
   'features/promocodes.md': 'Промокоды: бонусные дни, скидки, множители, checkout-активация и история применений.',
@@ -270,8 +281,12 @@ function appendRelatedLinks(markdown, sourceRelativePath) {
   return `${markdown.trimEnd()}\n\n## Связанные разделы\n\n${items}\n`;
 }
 
+function isChangelog(sourceRelativePath) {
+  return sourceRelativePath === '../CHANGELOG.md' || sourceRelativePath === 'features/minishop-pro/changelog.md';
+}
+
 function extraFrontmatter(sourceRelativePath) {
-  if (sourceRelativePath === '../CHANGELOG.md') {
+  if (isChangelog(sourceRelativePath)) {
     return ['tableOfContents:', '  minHeadingLevel: 2', '  maxHeadingLevel: 2'];
   }
   if (sourceRelativePath !== 'index.md') {
@@ -350,7 +365,7 @@ async function syncMarkdown(files) {
       rewriteMarkdownLinks(stripFirstHeading(content).trimStart(), sourceRelativePath),
     );
     const body = appendRelatedLinks(
-      sourceRelativePath === '../CHANGELOG.md' ? markdown : addInlineContents(markdown),
+      isChangelog(sourceRelativePath) ? markdown : addInlineContents(markdown),
       sourceRelativePath,
     );
     const output = frontmatter({
