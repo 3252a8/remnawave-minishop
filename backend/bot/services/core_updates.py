@@ -122,14 +122,20 @@ async def _image_release(
     revision = labels["org.opencontainers.image.revision"]
     if not re.fullmatch(r"[a-f0-9]{40}", revision):
         raise ValueError("Image revision unavailable")
-    version = str(labels.get("org.opencontainers.image.ref.name", tag))
-    if not re.fullmatch(r"v?\d+\.\d+\.\d+", version):
-        version = f"{tag} · {revision[:8]}"
-    release = Release(tag=tag, revision=revision, version=version)
+    release = Release(tag=tag, revision=revision, version=_image_version(tag, revision, labels))
     if len(_image_metadata) >= 192:
         _image_metadata.pop(next(iter(_image_metadata)))
     _image_metadata[key] = (digest, release)
     return release
+
+
+def _image_version(tag: str, revision: str, labels: dict[str, str]) -> str:
+    if tag == "dev":
+        build_tag = str(labels.get("io.github.3252a8.remnawave-minishop.build-tag", ""))
+        base = f"{build_tag}-dev" if re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", build_tag) else "dev"
+        return f"{base}+{revision[:8]}"
+    version = str(labels.get("org.opencontainers.image.ref.name", tag))
+    return version if re.fullmatch(r"v?\d+\.\d+\.\d+", version) else f"{tag} · {revision[:8]}"
 
 
 def _digest(descriptor: dict[str, Any]) -> str:

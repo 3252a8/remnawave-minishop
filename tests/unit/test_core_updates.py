@@ -147,24 +147,14 @@ def test_bundled_distribution_follows_base_core_channel(monkeypatch, version, ch
 
 
 @pytest.mark.parametrize(
-    ("language", "bundled", "title", "next_step"),
+    ("language", "title", "new", "installed"),
     [
-        (
-            "ru",
-            True,
-            "Опубликовано обновление Minishop",
-            "Проверьте обновления в канале вашей установки.",
-        ),
-        (
-            "en",
-            False,
-            "Minishop update available",
-            "Open the admin dashboard to start the update.",
-        ),
+        ("ru", "Опубликовано обновление minishop:", "Новая версия", "Установлено"),
+        ("en", "Minishop update published:", "New version", "Installed"),
     ],
 )
 def test_worker_notifies_linked_admins_once_and_obeys_preference(
-    monkeypatch, language, bundled, title, next_step
+    monkeypatch, language, title, new, installed
 ):
     ctx = MagicMock()
     ctx.settings.REDIS_KEY_PREFIX = "test"
@@ -184,8 +174,14 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(
     monkeypatch.setattr(core_update_notices, "get_redis", AsyncMock(return_value=redis))
     monkeypatch.setattr(core_update_notices, "resolve_build_provenance", lambda: "official")
     monkeypatch.setattr(core_update_notices, "available", lambda release: True)
-    monkeypatch.setattr(core_update_notices, "bundled_distribution", lambda: bundled)
     current_revision = "12345678" + "a" * 32
+    publication_times = {
+        ("dev", current_revision): datetime(2026, 11, 21, 15, 0, tzinfo=UTC),
+        ("v3.8.7", "a" * 40): datetime(2026, 11, 26, 22, 45, tzinfo=UTC),
+        ("dev", "b" * 40): None,
+    }
+    lookup = AsyncMock(side_effect=lambda label, sha: publication_times[label, sha])
+    monkeypatch.setattr(core_update_notices, "publication_time", lookup)
     monkeypatch.setattr(
         core_update_notices, "resolve_app_version", lambda: f"v3.8.6-dev+g{current_revision}"
     )
@@ -200,14 +196,18 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(
     assert [call.args[0] for call in ctx.bot.send_message.await_args_list] == [123, 456]
     stable_notice = ctx.bot.send_message.await_args_list[0]
     assert stable_notice.kwargs["parse_mode"] == "HTML"
-    header, details, action = stable_notice.args[1].split("\n\n")
-    assert header == f"<b>{title}</b>"
-    assert action == next_step
-    assert [line.partition(" — ")[2] for line in details.splitlines()] == [
-        "<code>v3.8.7</code>",
-        "<code>v3.8.6-dev+g12345678</code>",
-        "<code>latest</code>",
-    ]
+    assert stable_notice.kwargs["link_preview_options"].is_disabled
+    assert lookup.await_count == 2
+    commits = "https://gitlab.com/3252a8/remnawave-minishop/-/commit"
+    current_line = (
+        f'{installed} — <a href="{commits}/{current_revision}">v3.8.6-dev+g12345678</a>'
+        ", 21.11.2026 18:00 UTC+3"
+    )
+    assert stable_notice.args[1] == (
+        f"<b>{title}</b>\n\n"
+        f'{new} — <a href="{commits}/{release.revision}">v3.8.7</a>, 27.11.2026 01:45 UTC+3\n'
+        f"{current_line}"
+    )
     values["test:core-update:notify"] = "0"
     release.revision = "b" * 40
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
@@ -215,19 +215,24 @@ def test_worker_notifies_linked_admins_once_and_obeys_preference(
 
     monkeypatch.setattr(core_update_notices, "image_tag", lambda: "dev")
     release.tag = "dev"
-    release.version = "dev · bbbbbbbb"
+    release.version = core_updates._image_version(
+        "dev", release.revision, {"io.github.3252a8.remnawave-minishop.build-tag": "v3.9.0"}
+    )
     values["test:core-update:notify"] = "1"
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert ctx.bot.send_message.await_count == 2
     values["test:core-update:notify:dev"] = "1"
     asyncio.run(core_update_notices.deliver_update_notices(ctx))
     assert ctx.bot.send_message.await_count == 4
-    dev_details = ctx.bot.send_message.await_args.args[1].split("\n\n")[1]
-    assert [line.partition(" — ")[2] for line in dev_details.splitlines()] == [
-        "<code>bbbbbbbb</code>",
-        "<code>v3.8.6-dev+g12345678</code>",
-        "<code>dev</code>",
-    ]
+    assert ctx.bot.send_message.await_args.args[1] == (
+        f"<b>{title}</b>\n\n"
+        f'{new} — <a href="{commits}/{release.revision}">v3.9.0-dev+bbbbbbbb</a>\n'
+        f"{current_line}"
+    )
+
+
+def test_older_dev_image_without_build_tag_shows_its_own_revision():
+    assert core_updates._image_version("dev", "a" * 40, {}) == "dev+aaaaaaaa"
 
 
 @pytest.mark.parametrize("mismatch", [True, False])

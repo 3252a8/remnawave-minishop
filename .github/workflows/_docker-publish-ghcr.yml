@@ -138,6 +138,7 @@ jobs:
             type=raw,value=${{ inputs.version }},enable=${{ inputs.channel == 'release' }}
             type=raw,value=latest,enable=${{ inputs.channel == 'release' }}
           labels: |
+            io.github.3252a8.remnawave-minishop.build-tag=${{ steps.build-version.outputs.tag }}
             org.opencontainers.image.ref.name=${{ inputs.channel == 'release' && format('v{0}', inputs.version) || 'dev' }}
             org.opencontainers.image.revision=${{ inputs.source_commit }}
 

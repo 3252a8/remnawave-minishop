@@ -163,6 +163,7 @@ case "$PUBLISH_CHANNEL" in
     publish_tag=dev
     build_branch="$CI_COMMIT_REF_NAME"
     release_tag=""
+    build_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' "$CI_COMMIT_SHA" 2>/dev/null || true)"
     release_version=""
     certificate_ref="refs/heads/$CI_COMMIT_REF_NAME"
     verify_remote_head dev
@@ -174,6 +175,7 @@ case "$PUBLISH_CHANNEL" in
       exit 1
     fi
     release_version="${release_tag#v}"
+    build_tag="$release_tag"
     publish_tag="$release_version"
     build_branch=main
     certificate_ref="refs/tags/$release_tag"
@@ -219,16 +221,14 @@ for target in $TARGETS; do
   candidate_metadata="$metadata_dir/$target.json"
   build_args=(
     --build-arg "REMNAWAVE_MINISHOP_BRANCH=$build_branch"
+    --build-arg "REMNAWAVE_MINISHOP_BUILD_TAG=$build_tag"
+    --build-arg "REMNAWAVE_MINISHOP_BUILD_COMMIT=$CI_COMMIT_SHA"
     --build-arg "REMNAWAVE_MINISHOP_BUILD_PROVENANCE=$build_provenance"
     --build-arg "REMNAWAVE_MINISHOP_APK_REFRESH=$CI_COMMIT_SHA-$CI_PIPELINE_ID-$CI_JOB_ID"
   )
   release_args=()
 
   if [ "$PUBLISH_CHANNEL" = "release" ]; then
-    build_args+=(
-      --build-arg "REMNAWAVE_MINISHOP_BUILD_TAG=$release_tag"
-      --build-arg "REMNAWAVE_MINISHOP_BUILD_COMMIT=$CI_COMMIT_SHA"
-    )
     release_args+=(--no-cache)
   fi
 
@@ -244,6 +244,7 @@ for target in $TARGETS; do
     --label "org.opencontainers.image.source=$OCI_IMAGE_SOURCE" \
     --label "org.opencontainers.image.revision=$CI_COMMIT_SHA" \
     --label "org.opencontainers.image.version=$publish_tag" \
+    --label "io.github.3252a8.remnawave-minishop.build-tag=$build_tag" \
     --label "org.opencontainers.image.ref.name=${release_tag:-$publish_tag}" \
     --metadata-file "$build_metadata" \
     "${build_args[@]}" \
