@@ -23,7 +23,7 @@ PostgreSQL, Redis, backend, worker и frontend. Для небольшого пр
 резервных копий.
 
 :::tip[Друзья проекта]
-[![wCloud — VPS, LTE и RemnaNode](wcloud.jpg)](https://wcloud.host/?from=yKyhIg2jXbNdWZsFzd_tyxLVBYiicNjK)
+[![wCloud.host — серверы для Remnawave: VPS, LTE и RemnaNode](wcloud.png)](https://wcloud.host/?from=yKyhIg2jXbNdWZsFzd_tyxLVBYiicNjK)
 
 Для размещения Minishop можно [арендовать VPS у wCloud](https://wcloud.host/?from=yKyhIg2jXbNdWZsFzd_tyxLVBYiicNjK).
 У этого же сервиса доступны серверы для Remnawave Node, включая варианты, оптимизированные для

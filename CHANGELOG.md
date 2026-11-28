@@ -58,7 +58,8 @@
   [46963f55](https://gitlab.com/3252a8/remnawave-minishop/-/commit/46963f55cbe49a4ade3ec94ecb2da0ce5c498c73),
   [b7d8c847](https://gitlab.com/3252a8/remnawave-minishop/-/commit/b7d8c8472c548f3ca39adfa99486c23283cd7295),
   [70769c97](https://gitlab.com/3252a8/remnawave-minishop/-/commit/70769c979486d3156c9bea377d181a47199d8bed),
-  [c9b03bc3](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c9b03bc3ecaaea54806efffe1e7c37fbc70795bf)
+  [c9b03bc3](https://gitlab.com/3252a8/remnawave-minishop/-/commit/c9b03bc3ecaaea54806efffe1e7c37fbc70795bf),
+  [fcee733b](https://gitlab.com/3252a8/remnawave-minishop/-/commit/fcee733b782aeea0a8f5d0e173ad5ca36f1935c0)
 
 - Из разделов плагинов и тем в админке можно перейти сразу в нужную категорию
   Awesome Minishop. В списке плагинов также доступна ссылка на minishop PRO.
@@ -204,6 +205,8 @@
   [60a69bcd](https://gitlab.com/3252a8/remnawave-minishop/-/commit/60a69bcd3470dc5ab1743f86e49058160011b881)
 
 ### Документация
+
+- В разделе «Друзья проекта» на странице [системных требований](docs/getting-started/system-requirements.md) обновлён баннер wCloud.host.
 
 - На главной странице появился обзор Awesome Minishop со ссылками на темы,
   плагины и инструменты. Категории получили ссылки на свои заголовки, а в начале
