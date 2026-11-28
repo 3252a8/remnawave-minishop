@@ -290,6 +290,9 @@ COPY --from=nginx-brotli-builder /brotli-modules/ngx_http_brotli_static_module.s
 RUN set -eu; \
     : "$REMNAWAVE_MINISHOP_APK_REFRESH"; \
     sh /tmp/retry_apk.sh upgrade --no-cache; \
+    if apk info --installed 'libxml2<2.13.9-r5' >/dev/null; then \
+        echo 'The frontend requires the Alpine libxml2 security fix in 2.13.9-r5 or later.' >&2; exit 1; \
+    fi; \
     rm /tmp/retry_apk.sh; \
     sed -i '1i load_module modules/ngx_http_brotli_static_module.so;' /etc/nginx/nginx.conf
 COPY deploy/docker/frontend/nginx.conf /etc/nginx/minishop/default.conf.template
